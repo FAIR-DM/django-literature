@@ -1,18 +1,23 @@
 <!--
 Sync Impact Report
-- Version change: (new) → 1.0.0
-- Modified principles: N/A (initial ratification)
-- Added sections: All (initial ratification)
-- Removed sections: N/A
+- Version change: 1.0.0 → 2.0.0
+- Modified principles:
+  - Renumbered: IV → III (Data Integrity & Long-Term Persistence)
+  - Renumbered: V → IV (Test-First Quality & Sustainability)
+  - Renumbered: VI → V (Documentation Critical)
+  - Renumbered: VII → VI (Living Demo & Reference App)
+- Added sections: None
+- Removed sections: III. Standard Django Ecosystem Integration (deferred; will be reintroduced when third-party UI/form/filter/table stack is adopted)
 - Templates requiring updates:
-  - ✅ constitution.md — filled from template
-  - ✅ plan-template.md — Constitution Check gates already align with these principles; no structural changes needed
-  - ✅ spec-template.md — scope/requirement structure compatible; no changes needed
-  - ✅ tasks-template.md — task phases and test-first discipline compatible; no changes needed
-  - ✅ checklist-template.md — generic structure compatible; no changes needed
+  - ✅ constitution.md — updated
+  - ✅ plan-template.md — cross-references updated (Principle V→IV, VI→V)
+  - ✅ spec-template.md — no changes needed
+  - ✅ tasks-template.md — no changes needed
+  - ✅ checklist-template.md — no changes needed
 - Follow-up TODOs:
   - TODO(DEMO_APP_PATH): Confirm demo/test app directory name once project scaffold is created
   - TODO(GITHUB_INSTRUCTIONS): Create or update .github/instructions/ files to reference these principles
+  - TODO(PRINCIPLE_III_REVISIT): Re-introduce an ecosystem integration principle when third-party form/filter/table/UI packages are formally adopted
 -->
 
 # Django Literature Constitution
@@ -45,19 +50,7 @@ Django Literature is a reusable Django application, not a standalone research po
 
 **Rationale**: Research applications built on Django come in many shapes. A literature management package that makes assumptions about the host project's structure will see limited adoption. Minimal footprint and clean integration are non-negotiable.
 
-### III. Standard Django Ecosystem Integration
-
-Django Literature MUST integrate naturally with the established Django ecosystem and MUST NOT require exotic or unusual dependencies to achieve core functionality.
-
-- Core models MUST use standard Django ORM patterns; no custom query engines or non-ORM storage backends are permitted for core functionality.
-- Forms and admin classes MUST follow standard Django form and `ModelAdmin` conventions, with enhancements via well-maintained third-party packages.
-- The recommended UI stack MUST be Bootstrap 5-compatible and SHOULD use `django-formset` for complex multi-model form flows, `django-tables2` for list views, and `django-filter` for filtering — consistent with the broader Django data-application ecosystem.
-- All package dependencies MUST be well-maintained, actively used in the broader Django community, and declared in `pyproject.toml` with appropriate version constraints.
-- Client-side enhancements (HTMX, Alpine.js, custom JavaScript) MAY be added but MUST NOT be required for core read-only functionality.
-
-**Rationale**: Developers adopting this package likely already use django-tables2, django-filter, and similar tools. Aligning with the same ecosystem lowers the learning curve and avoids dependency conflicts.
-
-### IV. Data Integrity & Long-Term Persistence
+### III. Data Integrity & Long-Term Persistence
 
 Bibliographic data is valuable and often hard to recreate. Long-term reliability and correctness of stored data MUST be design priorities.
 
@@ -67,7 +60,7 @@ Bibliographic data is valuable and often hard to recreate. Long-term reliability
 - Structured, queryable data (person names, dates, identifiers) MUST be stored in proper relational structures; raw JSON blobs MUST NOT be used for data that has known, stable field definitions.
 - Tagging, contributor roles, and file attachments MUST use proper relational structures to remain queryable, filterable, and maintainable.
 
-### V. Test-First Quality & Sustainability (NON-NEGOTIABLE)
+### IV. Test-First Quality & Sustainability (NON-NEGOTIABLE)
 
 Django Literature is intended for integration into long-lived research infrastructure. All behavior changes MUST be driven by tests written first, and code, documentation, and community processes must reflect that responsibility.
 
@@ -93,7 +86,7 @@ Django Literature is intended for integration into long-lived research infrastru
 - Accessibility and internationalisation readiness SHOULD be treated as non-optional; regressions in these areas MUST be treated as bugs.
 - Community contributions MUST respect this constitution; maintainers MUST provide clear rationale for accepting or rejecting proposals with explicit reference to these principles.
 
-### VI. Documentation Critical
+### V. Documentation Critical
 
 Documentation is part of the package surface area and MUST be treated with the same rigour as code.
 
@@ -104,7 +97,7 @@ Documentation is part of the package surface area and MUST be treated with the s
 - Breaking changes MUST include migration guides providing concrete, step-by-step upgrade instructions.
 - Documentation MUST be versioned alongside code releases so users can reference docs appropriate to their deployed version.
 
-### VII. Living Demo & Reference App
+### VI. Living Demo & Reference App
 
 Django Literature maintains a reference/example Django project (the "demo app" or test application) that serves as executable documentation, a regression guard, and a model for adopters.
 
@@ -116,7 +109,7 @@ Django Literature maintains a reference/example Django project (the "demo app" o
   - All supported CSL-JSON item types and their metadata fields
   - Import and export of CSL-JSON data
   - Citation rendering via template tags
-  - Integration with forms (django-formset), tables (django-tables2), filters (django-filter), and the Django admin
+  - Basic CRUD and admin integration for core entities
 - CI/CD pipelines MUST verify that the demo app migrates cleanly, basic pages render, and there are no import errors as part of the standard test suite.
 
 **Rationale**: The demo app simultaneously serves as a smoke test that package changes work in a realistic context, a learning resource for new adopters, and a forcing function to ensure that patterns recommended in documentation are actually usable.
@@ -133,10 +126,8 @@ This section defines the non-negotiable architectural boundaries and technology 
 - **Bibliographic Standard**: CSL-JSON is the canonical data exchange format; all import/export MUST support it natively.
 - **Citation Rendering**: `citeproc-py` or a governance-approved equivalent SHOULD be used for server-side citation formatting; bundled CSL style files MUST be attributable to the CSL project and licensed accordingly.
 - **Frontend UI**:
-  - Server-rendered templates with Bootstrap 5 are the default UI layer.
-  - `django-formset` is the canonical library for complex, multi-model form flows.
-  - `django-tables2` and `django-filter` are the canonical libraries for list and filter views.
-  - `django-easy-icons` with Bootstrap Icons is the canonical icon provider; inline SVG files MUST NOT be used.
+  - Django's built-in template engine with server-rendered HTML is the default UI layer.
+  - No specific third-party form, table, filter, or client-side enhancement packages are prescribed at this stage; they MAY be introduced and codified in a future constitutional amendment as the project matures.
 - **Configuration**:
   - All package-level settings MUST be accessible and overridable under a namespaced `LITERATURE` key in the host project's `settings.py`.
   - Sensitive configuration (e.g., API keys for remote import services) MUST be read from environment variables, not hard-coded.
@@ -171,7 +162,7 @@ This section governs how new capabilities are proposed, designed, and implemente
   - Tasks (`tasks.md`) MUST be grouped by user story and structured so that each story can be implemented and tested independently where feasible.
   - Shared foundational work (infrastructure, core models) MUST be captured as explicit blocking tasks before story-specific implementation.
 - **Test-First Discipline**:
-  - Tests MUST be written and observed failing before implementation work begins (Red → Green → Refactor) as defined in Principle V.
+  - Tests MUST be written and observed failing before implementation work begins (Red → Green → Refactor) as defined in Principle IV.
   - No change MAY be merged that causes the agreed test suite for the touched areas to fail.
   - Pull requests without appropriate test coverage for behavior changes MUST NOT be merged (except docs-only changes).
 - **Implementation Validation & Quality Checkpoints**:
@@ -186,7 +177,7 @@ This section governs how new capabilities are proposed, designed, and implemente
     - Breaking changes MUST include migration guidance documenting the upgrade path from the previous version.
   - **Validation Frequency**: For multi-phase implementations, run system checks and demo app tests after completing each phase or user story, not just at the end.
 - **Documentation Critical**:
-  - Developer and contributor documentation MUST be updated when behavior, configuration, or integration patterns change in user-visible ways, as defined in Principle VI.
+  - Developer and contributor documentation MUST be updated when behavior, configuration, or integration patterns change in user-visible ways, as defined in Principle V.
   - Speckit templates (`plan-template`, `spec-template`, `tasks-template`, `checklist-template`, and command templates) MUST remain consistent with this constitution; any divergence MUST be corrected as part of the change.
 
 ## Governance
@@ -214,4 +205,4 @@ The constitution defines how Django Literature is evolved and how compliance is 
   - Maintainers SHOULD provide clear, written rationale when accepting or rejecting significant changes with explicit reference to this document.
   - As additional maintainers join the project, a more formal governance structure (e.g., a small core team with an RFC process) SHOULD be established and documented as an amendment to this section.
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-04-08
+**Version**: 2.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-04-08
