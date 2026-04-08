@@ -1,0 +1,167 @@
+[tool.poetry]
+name = "django-literature"
+version = "0.1.0"
+description = "A scientific literature management tool for Django"
+authors = ["Sam Jennings <samuel.scott.jennings@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "literature"}]
+homepage = "https://github.com/SSJenny90/django-literature"
+keywords = ["django", "literature", "publications", "scientific", "research"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django :: 3.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.11",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+python-dateutil = "*"
+django = ">=4.2"
+citeproc-py = "*"
+django-partial-date = "*"
+# django-sortedm2m = "*"
+# django-ordered-model = "^3.7.4"
+
+[tool.poetry.group.dev.dependencies]
+fairdm-dev-tools = { git = "https://github.com/FAIR-DM/dev-tools", extras = [
+    "test",
+    "dev",
+] }
+
+[tool.poetry.group.docs.dependencies]
+fairdm-docs = {git = "https://github.com/FAIR-DM/fairdm-docs"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.black]
+line-length = 120
+target-version = ['py37']
+preview = true
+
+[tool.mypy]
+files = ["literature"]
+disallow_untyped_defs = "False"
+disallow_any_unimported = "False"
+ignore_missing_imports = "True"
+no_implicit_optional = "True"
+check_untyped_defs = "False"
+warn_return_any = "True"
+warn_unused_ignores = "True"
+show_error_codes = "True"
+exclude = ["docs/","migrations/","tests/settings.py"]
+mypy_path = "literature/"
+plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[tool.ruff]
+target-version = "py37"
+exclude = ['docs/']
+line-length = 120
+fix = true
+
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+ignore = [
+    # LineTooLong
+    "E501",
+    # DoNotAssignLambda
+    "E731",
+    # ClassAttributesShouldBeAnnotated
+    "RUF012",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["test_*.py", "*_test.py", "testing/python/*.py"]
+filterwarnings = [
+    "ignore",
+    "default:::literature",
+]
+
+
+[tool.coverage.report]
+skip_empty = true
+omit = [
+    "*site-packages*",
+    "*tests*",
+    "*.tox*",
+    ]
+show_missing = "true"
+
+[tool.coverage.run]
+branch = "true"
+source = ["literature"]
+
+
+[tool.deptry]
+extend_exclude = [
+    "tasks.py",
+    "docs/"
+]
+ignore_transitive = [
+    "toml",
+]
+
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+skipsdist = true
+envlist = py38, py39, py310, py311
+
+[gh-actions]
+python =
+    3.8: py38
+    3.9: py39
+    3.10: py310
+    3.11: py311
+
+[testenv]
+passenv = PYTHON_VERSION
+allowlist_externals = poetry
+commands =
+    poetry install --without docs
+    pytest --doctest-modules tests --cov --cov-config=pyproject.toml --cov-report=xml
+    mypy
+"""
