@@ -78,24 +78,25 @@ A developer reading the source code or generated documentation can understand th
 
 ### Edge Cases
 
-- What happens when a CSL JSON item type is not in the known list of types (e.g., a future or custom type)?
+- What happens when a CSL JSON item type is not in the known list of types? → A validation error is raised and the item is rejected; it is not stored.
 - How does the system handle contributor names provided as a single string rather than separate family/given parts?
 - What happens when a partial date has only a year, or year and month, but no day?
 - How does the system behave when a CSL JSON field value exceeds expected length limits?
-- What happens when required CSL JSON fields (e.g., `id`, `type`) are missing during import?
-- How are duplicate entries (same DOI or citation key) handled?
+- What happens when required CSL JSON fields (e.g., `id`, `type`) are missing during import? → A validation error is raised immediately, identifying the missing field; the item is rejected and nothing is stored.
+- How are duplicate entries (same DOI or citation key) handled? → On import, duplicate citation keys are resolved by appending a letter suffix (Smith2009 → Smith2009b → Smith2009c…) so every stored entry has a unique key. Existing records are never overwritten.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The data model MUST represent all standard CSL JSON item types (article-journal, book, chapter, thesis, webpage, report, etc.) via a type field on the item entity.
+- **FR-001**: The data model MUST represent all standard CSL JSON item types (article-journal, book, chapter, thesis, webpage, report, etc.) via a strictly-enforced choices field on the item entity. The full known CSL type list MUST be enumerated as valid choices; any value outside this list MUST be rejected with a validation error.
 - **FR-002**: The data model MUST support all standard CSL JSON string, number, and boolean fields on bibliographic items (title, abstract, publisher, volume, issue, page, DOI, ISBN, ISSN, URL, etc.).
-- **FR-003**: The data model MUST support contributor roles (author, editor, translator, collection-editor, container-author, etc.) with each contributor having separable family name, given name, and optionally a literal/organization name.
-- **FR-004**: The data model MUST support CSL JSON date fields (issued, accessed, submitted, etc.) as partial dates that can represent year-only, year-month, or year-month-day precision.
+- **FR-003**: The data model MUST store CSL name-variable fields (author, editor, translator, chair, collection-editor, container-author, etc.) via a dedicated `Name` model linked to `Item` through a `NameThrough` model. `NameThrough` MUST record the CSL role type (from a defined choices list) and the ordering of names within that role. `Name` MUST store separable name parts (family, given) and optionally a literal/organization name.
+- **FR-004**: The data model MUST store CSL date-variable fields (issued, accessed, submitted, etc.) via a dedicated `Date` model linked to `Item` through a `DateThrough` model. `DateThrough` MUST record the CSL date slot name. `Date` MUST support year-only, year-month, and full year-month-day precision.
+- **FR-017**: The data model MUST store typed identifiers (DOI, ISBN, ISSN, URL, PMID, call-number, etc.) in a dedicated `Identifier` model associated with `Item`, recording identifier type and value. Multiple identifiers of different types MUST be storable per item. The identifier type field MUST define choices for all well-known CSL identifier types but MUST allow any string value; unknown types produce a warning and are stored without rejection.
 - **FR-005**: The data model MUST support a unique citation key per item to identify entries.
 - **FR-006**: The system MUST provide a function or method to serialize a model instance to a CSL JSON-compatible dictionary.
-- **FR-007**: The system MUST provide a function or method to deserialize a CSL JSON dictionary into model instances (creating or updating as appropriate).
+- **FR-007**: The system MUST provide a function or method to deserialize a CSL JSON dictionary into a new model instance. If the citation key from the incoming data already exists, the importer MUST automatically append a letter suffix (e.g. `Smith2009` → `Smith2009b`) to produce a unique key; existing records MUST NOT be overwritten. If required fields (`id`, `type`) are absent, the importer MUST raise a validation error identifying the missing field and reject the item without storing anything.
 - **FR-008**: Round-trip conversion (model → CSL JSON → model) MUST preserve all stored field values without data loss.
 - **FR-009**: Every model class MUST have a docstring describing its purpose and its mapping to the CSL JSON specification.
 - **FR-010**: Every model field and conversion function MUST have documentation (docstring or help_text) identifying the corresponding CSL JSON field.
@@ -103,14 +104,25 @@ A developer reading the source code or generated documentation can understand th
 - **FR-012**: The Django admin MUST register all core models and provide list display with at minimum title, type, and year.
 - **FR-013**: The Django admin MUST support search by title and contributor name.
 - **FR-014**: The Django admin MUST support filtering by item type.
-- **FR-015**: Importing a CSL JSON item with an unrecognized type MUST NOT silently discard the type value.
-- **FR-016**: Contributor names provided as a literal string (rather than family/given parts) MUST be storable and round-trippable.
+- **FR-015**: Importing a CSL JSON item with an unrecognised `type` value MUST raise a validation error; the item MUST NOT be stored.
+- **FR-016**: Name entries provided as a literal string (rather than family/given parts) MUST be storable and round-trippable via the `Name` model's literal field.
 
 ### Key Entities
 
-- **Item**: The core bibliographic entry. Represents a single CSL JSON item object with a unique citation key, item type, and all associated metadata fields. Items are the primary object managed throughout the system.
-- **Contributor**: A person or organization associated with an item in a specific role (author, editor, etc.). Has separable name parts (family, given) and/or a literal form. One item may have many contributors in different roles.
-- **PartialDate**: A date associated with an item in a named slot (issued, accessed, submitted, etc.). Supports year-only, year-month, and full date precision, reflecting the CSL JSON date-parts structure.
+- **Item**: The core bibliographic entry. Represents a single CSL JSON item object with a unique citation key, item type, and all scalar metadata fields (title, abstract, publisher, volume, issue, page, etc.). Related names, dates, and identifiers are held in dedicated related models.
+- **Name**: A person or organization referenced in a CSL name-variable field (family, given, literal/organization name parts). Names are linked to Items via a through model (`NameThrough`) that records the CSL field role (author, editor, translator, chair, collection-editor, container-author, etc.) and ordering.
+- **Date**: A bibliographic date linked to an Item via a through model (`DateThrough`) that records the CSL date-variable slot name (issued, accessed, submitted, etc.). Stores year-only, year-month, or full date precision reflecting the CSL JSON date-parts structure.
+- **Identifier**: A typed identifier (e.g., DOI, ISBN, ISSN, PMID, URL) associated with an Item. Stores the identifier type and its value, allowing multiple identifiers per item.
+
+## Clarifications
+
+### Session 2026-04-08
+
+- Q: How should CSL JSON fields be stored — flat table, JSON overflow, or normalized relational models? → A: Separate `Name` model for name-variables (linked via `NameThrough` with a role type field); separate `Date` model for date-variables (linked via `DateThrough` with a slot name field); separate `Identifier` model for identifiers (DOI, ISBN, ISSN, etc.); scalar/string/number CSL fields remain as columns on `Item`.
+- Q: When importing a CSL JSON item whose citation key already exists, what should happen? → A: Always create a new record; if the citation key conflicts, automatically append a letter suffix to make it unique (e.g. Smith2009 → Smith2009b → Smith2009c). Overwriting existing data is explicitly not supported.
+- Q: Should the `type` field enforce the known CSL type list or allow any string? → A: Strictly enforce the known CSL type list; importing an item with an unrecognised type MUST raise a validation error and the item MUST NOT be stored.
+- Q: What should the importer do when required CSL JSON fields (`id`, `type`) are missing? → A: Raise a validation error immediately, report which field is missing, and reject the item. No auto-generation or partial storage.
+- Q: Should the `Identifier` model's type field enforce a fixed choices list or allow any string? → A: Fixed choices for well-known identifier types (DOI, ISBN, ISSN, PMID, URL, etc.); allow any string for custom/unknown types with a warning but no rejection.
 
 ## Success Criteria *(mandatory)*
 
