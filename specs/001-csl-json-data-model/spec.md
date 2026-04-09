@@ -87,6 +87,12 @@ A developer reading the source code or generated documentation can understand th
 - **FR-011**: The test suite MUST cover all model fields, relationships, and conversion functions. Date handling MUST include dedicated round-trip tests for every supported CSL JSON date form: year-only, year-month, full year-month-day, full date range (both parts precise), and partial date range (one or both parts lacking full precision).
 - **FR-015**: Importing a CSL JSON item with an unrecognised `type` value MUST raise a validation error; the item MUST NOT be stored.
 - **FR-016**: Name entries provided as a literal string (rather than family/given parts) MUST be storable and round-trippable via the `Name` model's literal field.
+- **FR-018**: All user-facing strings MUST use Django translation wrappers, with wrapper choice determined by call site:
+  - **Module/class import time** (model `Meta.verbose_name`, `Meta.verbose_name_plural`, field `help_text`, descriptive `choices` labels, `validators` messages): MUST use `gettext_lazy` (imported as `_` from `django.utils.translation`).
+  - **Function/method body** (importer validation error messages, serializer warnings, any string raised or returned inside a callable): MUST use eager `gettext` (imported as `_` from `django.utils.translation`).
+  - **Exemption**: Pure acronym `choices` labels that are language-invariant (e.g., `"DOI"`, `"ISBN"`, `"ISSN"`, `"URL"`) do NOT require wrapping. Mixed or descriptive labels (e.g., `"Call Number"`, `"PubMed ID"`) MUST be wrapped with `gettext_lazy`.
+  Hard-coded bare string literals that are displayed to users in any other context MUST NOT appear in the package source.
+- **FR-019**: The package MUST include a `literature/locale/en/LC_MESSAGES/` directory containing a generated `django.po` stub. This initial catalog MUST be produced by running `django-admin makemessages -l en` against the package source and committed alongside this feature's i18n changes. `makemessages` MUST complete without errors.
 
 ### Key Entities
 
@@ -96,6 +102,14 @@ A developer reading the source code or generated documentation can understand th
 - **Identifier**: A typed identifier (e.g., DOI, ISBN, ISSN, PMID, URL) associated with an Item. Stores the identifier type and its value, allowing multiple identifiers per item.
 
 ## Clarifications
+
+### Session 2026-04-09 (i18n)
+
+- Q: Should `locale/` directory bootstrapping (creating the `en` `.po` catalog and ensuring `makemessages` runs cleanly) be included in this feature's scope? → A: Yes — include `locale/` setup in this feature. Create `literature/locale/en/LC_MESSAGES/`, run `makemessages` to generate the initial `django.po` stub, and commit it alongside this feature's Python i18n changes. This satisfies Principle VII's requirement that the package ships a `locale/` directory from the first i18n-compliant feature onward.
+- Q: Should the test suite include an i18n integration test that activates a non-English locale and asserts translated strings are returned? → A: No — testing Django's translation machinery is not required; Django and upstream packages cover that behaviour. The i18n requirement is strictly a code-authoring discipline: all user-facing strings MUST use `gettext` or `gettext_lazy` wrappers. Correct wrapper usage is enforced via code review and `makemessages` clean runs, not runtime locale-activation tests.
+- Q: Should importer/serializer validation error strings (defined inside function bodies) use eager `gettext` or lazy `gettext_lazy`? → A: Eager `gettext` (`from django.utils.translation import gettext as _`) for strings defined and raised inside function bodies, since the locale is already active at call time. `gettext_lazy` is reserved for strings evaluated at module/class import time (model `verbose_name`, field `help_text`, `choices` labels, etc.).
+- Q: Should `choices` labels for identifier types (DOI, ISBN, ISSN, etc.) be wrapped with `gettext_lazy` even though they are language-invariant acronyms? → A: No — pure acronym labels (all-caps strings like `"DOI"`, `"ISBN"`, `"ISSN"`, `"URL"`) are exempt from `gettext_lazy` wrapping, as they do not vary across languages. Mixed or descriptive labels (e.g., `"Call Number"`, `"PubMed ID"`) MUST still be wrapped.
+- Q: Should the constitution's Principle VII Testing sub-section (which mandates a locale-activation integration test) be amended to match the project-level decision that runtime i18n testing is not required? → A: Yes — amend constitution to v2.1.1 (PATCH). Replace the locale-activation integration test requirement with a `makemessages` clean-run CI gate and code-review enforcement. The spec clarification is the correct stance; the constitution must stay consistent.
 
 ### Session 2026-04-09
 
@@ -121,6 +135,7 @@ A developer reading the source code or generated documentation can understand th
 - **SC-002**: Round-trip conversion (model → CSL JSON → model) produces identical field values for 100% of fields on a reference set of test fixtures covering all item types and all CSL JSON date forms (year-only, year-month, full date, full date range, partial date range).
 - **SC-003**: The automated test suite achieves 90% or greater line coverage across all model and conversion code.
 - **SC-004**: Every public model class, field, and conversion function has a docstring; 0 undocumented public interfaces in the core module.
+- **SC-005**: `django-admin makemessages -l en` runs without errors against the package source and the `literature/locale/en/LC_MESSAGES/django.po` file is present in the repository. Runtime translation behaviour is NOT tested — correct `gettext`/`gettext_lazy` wrapper usage is enforced via code review and the clean `makemessages` run.
 
 ## Assumptions
 

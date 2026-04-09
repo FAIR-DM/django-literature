@@ -1,16 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: 2.0.0 → 2.1.0
+- Version change: 2.1.0 → 2.1.1
 - Modified principles:
-  - Updated: IV (Test-First Quality & Sustainability) — upgraded i18n from "SHOULD" to a
-    reference to the new standalone Principle VII
-- Added sections:
-  - VII. Internationalization (i18n) Compatibility — new mandatory principle requiring full
-    Django i18n/l10n coverage across Python, templates, and JavaScript
+  - Updated: VII (Internationalization) — replaced locale-activation integration test
+    requirement with makemessages clean-run CI gate and code-review enforcement; runtime
+    i18n testing is not required since Django and upstream packages cover that behaviour
+- Added sections: None
 - Removed sections: None
 - Templates requiring updates:
-  - ✅ constitution.md — updated (version 2.0.0 → 2.1.0, new Principle VII, Principle IV amended)
-  - ✅ plan-template.md — Constitution Check gates updated to reference Principle VII
+  - ✅ constitution.md — updated (version 2.1.0 → 2.1.1, Principle VII Testing amended)
+  - ✅ plan-template.md — no changes needed (Principle VII gate already references makemessages)
   - ✅ spec-template.md — no changes needed
   - ✅ tasks-template.md — no changes needed
   - ✅ checklist-template.md — no changes needed
@@ -148,11 +147,8 @@ Django Literature MUST be fully translatable and localizable so that host applic
 
 **Testing**:
 
-- The test suite MUST include at least one integration test that activates a non-English locale
-  and asserts that translated strings are returned correctly for a representative set of
-  UI-facing strings across models, forms, and templates.
-- CI MUST run `django-admin makemessages --all` and verify the command exits cleanly (no
-  untranslatable syntax errors).
+- CI MUST run `django-admin makemessages --all` against the package source and verify it exits cleanly with no untranslatable syntax errors. This is the primary i18n quality gate.
+- Correct `gettext`/`gettext_lazy` wrapper usage is enforced via code review. Runtime locale-activation tests are NOT required — Django and upstream packages cover translation machinery behaviour.
 
 **Rationale**: Django Literature is intended for use in academic, research, and institutional
 content management systems worldwide. Many of those systems operate in languages other than
@@ -252,4 +248,4 @@ The constitution defines how Django Literature is evolved and how compliance is 
   - Maintainers SHOULD provide clear, written rationale when accepting or rejecting significant changes with explicit reference to this document.
   - As additional maintainers join the project, a more formal governance structure (e.g., a small core team with an RFC process) SHOULD be established and documented as an amendment to this section.
 
-**Version**: 2.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-04-08
+**Version**: 2.1.1 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-04-09
