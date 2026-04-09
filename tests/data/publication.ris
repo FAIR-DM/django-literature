@@ -1,0 +1,23 @@
+Provider: Silverchair
+Database: Oxford University Press
+Content: text/plain; charset="UTF-8"
+
+TY  - JOUR
+AU  - Jennings, S
+AU  - Hasterok, D
+AU  - Payne, J
+T1  - A new compositionally based thermal conductivity model for plutonic rocks
+PY  - 2019
+Y1  - 2019/11/01
+DO  - 10.1093/gji/ggz376
+JO  - Geophysical Journal International
+JA  - Geophys J Int
+VL  - 219
+IS  - 2
+SP  - 1377
+EP  - 1394
+SN  - 0956-540X
+AB  - Thermal conductivity is a physical parameter crucial to accurately estimating temperature and modelling thermally related processes within the lithosphere. Direct measurements are often impractical due to the high cost of comprehensive sampling or inaccessibility and thereby require indirect estimates. In this study, we report 340 new thermal conductivity measurements on igneous rocks spanning a wide range of compositions using an optical thermal conductivity scanning device. These are supplemented by a further 122 measurements from the literature. Using major element geochemistry and modal mineralogy, we produce broadly applicable empirical relationships between composition and thermal conductivity. Predictive models for thermal conductivity are developed using (in order of decreasing accuracy) major oxide composition, CIPW normative mineralogy and estimated modal mineralogy.Four common mixing relationships (arithmetic, geometric, square-root and harmonic) are tested and, while results are similar, the geometric model consistently produces the best fit. For our preferred model, $k_{\text{eff}} = \exp ( 1.72 \, C_{\text{SiO}_2} + 1.018 \, C_{\text{MgO}} - 3.652 \, C_{\text{Na}_2\text{O}} - 1.791 \, C_{\text{K}_2\text{O}})$, we find that SiO2 is the primary control on thermal conductivity with an RMS of 0.28 W m−1 K−1or ∼10 per cent. Estimates from normative mineralogy work to a similar degree but require a greater number of parameters, while forward and inverse modelling using estimated modal mineralogy produces less than satisfactory results owing to a number of complications. Using our model, we relate thermal conductivity to both P-wave velocity and density, revealing systematic trends across the compositional range. We determine that thermal conductivity can be calculated from P-wave velocity in the range 6–8 km s−1 to within 0.31 W m−1 K−1 using $k({V_p}) = 0.5822 \, V_p^2 - 8.263 \, V_p + 31.62$. This empirical model can be used to estimate thermal conductivity within the crust where direct sampling is impractical or simply not possible (e.g. at great depths). Our model represents an improved method for estimating lithospheric conductivity than present formulas which exist only for a limited range of compositions or are limited by infrequently measured parameters.
+Y2  - 1/26/2023
+UR  - https://doi.org/10.1093/gji/ggz376
+ER  - 

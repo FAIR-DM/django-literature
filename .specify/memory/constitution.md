@@ -1,16 +1,16 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0
+- Version change: 2.0.0 → 2.1.0
 - Modified principles:
-  - Renumbered: IV → III (Data Integrity & Long-Term Persistence)
-  - Renumbered: V → IV (Test-First Quality & Sustainability)
-  - Renumbered: VI → V (Documentation Critical)
-  - Renumbered: VII → VI (Living Demo & Reference App)
-- Added sections: None
-- Removed sections: III. Standard Django Ecosystem Integration (deferred; will be reintroduced when third-party UI/form/filter/table stack is adopted)
+  - Updated: IV (Test-First Quality & Sustainability) — upgraded i18n from "SHOULD" to a
+    reference to the new standalone Principle VII
+- Added sections:
+  - VII. Internationalization (i18n) Compatibility — new mandatory principle requiring full
+    Django i18n/l10n coverage across Python, templates, and JavaScript
+- Removed sections: None
 - Templates requiring updates:
-  - ✅ constitution.md — updated
-  - ✅ plan-template.md — cross-references updated (Principle V→IV, VI→V)
+  - ✅ constitution.md — updated (version 2.0.0 → 2.1.0, new Principle VII, Principle IV amended)
+  - ✅ plan-template.md — Constitution Check gates updated to reference Principle VII
   - ✅ spec-template.md — no changes needed
   - ✅ tasks-template.md — no changes needed
   - ✅ checklist-template.md — no changes needed
@@ -18,6 +18,8 @@ Sync Impact Report
   - TODO(DEMO_APP_PATH): Confirm demo/test app directory name once project scaffold is created
   - TODO(GITHUB_INSTRUCTIONS): Create or update .github/instructions/ files to reference these principles
   - TODO(PRINCIPLE_III_REVISIT): Re-introduce an ecosystem integration principle when third-party form/filter/table/UI packages are formally adopted
+  - TODO(I18N_AUDIT): Audit existing model fields, templates, admin, and views for missing
+    gettext / gettext_lazy wrapping now that i18n is a constitutional MUST
 -->
 
 # Django Literature Constitution
@@ -83,7 +85,8 @@ Django Literature is intended for integration into long-lived research infrastru
 **Documentation & Community**:
 
 - Documentation MUST be updated alongside new features or breaking changes so that adopters can remain productive.
-- Accessibility and internationalisation readiness SHOULD be treated as non-optional; regressions in these areas MUST be treated as bugs.
+- Accessibility readiness SHOULD be treated as non-optional; regressions MUST be treated as bugs.
+- Internationalization (i18n) MUST be maintained as defined in Principle VII; any regression in translatability MUST be treated as a bug.
 - Community contributions MUST respect this constitution; maintainers MUST provide clear rationale for accepting or rejecting proposals with explicit reference to these principles.
 
 ### V. Documentation Critical
@@ -113,6 +116,50 @@ Django Literature maintains a reference/example Django project (the "demo app" o
 - CI/CD pipelines MUST verify that the demo app migrates cleanly, basic pages render, and there are no import errors as part of the standard test suite.
 
 **Rationale**: The demo app simultaneously serves as a smoke test that package changes work in a realistic context, a learning resource for new adopters, and a forcing function to ensure that patterns recommended in documentation are actually usable.
+
+### VII. Internationalization (i18n) Compatibility (NON-NEGOTIABLE)
+
+Django Literature MUST be fully translatable and localizable so that host applications serving any language or locale can adopt it without patching the package.
+
+**Translation Coverage**:
+
+- All user-facing strings in Python code (models, forms, views, admin, template tags, validators)
+  MUST be wrapped with `gettext_lazy()` (imported as `_`) for lazy evaluation at import time.
+- All user-facing strings rendered in template tag output or passed to template context MUST
+  use `gettext` or `gettext_lazy` as appropriate to the call site.
+- All Django templates MUST load `{% load i18n %}` and wrap every user-facing string with
+  `{% trans "..." %}` or `{% blocktrans %}...{% endblocktrans %}`.
+- Any JavaScript code that produces user-facing strings MUST use Django's `JsI18n` view or
+  an equivalent mechanism (e.g., a compiled JSON catalog served via `django.views.i18n.JavaScriptCatalog`)
+  so that strings can be translated at runtime without rebuilding assets.
+- The package MUST ship a base English (`en`) `.po`/`.mo` catalog and MUST include a
+  `locale/` directory in the package source so host projects can compile or extend translations.
+- `makemessages` MUST collect strings without errors from all Python, template, and JavaScript
+  source files in the package.
+
+**Non-Negotiable Rules**:
+
+- Hard-coded user-visible strings (error messages, labels, help texts, verbose names, action
+  names) MUST NOT be introduced after ratification of this principle.
+- Model `verbose_name` and `verbose_name_plural` MUST use `gettext_lazy`.
+- Form field `label`, `help_text`, and `error_messages` entries MUST use `gettext_lazy`.
+- Any string introduced in a PR that is displayed to end users without a translation wrapper
+  MUST be flagged as a blocking review comment and MUST NOT be merged.
+
+**Testing**:
+
+- The test suite MUST include at least one integration test that activates a non-English locale
+  and asserts that translated strings are returned correctly for a representative set of
+  UI-facing strings across models, forms, and templates.
+- CI MUST run `django-admin makemessages --all` and verify the command exits cleanly (no
+  untranslatable syntax errors).
+
+**Rationale**: Django Literature is intended for use in academic, research, and institutional
+content management systems worldwide. Many of those systems operate in languages other than
+English. If the package ships with hard-coded English strings, every adopter in a non-English
+context must maintain a fork or monkey-patch the package. Full i18n compliance from the start
+eliminates that burden and makes the package a first-class citizen of the Django ecosystem,
+which has strong i18n support built in.
 
 ## Architecture & Stack Constraints
 

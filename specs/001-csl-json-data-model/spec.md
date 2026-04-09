@@ -1,9 +1,11 @@
-# Feature Specification: CSL JSON Data Model, Conversion, and Admin
+# Feature Specification: CSL JSON Data Model and Conversion
 
-**Feature Branch**: `001-csl-json-data-model`  
-**Created**: 2026-04-08  
-**Status**: Draft  
+**Feature Branch**: `001-csl-json-data-model`
+**Created**: 2026-04-08
+**Status**: Draft
 **Input**: User description: "Django Literature must provide a data model that reflects CSL JSON, is well tested and well documented. We should support at a minimum conversion between our data model and CSL JSON. We should provide a basic admin interface for interacting with the models."
+
+> **Scope note**: The admin interface originally described in the input has been removed from this feature. A dedicated CRUD/admin interface will be addressed in a subsequent spec once the normalized data model is fully established.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -11,7 +13,7 @@
 
 A developer integrating django-literature into their Django project defines models that accurately capture bibliographic data for articles, books, theses, web pages, and other publication types. They can create, save, and query entries using standard Django ORM patterns, with each entry storing all standard CSL JSON fields without any data loss.
 
-**Why this priority**: This is the foundational capability on which everything else depends. Without a correct and complete data model, neither conversion nor admin is possible.
+**Why this priority**: This is the foundational capability on which everything else depends. Without a correct and complete data model, conversion is not possible.
 
 **Independent Test**: Can be fully tested by creating model instances for each CSL JSON item type, saving them to the database, retrieving them, and asserting all fields are preserved. Delivers a functional, queryable bibliographic database.
 
@@ -42,25 +44,7 @@ A developer passing bibliographic data to a citation rendering library (such as 
 
 ---
 
-### User Story 3 - Manage Bibliographic Entries via Admin (Priority: P3)
-
-An administrator or content manager uses the Django admin interface to browse, search, add, edit, and delete bibliographic entries without writing any code.
-
-**Why this priority**: Provides an out-of-the-box management interface, making the library immediately useful for projects that do not yet have custom views.
-
-**Independent Test**: Can be fully tested by navigating to the admin, creating a new item through the form, editing it, and deleting it — delivering a fully operational management UI for database records.
-
-**Acceptance Scenarios**:
-
-1. **Given** the app is installed and the admin is enabled, **When** an admin user visits the bibliographic entry list, **Then** all items are displayed with key fields (title, type, year) visible.
-2. **Given** the admin list view, **When** the admin searches by title or author name, **Then** matching items are returned.
-3. **Given** the admin list view, **When** the admin filters by item type, **Then** only items of that type are shown.
-4. **Given** a new bibliographic entry form in the admin, **When** the admin submits valid data, **Then** a new item is created and appears in the list.
-5. **Given** an existing bibliographic item, **When** the admin edits and saves it, **Then** the changes are persisted correctly.
-
----
-
-### User Story 4 - Understand the Models via Documentation (Priority: P4)
+### User Story 3 - Understand the Models via Documentation (Priority: P3)
 
 A developer reading the source code or generated documentation can understand the purpose and CSL JSON mapping of every model, field, and utility function without needing to consult the CSL JSON specification separately.
 
@@ -82,7 +66,7 @@ A developer reading the source code or generated documentation can understand th
 - How does the system handle contributor names provided as a single string rather than separate family/given parts?
 - What happens when a partial date has only a year, or year and month, but no day?
 - How does the system behave when a CSL JSON field value exceeds expected length limits?
-- What happens when required CSL JSON fields (e.g., `id`, `type`) are missing during import? → A validation error is raised immediately, identifying the missing field; the item is rejected and nothing is stored.
+- What happens when required CSL JSON fields are missing during import? → If `type` is absent, a validation error is raised immediately and the item is rejected. If both `citation-key` and `id` are absent or empty, a validation error is raised (no usable citation key can be derived). If `citation-key` is absent but `id` is present, `id` is used as the `citation_key` fallback.
 - How are duplicate entries (same DOI or citation key) handled? → On import, duplicate citation keys are resolved by appending a letter suffix (Smith2009 → Smith2009b → Smith2009c…) so every stored entry has a unique key. Existing records are never overwritten.
 
 ## Requirements *(mandatory)*
@@ -92,36 +76,41 @@ A developer reading the source code or generated documentation can understand th
 - **FR-001**: The data model MUST represent all standard CSL JSON item types (article-journal, book, chapter, thesis, webpage, report, etc.) via a strictly-enforced choices field on the item entity. The full known CSL type list MUST be enumerated as valid choices; any value outside this list MUST be rejected with a validation error.
 - **FR-002**: The data model MUST support all standard CSL JSON string, number, and boolean fields on bibliographic items (title, abstract, publisher, volume, issue, page, DOI, ISBN, ISSN, URL, etc.).
 - **FR-003**: The data model MUST store CSL name-variable fields (author, editor, translator, chair, collection-editor, container-author, etc.) via a dedicated `Name` model linked to `Item` through a `NameThrough` model. `NameThrough` MUST record the CSL role type (from a defined choices list) and the ordering of names within that role. `Name` MUST store separable name parts (family, given) and optionally a literal/organization name.
-- **FR-004**: The data model MUST store CSL date-variable fields (issued, accessed, submitted, etc.) via a dedicated `Date` model linked to `Item` through a `DateThrough` model. `DateThrough` MUST record the CSL date slot name. `Date` MUST support year-only, year-month, and full year-month-day precision.
-- **FR-017**: The data model MUST store typed identifiers (DOI, ISBN, ISSN, URL, PMID, call-number, etc.) in a dedicated `Identifier` model associated with `Item`, recording identifier type and value. Multiple identifiers of different types MUST be storable per item. The identifier type field MUST define choices for all well-known CSL identifier types but MUST allow any string value; unknown types produce a warning and are stored without rejection.
-- **FR-005**: The data model MUST support a unique citation key per item to identify entries.
+- **FR-004**: The data model MUST store CSL date-variable fields (issued, accessed, submitted, etc.) via a dedicated `Date` model linked to `Item` through a `DateThrough` model. `DateThrough` MUST record the CSL date slot name. `Date` MUST support all CSL JSON date forms including year-only, year-month, full year-month-day, and date ranges (two date-parts arrays, e.g. conference start/end). When both date-parts contain sufficient precision, the model MUST normalize the value(s) to a structured `date`/`datetime` field; when normalization is not possible (e.g. partial ranges, unusual precision), the raw `date-parts` array MUST be preserved in a `JSONField` alongside the structured fields.
+- **FR-017**: The data model MUST store typed identifiers (DOI, ISBN, ISSN, URL, PMID, call-number, etc.) in a dedicated `Identifier` model associated with `Item`, recording identifier type and value. Multiple identifiers of different types MUST be storable per item. The identifier type field MUST define choices for all well-known CSL identifier types but MUST allow any string value; when an unknown identifier type is encountered, the importer MUST emit a `logger.warning(...)` via `logging.getLogger(__name__)` and store the item without rejection.
+- **FR-005**: The data model MUST support a required `citation_key` field on `Item`. This field maps to the CSL JSON `citation-key` variable — the BibTeX entrykey-style handle used in `\cite{...}` and `[@key]` in-document citation syntax (distinct from the CSL `id` field, which is a processor-internal session-scoped lookup key, and `citation-label`, which is processor-generated output). The `citation_key` field MUST be db-indexed for fast lookup. Uniqueness MUST be enforced at the application level, NOT as a database `UNIQUE` constraint, to support multi-library and multi-tenant deployments where the same key may exist across different library scopes. The database identifier is Django's standard auto-increment primary key. When a `citation_key` value conflicts with an existing record within the same scope, the importer MUST automatically append a letter suffix (e.g. `Smith2009` → `Smith2009b`) to produce a unique key.
 - **FR-006**: The system MUST provide a function or method to serialize a model instance to a CSL JSON-compatible dictionary.
-- **FR-007**: The system MUST provide a function or method to deserialize a CSL JSON dictionary into a new model instance. If the citation key from the incoming data already exists, the importer MUST automatically append a letter suffix (e.g. `Smith2009` → `Smith2009b`) to produce a unique key; existing records MUST NOT be overwritten. If required fields (`id`, `type`) are absent, the importer MUST raise a validation error identifying the missing field and reject the item without storing anything.
+- **FR-007**: The system MUST provide a function or method to deserialize a CSL JSON dictionary into a new model instance. Required import fields are `type` plus at least one of `citation-key` or `id`; if `type` is absent, OR if both `citation-key` and `id` are absent or empty, the importer MUST raise a validation error identifying the missing field(s) and reject the item without storing anything. On import, the CSL `citation-key` field is the preferred source for `citation_key`; if `citation-key` is absent, the CSL `id` field is used as a fallback. The resolved value is deduplicated by appending a letter suffix if needed (e.g. `Smith2009` → `Smith2009b`). On export (serialization), the CSL `id` field MUST be populated with the `citation_key` value. Existing records MUST NOT be overwritten.
 - **FR-008**: Round-trip conversion (model → CSL JSON → model) MUST preserve all stored field values without data loss.
 - **FR-009**: Every model class MUST have a docstring describing its purpose and its mapping to the CSL JSON specification.
 - **FR-010**: Every model field and conversion function MUST have documentation (docstring or help_text) identifying the corresponding CSL JSON field.
-- **FR-011**: The test suite MUST cover all model fields, relationships, and conversion functions.
-- **FR-012**: The Django admin MUST register all core models and provide list display with at minimum title, type, and year.
-- **FR-013**: The Django admin MUST support search by title and contributor name.
-- **FR-014**: The Django admin MUST support filtering by item type.
+- **FR-011**: The test suite MUST cover all model fields, relationships, and conversion functions. Date handling MUST include dedicated round-trip tests for every supported CSL JSON date form: year-only, year-month, full year-month-day, full date range (both parts precise), and partial date range (one or both parts lacking full precision).
 - **FR-015**: Importing a CSL JSON item with an unrecognised `type` value MUST raise a validation error; the item MUST NOT be stored.
 - **FR-016**: Name entries provided as a literal string (rather than family/given parts) MUST be storable and round-trippable via the `Name` model's literal field.
 
 ### Key Entities
 
-- **Item**: The core bibliographic entry. Represents a single CSL JSON item object with a unique citation key, item type, and all scalar metadata fields (title, abstract, publisher, volume, issue, page, etc.). Related names, dates, and identifiers are held in dedicated related models.
+- **Item**: The core bibliographic entry. Represents a single CSL JSON item object with a Django auto-increment primary key, a required `citation_key` field (maps to the CSL JSON `citation-key` variable — the BibTeX entrykey-style handle; db-indexed, uniqueness enforced at application level), item type, and all scalar metadata fields (title, abstract, publisher, volume, issue, page, etc.). Related names, dates, and identifiers are held in dedicated related models.
 - **Name**: A person or organization referenced in a CSL name-variable field (family, given, literal/organization name parts). Names are linked to Items via a through model (`NameThrough`) that records the CSL field role (author, editor, translator, chair, collection-editor, container-author, etc.) and ordering.
-- **Date**: A bibliographic date linked to an Item via a through model (`DateThrough`) that records the CSL date-variable slot name (issued, accessed, submitted, etc.). Stores year-only, year-month, or full date precision reflecting the CSL JSON date-parts structure.
+- **Date**: A bibliographic date linked to an Item via a through model (`DateThrough`) that records the CSL date-variable slot name (issued, accessed, submitted, etc.). Supports single dates and date ranges (start + end date-parts). Normalizes to structured `date` fields when precision allows; stores raw `JSONField` date-parts as a fallback for partial or range values that cannot be fully normalized.
 - **Identifier**: A typed identifier (e.g., DOI, ISBN, ISSN, PMID, URL) associated with an Item. Stores the identifier type and its value, allowing multiple identifiers per item.
 
 ## Clarifications
+
+### Session 2026-04-09
+
+- Q: Does the `Date` model need to handle CSL JSON date ranges (two date-parts arrays), or only single-date precision? → A: Range support required — `Date` stores both start and end date-parts (either may be partial/absent); normalizes to a structured datetime/date field when full precision allows; otherwise stores the raw date-parts array as a `JSONField` fallback.
+- Q: What mechanism should surface the warning when an unknown identifier type is encountered? → A: Django logging — emit `logger.warning(...)` via `logging.getLogger(__name__)`; no changes to importer return signature.
+- Q: Should the Django admin interface be included in this feature's scope? → A: No — admin is removed from this spec entirely. The normalized data model makes a basic admin non-trivial; a dedicated CRUD/admin interface will be specified separately in a later feature.
+- Q: Should round-trip tests cover all CSL JSON date forms, or a representative subset? → A: All forms must be supported and tested — year-only, year-month, full year-month-day, single-date range, and partial-range each require dedicated round-trip tests.
+- Q: What is the correct role of the CSL JSON `id`, `citation-key`, and `citation-label` fields, and how should `citation_key` be modelled? → A: Research against the CSL 1.0.2 specification and schema confirmed three distinct fields: (1) **`id`** — a processor-internal session-scoped lookup key, required by the CSL JSON schema for citeproc to call `retrieveItem()`; carries no inherent bibliographic meaning. (2) **`citation-key`** — the BibTeX entrykey-style reference handle used in `\cite{...}` / `[@key]` in-document syntax; defined in CSL 1.0.2 Appendix IV as "identifier of the item in the input data file (analogous to BibTeX entrykey)". (3) **`citation-label`** — a processor-generated output label (e.g. "Ferr78"), not a storage field. Our `citation_key` field maps to CSL `citation-key`. `citation_key` is REQUIRED, db-indexed, and unique enforced at application level (not a DB UNIQUE constraint) to support multi-library/multi-tenant deployments. On import, `citation-key` is preferred; `id` is used as a fallback if `citation-key` is absent; both absent → validation error. On export, the CSL `id` field is populated from `citation_key`.
 
 ### Session 2026-04-08
 
 - Q: How should CSL JSON fields be stored — flat table, JSON overflow, or normalized relational models? → A: Separate `Name` model for name-variables (linked via `NameThrough` with a role type field); separate `Date` model for date-variables (linked via `DateThrough` with a slot name field); separate `Identifier` model for identifiers (DOI, ISBN, ISSN, etc.); scalar/string/number CSL fields remain as columns on `Item`.
 - Q: When importing a CSL JSON item whose citation key already exists, what should happen? → A: Always create a new record; if the citation key conflicts, automatically append a letter suffix to make it unique (e.g. Smith2009 → Smith2009b → Smith2009c). Overwriting existing data is explicitly not supported.
 - Q: Should the `type` field enforce the known CSL type list or allow any string? → A: Strictly enforce the known CSL type list; importing an item with an unrecognised type MUST raise a validation error and the item MUST NOT be stored.
-- Q: What should the importer do when required CSL JSON fields (`id`, `type`) are missing? → A: Raise a validation error immediately, report which field is missing, and reject the item. No auto-generation or partial storage.
+- Q: What should the importer do when required CSL JSON fields are missing? → A: Raise a validation error immediately, report which field is missing, and reject the item. No auto-generation or partial storage. See Session 2026-04-09 for the full `citation-key` / `id` field semantics.
 - Q: Should the `Identifier` model's type field enforce a fixed choices list or allow any string? → A: Fixed choices for well-known identifier types (DOI, ISBN, ISSN, PMID, URL, etc.); allow any string for custom/unknown types with a warning but no rejection.
 
 ## Success Criteria *(mandatory)*
@@ -129,18 +118,15 @@ A developer reading the source code or generated documentation can understand th
 ### Measurable Outcomes
 
 - **SC-001**: All CSL JSON item types defined in the CSL specification can be stored and retrieved; 0 known item types are unsupported.
-- **SC-002**: Round-trip conversion (model → CSL JSON → model) produces identical field values for 100% of fields on a reference set of test fixtures covering all item types.
+- **SC-002**: Round-trip conversion (model → CSL JSON → model) produces identical field values for 100% of fields on a reference set of test fixtures covering all item types and all CSL JSON date forms (year-only, year-month, full date, full date range, partial date range).
 - **SC-003**: The automated test suite achieves 90% or greater line coverage across all model and conversion code.
 - **SC-004**: Every public model class, field, and conversion function has a docstring; 0 undocumented public interfaces in the core module.
-- **SC-005**: An administrator can create, view, edit, and delete any bibliographic entry through the admin in fewer than 5 interactions per operation.
-- **SC-006**: Admin search returns correct results for title and contributor name queries with no false negatives on exact matches.
 
 ## Assumptions
 
 - The CSL JSON specification version 1.0.2 is the target standard; future CSL versions may require spec updates.
 - The library is intended as a reusable Django app, so models must be database-agnostic (no vendor-specific field types).
-- REST API views, custom front-end views, and template tag utilities are out of scope for this feature.
-- The admin interface uses Django's built-in admin framework; a custom admin theme is not required.
+- REST API views, custom front-end views, template tag utilities, and admin/CRUD interfaces are out of scope for this feature.
 - Bulk import/export operations (e.g., importing an entire `.json` file of CSL items) are desirable but can be deferred; this feature targets single-item conversion at minimum.
 - The app targets Python 3.11+ and Django 4.2+ as minimum supported versions.
 - Only the CSL JSON serialization format is targeted; CSL XML and BibTeX are out of scope for this feature.
