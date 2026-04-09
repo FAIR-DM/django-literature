@@ -80,7 +80,7 @@
 
 | Django Field | CSL JSON Field | Type | Constraints | Notes |
 |---|---|---|---|---|
-| `id` | — | AutoField (PK) | auto | Django standard PK |
+| `id` | — | BigAutoField (PK) | auto | Django standard PK |
 | `citation_key` | `citation-key` | CharField(255) | required, db_index | App-level unique. Import: prefer `citation-key`, fallback `id`. Export: CSL `id` = `citation_key` |
 | `type` | `type` | CharField(30) | required, choices | CSL item type enum (44 values). Rejects unknown types. |
 | `title` | `title` | CharField(1000) | blank, db_index | |
@@ -480,7 +480,7 @@ All CSL JSON properties accounted for:
 | `language` | `Item.language` | |
 | `journalAbbreviation` | `Item.journal_abbreviation` | CamelCase → snake_case |
 | `shortTitle` | `Item.title_short` | CamelCase → snake_case |
-| 27 name-variable fields | `ItemName` records | Via role field |
+| 26 name-variable fields | `ItemName` records | Via role field |
 | 6 date-variable fields | `ItemDate` records | Via date_type field |
 | 6 identifier fields | `ItemIdentifier` records | DOI, ISBN, ISSN, PMID, PMCID, URL |
 | `custom` | `Item.custom` (JSONField) | Arbitrary key-value |

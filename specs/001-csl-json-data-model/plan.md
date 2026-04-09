@@ -17,6 +17,7 @@ Implement a normalized Django data model that faithfully represents the CSL JSON
 **Project Type**: Library (installable Django app)
 **Performance Goals**: N/A for this feature (data model + conversion)
 **Constraints**: Database-agnostic — no PostgreSQL-specific features. `JSONField` only for `custom` CSL field and unparseable date fallback. All core relational data uses standard Django field types.
+**i18n Approach**: All user-facing strings use Django translation wrappers per Principle VII and spec FR-018. Module/class-level strings (model `verbose_name`, field `help_text`, descriptive `choices` labels) use `gettext_lazy`. Function-body strings (importer error messages) use eager `gettext`. Pure acronym `choices` labels (`"DOI"`, `"ISBN"`, `"ISSN"`, `"URL"`) are exempt. Runtime locale-activation tests are not required; correctness is enforced by `makemessages --all` CI gate and code review.
 **Scale/Scope**: Single Django app, ~5 models, ~2 conversion modules, 90%+ test coverage
 
 ## Constitution Check
@@ -31,6 +32,7 @@ Implement a normalized Django data model that faithfully represents the CSL JSON
 | IV. Test-First Quality | PASS | pytest + pytest-django. Test structure mirrors source. Round-trip tests for all date forms. 90%+ target coverage. |
 | V. Documentation Critical | PASS | All models, fields, and conversion functions will have docstrings mapping to CSL JSON. |
 | VI. Living Demo & Reference App | PASS | Test app in `tests/` exercises all models. Existing `manage.py` provides the scaffold. |
+| VII. i18n Compatibility | PASS | FR-018: `gettext_lazy` for module-level strings; eager `gettext` for importer error messages; pure acronym choices labels exempt. FR-019: `literature/locale/en/LC_MESSAGES/` stub committed; `makemessages --all` CI gate. No runtime locale-activation tests required. |
 
 **Gate Result**: ALL PASS — proceed to Phase 0.
 
@@ -58,6 +60,10 @@ literature/
 ├── choices.py           # CSL type choices, name role choices, identifier type choices
 ├── models.py            # Item, Name, ItemName, ItemDate, ItemIdentifier
 ├── converters.py        # CSL JSON serialization/deserialization
+├── locale/
+│   └── en/
+│       └── LC_MESSAGES/
+│           └── django.po    # Base English translation catalog (FR-019)
 ├── utils/
 │   ├── __init__.py
 │   └── date.py          # Date parsing utilities (python-dateutil)

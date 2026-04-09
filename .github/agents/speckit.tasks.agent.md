@@ -1,6 +1,6 @@
 ---
 description: Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts.
-handoffs: 
+handoffs:
   - label: Analyze For Consistency
     agent: speckit.analyze
     prompt: Run a project analysis for consistency
@@ -48,7 +48,7 @@ You **MUST** consider the user input before proceeding (if not empty).
     **Automatic Pre-Hook**: {extension}
     Executing: `/{command}`
     EXECUTE_COMMAND: {command}
-    
+
     Wait for the result of the hook command before proceeding to the Outline.
     ```
 - If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
@@ -149,7 +149,7 @@ Every task MUST strictly follow this format:
 4. **[Story] label**: REQUIRED for user story phase tasks only
    - Format: [US1], [US2], [US3], etc. (maps to user stories from spec.md)
    - Setup phase: NO story label
-   - Foundational phase: NO story label  
+   - Foundational phase: NO story label
    - User Story phases: MUST have story label
    - Polish phase: NO story label
 5. **Description**: Clear action with exact file path
@@ -198,3 +198,24 @@ Every task MUST strictly follow this format:
   - Within each story: Tests (if requested) → Models → Services → Endpoints → Integration
   - Each phase should be a complete, independently testable increment
 - **Final Phase**: Polish & Cross-Cutting Concerns
+
+### Phase Gate Rules (MANDATORY — apply to EVERY generated tasks.md)
+
+At the end of **every phase** (after the `**Checkpoint**` line, before the `---` divider), you MUST add two gate tasks:
+
+```markdown
+- [ ] Txx ⚠️ CRITICAL: Run Django system checks: `poetry run python manage.py check` — MUST pass before proceeding
+- [ ] Txx ⚠️ CRITICAL: Run <scope> tests: `poetry run pytest <relevant-test-files> -v` — ALL tests MUST pass
+```
+
+**Rules**:
+
+- Both tasks are **non-parallelizable** — no `[P]` marker
+- No `[Story]` label — they are infrastructure gates, not user story tasks
+- The pytest command must reference the **cumulative set of test files written so far** in that phase and all previous phases:
+  - After Phase 1 (Setup — no tests yet): `poetry run pytest -v` (0 tests; confirms no import errors)
+  - After Phase 2 (Foundational — no tests yet): `poetry run pytest -v`
+  - After each User Story phase: `poetry run pytest <all test files through this phase> -v`
+  - After Final Polish phase: `poetry run pytest -v` (full suite)
+- Task IDs must be sequential, continuing from the last implementation task in that phase
+- Add a "Phase Gate Tasks" summary table to the Dependencies section listing every gate task by phase, its system-check task ID, and its pytest command
