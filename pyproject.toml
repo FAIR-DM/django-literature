@@ -5,7 +5,7 @@ description = "A scientific literature management tool for Django"
 authors = ["Sam Jennings <samuel.scott.jennings@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "literature"}]
+packages = [{ include = "literature" }]
 homepage = "https://github.com/SSJenny90/django-literature"
 keywords = ["django", "literature", "publications", "scientific", "research"]
 classifiers = [
@@ -23,8 +23,8 @@ python-dateutil = "*"
 django = ">=4.2"
 citeproc-py = "*"
 django-partial-date = "*"
+django-ordered-model = "^3.7"
 # django-sortedm2m = "*"
-# django-ordered-model = "^3.7.4"
 
 [tool.poetry.group.dev.dependencies]
 fairdm-dev-tools = { git = "https://github.com/FAIR-DM/dev-tools", extras = [
@@ -33,7 +33,7 @@ fairdm-dev-tools = { git = "https://github.com/FAIR-DM/dev-tools", extras = [
 ] }
 
 [tool.poetry.group.docs.dependencies]
-fairdm-docs = {git = "https://github.com/FAIR-DM/fairdm-docs"}
+fairdm-docs = { git = "https://github.com/FAIR-DM/fairdm-docs" }
 
 [build-system]
 requires = ["poetry-core"]
@@ -55,7 +55,7 @@ check_untyped_defs = "False"
 warn_return_any = "True"
 warn_unused_ignores = "True"
 show_error_codes = "True"
-exclude = ["docs/","migrations/","tests/settings.py"]
+exclude = ["docs/", "migrations/", "tests/settings.py"]
 mypy_path = "literature/"
 plugins = ["mypy_django_plugin.main"]
 
@@ -90,7 +90,8 @@ select = [
     # mccabe
     "C90",
     # pycodestyle
-    "E", "W",
+    "E",
+    "W",
     # pyflakes
     "F",
     # pygrep-hooks
@@ -109,24 +110,19 @@ ignore = [
     "E731",
     # ClassAttributesShouldBeAnnotated
     "RUF012",
+    # assert statements are standard pytest idiom
+    "S101",
 ]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
 python_files = ["test_*.py", "*_test.py", "testing/python/*.py"]
-filterwarnings = [
-    "ignore",
-    "default:::literature",
-]
+filterwarnings = ["ignore", "default:::literature"]
 
 
 [tool.coverage.report]
 skip_empty = true
-omit = [
-    "*site-packages*",
-    "*tests*",
-    "*.tox*",
-    ]
+omit = ["*site-packages*", "*tests*", "*.tox*"]
 show_missing = "true"
 
 [tool.coverage.run]
@@ -135,13 +131,8 @@ source = ["literature"]
 
 
 [tool.deptry]
-extend_exclude = [
-    "tasks.py",
-    "docs/"
-]
-ignore_transitive = [
-    "toml",
-]
+extend_exclude = ["tasks.py", "docs/"]
+ignore_transitive = ["toml"]
 
 
 [tool.tox]

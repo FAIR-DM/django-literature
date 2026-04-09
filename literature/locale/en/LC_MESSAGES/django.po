@@ -1,0 +1,1096 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-09 15:21+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+#: .\literature\choices.py:27
+msgid "Article"
+msgstr ""
+
+#: .\literature\choices.py:28
+msgid "Journal Article"
+msgstr ""
+
+#: .\literature\choices.py:29
+msgid "Magazine Article"
+msgstr ""
+
+#: .\literature\choices.py:30
+msgid "Newspaper Article"
+msgstr ""
+
+#: .\literature\choices.py:31
+msgid "Bill"
+msgstr ""
+
+#: .\literature\choices.py:32
+msgid "Book"
+msgstr ""
+
+#: .\literature\choices.py:33
+msgid "Broadcast"
+msgstr ""
+
+#: .\literature\choices.py:34
+msgid "Chapter"
+msgstr ""
+
+#: .\literature\choices.py:35
+msgid "Classic"
+msgstr ""
+
+#: .\literature\choices.py:36
+msgid "Collection"
+msgstr ""
+
+#: .\literature\choices.py:37
+msgid "Dataset"
+msgstr ""
+
+#: .\literature\choices.py:38
+msgid "Document"
+msgstr ""
+
+#: .\literature\choices.py:39
+msgid "Entry"
+msgstr ""
+
+#: .\literature\choices.py:40
+msgid "Dictionary Entry"
+msgstr ""
+
+#: .\literature\choices.py:41
+msgid "Encyclopedia Entry"
+msgstr ""
+
+#: .\literature\choices.py:42
+msgid "Event"
+msgstr ""
+
+#: .\literature\choices.py:43
+msgid "Figure"
+msgstr ""
+
+#: .\literature\choices.py:44
+msgid "Graphic"
+msgstr ""
+
+#: .\literature\choices.py:45
+msgid "Hearing"
+msgstr ""
+
+#: .\literature\choices.py:46
+msgid "Interview"
+msgstr ""
+
+#: .\literature\choices.py:47
+msgid "Legal Case"
+msgstr ""
+
+#: .\literature\choices.py:48
+msgid "Legislation"
+msgstr ""
+
+#: .\literature\choices.py:49
+msgid "Manuscript"
+msgstr ""
+
+#: .\literature\choices.py:50
+msgid "Map"
+msgstr ""
+
+#: .\literature\choices.py:51
+msgid "Motion Picture"
+msgstr ""
+
+#: .\literature\choices.py:52
+msgid "Musical Score"
+msgstr ""
+
+#: .\literature\choices.py:53
+msgid "Pamphlet"
+msgstr ""
+
+#: .\literature\choices.py:54
+msgid "Conference Paper"
+msgstr ""
+
+#: .\literature\choices.py:55
+msgid "Patent"
+msgstr ""
+
+#: .\literature\choices.py:56
+msgid "Performance"
+msgstr ""
+
+#: .\literature\choices.py:57
+msgid "Periodical"
+msgstr ""
+
+#: .\literature\choices.py:58
+msgid "Personal Communication"
+msgstr ""
+
+#: .\literature\choices.py:59
+msgid "Post"
+msgstr ""
+
+#: .\literature\choices.py:60
+msgid "Blog Post"
+msgstr ""
+
+#: .\literature\choices.py:61
+msgid "Regulation"
+msgstr ""
+
+#: .\literature\choices.py:62
+msgid "Report"
+msgstr ""
+
+#: .\literature\choices.py:63
+msgid "Review"
+msgstr ""
+
+#: .\literature\choices.py:64
+msgid "Book Review"
+msgstr ""
+
+#: .\literature\choices.py:65
+msgid "Software"
+msgstr ""
+
+#: .\literature\choices.py:66
+msgid "Song"
+msgstr ""
+
+#: .\literature\choices.py:67
+msgid "Speech"
+msgstr ""
+
+#: .\literature\choices.py:68
+msgid "Standard"
+msgstr ""
+
+#: .\literature\choices.py:69
+msgid "Thesis"
+msgstr ""
+
+#: .\literature\choices.py:70
+msgid "Treaty"
+msgstr ""
+
+#: .\literature\choices.py:71
+msgid "Webpage"
+msgstr ""
+
+#: .\literature\choices.py:83
+msgid "Author"
+msgstr ""
+
+#: .\literature\choices.py:84
+msgid "Chair"
+msgstr ""
+
+#: .\literature\choices.py:85
+msgid "Collection Editor"
+msgstr ""
+
+#: .\literature\choices.py:86
+msgid "Compiler"
+msgstr ""
+
+#: .\literature\choices.py:87
+msgid "Composer"
+msgstr ""
+
+#: .\literature\choices.py:88
+msgid "Container Author"
+msgstr ""
+
+#: .\literature\choices.py:89
+msgid "Contributor"
+msgstr ""
+
+#: .\literature\choices.py:90
+msgid "Curator"
+msgstr ""
+
+#: .\literature\choices.py:91
+msgid "Director"
+msgstr ""
+
+#: .\literature\choices.py:92
+msgid "Editor"
+msgstr ""
+
+#: .\literature\choices.py:93
+msgid "Editorial Director"
+msgstr ""
+
+#: .\literature\choices.py:94
+msgid "Executive Producer"
+msgstr ""
+
+#: .\literature\choices.py:95
+msgid "Guest"
+msgstr ""
+
+#: .\literature\choices.py:96
+msgid "Host"
+msgstr ""
+
+#: .\literature\choices.py:97
+msgid "Illustrator"
+msgstr ""
+
+#: .\literature\choices.py:98
+msgid "Interviewer"
+msgstr ""
+
+#: .\literature\choices.py:99
+msgid "Narrator"
+msgstr ""
+
+#: .\literature\choices.py:100
+msgid "Organizer"
+msgstr ""
+
+#: .\literature\choices.py:101
+msgid "Original Author"
+msgstr ""
+
+#: .\literature\choices.py:102
+msgid "Performer"
+msgstr ""
+
+#: .\literature\choices.py:103
+msgid "Producer"
+msgstr ""
+
+#: .\literature\choices.py:104
+msgid "Recipient"
+msgstr ""
+
+#: .\literature\choices.py:105
+msgid "Reviewed Author"
+msgstr ""
+
+#: .\literature\choices.py:106
+msgid "Script Writer"
+msgstr ""
+
+#: .\literature\choices.py:107
+msgid "Series Creator"
+msgstr ""
+
+#: .\literature\choices.py:108
+msgid "Translator"
+msgstr ""
+
+#: .\literature\choices.py:120
+msgid "Accessed"
+msgstr ""
+
+#: .\literature\choices.py:121
+msgid "Available Date"
+msgstr ""
+
+#: .\literature\choices.py:122
+msgid "Event Date"
+msgstr ""
+
+#: .\literature\choices.py:123
+msgid "Issued"
+msgstr ""
+
+#: .\literature\choices.py:124
+msgid "Original Date"
+msgstr ""
+
+#: .\literature\choices.py:125
+msgid "Submitted"
+msgstr ""
+
+#: .\literature\converters.py:314
+msgid "CSL JSON item missing both 'citation-key' and 'id' fields"
+msgstr ""
+
+#: .\literature\converters.py:429
+msgid "CSL JSON item missing required 'type' field"
+msgstr ""
+
+#: .\literature\converters.py:431
+#, python-brace-format
+msgid "Unknown CSL JSON item type: '{type}'"
+msgstr ""
+
+#: .\literature\models.py:39
+msgid "citation key"
+msgstr ""
+
+#: .\literature\models.py:40
+msgid "CSL JSON: citation-key (or id fallback). Unique per import batch."
+msgstr ""
+
+#: .\literature\models.py:45
+msgid "type"
+msgstr ""
+
+#: .\literature\models.py:47
+msgid "CSL JSON: type"
+msgstr ""
+
+#: .\literature\models.py:55
+msgid "title"
+msgstr ""
+
+#: .\literature\models.py:56
+msgid "CSL JSON: title"
+msgstr ""
+
+#: .\literature\models.py:61
+msgid "short title"
+msgstr ""
+
+#: .\literature\models.py:62
+msgid "CSL JSON: title-short (also imports deprecated shortTitle)"
+msgstr ""
+
+#: .\literature\models.py:67
+msgid "original title"
+msgstr ""
+
+#: .\literature\models.py:68
+msgid "CSL JSON: original-title"
+msgstr ""
+
+#: .\literature\models.py:74
+msgid "container title"
+msgstr ""
+
+#: .\literature\models.py:75
+msgid "CSL JSON: container-title"
+msgstr ""
+
+#: .\literature\models.py:80
+msgid "container title short"
+msgstr ""
+
+#: .\literature\models.py:81
+msgid "CSL JSON: container-title-short"
+msgstr ""
+
+#: .\literature\models.py:86
+msgid "collection title"
+msgstr ""
+
+#: .\literature\models.py:87
+msgid "CSL JSON: collection-title"
+msgstr ""
+
+#: .\literature\models.py:92
+msgid "volume title"
+msgstr ""
+
+#: .\literature\models.py:93
+msgid "CSL JSON: volume-title"
+msgstr ""
+
+#: .\literature\models.py:98
+msgid "volume title short"
+msgstr ""
+
+#: .\literature\models.py:99
+msgid "CSL JSON: volume-title-short"
+msgstr ""
+
+#: .\literature\models.py:104
+msgid "part title"
+msgstr ""
+
+#: .\literature\models.py:105
+msgid "CSL JSON: part-title"
+msgstr ""
+
+#: .\literature\models.py:110
+msgid "reviewed title"
+msgstr ""
+
+#: .\literature\models.py:111
+msgid "CSL JSON: reviewed-title"
+msgstr ""
+
+#: .\literature\models.py:116
+msgid "reviewed genre"
+msgstr ""
+
+#: .\literature\models.py:117
+msgid "CSL JSON: reviewed-genre"
+msgstr ""
+
+#: .\literature\models.py:123
+msgid "abstract"
+msgstr ""
+
+#: .\literature\models.py:124
+msgid "CSL JSON: abstract"
+msgstr ""
+
+#: .\literature\models.py:128
+msgid "note"
+msgstr ""
+
+#: .\literature\models.py:129
+msgid "CSL JSON: note"
+msgstr ""
+
+#: .\literature\models.py:133
+msgid "annotation"
+msgstr ""
+
+#: .\literature\models.py:134
+msgid "CSL JSON: annote"
+msgstr ""
+
+#: .\literature\models.py:142
+msgid "publisher"
+msgstr ""
+
+#: .\literature\models.py:143
+msgid "CSL JSON: publisher"
+msgstr ""
+
+#: .\literature\models.py:148
+msgid "publisher place"
+msgstr ""
+
+#: .\literature\models.py:149
+msgid "CSL JSON: publisher-place"
+msgstr ""
+
+#: .\literature\models.py:154
+msgid "original publisher"
+msgstr ""
+
+#: .\literature\models.py:155
+msgid "CSL JSON: original-publisher"
+msgstr ""
+
+#: .\literature\models.py:160
+msgid "original publisher place"
+msgstr ""
+
+#: .\literature\models.py:161
+msgid "CSL JSON: original-publisher-place"
+msgstr ""
+
+#: .\literature\models.py:168
+msgid "event title"
+msgstr ""
+
+#: .\literature\models.py:169
+msgid "CSL JSON: event-title (also imports deprecated event)"
+msgstr ""
+
+#: .\literature\models.py:174
+msgid "event place"
+msgstr ""
+
+#: .\literature\models.py:175
+msgid "CSL JSON: event-place"
+msgstr ""
+
+#: .\literature\models.py:182
+msgid "volume"
+msgstr ""
+
+#: .\literature\models.py:183
+msgid "CSL JSON: volume (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:188
+msgid "issue"
+msgstr ""
+
+#: .\literature\models.py:189
+msgid "CSL JSON: issue (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:194
+msgid "page"
+msgstr ""
+
+#: .\literature\models.py:195
+msgid "CSL JSON: page (e.g. '171-175')"
+msgstr ""
+
+#: .\literature\models.py:200
+msgid "page first"
+msgstr ""
+
+#: .\literature\models.py:201
+msgid "CSL JSON: page-first (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:206
+msgid "number"
+msgstr ""
+
+#: .\literature\models.py:207
+msgid "CSL JSON: number"
+msgstr ""
+
+#: .\literature\models.py:212
+msgid "number of pages"
+msgstr ""
+
+#: .\literature\models.py:213
+msgid "CSL JSON: number-of-pages (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:218
+msgid "number of volumes"
+msgstr ""
+
+#: .\literature\models.py:219
+msgid "CSL JSON: number-of-volumes (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:224
+msgid "edition"
+msgstr ""
+
+#: .\literature\models.py:225
+msgid "CSL JSON: edition (string-or-number, e.g. '2nd', 3)"
+msgstr ""
+
+#: .\literature\models.py:230
+msgid "version"
+msgstr ""
+
+#: .\literature\models.py:231
+msgid "CSL JSON: version"
+msgstr ""
+
+#: .\literature\models.py:236
+msgid "chapter number"
+msgstr ""
+
+#: .\literature\models.py:237
+msgid "CSL JSON: chapter-number (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:242
+msgid "collection number"
+msgstr ""
+
+#: .\literature\models.py:243
+msgid "CSL JSON: collection-number (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:248
+msgid "section"
+msgstr ""
+
+#: .\literature\models.py:249
+msgid "CSL JSON: section"
+msgstr ""
+
+#: .\literature\models.py:254
+msgid "part"
+msgstr ""
+
+#: .\literature\models.py:255
+msgid "CSL JSON: part (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:260
+msgid "supplement"
+msgstr ""
+
+#: .\literature\models.py:261
+msgid "CSL JSON: supplement (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:266
+msgid "printing"
+msgstr ""
+
+#: .\literature\models.py:267
+msgid "CSL JSON: printing (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:274
+msgid "status"
+msgstr ""
+
+#: .\literature\models.py:275
+msgid "CSL JSON: status"
+msgstr ""
+
+#: .\literature\models.py:280
+msgid "medium"
+msgstr ""
+
+#: .\literature\models.py:281
+msgid "CSL JSON: medium"
+msgstr ""
+
+#: .\literature\models.py:286
+msgid "genre"
+msgstr ""
+
+#: .\literature\models.py:287
+msgid "CSL JSON: genre"
+msgstr ""
+
+#: .\literature\models.py:292
+msgid "language"
+msgstr ""
+
+#: .\literature\models.py:293
+msgid "CSL JSON: language (BCP 47 tag, e.g. 'en')"
+msgstr ""
+
+#: .\literature\models.py:300
+msgid "archive"
+msgstr ""
+
+#: .\literature\models.py:301
+msgid "CSL JSON: archive"
+msgstr ""
+
+#: .\literature\models.py:306
+msgid "archive collection"
+msgstr ""
+
+#: .\literature\models.py:307
+msgid "CSL JSON: archive_collection (note: underscored in CSL JSON)"
+msgstr ""
+
+#: .\literature\models.py:312
+msgid "archive location"
+msgstr ""
+
+#: .\literature\models.py:313
+msgid "CSL JSON: archive_location (note: underscored in CSL JSON)"
+msgstr ""
+
+#: .\literature\models.py:318
+msgid "archive place"
+msgstr ""
+
+#: .\literature\models.py:319
+msgid "CSL JSON: archive-place"
+msgstr ""
+
+#: .\literature\models.py:324
+msgid "authority"
+msgstr ""
+
+#: .\literature\models.py:325
+msgid "CSL JSON: authority"
+msgstr ""
+
+#: .\literature\models.py:330
+msgid "jurisdiction"
+msgstr ""
+
+#: .\literature\models.py:331
+msgid "CSL JSON: jurisdiction"
+msgstr ""
+
+#: .\literature\models.py:336
+msgid "call number"
+msgstr ""
+
+#: .\literature\models.py:337
+msgid "CSL JSON: call-number"
+msgstr ""
+
+#: .\literature\models.py:342
+msgid "dimensions"
+msgstr ""
+
+#: .\literature\models.py:343
+msgid "CSL JSON: dimensions"
+msgstr ""
+
+#: .\literature\models.py:348
+msgid "division"
+msgstr ""
+
+#: .\literature\models.py:349
+msgid "CSL JSON: division"
+msgstr ""
+
+#: .\literature\models.py:354
+msgid "scale"
+msgstr ""
+
+#: .\literature\models.py:355
+msgid "CSL JSON: scale"
+msgstr ""
+
+#: .\literature\models.py:360
+msgid "source"
+msgstr ""
+
+#: .\literature\models.py:361
+msgid "CSL JSON: source"
+msgstr ""
+
+#: .\literature\models.py:365
+msgid "references"
+msgstr ""
+
+#: .\literature\models.py:366
+msgid "CSL JSON: references"
+msgstr ""
+
+#: .\literature\models.py:373
+msgid "journal abbreviation"
+msgstr ""
+
+#: .\literature\models.py:374
+msgid "CSL JSON: journalAbbreviation (camelCase in CSL JSON)"
+msgstr ""
+
+#: .\literature\models.py:379
+msgid "citation label"
+msgstr ""
+
+#: .\literature\models.py:380
+msgid "CSL JSON: citation-label (processor-generated; stored for round-trip)"
+msgstr ""
+
+#: .\literature\models.py:385
+msgid "citation number"
+msgstr ""
+
+#: .\literature\models.py:386
+msgid "CSL JSON: citation-number (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:391
+msgid "first reference note number"
+msgstr ""
+
+#: .\literature\models.py:392
+msgid ""
+"CSL JSON: first-reference-note-number (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:397
+msgid "locator"
+msgstr ""
+
+#: .\literature\models.py:398
+msgid "CSL JSON: locator (string-or-number stored as string)"
+msgstr ""
+
+#: .\literature\models.py:403
+msgid "year suffix"
+msgstr ""
+
+#: .\literature\models.py:404
+msgid "CSL JSON: year-suffix"
+msgstr ""
+
+#: .\literature\models.py:410
+msgid "keyword"
+msgstr ""
+
+#: .\literature\models.py:411
+msgid "CSL JSON: keyword (single comma-separated string)"
+msgstr ""
+
+#: .\literature\models.py:418
+msgid "categories"
+msgstr ""
+
+#: .\literature\models.py:419
+msgid "CSL JSON: categories (string array)"
+msgstr ""
+
+#: .\literature\models.py:424
+msgid "custom"
+msgstr ""
+
+#: .\literature\models.py:425
+msgid "CSL JSON: custom (arbitrary key-value pairs)"
+msgstr ""
+
+#: .\literature\models.py:429 .\literature\models.py:504
+msgid "created"
+msgstr ""
+
+#: .\literature\models.py:430 .\literature\models.py:505
+msgid "modified"
+msgstr ""
+
+#: .\literature\models.py:433 .\literature\models.py:536
+#: .\literature\models.py:593 .\literature\models.py:691
+msgid "item"
+msgstr ""
+
+#: .\literature\models.py:434
+msgid "items"
+msgstr ""
+
+#: .\literature\models.py:456
+msgid "family name"
+msgstr ""
+
+#: .\literature\models.py:457
+msgid "CSL JSON: family"
+msgstr ""
+
+#: .\literature\models.py:462
+msgid "given name"
+msgstr ""
+
+#: .\literature\models.py:463
+msgid "CSL JSON: given"
+msgstr ""
+
+#: .\literature\models.py:468
+msgid "dropping particle"
+msgstr ""
+
+#: .\literature\models.py:469
+msgid "CSL JSON: dropping-particle (e.g. 'von', 'van')"
+msgstr ""
+
+#: .\literature\models.py:474
+msgid "non-dropping particle"
+msgstr ""
+
+#: .\literature\models.py:475
+msgid "CSL JSON: non-dropping-particle (e.g. 'van der', 'de')"
+msgstr ""
+
+#: .\literature\models.py:480
+msgid "suffix"
+msgstr ""
+
+#: .\literature\models.py:481
+msgid "CSL JSON: suffix (e.g. 'Jr.', 'III')"
+msgstr ""
+
+#: .\literature\models.py:486 .\literature\models.py:628
+msgid "literal"
+msgstr ""
+
+#: .\literature\models.py:487
+msgid "CSL JSON: literal (institutional names or unparsed strings)"
+msgstr ""
+
+#: .\literature\models.py:491
+msgid "comma suffix"
+msgstr ""
+
+#: .\literature\models.py:492
+msgid "CSL JSON: comma-suffix"
+msgstr ""
+
+#: .\literature\models.py:496
+msgid "static ordering"
+msgstr ""
+
+#: .\literature\models.py:497
+msgid "CSL JSON: static-ordering (e.g. for East Asian names)"
+msgstr ""
+
+#: .\literature\models.py:501
+msgid "parse names"
+msgstr ""
+
+#: .\literature\models.py:502
+msgid "CSL JSON: parse-names (signal to CSL processor)"
+msgstr ""
+
+#: .\literature\models.py:508 .\literature\models.py:543
+msgid "name"
+msgstr ""
+
+#: .\literature\models.py:509
+msgid "names"
+msgstr ""
+
+#: .\literature\models.py:537
+msgid "The bibliographic item this name is associated with."
+msgstr ""
+
+#: .\literature\models.py:544
+msgid "The name record for this contributor."
+msgstr ""
+
+#: .\literature\models.py:549
+msgid "role"
+msgstr ""
+
+#: .\literature\models.py:550
+msgid "CSL JSON name-variable field (e.g. author, editor, translator)."
+msgstr ""
+
+#: .\literature\models.py:554
+msgid "order"
+msgstr ""
+
+#: .\literature\models.py:555
+msgid "Position of this contributor within the (item, role) group."
+msgstr ""
+
+#: .\literature\models.py:559
+msgid "item name"
+msgstr ""
+
+#: .\literature\models.py:560
+msgid "item names"
+msgstr ""
+
+#: .\literature\models.py:594
+msgid "The bibliographic item this date belongs to."
+msgstr ""
+
+#: .\literature\models.py:599
+msgid "date type"
+msgstr ""
+
+#: .\literature\models.py:600
+msgid "CSL JSON date-variable slot (e.g. issued, accessed, event-date)."
+msgstr ""
+
+#: .\literature\models.py:605
+msgid "begin date"
+msgstr ""
+
+#: .\literature\models.py:606
+msgid ""
+"CSL JSON: date-parts[0] — start or single date with partial-date precision."
+msgstr ""
+
+#: .\literature\models.py:611
+msgid "end date"
+msgstr ""
+
+#: .\literature\models.py:612
+msgid ""
+"CSL JSON: date-parts[1] — end date for ranges. Must not be set without begin."
+msgstr ""
+
+#: .\literature\models.py:617
+msgid "season"
+msgstr ""
+
+#: .\literature\models.py:618
+msgid ""
+"CSL JSON: season ('1'=Spring, '2'=Summer, '3'=Autumn, '4'=Winter or custom)"
+msgstr ""
+
+#: .\literature\models.py:622
+msgid "circa"
+msgstr ""
+
+#: .\literature\models.py:623
+msgid "CSL JSON: circa — approximate date flag."
+msgstr ""
+
+#: .\literature\models.py:629
+msgid ""
+"CSL JSON: literal — free-text date when structured representation is "
+"impossible."
+msgstr ""
+
+#: .\literature\models.py:634
+msgid "raw"
+msgstr ""
+
+#: .\literature\models.py:635
+msgid "CSL JSON: raw — unparsed date string from source."
+msgstr ""
+
+#: .\literature\models.py:640
+msgid "raw date parts"
+msgstr ""
+
+#: .\literature\models.py:641
+msgid ""
+"CSL JSON: date-parts — stores original array when normalization to "
+"PartialDate fails."
+msgstr ""
+
+#: .\literature\models.py:645
+msgid "item date"
+msgstr ""
+
+#: .\literature\models.py:646
+msgid "item dates"
+msgstr ""
+
+#: .\literature\models.py:692
+msgid "The bibliographic item this identifier belongs to."
+msgstr ""
+
+#: .\literature\models.py:696
+msgid "identifier type"
+msgstr ""
+
+#: .\literature\models.py:697
+msgid "Identifier type string (e.g. DOI, ISBN, ISSN, PMID, PMCID, URL, arXiv)."
+msgstr ""
+
+#: .\literature\models.py:701
+msgid "value"
+msgstr ""
+
+#: .\literature\models.py:702
+msgid "The identifier value string."
+msgstr ""
+
+#: .\literature\models.py:706
+msgid "item identifier"
+msgstr ""
+
+#: .\literature\models.py:707
+msgid "item identifiers"
+msgstr ""
+
+#: .\literature\validators.py:43
+msgid "Enter a valid DOI (e.g. 10.1000/xyz123)."
+msgstr ""
+
+#: .\literature\validators.py:81
+msgid "Enter a valid ISBN-10 or ISBN-13 (e.g. 978-0-306-40615-7)."
+msgstr ""
+
+#: .\literature\validators.py:105
+msgid "Enter a valid ISSN (e.g. 1742-2094)."
+msgstr ""
+
+#: .\literature\validators.py:129
+msgid "Enter a valid URL (http, https, or ftp)."
+msgstr ""
+
+#: .\literature\validators.py:150
+msgid "Enter a valid PubMed ID (numeric string, e.g. 12345678)."
+msgstr ""
+
+#: .\literature\validators.py:164
+msgid "Enter a valid PubMed Central ID (numeric string, e.g. 4567890)."
+msgstr ""

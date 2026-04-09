@@ -1,0 +1,620 @@
+{
+    "$id": "https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "date-variable": {
+            "anyOf": [
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "circa": {
+                            "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                            ]
+                        },
+                        "date-parts": {
+                            "items": {
+                                "items": {
+                                    "type": [
+                                        "string",
+                                        "number"
+                                    ]
+                                },
+                                "maxItems": 3,
+                                "minItems": 1,
+                                "type": "array"
+                            },
+                            "maxItems": 2,
+                            "minItems": 1,
+                            "type": "array"
+                        },
+                        "literal": {
+                            "type": "string"
+                        },
+                        "raw": {
+                            "type": "string"
+                        },
+                        "season": {
+                            "type": [
+                                "string",
+                                "number"
+                            ]
+                        }
+                    },
+                    "type": "object"
+                }
+            ],
+            "description": "The CSL input model supports two different date representations: an EDTF string (preferred), and a more structured alternative.",
+            "title": "Date content model."
+        },
+        "name-variable": {
+            "anyOf": [
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "comma-suffix": {
+                            "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                            ]
+                        },
+                        "dropping-particle": {
+                            "type": "string"
+                        },
+                        "family": {
+                            "type": "string"
+                        },
+                        "given": {
+                            "type": "string"
+                        },
+                        "literal": {
+                            "type": "string"
+                        },
+                        "non-dropping-particle": {
+                            "type": "string"
+                        },
+                        "parse-names": {
+                            "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                            ]
+                        },
+                        "static-ordering": {
+                            "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                            ]
+                        },
+                        "suffix": {
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                }
+            ]
+        }
+    },
+    "description": "JSON schema for CSL input data",
+    "items": {
+        "additionalProperties": false,
+        "properties": {
+            "abstract": {
+                "type": "string"
+            },
+            "accessed": {
+                "$ref": "#/definitions/date-variable"
+            },
+            "annote": {
+                "type": "string"
+            },
+            "archive": {
+                "type": "string"
+            },
+            "archive-place": {
+                "type": "string"
+            },
+            "archive_collection": {
+                "type": "string"
+            },
+            "archive_location": {
+                "type": "string"
+            },
+            "author": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "authority": {
+                "type": "string"
+            },
+            "available-date": {
+                "$ref": "#/definitions/date-variable"
+            },
+            "call-number": {
+                "type": "string"
+            },
+            "categories": {
+                "items": {
+                    "type": "string"
+                },
+                "type": "array"
+            },
+            "chair": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "chapter-number": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "citation-key": {
+                "type": "string"
+            },
+            "citation-label": {
+                "type": "string"
+            },
+            "citation-number": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "collection-editor": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "collection-number": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "collection-title": {
+                "type": "string"
+            },
+            "compiler": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "composer": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "container-author": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "container-title": {
+                "type": "string"
+            },
+            "container-title-short": {
+                "type": "string"
+            },
+            "contributor": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "curator": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "custom": {
+                "description": "Used to store additional information that does not have a designated CSL JSON field. The custom field is preferred over the note field for storing custom data, particularly for storing key-value pairs, as the note field is used for user annotations in annotated bibliography styles.",
+                "examples": [
+                    {
+                        "other-ids": [
+                            "alternative-id"
+                        ],
+                        "short_id": "xyz"
+                    },
+                    {
+                        "metadata-double-checked": true
+                    }
+                ],
+                "title": "Custom key-value pairs.",
+                "type": "object",
+                "keys": {},
+                "additionalProperties": {
+                    "type": "string"
+                }
+            },
+            "dimensions": {
+                "type": "string"
+            },
+            "director": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "division": {
+                "type": "string"
+            },
+            "DOI": {
+                "type": "string"
+            },
+            "edition": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "editor": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "editorial-director": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "event": {
+                "description": "[Deprecated - use 'event-title' instead. Will be removed in 1.1]",
+                "type": "string"
+            },
+            "event-date": {
+                "$ref": "#/definitions/date-variable"
+            },
+            "event-place": {
+                "type": "string"
+            },
+            "event-title": {
+                "type": "string"
+            },
+            "executive-producer": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "first-reference-note-number": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "genre": {
+                "type": "string"
+            },
+            "guest": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "host": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "id": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "illustrator": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "interviewer": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "ISBN": {
+                "type": "string"
+            },
+            "ISSN": {
+                "type": "string"
+            },
+            "issue": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "issued": {
+                "$ref": "#/definitions/date-variable"
+            },
+            "journalAbbreviation": {
+                "type": "string"
+            },
+            "jurisdiction": {
+                "type": "string"
+            },
+            "keyword": {
+                "type": "string"
+            },
+            "language": {
+                "type": "string"
+            },
+            "locator": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "medium": {
+                "type": "string"
+            },
+            "narrator": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "note": {
+                "type": "string"
+            },
+            "number": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "number-of-pages": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "number-of-volumes": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "organizer": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "original-author": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "original-date": {
+                "$ref": "#/definitions/date-variable"
+            },
+            "original-publisher": {
+                "type": "string"
+            },
+            "original-publisher-place": {
+                "type": "string"
+            },
+            "original-title": {
+                "type": "string"
+            },
+            "page": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "page-first": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "part": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "part-title": {
+                "type": "string"
+            },
+            "performer": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "PMCID": {
+                "type": "string"
+            },
+            "PMID": {
+                "type": "string"
+            },
+            "printing": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "producer": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "publisher": {
+                "type": "string"
+            },
+            "publisher-place": {
+                "type": "string"
+            },
+            "recipient": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "references": {
+                "type": "string"
+            },
+            "reviewed-author": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "reviewed-genre": {
+                "type": "string"
+            },
+            "reviewed-title": {
+                "type": "string"
+            },
+            "scale": {
+                "type": "string"
+            },
+            "script-writer": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "section": {
+                "type": "string"
+            },
+            "series-creator": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "shortTitle": {
+                "type": "string"
+            },
+            "source": {
+                "type": "string"
+            },
+            "status": {
+                "type": "string"
+            },
+            "submitted": {
+                "$ref": "#/definitions/date-variable"
+            },
+            "supplement": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "title": {
+                "type": "string"
+            },
+            "title-short": {
+                "type": "string"
+            },
+            "translator": {
+                "items": {
+                    "$ref": "#/definitions/name-variable"
+                },
+                "type": "array"
+            },
+            "type": {
+                "enum": [
+                    "article",
+                    "article-journal",
+                    "article-magazine",
+                    "article-newspaper",
+                    "bill",
+                    "book",
+                    "broadcast",
+                    "chapter",
+                    "classic",
+                    "collection",
+                    "dataset",
+                    "document",
+                    "entry",
+                    "entry-dictionary",
+                    "entry-encyclopedia",
+                    "event",
+                    "figure",
+                    "graphic",
+                    "hearing",
+                    "interview",
+                    "legal_case",
+                    "legislation",
+                    "manuscript",
+                    "map",
+                    "motion_picture",
+                    "musical_score",
+                    "pamphlet",
+                    "paper-conference",
+                    "patent",
+                    "performance",
+                    "periodical",
+                    "personal_communication",
+                    "post",
+                    "post-weblog",
+                    "regulation",
+                    "report",
+                    "review",
+                    "review-book",
+                    "software",
+                    "song",
+                    "speech",
+                    "standard",
+                    "thesis",
+                    "treaty",
+                    "webpage"
+                ],
+                "type": "string"
+            },
+            "URL": {
+                "type": "string"
+            },
+            "version": {
+                "type": "string"
+            },
+            "volume": {
+                "type": [
+                    "string",
+                    "number"
+                ]
+            },
+            "volume-title": {
+                "type": "string"
+            },
+            "volume-title-short": {
+                "type": "string"
+            },
+            "year-suffix": {
+                "type": "string"
+            }
+        },
+        "required": [
+            "type",
+            "id"
+        ],
+        "type": "object"
+    },
+    "type": "array"
+}

@@ -1,0 +1,31 @@
+{
+    "$id": "https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "description": "Authors",
+    "items": {
+        "anyOf": [
+            {
+                "additionalProperties": false,
+                "properties": {
+                    "family": {
+                        "type": "string"
+                    },
+                    "given": {
+                        "type": "string"
+                    },
+                    "literal": {
+                        "type": "string"
+                    },
+                    "non-dropping-particle": {
+                        "type": "string"
+                    },
+                    "suffix": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        ]
+    },
+    "type": "array"
+}

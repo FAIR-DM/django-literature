@@ -17,21 +17,29 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
 **Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+[Gates determined based on constitution file. At minimum, address the following for every feature:]
+
+- **Principle I (CSL-JSON)**: Does the feature add, change, or remove CSL-JSON fields or import/export behavior? If yes, document mapping.
+- **Principle II (Embeddable Package)**: Does the feature avoid imposing mandatory structural changes on host projects?
+- **Principle III (Data Integrity)**: Are migrations included? Are partial-date fields used where required?
+- **Principle IV (Test-First)**: Are failing tests written before implementation begins?
+- **Principle V (Documentation)**: Are all new public APIs, settings, and template tags documented?
+- **Principle VI (Demo App)**: If core models, admin, or template tags change, is the demo app updated?
+- **Principle VII (i18n)**: Are ALL new user-facing strings wrapped with `gettext_lazy` (Python/admin/forms), `{% trans %}` / `{% blocktrans %}` (templates), and `JavaScriptCatalog`-backed calls (JS)? Does `makemessages` still run cleanly?
 
 ## Project Structure
 
