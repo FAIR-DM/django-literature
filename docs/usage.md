@@ -252,3 +252,49 @@ reimported = from_csl_json(csl)
 assert reimported.title == original.title
 assert reimported.type == original.type
 ```
+
+---
+
+## Django admin interface
+
+`django-literature` ships a ready-made Django admin that lets you browse, create, and
+edit all bibliographic data through the standard Django admin site.
+
+### Required `INSTALLED_APPS` entries
+
+```python
+INSTALLED_APPS = [
+    # Django built-ins required by the admin
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    # Third-party
+    "ordered_model",
+    # This app
+    "literature",
+    ...
+]
+```
+
+### Timezone note
+
+`PartialDateField` stores dates as naive datetime objects. Set `TIME_ZONE = "UTC"` in
+your settings (or `USE_TZ = False`) to ensure that year-based filters in the admin
+work correctly across all timezones.
+
+### Features
+
+- **Items** (`/admin/literature/item/`)
+  - 12 organised fieldsets covering all CSL JSON fields
+  - Inline editing of contributors (with drag-and-drop ordering), dates, and identifiers
+  - Changelist columns: title, type, year, citation key
+  - Search by title or citation key
+  - Sidebar filters by item type, issued year, and publisher
+
+- **Names** (`/admin/literature/name/`)
+  - Changelist showing family, given, and literal fields
+  - Search by family name, given name, or literal
+
+For a step-by-step integration walkthrough see [quickstart.md](quickstart.md).
