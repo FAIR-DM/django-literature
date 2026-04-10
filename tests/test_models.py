@@ -89,7 +89,34 @@ def test_item_str_returns_citation_key():
 
 
 @pytest.mark.django_db
-def test_item_created_modified_auto_set():
+def test_item_str_returns_title_when_set():
+    """Item.__str__ returns the title when it is set (T006)."""
+    from literature.models import Item
+
+    item = Item.objects.create(citation_key="CiteKey2024", type=ItemType.ARTICLE, title="A Short Title")
+    assert str(item) == "A Short Title"
+
+
+@pytest.mark.django_db
+def test_item_str_fallback_to_citation_key():
+    """Item.__str__ falls back to citation_key when title is empty (T006)."""
+    from literature.models import Item
+
+    item = Item.objects.create(citation_key="FallbackKey", type=ItemType.BOOK, title="")
+    assert str(item) == "FallbackKey"
+
+
+@pytest.mark.django_db
+def test_item_str_truncates_long_title():
+    """Item.__str__ truncates titles over 80 characters with an ellipsis (T006)."""
+    from literature.models import Item
+
+    long_title = "A" * 81
+    item = Item.objects.create(citation_key="LongTitle2024", type=ItemType.BOOK, title=long_title)
+    result = str(item)
+    assert result == "A" * 80 + "…"
+    assert len(result) == 81  # 80 chars + 1 ellipsis char
+
     """Item auto-timestamps are set on creation."""
     from literature.models import Item
 
@@ -151,6 +178,42 @@ def test_name_str_family_given():
     result = str(name)
     assert len(result) > 0
     assert "Smith" in result
+
+
+@pytest.mark.django_db
+def test_name_str_family_given_format():
+    """Name.__str__ returns 'Family, Given' format when family name is present (T006b)."""
+    from literature.models import Name
+
+    name = Name.objects.create(family="Smith", given="John")
+    assert str(name) == "Smith, John"
+
+
+@pytest.mark.django_db
+def test_name_str_family_only():
+    """Name.__str__ returns family name alone when given is absent (T006b)."""
+    from literature.models import Name
+
+    name = Name.objects.create(family="Smith", given="")
+    assert str(name) == "Smith"
+
+
+@pytest.mark.django_db
+def test_name_str_literal_fallback():
+    """Name.__str__ returns literal when family and given are absent (T006b)."""
+    from literature.models import Name
+
+    name = Name.objects.create(family="", given="", literal="Harvard University")
+    assert str(name) == "Harvard University"
+
+
+@pytest.mark.django_db
+def test_name_str_pk_fallback():
+    """Name.__str__ returns 'Name #<pk>' as last fallback (T006b)."""
+    from literature.models import Name
+
+    name = Name.objects.create(family="", given="", literal="")
+    assert str(name) == f"Name #{name.pk}"
 
 
 @pytest.mark.django_db

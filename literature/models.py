@@ -15,6 +15,7 @@ Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.j
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from ordered_model.models import OrderedModelBase
 from partial_date import PartialDate  # noqa: F401  used in type hints
 from partial_date.fields import PartialDateField
 
@@ -435,7 +436,9 @@ class Item(models.Model):
         ordering = ["-created"]
 
     def __str__(self) -> str:
-        """Return the citation key as string representation."""
+        """Return truncated title (≤80 chars), falling back to citation_key."""
+        if self.title:
+            return self.title[:80] + "…" if len(self.title) > 80 else self.title
         return self.citation_key
 
 
@@ -519,7 +522,7 @@ class Name(models.Model):
         return self.literal or f"Name #{self.pk}"
 
 
-class ItemName(models.Model):
+class ItemName(OrderedModelBase):
     """Ordered through-model linking Name to Item with a contributor role.
 
     Provides explicit position ordering of contributors within each
@@ -528,6 +531,9 @@ class ItemName(models.Model):
     CSL JSON mapping: name-variable array entries on a bibliographic item
     (e.g. author array, editor array).
     """
+
+    order_field_name = "order"
+    order_with_respect_to = "item"
 
     item = models.ForeignKey(
         Item,
