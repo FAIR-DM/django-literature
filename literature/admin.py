@@ -47,7 +47,7 @@ class IssuedYearFilter(admin.SimpleListFilter):
             .annotate(
                 year=ExtractYear(
                     Cast("begin", output_field=DateTimeField()),
-                    tzinfo=datetime.timezone.utc,
+                    tzinfo=datetime.UTC,
                 )
             )
             .values_list("year", flat=True)
@@ -63,7 +63,7 @@ class IssuedYearFilter(admin.SimpleListFilter):
                 .annotate(
                     year=ExtractYear(
                         Cast("begin", output_field=DateTimeField()),
-                        tzinfo=datetime.timezone.utc,
+                        tzinfo=datetime.UTC,
                     )
                 )
                 .filter(year=int(self.value()))
@@ -203,7 +203,7 @@ class ItemAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
             .annotate(
                 year=ExtractYear(
                     Cast("begin", output_field=DateTimeField()),
-                    tzinfo=datetime.timezone.utc,
+                    tzinfo=datetime.UTC,
                 )
             )
             .values("year")[:1]

@@ -1,6 +1,6 @@
 """Minimal Django settings for the literature test suite."""
 
-SECRET_KEY = "django-insecure-test-secret-key-for-tests-only"  # noqa: S105
+SECRET_KEY = "django-insecure-test-secret-key-for-tests-only"
 
 DEBUG = True
 

@@ -1,75 +1,65 @@
 [tool.poetry]
-name = "django-literature"
-version = "0.1.0"
-description = "A scientific literature management tool for Django"
-authors = ["Sam Jennings <samuel.scott.jennings@gmail.com>"]
-license = "MIT"
-readme = "README.md"
+# Source of truth for the release flow: tag-release cuts v<version> when no
+# matching tag exists on a main push touching this file.
+version = "0.1.8"
 packages = [{ include = "literature" }]
-homepage = "https://github.com/SSJenny90/django-literature"
-keywords = ["django", "literature", "publications", "scientific", "research"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Framework :: Django :: 3.2",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
-    "Natural Language :: English",
-    "Programming Language :: Python :: 3.11",
-]
-
-[tool.poetry.dependencies]
-python = ">=3.11,<4.0"
-python-dateutil = "*"
-django = ">=4.2"
-citeproc-py = "*"
-django-partial-date = "*"
-django-ordered-model = "^3.7"
-# django-sortedm2m = "*"
+requires-poetry = '>=2.0,<3.0'
 
 [tool.poetry.group.dev.dependencies]
-fairdm-dev-tools = { git = "https://github.com/FAIR-DM/dev-tools", extras = [
-    "test",
+# Family toolchain bundle; the pin tag is the family-standard version. The
+# python marker keeps the package's 3.11 floor for consumers — dev tooling
+# never ships to them.
+mvp-shared = { git = "https://github.com/django-mvp/shared.git", tag = "v0.2.0", extras = [
     "dev",
-] }
+    "test",
+], python = ">=3.12" }
 
 [tool.poetry.group.docs.dependencies]
-fairdm-docs = { git = "https://github.com/FAIR-DM/fairdm-docs" }
+fairdm-docs = { git = "https://github.com/FAIR-DM/fairdm-docs", extras = [
+    "sphinx_book_theme",
+] }
 
 [build-system]
-requires = ["poetry-core"]
+requires = ['poetry-core (>=2.0,<3.0)']
 build-backend = "poetry.core.masonry.api"
 
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = [".", "tests"]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py", "tests.py", "*_tests.py"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+    "--cov=literature",
+    "--cov-report=html",
+    "-ra",
+]
+filterwarnings = [
+    "ignore",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
 
-[tool.black]
-line-length = 120
-target-version = ['py37']
-preview = true
+[tool.coverage.report]
+skip_empty = true
+show_missing = true
 
-[tool.mypy]
-files = ["literature"]
-disallow_untyped_defs = "False"
-disallow_any_unimported = "False"
-ignore_missing_imports = "True"
-no_implicit_optional = "True"
-check_untyped_defs = "False"
-warn_return_any = "True"
-warn_unused_ignores = "True"
-show_error_codes = "True"
-exclude = ["docs/", "migrations/", "tests/settings.py"]
-mypy_path = "literature/"
-plugins = ["mypy_django_plugin.main"]
-
-[tool.django-stubs]
-django_settings_module = "tests.settings"
+[tool.coverage.run]
+branch = true
+source = ["literature"]
 
 [tool.ruff]
-target-version = "py37"
-exclude = ['docs/']
+target-version = "py311"
 line-length = 120
 fix = true
-
+# migrations are generated code — never linted or reformatted.
+exclude = ['docs/', '**/migrations/**']
 
 [tool.ruff.lint]
+# Family-standard rule set (mirrors django-easy-icons / django-content-license).
 select = [
     # flake8-2020
     "YTT",
@@ -90,8 +80,7 @@ select = [
     # mccabe
     "C90",
     # pycodestyle
-    "E",
-    "W",
+    "E", "W",
     # pyflakes
     "F",
     # pygrep-hooks
@@ -108,51 +97,77 @@ ignore = [
     "E501",
     # DoNotAssignLambda
     "E731",
-    # ClassAttributesShouldBeAnnotated
+    # Mutable class attributes (noise on Django Meta)
     "RUF012",
-    # assert statements are standard pytest idiom
-    "S101",
+    # Avoid long messages outside the exception class
+    "TRY003",
+    # Class attribute shadowing a builtin (Django field names)
+    "A003",
+    # Function too complex
+    "C901",
 ]
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "tests.settings"
-python_files = ["test_*.py", "*_test.py", "testing/python/*.py"]
-filterwarnings = ["ignore", "default:::literature"]
+[tool.ruff.lint.per-file-ignores]
+# Tests: asserts, hardcoded test passwords, blind-exception asserts, builtin
+# shadowing, unused variables, nested-with and raise-in-try — style rules that
+# don't pay for themselves in tests.
+"tests/*" = ["S101", "S105", "S106", "B017", "A001", "RUF059", "F841", "SIM117", "TRY301"]
+# The bundled demo project ships a throwaway dev SECRET_KEY by design.
+"demo/settings.py" = ["S105"]
 
+[tool.mypy]
+files = ["literature"]
+disallow_untyped_defs = "False"
+disallow_any_unimported = "False"
+ignore_missing_imports = "True"
+no_implicit_optional = "True"
+check_untyped_defs = "False"
+warn_return_any = "True"
+warn_unused_ignores = "True"
+show_error_codes = "True"
+exclude = ["docs/", "migrations/", "tests/settings.py"]
+mypy_path = "literature/"
+plugins = ["mypy_django_plugin.main"]
+# django-stubs emits django-manager-missing on reverse relation accessors
+# (e.g. Item.item_names) that resolve fine at runtime — a known false positive.
+disable_error_code = ["django-manager-missing"]
 
-[tool.coverage.report]
-skip_empty = true
-omit = ["*site-packages*", "*tests*", "*.tox*"]
-show_missing = "true"
-
-[tool.coverage.run]
-branch = "true"
-source = ["literature"]
-
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+ignore_missing_model_attributes = "True"
 
 [tool.deptry]
-extend_exclude = ["tasks.py", "docs/"]
-ignore_transitive = ["toml"]
+extend_exclude = ["tasks.py", "tests/", "demo/", "docs/"]
 
+[tool.deptry.per_rule_ignores]
+DEP003 = ["literature"]
 
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-skipsdist = true
-envlist = py38, py39, py310, py311
+[project]
+name = "django-literature"
+description = "A scientific literature management tool for Django"
+license = "MIT"
+dynamic = ["version"]
+readme = "README.md"
+authors = [{ name = "Sam Jennings", email = "samuel.scott.jennings@gmail.com" }]
+requires-python = '>=3.11,<4.0'
+keywords = ["django", "literature", "publications", "scientific", "research"]
+dependencies = [
+    'django>=4.2',
+    'django-partial-date',
+    'django-ordered-model>=3.7',
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 
-[gh-actions]
-python =
-    3.8: py38
-    3.9: py39
-    3.10: py310
-    3.11: py311
-
-[testenv]
-passenv = PYTHON_VERSION
-allowlist_externals = poetry
-commands =
-    poetry install --without docs
-    pytest --doctest-modules tests --cov --cov-config=pyproject.toml --cov-report=xml
-    mypy
-"""
+[project.urls]
+homepage = "https://github.com/FAIR-DM/django-literature"
+repository = "https://github.com/FAIR-DM/django-literature"
