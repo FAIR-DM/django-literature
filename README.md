@@ -25,28 +25,45 @@ A Django app for storing, managing, and converting bibliographic references usin
 
 ## Scope & philosophy
 
-**What it is.** A reusable Django app that stores bibliographic references as a faithful, normalized relational representation of CSL JSON 1.0.2, with round-trip import and export. It is embeddable — add it to `INSTALLED_APPS`, point a `ForeignKey` at an `Item`, and the host project owns its own reference catalogue.
+**What it is.** Two Django apps that ship together. The core (`literature`) stores bibliographic
+references as a normalized relational representation of CSL JSON 1.0.2 and converts between the two
+in both directions with round-trip fidelity. It is headless: add `literature` to `INSTALLED_APPS`,
+point a `ForeignKey` at an `Item`, and the host project owns its reference catalogue with no front
+end pulled in. Layered on top is an opt-in UI app (`literature.ui`, built on
+[django-mvp](https://github.com/django-mvp)) that provides a full front end, which is the intended
+way to use the package in full. Install the core on its own, or add the UI when you want it.
 
 **What it deliberately is not.**
 
-- **Not a citation renderer.** It stores and converts CSL JSON; formatting citations and bibliographies against CSL styles is left to a downstream processor.
-- **Not a standalone reference manager.** There is no end-user portal — just models, admin, and conversion for host projects to build on.
-- **Not a multi-format importer.** BibTeX, RIS, PubMed XML, and CrossRef ingestion are out of scope for the core; they belong in extensions.
-- **Not an external-registry client.** It does not sync with CrossRef, PubMed, or similar services at runtime.
+- **Not a citation renderer in the core.** The core stores and converts CSL JSON. Formatting
+  citations and bibliographies is added over time through a downstream CSL processor, never baked
+  into the store.
+- **Not a bundled admin.** No admin-based management ships with the package. A host that wants one
+  registers its own; the UI app is where reference management lives.
+- **Not a set of generic, restylable views.** The only views provided are the ones in
+  `literature.ui`. Anything beyond that, a host builds against the models.
+- **Not a host-styled UI.** `literature.ui` follows its own design system (django-mvp), not the
+  host project's. It will not blend into your app's styling, and that is a deliberate trade for a UI
+  that is complete and consistent on its own terms.
+- **Not an external-registry client.** It does not sync with CrossRef, PubMed, or similar services
+  at runtime.
 
 **Tie-break principles**, when a design choice is contested:
 
-1. **CSL JSON faithfulness wins.** The option closest to the CSL JSON structure and naming is preferred; deviations are documented and mapped back to their CSL JSON equivalent.
-2. **Embeddability over features.** A change that would impose structure on the host project loses to one that keeps the app a drop-in.
-3. **Relational integrity over convenience.** Known, stable fields (names, dates, identifiers) live in queryable relational structures, never JSON blobs.
+1. **CSL JSON faithfulness wins.** The option closest to the CSL JSON structure and naming is
+   preferred; any deviation is documented and mapped back to its CSL JSON equivalent.
+2. **The core stays UI-free.** The store carries no front-end dependencies. Anything heavy, django-mvp
+   included, sits behind the opt-in `literature.ui`, so embedding the core never drags in the UI stack.
+3. **Relational integrity over convenience.** Known, stable fields (names, dates, identifiers) live
+   in queryable relational structures, never JSON blobs.
 4. **Translatable by default.** User-facing strings are always wrapped for i18n.
 
 ---
 
 ## Requirements
 
-- Python 3.11+
-- Django 4.2+
+- Python 3.12+
+- Django 5.2 or 6.0
 - [django-partial-date](https://github.com/ktowen/django_partial_date)
 - [django-ordered-model](https://github.com/django-ordered-model/django-ordered-model) 3.7+
 
