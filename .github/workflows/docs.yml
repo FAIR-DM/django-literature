@@ -1,0 +1,16 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'literature/**'
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  call-docs:
+    uses: django-mvp/shared/.github/workflows/docs.yml@v0.2.0
+    secrets: inherit

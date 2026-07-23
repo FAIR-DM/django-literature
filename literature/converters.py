@@ -174,7 +174,7 @@ def _name_to_dict(name: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def to_csl_json(item: Any) -> dict[str, Any]:  # noqa: C901
+def to_csl_json(item: Any) -> dict[str, Any]:
     """Serialize a saved Item instance to a CSL JSON 1.0.2 compatible dict.
 
     Args:
@@ -395,7 +395,7 @@ def _import_date_variable(data: dict, item: Any, date_type: str) -> None:
     item_date.save()
 
 
-def from_csl_json(data: dict) -> Any:  # noqa: C901
+def from_csl_json(data: dict) -> Any:
     """Deserialize a CSL JSON dict into a new saved Item with all related records.
 
     Args:

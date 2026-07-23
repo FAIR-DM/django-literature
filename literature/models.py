@@ -733,7 +733,7 @@ class ItemIdentifier(models.Model):
         Dispatches to the appropriate validator in ``literature.validators``
         based on ``self.type``. Unknown identifier types skip validation.
         """
-        from typing import Callable
+        from collections.abc import Callable
 
         from literature.validators import (
             validate_doi,

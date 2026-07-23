@@ -251,7 +251,7 @@ def test_item_name_unique_constraint(make_item, make_name):
     item = make_item()
     name = make_name()
     ItemName.objects.create(item=item, name=name, role=NameRole.AUTHOR)
-    with pytest.raises(Exception):  # noqa: B017  # IntegrityError on duplicate
+    with pytest.raises(Exception):  # IntegrityError on duplicate
         ItemName.objects.create(item=item, name=name, role=NameRole.AUTHOR)
 
 
@@ -356,7 +356,7 @@ def test_item_date_unique_constraint(make_item):
 
     item = make_item()
     ItemDate.objects.create(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
-    with pytest.raises(Exception):  # noqa: B017  # IntegrityError on duplicate
+    with pytest.raises(Exception):  # IntegrityError on duplicate
         ItemDate.objects.create(item=item, date_type=DateType.ISSUED, begin=PartialDate("2020"))
 
 
@@ -440,7 +440,7 @@ def test_item_identifier_unique_constraint(make_item):
 
     item = make_item()
     ItemIdentifier.objects.create(item=item, type=IdentifierType.DOI, value="10.1/first")
-    with pytest.raises(Exception):  # noqa: B017  # IntegrityError on duplicate
+    with pytest.raises(Exception):  # IntegrityError on duplicate
         ItemIdentifier.objects.create(item=item, type=IdentifierType.DOI, value="10.1/second")
 
 

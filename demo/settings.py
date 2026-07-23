@@ -4,7 +4,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-demo-secret-key-do-not-use-in-production"  # noqa: S105
+SECRET_KEY = "django-insecure-demo-secret-key-do-not-use-in-production"
 
 DEBUG = True
 

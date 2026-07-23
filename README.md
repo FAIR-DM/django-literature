@@ -2,8 +2,8 @@
 
 A Django app for storing, managing, and converting bibliographic references using the [CSL JSON 1.0.2](https://citeproc-js.readthedocs.io/en/latest/csl-json/markup.html) standard.
 
-[![Tests](https://github.com/SSJenny90/django-literature/actions/workflows/tests.yml/badge.svg)](https://github.com/SSJenny90/django-literature/actions)
-[![codecov](https://codecov.io/gh/SSJenny90/django-literature/branch/main/graph/badge.svg)](https://codecov.io/gh/SSJenny90/django-literature)
+[![Tests](https://github.com/FAIR-DM/django-literature/actions/workflows/tests.yml/badge.svg)](https://github.com/FAIR-DM/django-literature/actions)
+[![codecov](https://codecov.io/gh/FAIR-DM/django-literature/branch/main/graph/badge.svg)](https://codecov.io/gh/FAIR-DM/django-literature)
 [![PyPI](https://img.shields.io/pypi/v/django-literature.svg)](https://pypi.org/project/django-literature/)
 [![Python](https://img.shields.io/pypi/pyversions/django-literature.svg)](https://pypi.org/project/django-literature/)
 [![Django](https://img.shields.io/pypi/djversions/django-literature.svg)](https://pypi.org/project/django-literature/)
@@ -20,6 +20,26 @@ A Django app for storing, managing, and converting bibliographic references usin
 - **Identifier validation** — model-layer validators for DOI, ISBN, ISSN, URL, PMID, and PMCID formats.
 - **Ordered contributors** — author/editor/translator order preserved per item and role via `django-ordered-model`.
 - **i18n ready** — all user-facing strings wrapped with `gettext_lazy`; ships a pre-generated `locale/en/LC_MESSAGES/django.po` catalog.
+
+---
+
+## Scope & philosophy
+
+**What it is.** A reusable Django app that stores bibliographic references as a faithful, normalized relational representation of CSL JSON 1.0.2, with round-trip import and export. It is embeddable — add it to `INSTALLED_APPS`, point a `ForeignKey` at an `Item`, and the host project owns its own reference catalogue.
+
+**What it deliberately is not.**
+
+- **Not a citation renderer.** It stores and converts CSL JSON; formatting citations and bibliographies against CSL styles is left to a downstream processor.
+- **Not a standalone reference manager.** There is no end-user portal — just models, admin, and conversion for host projects to build on.
+- **Not a multi-format importer.** BibTeX, RIS, PubMed XML, and CrossRef ingestion are out of scope for the core; they belong in extensions.
+- **Not an external-registry client.** It does not sync with CrossRef, PubMed, or similar services at runtime.
+
+**Tie-break principles**, when a design choice is contested:
+
+1. **CSL JSON faithfulness wins.** The option closest to the CSL JSON structure and naming is preferred; deviations are documented and mapped back to their CSL JSON equivalent.
+2. **Embeddability over features.** A change that would impose structure on the host project loses to one that keeps the app a drop-in.
+3. **Relational integrity over convenience.** Known, stable fields (names, dates, identifiers) live in queryable relational structures, never JSON blobs.
+4. **Translatable by default.** User-facing strings are always wrapped for i18n.
 
 ---
 
@@ -160,7 +180,7 @@ poetry run sphinx-build -b html docs docs/_build/html
 ## Development
 
 ```bash
-git clone https://github.com/SSJenny90/django-literature.git
+git clone https://github.com/FAIR-DM/django-literature.git
 cd django-literature
 poetry install
 poetry run pytest
