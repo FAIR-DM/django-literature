@@ -2,7 +2,9 @@
 
 **Feature Branch**: `002-django-admin-interface`
 **Created**: 2026-04-10
-**Status**: Draft
+**Status**: Superseded (2026-07-24)
+
+> **Superseded (2026-07-24).** The bundled, in-core Django admin described here was removed from the installable core because it conflicts with the headless-core scope: the core ships no management surface (see the README *Scope & philosophy* section and `GOALS.md` G3). Reference management returns as part of the opt-in front end. This spec is kept as history of what was built.
 **Input**: User description: "A fully functional Django admin interface for managing bibliographic data in django-literature. Administrators can create, view, edit, and delete literature items through the standard Django admin site, with contributors (authors, editors, translators, etc.) organised by role rather than mixed together in a single list. The interface groups the large number of CSL JSON fields into logical sections to keep the form manageable. List views support searching and filtering by common criteria. All models are accessible and the interface requires no additional dependencies beyond Django itself."
 
 ## Clarifications
