@@ -48,11 +48,6 @@ def _public_methods(cls, module_prefix):
         yield f"{cls.__module__}.{cls.__name__}.{name}", obj
 
 
-# ---------------------------------------------------------------------------
-# Collect symbols from all target modules
-# ---------------------------------------------------------------------------
-
-
 def _gather_symbols():
     """Return list of (label, obj) for all public symbols in literature.*."""
     from literature import choices, converters, models
@@ -72,17 +67,10 @@ def _gather_symbols():
 _ALL_SYMBOLS = _gather_symbols()
 
 
-@pytest.mark.parametrize("label,obj", _ALL_SYMBOLS, ids=[s[0] for s in _ALL_SYMBOLS])
-def test_public_symbol_has_docstring(label, obj):
-    """Every public class and function must have a non-empty __doc__."""
-    assert obj.__doc__, f"{label} is missing a docstring"
-
-
 # ---------------------------------------------------------------------------
-# Item field help_text coverage
-# ---------------------------------------------------------------------------
-
 # Fields NOT expected to have CSL JSON help_text (internal / Django metadata)
+# ---------------------------------------------------------------------------
+
 _NON_CSL_FIELDS = frozenset(
     {
         "id",
@@ -112,10 +100,22 @@ def _item_csl_fields():
         yield (field.name,)
 
 
-@pytest.mark.parametrize("field_name", [f[0] for f in _item_csl_fields()])
-def test_item_field_has_help_text(field_name):
-    """Every CSL JSON Item field must have non-empty help_text."""
-    from literature.models import Item
+class TestDocstringCoverage:
+    """Every public class and function carries a docstring (SC-004)."""
 
-    field = Item._meta.get_field(field_name)
-    assert field.help_text, f"Item.{field_name} is missing help_text describing its CSL JSON mapping"
+    @pytest.mark.parametrize("label,obj", _ALL_SYMBOLS, ids=[s[0] for s in _ALL_SYMBOLS])
+    def test_public_symbol_has_docstring(self, label, obj):
+        """Every public class and function must have a non-empty __doc__."""
+        assert obj.__doc__, f"{label} is missing a docstring"
+
+
+class TestHelpTextCoverage:
+    """Every CSL JSON Item field carries help_text."""
+
+    @pytest.mark.parametrize("field_name", [f[0] for f in _item_csl_fields()])
+    def test_item_field_has_help_text(self, field_name):
+        """Every CSL JSON Item field must have non-empty help_text."""
+        from literature.models import Item
+
+        field = Item._meta.get_field(field_name)
+        assert field.help_text, f"Item.{field_name} is missing help_text describing its CSL JSON mapping"
