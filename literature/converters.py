@@ -537,6 +537,6 @@ def from_csl_json_list(data: list[dict]) -> list[Any]:
         try:
             item = from_csl_json(item_data)
             results.append(item)
-        except (ValidationError, Exception) as exc:
-            logger.warning("Failed to import CSL JSON item: %s", exc)
+        except ValidationError as exc:
+            logger.warning("Skipping invalid CSL JSON item: %s", exc)
     return results
