@@ -89,16 +89,17 @@ correctly on both import and export.
 
 **Table**: `literature_itemname` | **CSL JSON**: entry in a name-variable array
 
-`ItemName` is the ordered through-model linking `Item` to `Name`. It extends
-`django-ordered-model`'s `OrderedModel` so that contributor ordering is preserved
-per `(item, role)` scope.
+`ItemName` is the ordered through-model linking `Item` to `Name`. Contributor
+ordering is preserved per `(item, role)` scope: the `order` field is numbered
+independently within each role on an item, so reordering authors never disturbs
+editors (see ADR-0005).
 
 | Django field | CSL JSON concept | Notes |
 |---|---|---|
 | `item` | — | FK → `Item` |
 | `name` | — | FK → `Name` |
 | `role` | name-variable key | One of 26 {class}`~literature.choices.NameRole` values (e.g. `"author"`, `"editor"`) |
-| `order` | position in array | Maintained automatically by `django-ordered-model` |
+| `order` | position in array | Assigned per `(item, role)` on insert (see ADR-0005) |
 
 **Constraint**: `UNIQUE(item, role, name)` — each person can appear at most once per
 role per item.

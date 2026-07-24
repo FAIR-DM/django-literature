@@ -270,8 +270,6 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    # Third-party
-    "ordered_model",
     # This app
     "literature",
     ...

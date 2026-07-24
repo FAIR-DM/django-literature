@@ -15,7 +15,6 @@ Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.j
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from ordered_model.models import OrderedModelBase
 from partial_date import PartialDate  # noqa: F401  used in type hints
 from partial_date.fields import PartialDateField
 
@@ -522,18 +521,18 @@ class Name(models.Model):
         return self.literal or f"Name #{self.pk}"
 
 
-class ItemName(OrderedModelBase):
+class ItemName(models.Model):
     """Ordered through-model linking Name to Item with a contributor role.
 
     Provides explicit position ordering of contributors within each
-    (item, role) scope via the ``order`` field.
+    ``(item, role)`` scope via the ``order`` field: the author list, the
+    editor list, and so on are each numbered independently from zero, so
+    reordering one role never disturbs another. The position is assigned in
+    :meth:`save` on first insert. See ADR-0005.
 
     CSL JSON mapping: name-variable array entries on a bibliographic item
     (e.g. author array, editor array).
     """
-
-    order_field_name = "order"
-    order_with_respect_to = "item"
 
     item = models.ForeignKey(
         Item,
@@ -556,7 +555,7 @@ class ItemName(OrderedModelBase):
         help_text=_("CSL JSON name-variable field (e.g. author, editor, translator)."),
     )
     order = models.PositiveIntegerField(
-        default=0,
+        editable=False,
         verbose_name=_("order"),
         help_text=_("Position of this contributor within the (item, role) group."),
     )
@@ -575,6 +574,20 @@ class ItemName(OrderedModelBase):
             models.Index(fields=["item", "role", "order"], name="itemname_item_role_order_idx"),
             models.Index(fields=["name", "role"], name="itemname_name_role_idx"),
         ]
+
+    def save(self, *args, **kwargs):
+        """Assign a role-scoped position on first insert.
+
+        ``order`` is numbered per ``(item, role)`` group, so the contributor
+        list for each role is ordered independently. A new row is appended to
+        the end of its own role's sequence; existing rows keep their position.
+        """
+        if self._state.adding and self.order is None:
+            last = (
+                ItemName.objects.filter(item=self.item, role=self.role).aggregate(models.Max("order")).get("order__max")
+            )
+            self.order = 0 if last is None else last + 1
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         """Return '<name> as <role> on <item>'."""
