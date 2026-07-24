@@ -27,7 +27,7 @@ Everything needed to reach a minimum usable release.
 
 ### R1 — Normalized CSL JSON store
 
-*Delivered · needs verification · advances G1*
+*Delivered · advances G1*
 
 Bibliographic references persist as a normalized relational model of CSL JSON 1.0.2: a top-level item with its contributors, dates, and identifiers held in their own related structures rather than a JSON blob. This is the foundation the rest of the package builds on.
 
@@ -35,7 +35,7 @@ Serves G1.
 
 ### R2 — Two-way conversion with round-trip fidelity
 
-*Delivered · needs verification · advances G2*
+*Delivered · advances G2*
 
 References convert between CSL JSON and the model in both directions, and importing then exporting yields equivalent CSL JSON. This is what keeps references portable: they can leave the package as the same CSL JSON they arrived as.
 
@@ -43,9 +43,9 @@ Serves G2.
 
 ### R3 — Headless core
 
-*Delivered · needs verification · advances G3*
+*Delivered · advances G3*
 
-The core runs with no front end required: add it to a project, point a relation at an item, and the host owns its reference catalogue with no UI stack pulled in. One gap against this goal remains: the core still ships a bundled admin, which the scope now disallows. That is a drift from the charter, reconciled as a conformance fix rather than carried as a roadmap item.
+The core runs with no front end required: add it to a project, point a relation at an item, and the host owns its reference catalogue with no UI stack pulled in. The core installs no management surface of its own, so nothing is registered and no UI stack is imported.
 
 Serves G3.
 
@@ -55,7 +55,7 @@ What a complete, dependable version is expected to carry.
 
 ### R4 — Identifier validation at the model layer
 
-*Delivered · needs verification · advances G7*
+*Delivered · advances G7*
 
 Known identifier types are format-checked where the data lives, so a malformed DOI, ISBN, ISSN, or similar is rejected rather than silently stored, while unknown types are still accepted so nothing is lost. Validation sits at the model layer so every write path inherits it.
 
