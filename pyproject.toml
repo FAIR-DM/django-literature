@@ -154,7 +154,6 @@ keywords = ["django", "literature", "publications", "scientific", "research"]
 dependencies = [
     'django>=4.2',
     'django-partial-date',
-    'django-ordered-model>=3.7',
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

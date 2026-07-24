@@ -191,7 +191,7 @@ class TestItemNameModel:
         assert ItemName.objects.filter(item=item, name=name).count() == 2
 
     def test_ordering_preserved(self, item):
-        """ItemName preserves order_with_respect_to=(item, role)."""
+        """ItemName preserves insertion order within a single role."""
         n1 = NameFactory(family="First", given="A")
         n2 = NameFactory(family="Second", given="B")
         n3 = NameFactory(family="Third", given="C")
@@ -200,6 +200,22 @@ class TestItemNameModel:
         ItemNameFactory(item=item, name=n3, role=NameRole.AUTHOR)
         ordered = list(ItemName.objects.filter(item=item, role=NameRole.AUTHOR).order_by("order"))
         assert [in_.name.family for in_ in ordered] == ["First", "Second", "Third"]
+
+    def test_ordering_scoped_per_role(self, item):
+        """order is numbered independently within each (item, role) group.
+
+        An author, then an editor, then a second author are added. The two
+        authors must form their own 0-based sequence, unperturbed by the
+        interleaved editor, and the editor must start its own sequence at 0.
+        """
+        a1 = ItemNameFactory(item=item, name=NameFactory(family="Auth1"), role=NameRole.AUTHOR)
+        e1 = ItemNameFactory(item=item, name=NameFactory(family="Edit1"), role=NameRole.EDITOR)
+        a2 = ItemNameFactory(item=item, name=NameFactory(family="Auth2"), role=NameRole.AUTHOR)
+        a1.refresh_from_db()
+        e1.refresh_from_db()
+        a2.refresh_from_db()
+        assert [a1.order, a2.order] == [0, 1]
+        assert e1.order == 0
 
     def test_str_non_empty(self, item, name):
         """ItemName.__str__ returns a non-empty string."""

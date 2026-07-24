@@ -47,7 +47,7 @@ Model-layer validators enforce correct format for DOI, ISBN, ISSN, URL, PMID, an
 PMCID values so invalid identifiers are never silently stored.
 :::
 :::{grid-item-card} Ordered contributors
-Author/editor/translator ordering is preserved per item and role using
-`django-ordered-model`.
+Author, editor, and translator ordering is preserved independently within each
+role on an item.
 :::
 ::::

@@ -16,7 +16,6 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    "ordered_model",
     "literature",
 ]
 

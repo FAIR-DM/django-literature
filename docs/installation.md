@@ -5,7 +5,6 @@
 - Python 3.11+
 - Django 4.2+
 - [django-partial-date](https://github.com/ktowen/django_partial_date) — partial date precision
-- [django-ordered-model](https://github.com/django-ordered-model/django-ordered-model) 3.7+ — ordered contributors
 
 ## Install from PyPI
 
@@ -21,21 +20,15 @@ poetry add django-literature
 
 ## Configure Django
 
-Add `ordered_model` and `literature` to `INSTALLED_APPS`:
+Add `literature` to `INSTALLED_APPS`:
 
 ```python
 # settings.py
 INSTALLED_APPS = [
     # ...
-    "ordered_model",
     "literature",
 ]
 ```
-
-:::{note}
-`ordered_model` must appear **before** `literature` in the list because `literature`'s
-`ItemName` model inherits from `ordered_model.OrderedModel`.
-:::
 
 ## Apply migrations
 

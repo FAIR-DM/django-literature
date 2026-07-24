@@ -43,8 +43,9 @@ property of the link, not the name.
 
 The ordered through-model binding a `Name` to an `Item` in a specific **role** and **position**.
 Role is one of 26 `NameRole` values (`author`, `editor`, `translator`, …); order is preserved
-per `(item, role)` scope via `django-ordered-model`. Unique on `(item, role, name)` — the same
-contributor appears at most once per role per item.
+per `(item, role)` scope, numbered independently within each role and assigned in the model's
+`save()` (see ADR-0005). Unique on `(item, role, name)` — the same contributor appears at most
+once per role per item.
 
 ### ItemDate
 

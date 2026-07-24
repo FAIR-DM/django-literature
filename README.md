@@ -18,7 +18,7 @@ A Django app for storing, managing, and converting bibliographic references usin
 - **Bidirectional conversion** — import CSL JSON dicts into the database and export model instances back to valid CSL JSON with full round-trip fidelity.
 - **Partial date support** — year-only, year-month, full year-month-day, and date ranges via `django-partial-date`.
 - **Identifier validation** — model-layer validators for DOI, ISBN, ISSN, URL, PMID, and PMCID formats.
-- **Ordered contributors** — author/editor/translator order preserved per item and role via `django-ordered-model`.
+- **Ordered contributors** — author, editor, and translator order is preserved independently within each role on an item.
 - **i18n ready** — all user-facing strings wrapped with `gettext_lazy`; ships a pre-generated `locale/en/LC_MESSAGES/django.po` catalog.
 
 ---
@@ -65,7 +65,6 @@ way to use the package in full. Install the core on its own, or add the UI when 
 - Python 3.12+
 - Django 5.2 or 6.0
 - [django-partial-date](https://github.com/ktowen/django_partial_date)
-- [django-ordered-model](https://github.com/django-ordered-model/django-ordered-model) 3.7+
 
 ---
 
@@ -75,13 +74,12 @@ way to use the package in full. Install the core on its own, or add the UI when 
 pip install django-literature
 ```
 
-Add `literature` and `ordered_model` to `INSTALLED_APPS`:
+Add `literature` to `INSTALLED_APPS`:
 
 ```python
 # settings.py
 INSTALLED_APPS = [
     # ...
-    "ordered_model",
     "literature",
 ]
 ```
