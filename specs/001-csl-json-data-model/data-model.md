@@ -82,7 +82,7 @@
 |---|---|---|---|---|
 | `id` | — | BigAutoField (PK) | auto | Django standard PK |
 | `citation_key` | `citation-key` | CharField(255) | required, db_index | App-level unique. Import: prefer `citation-key`, fallback `id`. Export: CSL `id` = `citation_key` |
-| `type` | `type` | CharField(30) | required, choices | CSL item type enum (44 values). Rejects unknown types. |
+| `type` | `type` | CharField(30) | required, choices | CSL item type enum (45 values). Rejects unknown types. |
 | `title` | `title` | CharField(1000) | blank, db_index | |
 | `title_short` | `title-short` / `shortTitle` | CharField(500) | blank | Also maps to deprecated `shortTitle` |
 | `original_title` | `original-title` | CharField(500) | blank | |
@@ -467,7 +467,7 @@ Item 1──∞ ItemIdentifier
 
 ## CSL JSON Field Coverage Checklist
 
-All 44 CSL JSON item types: covered via `Item.type` choices.
+All 45 CSL JSON item types: covered via `Item.type` choices.
 
 All CSL JSON properties accounted for:
 
