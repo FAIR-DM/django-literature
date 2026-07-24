@@ -401,3 +401,20 @@ class TestFromCslJsonList:
         items = from_csl_json_list(data)
         assert len(items) == 1
         assert items[0].citation_key == "ValidItem"
+
+    def test_unexpected_error_surfaces(self, monkeypatch):
+        """from_csl_json_list() lets non-validation errors propagate.
+
+        A bug in the importer (here simulated as a TypeError) must not be
+        swallowed and reported as a merely-invalid record. Only ValidationError
+        is skipped; everything else surfaces to the caller.
+        """
+        import literature.converters as converters
+
+        def boom(_item_data):
+            raise TypeError("importer bug, not bad input")
+
+        monkeypatch.setattr(converters, "from_csl_json", boom)
+
+        with pytest.raises(TypeError, match="importer bug"):
+            from_csl_json_list([{"type": "article-journal", "citation-key": "X"}])
