@@ -10,18 +10,6 @@ from literature.choices import DateType, IdentifierType, ItemType, NameRole
 
 
 @pytest.fixture
-def admin_user(db):
-    """Create a superuser for HTTP admin tests."""
-    from django.contrib.auth.models import User
-
-    return User.objects.create_superuser(
-        username="admin",
-        password="password",
-        email="admin@example.com",
-    )
-
-
-@pytest.fixture
 def make_item(db):
     """Factory fixture for creating Item instances.
 
