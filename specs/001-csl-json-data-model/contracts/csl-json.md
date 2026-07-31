@@ -69,7 +69,7 @@ Deserialize a CSL JSON dictionary into a new `Item` instance with all related re
 
 **Preconditions** (validation errors raised if violated):
 
-- `data["type"]` must be present and must be a recognized CSL JSON item type (from the 44-type enum)
+- `data["type"]` must be present and must be a recognized CSL JSON item type (from the 45-type enum)
 - At least one of `data["citation-key"]` or `data["id"]` must be present and non-empty
 
 **Behavior**:
@@ -84,7 +84,7 @@ Deserialize a CSL JSON dictionary into a new `Item` instance with all related re
    - Never overwrite existing records
 
 3. **Type validation**:
-   - `data["type"]` must match one of the 44 recognized CSL types
+   - `data["type"]` must match one of the 45 recognized CSL types
    - Unrecognized type → raise `ValidationError`
 
 4. **Scalar fields**:

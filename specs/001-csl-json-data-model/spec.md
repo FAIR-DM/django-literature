@@ -133,7 +133,7 @@ A developer reading the source code or generated documentation can understand th
 
 - Q: Should US2 Acceptance Scenario 5 describe storage or rejection of unknown item types? → A: Rejection only — FR-015 is authoritative. US2 Scenario 5 was rewritten to match: an unknown `type` raises a `ValidationError` and the item is NOT stored.
 - Q: Should identifier value format validation be in scope for this feature? → A: Yes — Constitution Principle I mandates that invalid identifiers MUST NOT be silently stored. FR-020 was added explicitly covering DOI, ISBN, ISSN, URL, PMID, PMCID format validators at the model layer (Django validators on `ItemIdentifier.value`). SC-006 tracks the measurable outcome.
-- Q: Should round-trip tests cover all 44 CSL item types, not just 3? → A: Yes — SC-002 requires "all item types." T006 (choices completeness) and T013 (round-trip) were extended to cover all 44 types.
+- Q: Should round-trip tests cover all 45 CSL item types, not just 3? → A: Yes — SC-002 requires "all item types." T006 (choices completeness) and T013 (round-trip) were extended to cover all 45 types.
 
 ## Success Criteria *(mandatory)*
 

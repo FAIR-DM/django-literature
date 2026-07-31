@@ -60,7 +60,7 @@ The CSL JSON schema (`csl-data.json`) defines a flat item object with ~80 proper
 - `literal` is a free-text fallback when structured dates can't represent the value
 - `raw` is an unparsed date string that processors may attempt to parse
 
-**Item types** (44 total in CSL 1.0.2): `article`, `article-journal`, `article-magazine`, `article-newspaper`, `bill`, `book`, `broadcast`, `chapter`, `classic`, `collection`, `dataset`, `document`, `entry`, `entry-dictionary`, `entry-encyclopedia`, `event`, `figure`, `graphic`, `hearing`, `interview`, `legal_case`, `legislation`, `manuscript`, `map`, `motion_picture`, `musical_score`, `pamphlet`, `paper-conference`, `patent`, `performance`, `periodical`, `personal_communication`, `post`, `post-weblog`, `regulation`, `report`, `review`, `review-book`, `software`, `song`, `speech`, `standard`, `thesis`, `treaty`, `webpage`
+**Item types** (45 total in CSL 1.0.2): `article`, `article-journal`, `article-magazine`, `article-newspaper`, `bill`, `book`, `broadcast`, `chapter`, `classic`, `collection`, `dataset`, `document`, `entry`, `entry-dictionary`, `entry-encyclopedia`, `event`, `figure`, `graphic`, `hearing`, `interview`, `legal_case`, `legislation`, `manuscript`, `map`, `motion_picture`, `musical_score`, `pamphlet`, `paper-conference`, `patent`, `performance`, `periodical`, `personal_communication`, `post`, `post-weblog`, `regulation`, `report`, `review`, `review-book`, `software`, `song`, `speech`, `standard`, `thesis`, `treaty`, `webpage`
 
 ### Alternatives Considered
 
