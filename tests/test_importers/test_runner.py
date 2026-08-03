@@ -11,7 +11,6 @@ import io
 import logging
 
 import pytest
-from django.core.exceptions import ValidationError
 
 from literature.importers.base import Format
 from literature.importers.results import Outcome
