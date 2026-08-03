@@ -151,7 +151,9 @@ Each item can have at most one identifier of each type (enforced by `UNIQUE(item
 
 **Known identifier types**: `DOI`, `ISBN`, `ISSN`, `PMID`, `PMCID`, `URL`.
 
-All well-known types are validated at model layer via `full_clean()`:
+All well-known types are validated at the model layer, on `save()` as well as
+through `full_clean()`, so a direct `ItemIdentifier.objects.create(...)` cannot
+store a malformed value:
 
 | Type | Validation rule |
 |---|---|
@@ -160,9 +162,13 @@ All well-known types are validated at model layer via `full_clean()`:
 | `ISSN` | Must match `\d{4}-\d{3}[\dX]` |
 | `URL` | Absolute URL with `http`, `https`, or `ftp` scheme |
 | `PMID` | Numeric string |
-| `PMCID` | Numeric string |
+| `PMCID` | `PMC` followed by digits, or a bare digit string |
 
 Unknown identifier types are accepted without format validation (a warning is logged).
+
+`bulk_create()` does not call `save()`, so it bypasses these checks. That is
+Django's behaviour for every model. Call `full_clean()` yourself when you build
+identifiers in bulk.
 
 ---
 

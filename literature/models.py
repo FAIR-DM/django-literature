@@ -18,7 +18,8 @@ from django.utils.translation import gettext_lazy as _
 from partial_date import PartialDate  # noqa: F401  used in type hints
 from partial_date.fields import PartialDateField
 
-from literature.choices import DateType, IdentifierType, ItemType, NameRole
+from literature.choices import DateType, ItemType, NameRole
+from literature.validators import validate_identifier
 
 
 class Item(models.Model):
@@ -743,29 +744,19 @@ class ItemIdentifier(models.Model):
     def clean(self) -> None:
         """Validate identifier value format for known identifier types (FR-020).
 
-        Dispatches to the appropriate validator in ``literature.validators``
-        based on ``self.type``. Unknown identifier types skip validation.
+        Unknown identifier types skip validation.
         """
-        from collections.abc import Callable
-
-        from literature.validators import (
-            validate_doi,
-            validate_isbn,
-            validate_issn,
-            validate_pmcid,
-            validate_pmid,
-            validate_url,
-        )
-
-        _VALIDATORS: dict[str, Callable[[str], None]] = {
-            IdentifierType.DOI: validate_doi,
-            IdentifierType.ISBN: validate_isbn,
-            IdentifierType.ISSN: validate_issn,
-            IdentifierType.URL: validate_url,
-            IdentifierType.PMID: validate_pmid,
-            IdentifierType.PMCID: validate_pmcid,
-        }
-        validator = _VALIDATORS.get(self.type)
-        if validator is not None:
-            validator(self.value)
+        validate_identifier(self.type, self.value)
         super().clean()
+
+    def save(self, *args, **kwargs):
+        """Validate the identifier format before writing (FR-020).
+
+        ``clean()`` alone only runs when a caller invokes ``full_clean()``, so a
+        direct ``objects.create()`` or instance ``save()`` would otherwise store
+        a malformed value. Validating here means every write path that goes
+        through ``save()`` applies the same rules. ``bulk_create()`` skips
+        ``save()`` and remains unchecked, as it does for any Django model.
+        """
+        validate_identifier(self.type, self.value)
+        return super().save(*args, **kwargs)
