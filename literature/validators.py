@@ -11,16 +11,23 @@ Validators:
     validate_issn   — ISSN (format check: ``NNNN-NNNX``)
     validate_url    — HTTP/HTTPS/FTP URL
     validate_pmid   — PubMed ID (numeric string)
-    validate_pmcid  — PubMed Central ID (numeric string)
+    validate_pmcid  — PubMed Central ID (``PMC``-prefixed or bare digits)
+
+:func:`validate_identifier` dispatches on identifier type and is the single
+entry point both ``ItemIdentifier.clean()`` and ``ItemIdentifier.save()`` use,
+so every write path applies the same rules.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.utils.translation import gettext_lazy as _
+
+from literature.choices import IdentifierType
 
 # ---------------------------------------------------------------------------
 # DOI
@@ -137,6 +144,7 @@ def validate_url(value: str) -> None:
 # ---------------------------------------------------------------------------
 
 _NUMERIC_RE = re.compile(r"^\d+$")
+_PMCID_RE = re.compile(r"^(PMC)?\d+$")
 
 
 def validate_pmid(value: str) -> None:
@@ -154,14 +162,46 @@ def validate_pmid(value: str) -> None:
 
 
 def validate_pmcid(value: str) -> None:
-    """Validate a PubMed Central ID (PMCID): must be a non-empty numeric string.
+    """Validate a PubMed Central ID (PMCID).
+
+    Accepts the canonical NCBI form (``PMC`` followed by digits, e.g.
+    ``PMC2728067``) and a bare digit string, which is how some sources record
+    the same identifier.
 
     Raises:
-        ValidationError: if the value contains non-digit characters.
+        ValidationError: if the value is neither form.
     """
-    if not _NUMERIC_RE.match(value):
+    if not _PMCID_RE.match(value):
         raise ValidationError(
-            _("Enter a valid PubMed Central ID (numeric string, e.g. 4567890)."),
+            _("Enter a valid PubMed Central ID (e.g. PMC2728067 or 2728067)."),
             code="invalid_pmcid",
             params={"value": value},
         )
+
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+_IDENTIFIER_VALIDATORS: dict[str, Callable[[str], None]] = {
+    IdentifierType.DOI: validate_doi,
+    IdentifierType.ISBN: validate_isbn,
+    IdentifierType.ISSN: validate_issn,
+    IdentifierType.URL: validate_url,
+    IdentifierType.PMID: validate_pmid,
+    IdentifierType.PMCID: validate_pmcid,
+}
+
+
+def validate_identifier(identifier_type: str, value: str) -> None:
+    """Validate *value* against the format rules for *identifier_type* (FR-020).
+
+    Unknown identifier types carry no format constraint and pass through
+    unvalidated, so nothing is lost (FR-017).
+
+    Raises:
+        ValidationError: if the value is malformed for a known type.
+    """
+    validator = _IDENTIFIER_VALIDATORS.get(identifier_type)
+    if validator is not None:
+        validator(value)
