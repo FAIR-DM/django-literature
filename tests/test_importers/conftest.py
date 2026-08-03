@@ -1,0 +1,134 @@
+"""The test-only format used to exercise the import contract (US1).
+
+Real bibliographic syntaxes arrive with BibTeX (#22) and RIS (#23). Until
+then, this module stands in for one: a small ``Format`` whose entries are
+built from raw dicts tagged by ``kind``, so a test can ask for exactly the
+mix of good, unreadable, skippable, and part-way-failing entries a scenario
+needs (spec.md "Independent Test") without any real file syntax getting in
+the way.
+
+``import_file`` (contracts/importers.md) takes ``type[Format]`` — a class,
+not an instance — because that is also what a registry lookup returns
+(US3). The factories below build a fresh ``Format`` subclass per call, with
+the entries and any observer closed over, so each test gets its own
+independent format to hand to ``import_file``.
+"""
+
+import pytest
+
+from literature.importers.base import Format
+from literature.importers.exceptions import EntryError, ParseError, SkipEntry
+
+
+def make_echo_format(entries, *, on_yield=None, format_name="echo"):
+    """Build a ``Format`` that yields ``entries`` one at a time.
+
+    Each raw entry is a dict. ``to_csl_json`` dispatches on its ``kind``:
+
+    - absent, or ``"good"`` — the dict itself, minus ``kind`` and
+      ``handle``, is a CSL JSON entry ready for ``from_csl_json``.
+    - ``"skip"`` — raises :class:`SkipEntry`, with ``reason`` as its note.
+    - ``"entry_error"`` — raises :class:`EntryError` with ``reason``.
+
+    Any other raw dict (for instance one with a ``type`` that is not a
+    recognised CSL type, or a ``custom`` block built to collide with
+    itself) is passed through unchanged, so ``from_csl_json`` is what
+    rejects it — exercising "lets a ValidationError out"
+    (contracts/importers.md).
+
+    ``on_yield``, when given, is called with each raw entry immediately
+    before it is yielded — a hook for observing how the runner consumes
+    the iterator (FR-024, T012), since a generator only advances past a
+    ``yield`` when its consumer asks for the next value.
+
+    ``handle_for`` reads the raw dict's own ``"handle"`` key, so a test
+    can mix entries that carry one with entries that do not (FR-009).
+    """
+
+    class _EchoFormat(Format):
+        label = "Echo (test-only)"
+
+        def parse(self, file):
+            for raw in entries:
+                if on_yield is not None:
+                    on_yield(raw)
+                yield raw
+
+        def to_csl_json(self, raw):
+            kind = raw.get("kind", "good")
+            if kind == "skip":
+                raise SkipEntry(raw.get("reason", ""))
+            if kind == "entry_error":
+                raise EntryError(raw.get("reason", "bad entry"))
+            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+
+        def handle_for(self, raw):
+            return raw.get("handle")
+
+    _EchoFormat.name = format_name
+    return _EchoFormat
+
+
+def make_unparseable_format(reason="not this format", format_name="unparseable"):
+    """Build a ``Format`` whose ``parse`` cannot read the file at all.
+
+    ``parse`` is written as a generator (the unreachable ``yield`` after
+    the ``raise`` is what makes it one) so the ``ParseError`` fires only
+    when the runner starts consuming it, matching how a format that
+    recovers a few entries before truncation would also raise mid-stream.
+    """
+
+    class _UnparseableFormat(Format):
+        label = "Unparseable (test-only)"
+
+        def parse(self, file):
+            raise ParseError(reason)
+            yield  # pragma: no cover - unreachable, keeps this a generator function
+
+        def to_csl_json(self, raw):
+            raise AssertionError("to_csl_json must not be called when parse() cannot yield an entry")
+
+    _UnparseableFormat.name = format_name
+    return _UnparseableFormat
+
+
+class DuplicateCustomIdentifier(dict):
+    """A ``custom`` block standing in for two identifiers of the same type.
+
+    A real CSL JSON dict cannot carry a duplicate key — Python's own
+    ``dict`` forbids it, so no format could ever build one from real file
+    content. This is a test-only stand-in for the database race
+    research.md R2 verified directly: two writes for the same
+    ``(item, type)`` reaching ``ItemIdentifier.save()`` before either's
+    uniqueness check has seen the other, which is what turns a per-entry
+    failure into a genuine ``IntegrityError`` rather than the
+    ``ValidationError`` ``full_clean()`` normally catches first.
+
+    Needs ``ItemIdentifier.full_clean`` disabled to reach the database at
+    all — see the ``bypass_identifier_validation`` fixture below. With
+    validation intact, the second write is refused before either the
+    savepoint or the database ever sees it, which is the ordinary,
+    already-covered failure path.
+    """
+
+    def __init__(self, key="dup-id"):
+        super().__init__({key: "AAA"})
+        self._key = key
+
+    def items(self):
+        return [(self._key, "AAA"), (self._key, "BBB")]
+
+
+@pytest.fixture
+def bypass_identifier_validation(monkeypatch):
+    """Disable ``ItemIdentifier.full_clean`` for one test.
+
+    Lets a :class:`DuplicateCustomIdentifier` reach the database as a real
+    ``IntegrityError`` instead of being refused earlier as a
+    ``ValidationError`` (research.md R2). Scoped to the test via
+    ``monkeypatch``, so no production code changes and nothing leaks
+    beyond the test that asks for it.
+    """
+    from literature.models import ItemIdentifier
+
+    monkeypatch.setattr(ItemIdentifier, "full_clean", lambda self, *args, **kwargs: None)
