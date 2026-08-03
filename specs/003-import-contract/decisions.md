@@ -123,3 +123,41 @@ de-duplicated only within a single run.
 which is what lets a caller stay ignorant of the individual formats. Working out which format
 a given file holds is guesswork over extensions and content, cannot be tested honestly with no real
 formats registered, and is best decided wherever files are accepted from users.
+
+## D11 — Reproducing the IntegrityError from research.md R2 needs a validation bypass
+
+Self-resolved, during US1 implementation (T006).
+
+research.md R2's probe demonstrated the transaction/savepoint mechanics using a raw
+`ItemIdentifier.objects.create()` call that bypasses `full_clean()`. Reproducing a *real*
+`IntegrityError` (rather than the `ValidationError` `full_clean()` normally raises first) through
+the actual, unmodified `from_csl_json()` turns out to be structurally impossible from CSL JSON
+content alone: every identifier write in that function is `full_clean()`-then-`save()`,
+sequentially, and `full_clean()`'s `validate_unique()` already queries the database — so a second
+identifier of a type already written for the same item is refused *before* it reaches the database,
+every time. Confirmed empirically (a two-identifier probe against the real models) before writing
+the test, rather than assumed.
+
+Two things had to combine to reach the database at all, both confined to the test:
+
+1. `DuplicateCustomIdentifier`, a `dict` subclass whose `.items()` yields the same key twice —
+   something no real CSL JSON parse could ever produce (a Python `dict` cannot hold a duplicate
+   key), standing in for two entries reaching `ItemIdentifier.save()` for the same `(item, type)`.
+2. `bypass_identifier_validation`, a `monkeypatch`-scoped no-op for `ItemIdentifier.full_clean`,
+   confined to the one test that asks for it — needed because even with (1), the *second* write's
+   `full_clean()` would still catch the collision as a `ValidationError` before it reached the
+   database.
+
+Neither touches `converters.py` or any production code; both are test-only constructs, verified to
+produce a genuine `sqlite3.IntegrityError` end to end through the unmodified `from_csl_json()`
+before being used in `test_runner.py`. The alternative — treating research.md R2's probe as
+sufficient on its own and only testing the `ValidationError` partial-failure path in T010 — was
+rejected because the task explicitly asks for the `IntegrityError` path, and research.md itself
+frames the two exception types as "neither can be assumed to be the only one": the runner's
+`except (ValidationError, IntegrityError)` around the per-entry savepoint (`runner.py`) needs a test
+that actually exercises the second branch, not only the first.
+
+**Revisit if**: a future format-specific test needs the same trick — at that point this pairing is
+worth promoting from `tests/test_importers/conftest.py` to a shared test-support module, since
+duplicating the `monkeypatch` + fake-dict combination per format would be exactly the copy-paste
+Article II discourages.
