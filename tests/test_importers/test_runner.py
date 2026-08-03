@@ -17,7 +17,13 @@ from literature.importers.results import Outcome
 from literature.importers.runner import import_file
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName
 
-from .conftest import DuplicateCustomIdentifier, make_echo_format, make_unparseable_format
+from .conftest import (
+    DuplicateCustomIdentifier,
+    make_bad_handle_format,
+    make_echo_format,
+    make_failing_parse_format,
+    make_unparseable_format,
+)
 
 
 def _counts():
@@ -229,6 +235,30 @@ class TestResilience:
         assert len(result.failed) == 1
         assert len(result.created) == 1
         assert Item.objects.filter(citation_key="b").exists()
+
+    def test_an_entry_error_from_parse_is_reported_not_raised(self):
+        """FR-014: ``EntryError`` is documented as coming from ``parse`` as well
+        as from ``to_csl_json``, so it must not escape either."""
+        entries = [{"kind": "good", "id": "a", "type": "book"}]
+
+        result = import_file(io.StringIO(), make_failing_parse_format(entries, reason="entry 2 is malformed"))
+
+        assert [entry.outcome for entry in result.entries] == [Outcome.CREATED, Outcome.FAILED]
+        assert result.entries[1].index == 1
+        assert result.entries[1].reason == "entry 2 is malformed"
+        assert Item.objects.count() == 1
+
+    def test_a_handle_that_cannot_be_read_is_reported_not_raised(self):
+        """FR-023: ``handle_for`` reads untrusted content too. The entry is
+        still reported, with no handle, rather than ending the run."""
+        entries = [{"kind": "good", "id": "a", "type": "book"}]
+
+        result = import_file(io.StringIO(), make_bad_handle_format(entries))
+
+        assert len(result.entries) == 1
+        assert result.entries[0].outcome == Outcome.FAILED
+        assert result.entries[0].handle is None
+        assert Item.objects.count() == 0
 
     def test_unparseable_file_returns_a_one_entry_failed_result(self):
         """FR-014, SC-007."""

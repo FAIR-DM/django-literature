@@ -44,9 +44,14 @@ def import_file(file, format: type[Format]) -> ImportResult:  # noqa: A002 -- co
         for raw in fmt.parse(file):
             entry_index = index
             index += 1
-            handle = fmt.handle_for(raw)
+            handle = None
 
             try:
+                # ``handle_for`` reads the same untrusted content as
+                # ``to_csl_json`` (FR-023), so it is inside the block that
+                # turns a bad entry into a result. An entry whose handle
+                # cannot be read is still reported, just without one.
+                handle = fmt.handle_for(raw)
                 csl_json = fmt.to_csl_json(raw)
             except SkipEntry:
                 entries.append(EntryResult(outcome=Outcome.SKIPPED, index=entry_index, handle=handle))
@@ -69,7 +74,12 @@ def import_file(file, format: type[Format]) -> ImportResult:  # noqa: A002 -- co
                 continue
 
             entries.append(EntryResult(outcome=Outcome.CREATED, index=entry_index, handle=handle, item=item))
-    except ParseError as exc:
+    except (ParseError, EntryError) as exc:
+        # A format may also raise ``EntryError`` from ``parse`` when it can
+        # see that an entry is bad before it is converted (exceptions.py,
+        # contracts/importers.md). Either way the generator is finished, so
+        # the failure is recorded against the next index and the entries
+        # already recovered are kept.
         logger.warning("Parsing failed at entry %s: %s", index, exc)
         entries.append(EntryResult(outcome=Outcome.FAILED, index=index, reason=str(exc)))
 

@@ -1,14 +1,12 @@
 """The format contract: what a bibliographic file syntax plugs in as.
 
-See contracts/importers.md for the full contract and data-model.md for the
-field-by-field shape of ``Entry``. A format supplies only the file-to-entries
+See contracts/importers.md for the full contract. A format supplies only the file-to-entries
 and entry-to-CSL-JSON stages (FR-003); nothing here gives it a route to the
 stage that builds an ``Item``, and the contract offers no way to reach it.
 """
 
 import abc
 from collections.abc import Iterator
-from dataclasses import dataclass
 from typing import Any, ClassVar
 
 
@@ -54,23 +52,3 @@ class Format(abc.ABC):
         into inventing identifiers.
         """
         return None
-
-
-@dataclass(frozen=True)
-class Entry:
-    """One bibliographic record as it appears in a source file.
-
-    Args:
-        index: Zero-based position among the entries the format found.
-            Assigned by the runner, not the format, so no format can get
-            the numbering wrong (FR-009).
-        raw: Whatever the format's ``parse`` produced for this entry.
-            Opaque to the runner, passed back to the format's
-            ``to_csl_json``.
-        handle: The source's own name for this entry, where the syntax has
-            one. ``None`` when it does not (FR-009).
-    """
-
-    index: int
-    raw: Any
-    handle: str | None = None

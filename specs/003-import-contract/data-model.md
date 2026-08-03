@@ -6,20 +6,26 @@ records, reached through `from_csl_json` and not changed.
 
 ---
 
-## Entry
+## The entry, and why it is not a class
 
-One bibliographic record as it appears in a source file, before it becomes an `Item`. Produced by a
-format's parse stage.
+One bibliographic record as it appears in a source file, before it becomes an `Item`. Three facts
+travel with it through one import:
 
-| Field | Type | Notes |
+| Fact | Type | Notes |
 |---|---|---|
-| `index` | `int` | Zero-based position among the entries the format found. Assigned by the runner, not the format, so no format can get the numbering wrong (FR-009) |
-| `handle` | `str \| None` | The source's own name for this entry, where the syntax has one: a BibTeX cite key, an RIS record number. `None` when it does not (FR-009) |
-| `raw` | `object` | Whatever the format's parser produced for this entry. Opaque to the runner, passed back to the format's convert stage |
+| index | `int` | Zero-based position among the entries the format found. Assigned by the runner, not the format, so no format can get the numbering wrong (FR-009) |
+| handle | `str \| None` | The source's own name for this entry, where the syntax has one: a BibTeX cite key, an RIS record number. `None` when it does not (FR-009) |
+| raw | `object` | Whatever the format's parser produced for this entry. Opaque to the runner, passed back to the format's convert stage |
 
 `raw` is deliberately untyped. It is a private handoff between a format's two stages, and typing it
 would mean inventing a common intermediate that every format has to squeeze into for no benefit —
 the common intermediate is CSL JSON, one stage later.
+
+**These three are runner-local, not a public `Entry` class.** An earlier draft of this document gave
+them one. Nothing constructs it: a format receives `raw` and returns CSL JSON, and what a caller
+gets back is an `EntryResult` that already carries the index and the handle. A public dataclass no
+caller ever builds or receives is the abstraction without a concrete use that Article III forbids,
+so it was removed at US1 convergence (decision D12).
 
 ## Outcome
 

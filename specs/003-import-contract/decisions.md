@@ -161,3 +161,30 @@ that actually exercises the second branch, not only the first.
 worth promoting from `tests/test_importers/conftest.py` to a shared test-support module, since
 duplicating the `monkeypatch` + fake-dict combination per format would be exactly the copy-paste
 Article II discourages.
+
+## D12 — The entry stays runner-local; `EntryError` is caught wherever a format raises it
+
+**Decided at:** US1 convergence review.
+
+Two things the US1 implementation shipped as tasks.md and plan.md asked for, both wrong on review.
+
+**The `Entry` dataclass is removed.** T008 called for it and data-model.md described it, but nothing
+in the workflow builds one — a format is handed `raw` and returns CSL JSON, and a caller gets back
+an `EntryResult` that already carries the index and the handle. That leaves a public frozen
+dataclass that no caller ever constructs or receives, which is the abstraction without a present
+concrete use Article III bars, and exactly the kind of accumulation this feature exists to prevent.
+The index, handle, and raw entry stay as three locals in the runner's loop. data-model.md is amended
+to describe them as facts that travel with an entry rather than as a class.
+
+**`EntryError` raised from `parse` no longer escapes.** exceptions.py and contracts/importers.md both
+document `EntryError` as coming from `parse` as well as from `to_csl_json`, but the runner caught it
+only around the convert stage, so a format that recognises a bad entry while reading the file raised
+straight through `import_file` — against FR-014, which says bad file content is reported and never
+raised. It is now caught alongside `ParseError`: the generator is finished either way, so the
+failure is recorded against the next index and the entries already recovered are kept.
+
+`handle_for` moved inside the same block for the same reason. It reads the same untrusted content as
+`to_csl_json` (FR-023), so an entry whose handle cannot be read is now reported as a failure without
+a handle rather than ending the run.
+
+Both are covered by regression tests that were confirmed to fail against the pre-fix runner.

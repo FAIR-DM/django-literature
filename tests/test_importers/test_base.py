@@ -10,7 +10,7 @@ import abc
 
 import pytest
 
-from literature.importers.base import Entry, Format
+from literature.importers.base import Format
 
 
 class TestFormatIsAbstract:
@@ -119,24 +119,3 @@ class TestFormatHasNoRouteToBuildingAnItem:
     def test_public_surface_is_exactly_the_three_stages(self):
         public_attrs = {name for name in vars(Format) if not name.startswith("_")}
         assert public_attrs == {"parse", "to_csl_json", "handle_for"}
-
-
-class TestEntry:
-    """The runner-assigned record a format's raw output is wrapped in."""
-
-    def test_is_immutable(self):
-        import dataclasses
-
-        entry = Entry(index=0, raw="raw")
-        with pytest.raises(dataclasses.FrozenInstanceError):
-            entry.index = 1
-
-    def test_handle_defaults_to_none(self):
-        entry = Entry(index=0, raw="raw")
-        assert entry.handle is None
-
-    def test_carries_index_raw_and_handle(self):
-        entry = Entry(index=3, raw={"a": 1}, handle="smith2020")
-        assert entry.index == 3
-        assert entry.raw == {"a": 1}
-        assert entry.handle == "smith2020"

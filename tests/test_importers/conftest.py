@@ -69,6 +69,53 @@ def make_echo_format(entries, *, on_yield=None, format_name="echo"):
     return _EchoFormat
 
 
+def make_failing_parse_format(entries, reason="bad entry", format_name="failing-parse"):
+    """Build a ``Format`` that yields ``entries`` and then raises ``EntryError``.
+
+    ``parse`` may raise ``EntryError`` as well as ``ParseError``
+    (exceptions.py, contracts/importers.md) — a syntax can recognise that
+    an entry is bad before anything tries to convert it. The runner has to
+    report that as a failure rather than let it escape (FR-014).
+    """
+
+    class _FailingParseFormat(Format):
+        label = "Failing parse (test-only)"
+
+        def parse(self, file):
+            yield from entries
+            raise EntryError(reason)
+
+        def to_csl_json(self, raw):
+            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+
+    _FailingParseFormat.name = format_name
+    return _FailingParseFormat
+
+
+def make_bad_handle_format(entries, reason="cannot read this entry's key", format_name="bad-handle"):
+    """Build a ``Format`` whose ``handle_for`` raises on untrusted content.
+
+    ``handle_for`` reads the same raw entry as ``to_csl_json``, so a
+    malformed entry can break it too (FR-023). The entry is still reported,
+    without a handle.
+    """
+
+    class _BadHandleFormat(Format):
+        label = "Bad handle (test-only)"
+
+        def parse(self, file):
+            yield from entries
+
+        def to_csl_json(self, raw):
+            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+
+        def handle_for(self, raw):
+            raise EntryError(reason)
+
+    _BadHandleFormat.name = format_name
+    return _BadHandleFormat
+
+
 def make_unparseable_format(reason="not this format", format_name="unparseable"):
     """Build a ``Format`` whose ``parse`` cannot read the file at all.
 
