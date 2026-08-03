@@ -11,6 +11,7 @@ Tests cover:
 """
 
 import pytest
+from django.core.exceptions import ValidationError
 from partial_date import PartialDate
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
@@ -318,11 +319,60 @@ class TestItemIdentifierModel:
 
     def test_unique_constraint(self, item):
         """ItemIdentifier enforces uniqueness of (item, type)."""
-        ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1/first")
+        ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/first")
         with pytest.raises(Exception):  # IntegrityError on duplicate
-            ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1/second")
+            ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/second")
 
     def test_str_non_empty(self, item):
         """ItemIdentifier.__str__ returns a non-empty string."""
         ident = ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/test")
         assert len(str(ident)) > 0
+
+
+@pytest.mark.django_db
+class TestItemIdentifierWritePathValidation:
+    """Known-type format validation holds on every write path, not only full_clean()."""
+
+    @pytest.mark.parametrize(
+        "identifier_type,value",
+        [
+            (IdentifierType.DOI, "not-a-doi"),
+            (IdentifierType.ISBN, "978-3-16-148410-1"),
+            (IdentifierType.ISSN, "0956540X"),
+            (IdentifierType.PMID, "not-numeric"),
+            (IdentifierType.PMCID, "PMC-oops"),
+            (IdentifierType.URL, "/relative/path"),
+        ],
+    )
+    def test_direct_create_rejects_invalid_known_type(self, item, identifier_type, value):
+        """objects.create() refuses a malformed value for a known identifier type."""
+        with pytest.raises(ValidationError):
+            ItemIdentifier.objects.create(item=item, type=identifier_type, value=value)
+        assert not ItemIdentifier.objects.filter(item=item, type=identifier_type).exists()
+
+    def test_instance_save_rejects_invalid_known_type(self, item):
+        """A bare instance .save() refuses a malformed value."""
+        with pytest.raises(ValidationError):
+            ItemIdentifier(item=item, type=IdentifierType.DOI, value="10.1/too-few-digits").save()
+
+    def test_update_to_invalid_value_is_rejected(self, item):
+        """Re-saving a stored identifier with a malformed value is refused."""
+        ident = ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/valid")
+        ident.value = "not-a-doi"
+        with pytest.raises(ValidationError):
+            ident.save()
+        assert ItemIdentifier.objects.get(pk=ident.pk).value == "10.1234/valid"
+
+    def test_direct_create_accepts_unknown_type(self, item):
+        """Unknown identifier types carry no format constraint (FR-017)."""
+        ident = ItemIdentifier.objects.create(item=item, type="arXiv", value="anything at all")
+        assert ItemIdentifier.objects.get(pk=ident.pk).value == "anything at all"
+
+    def test_bulk_create_bypasses_validation(self, item):
+        """bulk_create() skips save(), so it stores unchecked values by design.
+
+        This is Django's documented behaviour for every model, not a gap specific
+        to this package. The test pins it so the limitation stays visible.
+        """
+        ItemIdentifier.objects.bulk_create([ItemIdentifier(item=item, type=IdentifierType.DOI, value="not-a-doi")])
+        assert ItemIdentifier.objects.get(item=item, type=IdentifierType.DOI).value == "not-a-doi"
