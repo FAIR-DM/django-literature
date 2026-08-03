@@ -123,3 +123,68 @@ de-duplicated only within a single run.
 which is what lets a caller stay ignorant of the individual formats. Working out which format
 a given file holds is guesswork over extensions and content, cannot be tested honestly with no real
 formats registered, and is best decided wherever files are accepted from users.
+
+## D11 — Reproducing the IntegrityError from research.md R2 needs a validation bypass
+
+Self-resolved, during US1 implementation (T006).
+
+research.md R2's probe demonstrated the transaction/savepoint mechanics using a raw
+`ItemIdentifier.objects.create()` call that bypasses `full_clean()`. Reproducing a *real*
+`IntegrityError` (rather than the `ValidationError` `full_clean()` normally raises first) through
+the actual, unmodified `from_csl_json()` turns out to be structurally impossible from CSL JSON
+content alone: every identifier write in that function is `full_clean()`-then-`save()`,
+sequentially, and `full_clean()`'s `validate_unique()` already queries the database — so a second
+identifier of a type already written for the same item is refused *before* it reaches the database,
+every time. Confirmed empirically (a two-identifier probe against the real models) before writing
+the test, rather than assumed.
+
+Two things had to combine to reach the database at all, both confined to the test:
+
+1. `DuplicateCustomIdentifier`, a `dict` subclass whose `.items()` yields the same key twice —
+   something no real CSL JSON parse could ever produce (a Python `dict` cannot hold a duplicate
+   key), standing in for two entries reaching `ItemIdentifier.save()` for the same `(item, type)`.
+2. `bypass_identifier_validation`, a `monkeypatch`-scoped no-op for `ItemIdentifier.full_clean`,
+   confined to the one test that asks for it — needed because even with (1), the *second* write's
+   `full_clean()` would still catch the collision as a `ValidationError` before it reached the
+   database.
+
+Neither touches `converters.py` or any production code; both are test-only constructs, verified to
+produce a genuine `sqlite3.IntegrityError` end to end through the unmodified `from_csl_json()`
+before being used in `test_runner.py`. The alternative — treating research.md R2's probe as
+sufficient on its own and only testing the `ValidationError` partial-failure path in T010 — was
+rejected because the task explicitly asks for the `IntegrityError` path, and research.md itself
+frames the two exception types as "neither can be assumed to be the only one": the runner's
+`except (ValidationError, IntegrityError)` around the per-entry savepoint (`runner.py`) needs a test
+that actually exercises the second branch, not only the first.
+
+**Revisit if**: a future format-specific test needs the same trick — at that point this pairing is
+worth promoting from `tests/test_importers/conftest.py` to a shared test-support module, since
+duplicating the `monkeypatch` + fake-dict combination per format would be exactly the copy-paste
+Article II discourages.
+
+## D12 — The entry stays runner-local; `EntryError` is caught wherever a format raises it
+
+**Decided at:** US1 convergence review.
+
+Two things the US1 implementation shipped as tasks.md and plan.md asked for, both wrong on review.
+
+**The `Entry` dataclass is removed.** T008 called for it and data-model.md described it, but nothing
+in the workflow builds one — a format is handed `raw` and returns CSL JSON, and a caller gets back
+an `EntryResult` that already carries the index and the handle. That leaves a public frozen
+dataclass that no caller ever constructs or receives, which is the abstraction without a present
+concrete use Article III bars, and exactly the kind of accumulation this feature exists to prevent.
+The index, handle, and raw entry stay as three locals in the runner's loop. data-model.md is amended
+to describe them as facts that travel with an entry rather than as a class.
+
+**`EntryError` raised from `parse` no longer escapes.** exceptions.py and contracts/importers.md both
+document `EntryError` as coming from `parse` as well as from `to_csl_json`, but the runner caught it
+only around the convert stage, so a format that recognises a bad entry while reading the file raised
+straight through `import_file` — against FR-014, which says bad file content is reported and never
+raised. It is now caught alongside `ParseError`: the generator is finished either way, so the
+failure is recorded against the next index and the entries already recovered are kept.
+
+`handle_for` moved inside the same block for the same reason. It reads the same untrusted content as
+`to_csl_json` (FR-023), so an entry whose handle cannot be read is now reported as a failure without
+a handle rather than ending the run.
+
+Both are covered by regression tests that were confirmed to fail against the pre-fix runner.
