@@ -129,6 +129,35 @@ class TestReporting:
 
 
 @pytest.mark.django_db
+class TestLazyConsumption:
+    """FR-024, US1 scenario 8: entries are consumed and stored progressively.
+
+    A generator only advances past its ``yield`` when the consumer asks
+    for the next value, so ``on_yield`` firing for entry *N* observes
+    however many entries the runner has *already stored* by that point —
+    not how many the format has produced. A runner that drained the whole
+    iterator up front (``list(fmt.parse(file))``) before storing anything
+    would make every ``on_yield`` observe a count of zero instead.
+    """
+
+    def test_each_entry_is_stored_before_the_next_is_requested(self):
+        observed_counts_before_yield = []
+
+        def on_yield(_raw):
+            observed_counts_before_yield.append(Item.objects.count())
+
+        entries = [
+            {"kind": "good", "id": "a", "type": "book"},
+            {"kind": "good", "id": "b", "type": "book"},
+            {"kind": "good", "id": "c", "type": "book"},
+        ]
+        result = import_file(io.StringIO(), make_echo_format(entries, on_yield=on_yield))
+
+        assert observed_counts_before_yield == [0, 1, 2]
+        assert len(result.created) == 3
+
+
+@pytest.mark.django_db
 class TestResilience:
     """Treats file content as untrusted throughout (FR-023)."""
 
