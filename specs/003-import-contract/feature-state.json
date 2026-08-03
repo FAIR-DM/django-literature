@@ -130,43 +130,126 @@
         },
         {
           "id": "T006",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/conftest.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T007",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_base.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_base.py -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T008",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_base.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q --no-cov",
+              "poetry run pytest -q --no-cov",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T009",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py::TestReporting"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_runner.py -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T010",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py::TestResilience"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_runner.py -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T011",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q --no-cov (69 passed)",
+              "poetry run pytest -q --no-cov (402 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T012",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py::TestLazyConsumption"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_runner.py -q --no-cov -k Lazy",
+              "poetry run pytest -q --no-cov (403 passed)"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T013",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_converters_unchanged.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_converters_unchanged.py -q --no-cov",
+              "poetry run pytest -q --no-cov (404 passed)",
+              "git status --short tests/test_converters.py literature/converters.py (clean)"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T019",
