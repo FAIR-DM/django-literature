@@ -21,12 +21,14 @@ this class, which is what makes it replaceable (research.md).
 
 import calendar
 import dataclasses
+import re
 from collections.abc import Iterator
 from typing import Any
 
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.customization import splitname
+from bibtexparser.latexenc import latex_to_unicode
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
@@ -141,6 +143,73 @@ def _month_number(raw: str) -> int | None:
 
 
 # ---------------------------------------------------------------------------
+# Cleaning (FR-017, FR-018, FR-019, FR-029) — recovery before rejection
+# (spec 004, D1). A value in a form the catalogue would reject is normalized
+# where its meaning is recoverable; nothing here evaluates its input, since a
+# ``.bib`` file is untrusted content (Article V).
+# ---------------------------------------------------------------------------
+
+
+def _clean_text(value: str) -> str:
+    """Decode LaTeX escapes to the characters they represent (FR-018).
+
+    ``bibtexparser.latexenc.latex_to_unicode`` also strips braces once it has
+    finished decoding, which is what removes capitalization-protecting braces
+    (``{DNA}`` -> ``DNA``) without a separate step. A construct it does not
+    recognise is left in the string rather than raising or dropping anything
+    — pure string substitution, so it never evaluates its input.
+    """
+    return str(latex_to_unicode(value))
+
+
+#: A DOI written with its resolver URL prefix (FR-017's named case).
+_DOI_URL_RE = re.compile(r"^https?://(?:dx\.)?doi\.org/", re.IGNORECASE)
+
+#: A DOI carrying a plain ``doi:`` label rather than a bare identifier.
+_DOI_LABEL_RE = re.compile(r"^doi:\s*", re.IGNORECASE)
+
+
+def _normalize_doi(value: str) -> str:
+    """Strip a resolver URL prefix or a ``doi:`` label, leaving the bare DOI.
+
+    A value carrying neither is returned unchanged — normalization only
+    removes what it recognises, and cleaning that cannot recover a value
+    leaves it for preservation rather than guessing at it (D1).
+    """
+    text = _DOI_URL_RE.sub("", value.strip())
+    return _DOI_LABEL_RE.sub("", text).strip()
+
+
+#: An ISBN carrying a redundant ``isbn:`` / ``isbn-13:`` label, the same
+#: shape of malformation the DOI case is named for (FR-017), applied to the
+#: other identifier field T023 names by field.
+_ISBN_LABEL_RE = re.compile(r"^isbn(?:-1[03])?:?\s*", re.IGNORECASE)
+
+
+def _normalize_isbn(value: str) -> str:
+    """Strip a redundant ``isbn:`` label. Hyphens and spaces are the
+    validator's own job (``validate_isbn`` strips them before checking).
+    """
+    return _ISBN_LABEL_RE.sub("", value.strip()).strip()
+
+
+#: Field-specific normalization beyond the generic LaTeX decode (T023).
+_IDENTIFIER_NORMALIZERS: dict[str, Any] = {
+    "doi": _normalize_doi,
+    "isbn": _normalize_isbn,
+}
+
+
+def _clean_identifier(bib_key: str, value: str) -> str:
+    """Normalize one identifier field's value ahead of validation."""
+    cleaned = _clean_text(value).strip()
+    normalizer = _IDENTIFIER_NORMALIZERS.get(bib_key)
+    if normalizer is not None:
+        cleaned = normalizer(cleaned)
+    return cleaned
+
+
+# ---------------------------------------------------------------------------
 # Names (FR-008, FR-009)
 # ---------------------------------------------------------------------------
 
@@ -194,20 +263,26 @@ def _split_name_list(raw: str) -> list[str]:
 def _name_to_csl(name: str) -> dict[str, Any]:
     """One name string to a CSL name-variable object.
 
-    A brace-wrapped literal goes to ``literal`` unsplit (FR-009). Otherwise
+    A brace-wrapped literal goes to ``literal`` unsplit (FR-009), decoded but
+    not split. Otherwise the whole name is LaTeX-decoded (FR-018) before
     ``splitname`` breaks it into First/von/Last/Jr, which map directly onto
     CSL's ``given``, ``non-dropping-particle``, ``family`` and ``suffix``
     (FR-008). Non-strict mode: a name this story cannot parse cleanly should
     not abort the entry over a name, which is the contract's own per-entry
     robustness (base.py), not a cleaning transform on the name's content.
+
+    Decoding runs after :func:`_is_wrapped_literal`'s check, not before —
+    that check looks for one surviving brace pair once the parser has
+    stripped the field's own outer delimiter, and ``_clean_text`` would
+    already have removed it, along with every other brace in the name.
     """
     stripped = name.strip()
     if not stripped:
         return {}
     if _is_wrapped_literal(stripped):
-        return {"literal": stripped[1:-1]}
+        return {"literal": _clean_text(stripped[1:-1])}
 
-    parts = splitname(stripped, strict_mode=False)
+    parts = splitname(_clean_text(stripped), strict_mode=False)
     result: dict[str, Any] = {}
     given = " ".join(parts.get("first", []))
     family = " ".join(parts.get("last", []))
@@ -309,9 +384,10 @@ class BibTeXFormat(BibFormat):
         Comments and preambles arrive as plain strings (see :meth:`parse`)
         and are skipped outright (FR-014). Everything else is a classic
         BibTeX entry dict, mapped in the fixed order plan.md lays out: type,
-        fields, names, dates, identifiers. Cleaning and preservation are
-        later stories (US2, US4); a field this story does not recognise is
-        simply not carried into the result yet.
+        fields, names, dates, identifiers, each cleaned ahead of mapping
+        (FR-017, FR-018, D1). Preservation of a value cleaning cannot
+        rescue is US2's next task; a field this story does not recognise at
+        all is US4.
         """
         if not isinstance(raw, dict):
             raise SkipEntry
@@ -324,7 +400,7 @@ class BibTeXFormat(BibFormat):
         for bib_key, mapping in FIELD_TABLE.items():
             value = raw.get(bib_key)
             if value:
-                result[mapping.csl] = value
+                result[mapping.csl] = _clean_text(value)
 
         for bib_key, mapping in NAME_FIELD_TABLE.items():
             value = raw.get(bib_key)
@@ -340,7 +416,7 @@ class BibTeXFormat(BibFormat):
         for bib_key, mapping in IDENTIFIER_FIELD_TABLE.items():
             value = raw.get(bib_key)
             if value:
-                result[mapping.csl] = value
+                result[mapping.csl] = _clean_identifier(bib_key, value)
 
         return result
 

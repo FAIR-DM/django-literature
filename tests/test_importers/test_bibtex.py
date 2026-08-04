@@ -351,6 +351,58 @@ class TestCrossref:
         assert [e.outcome for e in result] == [Outcome.CREATED]
 
 
+class TestCleaning:
+    """Recoverable malformations are normalized before mapping (FR-017, FR-018)."""
+
+    def test_doi_as_a_resolver_url_normalizes_to_the_bare_identifier(self):
+        with fixture("doi_as_url.bib") as handle:
+            raws = {raw["ID"]: raw for raw in BibTeXFormat().parse(handle)}
+
+        full = BibTeXFormat().to_csl_json(raws["doi_full_url"])
+        assert full["DOI"] == "10.1234/example.2021.001"
+
+        dx = BibTeXFormat().to_csl_json(raws["doi_dx_url"])
+        assert dx["DOI"] == "10.1234/example.2021.002"
+
+    def test_doi_carrying_a_label_normalizes_to_the_bare_identifier(self):
+        with fixture("doi_labelled.bib") as handle:
+            raw = next(iter(BibTeXFormat().parse(handle)))
+        assert BibTeXFormat().to_csl_json(raw)["DOI"] == "10.1234/example.2022.001"
+
+    def test_latex_accents_decode_to_the_characters_they_represent(self):
+        with fixture("latex_escapes.bib") as handle:
+            raw = next(iter(BibTeXFormat().parse(handle)))
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["author"] == [
+            {"given": "Hans", "family": "Krüger"},
+            {"given": "María", "family": "Álvarez"},
+            {"given": "Jørgen", "family": "Weiß"},
+        ]
+
+    def test_capitalization_protecting_braces_are_removed(self):
+        with fixture("latex_escapes.bib") as handle:
+            raw = next(iter(BibTeXFormat().parse(handle)))
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["title"] == "A Study of DNA Sequencing in Århus"
+        assert "{" not in csl["title"]
+        assert "}" not in csl["title"]
+
+    def test_a_construct_the_decoder_does_not_recognise_is_left_visible_not_dropped(self):
+        """``unknown_macro2020``: the decoder knows ``\\u`` as an accent command,
+
+        so ``\\unknownmacro`` is not left untouched character-for-character —
+        but nothing from the source is discarded either. ``\\textcelsius`` has
+        no unicode equivalent bibtexparser knows, so it is left exactly as
+        written, backslash and all.
+        """
+        with fixture("latex_escapes.bib") as handle:
+            raws = list(BibTeXFormat().parse(handle))
+        raw = next(r for r in raws if r["ID"] == "unknown_macro2020")
+        title = BibTeXFormat().to_csl_json(raw)["title"]
+        assert "\\textcelsius" in title
+        assert "knownmacrox" in title
+
+
 class TestCorpusAcceptance:
     """The acceptance-level checks TASK_BRIEF names directly."""
 
