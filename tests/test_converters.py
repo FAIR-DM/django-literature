@@ -10,6 +10,7 @@ Tests cover contract from contracts/csl-json.md:
 """
 
 import json
+import logging
 import os
 
 import pytest
@@ -551,3 +552,28 @@ class TestRoundTripFidelity:
             return {(i.type, i.value) for i in ItemIdentifier.objects.filter(item=for_item)}
 
         assert _identifier_signature(reimported) == _identifier_signature(original)
+
+
+@pytest.mark.django_db
+class TestFromCslJsonListStillWarns:
+    """FR-004 and decision D5 of the import contract (003-import-contract).
+
+    That feature reuses this conversion and must leave it exactly as it was for
+    callers using it directly, so ``literature/converters.py`` is modified by no
+    task in it — the per-entry savepoint lives in the runner instead. What the
+    tests above do not pin down is that skipping still goes through
+    ``logger.warning`` rather than silently, which is what this class adds.
+    """
+
+    def test_skipping_an_invalid_item_logs_a_warning(self, caplog):
+        data = [
+            {"type": "article-journal", "citation-key": "Kept"},
+            {"citation-key": "MissingType"},  # missing "type" -> ValidationError, skipped
+        ]
+
+        with caplog.at_level(logging.WARNING, logger="literature.converters"):
+            items = from_csl_json_list(data)
+
+        assert len(items) == 1
+        assert items[0].citation_key == "Kept"
+        assert any("Skipping invalid CSL JSON item" in record.message for record in caplog.records)

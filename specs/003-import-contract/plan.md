@@ -114,10 +114,9 @@ tests/
     ├── test_exceptions.py
     ├── test_results.py
     ├── test_base.py
-    ├── test_runner.py
-    ├── test_dry_run.py
+    ├── test_runner.py     # incl. the dry-run classes (D23)
     ├── test_registry.py
-    └── test_smoke.py
+    └── test_smoke.py      # incl. the public-surface classes (D23)
 ```
 
 **Structure Decision.** A package rather than a single module, because #22 and #23 each add a

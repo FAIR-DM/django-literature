@@ -380,3 +380,40 @@ the exception vocabulary the contract documents, raised a long way from the mist
 `register()` now rejects any class with outstanding `__abstractmethods__`, naming the ones missing.
 Covered by `test_a_format_missing_a_stage_is_refused_and_names_the_stage`, which goes red if the
 check is removed.
+
+## D22 — Two pre-existing files under `tests/` are modified, both additively
+
+Self-resolved, at convergence. `forge tamper-check` flags any change to a test file that existed at
+the base, so both are approved here in the record rather than left as unexplained flags.
+
+`tests/settings.py` gains a second database alias. The dry-run tests route `literature` models away
+from `default` through a `DATABASE_ROUTERS` setting, which is the only way to catch a transaction
+opened on a different connection than the writes (D20). No existing setting changed.
+
+`tests/test_documentation.py` adds `literature.importers` to the modules whose public symbols it
+walks. The docstring gate is meant to cover the package's public surface, so a new public module has
+to be in that list or the gate silently stops applying to the largest thing this feature adds.
+
+Neither weakens an assertion. Nothing else under `tests/` that predates this branch is modified.
+
+## D23 — Three test modules folded into the module of their subject
+
+Self-resolved, at convergence, on a red conformance gate.
+
+Constitution Article X requires the test tree to mirror the source tree, and `forge conformance`
+enforces it: `test_dry_run.py`, `test_public_surface.py` and `test_converters_unchanged.py` each
+mirrored no source module, since there is no `dry_run.py`, `public_surface.py` or
+`converters_unchanged.py` to mirror. The rule's own remedy is to move a cross-cutting test into the
+module of its subject as another `Test*` class.
+
+- The dry-run tests move into `tests/test_importers/test_runner.py`. A dry run is a mode of
+  `import_file`, not a second code path.
+- The `from_csl_json_list` warning pin moves into `tests/test_converters.py`, whose subject it
+  always was.
+- The public-surface tests move into `tests/test_importers/test_smoke.py`. Their subject is the
+  package `__init__`, which no test module can mirror by path, and `test_smoke.py` is the
+  package-level module the rule already exempts by name.
+
+Every test moves unchanged and the suite count is identical either side of the move. The alternative
+was declaring the three under `[tool.forge.conformance] non-mirror-paths`, which the kit reserves
+for tests whose subject is not a Python module at all — all three of these have one.
