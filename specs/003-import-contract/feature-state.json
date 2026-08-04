@@ -3,7 +3,7 @@
   "feature": "003-import-contract",
   "branch": "003-import-contract",
   "repo": "FAIR-DM/django-literature",
-  "state": "IMPLEMENT",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "GATE_SPEC",
@@ -32,6 +32,11 @@
     {
       "state": "IMPLEMENT",
       "at": "2026-08-04T10:30:00Z"
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-04T12:14:14Z",
+      "note": "PR #29 merged; approved by SamuelJennings"
     }
   ],
   "gates": {
@@ -52,8 +57,8 @@
       "at": "2026-08-03T19:55:00Z"
     },
     "merge": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-04T12:13:12Z"
     }
   },
   "stories": [
