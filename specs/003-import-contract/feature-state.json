@@ -3,7 +3,7 @@
   "feature": "003-import-contract",
   "branch": "003-import-contract",
   "repo": "FAIR-DM/django-literature",
-  "state": "GATE_MERGE",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "GATE_SPEC",
@@ -28,6 +28,10 @@
     {
       "state": "GATE_MERGE",
       "at": "2026-08-04T12:50:00Z"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-04T10:30:00Z"
     }
   ],
   "gates": {
@@ -39,7 +43,8 @@
         "D4 entry identity is index plus optional source handle",
         "D5 the result is the reporting channel, logging is additive",
         "D6 no throughput target, entries consumed one at a time",
-        "D7 CONTEXT.md vocabulary updated in the same change"
+        "D7 CONTEXT.md vocabulary updated in the same change",
+        "2026-08-04 amendment agreed in session: BibFormat rename, workflow onto the class as overridable methods (no @final), registry replaced by LITERATURE settings"
       ]
     },
     "plan": {
@@ -57,7 +62,7 @@
       "priority": "P1",
       "issue": 25,
       "worktree": null,
-      "status": "done",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
@@ -346,6 +351,36 @@
             ],
             "verified_by_ci": false
           }
+        },
+        {
+          "id": "T024",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T025",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T026",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T029",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T030",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T031",
+          "status": "todo",
+          "attempts": 0
         }
       ]
     },
@@ -399,7 +434,7 @@
       "priority": "P3",
       "issue": 27,
       "worktree": null,
-      "status": "done",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
@@ -449,6 +484,16 @@
             ],
             "verified_by_ci": false
           }
+        },
+        {
+          "id": "T027",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T028",
+          "status": "todo",
+          "attempts": 0
         }
       ]
     }

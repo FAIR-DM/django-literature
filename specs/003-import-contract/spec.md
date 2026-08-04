@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-03
 
-**Status**: Draft
+**Status**: Draft · **Refined**: 2026-08-04 (see *Refinements* below)
 
 **Serves**: G5 (import references from common bibliography formats) · Roadmap R5 · Issue #21
 
@@ -62,18 +62,19 @@ Before committing a library of several hundred references, a developer wants to 
 
 ### User Story 3 - Discover which formats are available (Priority: P3)
 
-A developer, or code acting on their behalf, needs to know which file formats this installation can read without knowing anything about them individually. They ask for the registered set and get back the names, each of which can be used to run an import.
+A developer, or code acting on their behalf, needs to know which file formats this installation can read without knowing anything about them individually. They ask for the configured set and get back the names, each of which can be used to run an import. Which formats are configured is the host project's decision, declared in settings.
 
 **Why this priority**: It is what lets a caller stay ignorant of the individual formats, which is the point of having a contract at all. It is last because an import can be run by handing over a format directly, so the registry is a convenience over a working core rather than a precondition for one.
 
-**Independent Test**: Register a test-only format, assert it appears in the enumerated set, run an import by naming it, and assert an unregistered name is rejected with a message that names what is registered.
+**Independent Test**: Point the setting at a test-only format, assert it appears in the enumerated set, run an import by naming it, and assert an unconfigured name is rejected with a message that names what is configured.
 
 **Acceptance Scenarios**:
 
-1. **Given** a registered format, **When** the developer enumerates the available formats, **Then** the registered format appears in the result.
-2. **Given** a registered format name, **When** the developer runs an import naming it, **Then** the import uses that format.
-3. **Given** a name that is not registered, **When** the developer runs an import naming it, **Then** the call fails with an error that names the formats that are registered.
-4. **Given** a name already registered, **When** a second format is registered under that name, **Then** the registration fails rather than replacing the first silently.
+1. **Given** a format listed in the `LITERATURE` setting, **When** the developer enumerates the available formats, **Then** that format appears in the result.
+2. **Given** a configured format's name, **When** the developer runs an import naming it, **Then** the import uses that format.
+3. **Given** a name that is not configured, **When** the developer runs an import naming it, **Then** the call fails with an error that names the formats that are.
+4. **Given** a project that sets nothing, **When** the developer enumerates the available formats, **Then** the formats this package ships are returned, so the built-in behaviour needs no configuration.
+5. **Given** a setting entry that does not resolve to a `BibFormat` subclass, **When** the formats are first read, **Then** the failure names the offending entry rather than surfacing later as a missing format.
 
 ---
 
@@ -96,10 +97,10 @@ A developer, or code acting on their behalf, needs to know which file formats th
 
 - **FR-001**: The package MUST provide one documented way to import a bibliographic file, identical for every format.
 - **FR-002**: An import MUST run a fixed sequence of stages: read the file, parse it into entries, convert each entry to CSL JSON, and build an `Item` with its related records from that CSL JSON.
-- **FR-003**: A format MUST supply only the file-to-entries and entry-to-CSL JSON stages. It MUST NOT be able to change how an `Item` is built from CSL JSON.
+- **FR-003**: A format MUST need to supply only the file-to-entries and entry-to-CSL JSON stages. The remaining stages MUST be provided by the base class as ordinary overridable methods, so that a format which implements the two required stages and nothing else gets correct behaviour, and one with an unusual need can replace a step deliberately.
 - **FR-004**: Building an `Item` MUST reuse the package's existing CSL JSON conversion, whose behaviour for callers using it directly MUST be unchanged by this feature.
 - **FR-005**: A caller MUST be able to run an import without referring to anything specific to the file's format.
-- **FR-006**: An entry MUST be stored in full or not at all. Where any part of an entry cannot be stored, whether its `Item` or any related `ItemName`, `ItemDate`, or `ItemIdentifier`, nothing from that entry MUST remain stored.
+- **FR-006**: An entry MUST, under the behaviour the base class provides, be stored in full or not at all. Where any part of an entry cannot be stored, whether its `Item` or any related `ItemName`, `ItemDate`, or `ItemIdentifier`, nothing from that entry MUST remain stored.
 
 **Reporting**
 
@@ -117,12 +118,12 @@ A developer, or code acting on their behalf, needs to know which file formats th
 - **FR-015**: An import MUST be runnable as a dry run that executes every stage and produces the same result, while leaving the stored catalogue exactly as it was before the run.
 - **FR-016**: An import result MUST state whether it came from a dry run.
 
-**Registration**
+**Configuration**
 
-- **FR-017**: A format MUST be registerable under a name, and the registered set MUST be enumerable by a caller that knows nothing about the individual formats.
-- **FR-018**: An import MUST be runnable by naming a registered format.
-- **FR-019**: Naming a format that is not registered MUST fail with an error that names the formats which are registered.
-- **FR-020**: Registering a second format under an already-registered name MUST fail rather than silently replacing the first.
+- **FR-017**: The formats an installation can read MUST be declared in Django settings under the namespaced `LITERATURE` key, as a list of import paths, and that set MUST be enumerable by a caller that knows nothing about the individual formats.
+- **FR-018**: An import MUST be runnable by naming a configured format.
+- **FR-019**: Naming a format that is not configured MUST fail with an error that names the formats which are.
+- **FR-020**: The setting MUST default to the formats this package ships, so the built-in behaviour works with no configuration (Article X).
 
 **Package conventions**
 
@@ -144,12 +145,12 @@ A developer, or code acting on their behalf, needs to know which file formats th
 
 ### Key Entities
 
-- **Format**: A plug-in for one bibliographic file syntax, such as BibTeX or RIS. It knows how to turn a file into entries and how to express one entry as CSL JSON, and nothing else. It is registered under a name.
+- **BibFormat**: A plug-in for one bibliographic file syntax, such as BibTeX or RIS. A subclass need only turn a file into entries and express one entry as CSL JSON. The base class supplies the rest of the workflow as overridable methods.
 - **Entry**: One bibliographic record as it appears in a source file, before it becomes an `Item`. The unit that an outcome is reported against.
 - **Import result**: The report from one import run. Holds one entry result per entry found, in source order, and records whether the run was a dry run.
 - **Entry result**: The fate of a single entry — its outcome, its zero-based index in the source file, the source's own handle for it where the format offers one, the `Item` it produced where there is one, and a reason where it failed.
 - **Outcome**: The fixed vocabulary an entry result draws from: created, skipped, or failed.
-- **Format registry**: The set of formats this installation can read, keyed by name, enumerable without knowing what is in it.
+- **Configured formats**: The set of formats this installation can read, declared in settings and keyed by name, enumerable without knowing what is in it.
 
 ## Success Criteria *(mandatory)*
 
@@ -174,3 +175,30 @@ A developer, or code acting on their behalf, needs to know which file formats th
 - **No concrete format ships here.** BibTeX (#22) and RIS (#23) follow. This feature is verified against a test-only format that exists solely to exercise the contract, which is also what keeps the workflow honest: a contract that only one real format can satisfy is not a contract.
 - **No user interface.** Nothing here assumes a view, a form, or an upload.
 - **The existing catalogue behaviour is inherited, not revisited.** Batch-scoped citation-key de-duplication, partial-date fallbacks, and unknown-identifier storage all apply exactly as they do today.
+
+
+## Refinements
+
+### 2026-08-04 — maintainer review of the implementation
+
+Three changes to the agreed shape, raised by the maintainer after reading the branch and agreed in
+session. Nothing in the feature's purpose or its user stories changed; the surface it presents did.
+
+1. **`Format` became `BibFormat`.** `Format` is too generic for a shared namespace, where it reads
+   against `django.utils.formats`, `str.format`, and the unrelated `Format` in `django-import-export`.
+   Article X requires the public surface not to collide with common Django structures.
+
+2. **The workflow moved onto the class as overridable methods.** It had been a module-level function
+   in `runner.py`, deliberately outside the class so a format could not change the stages it does not
+   own. The maintainer's ruling: *"It's not up to us to try and prevent novel use cases that another
+   developer might try to invent. All we need to do is provide a base class that will get the job done
+   if you follow instructions."* So `import_file`, `import_entries`, `import_entry` and `get_result`
+   are ordinary methods, `runner.py` is gone, and the guarantees this spec describes are what the base
+   class **does by default** rather than what it prevents. FR-003 and FR-006 are reworded to say so.
+
+3. **The registry became a setting.** `LITERATURE = {"BIB_FORMATS": [...]}` replaces the decorator and
+   the module-level mapping. The registry had a hazard of its own making — a format was invisible
+   until something imported its module, which needed a decision record to explain — plus mutable
+   global state with no test-isolation or thread-safety story. A setting is resolved on read, lets the
+   host control what is active, and is what Article X already asks for. FR-017 to FR-020 are rewritten
+   and `FormatAlreadyRegistered` is removed.
