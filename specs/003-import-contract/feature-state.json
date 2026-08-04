@@ -328,23 +328,56 @@
       "priority": "P3",
       "issue": 27,
       "worktree": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T016",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_registry.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_registry.py -q --no-cov (confirmed red: ModuleNotFoundError: No module named 'literature.importers.registry')"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T017",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_registry.py::TestRegister",
+              "tests/test_importers/test_registry.py::TestGetFormat"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_registry.py -q --no-cov (6 of 9 passed; TestImportByName still red pending T018)"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T018",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_registry.py::TestImportByName"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_registry.py -q --no-cov (9 passed)",
+              "poetry run pytest tests/test_importers/ -q --no-cov (88 passed)",
+              "poetry run pytest -q --no-cov (421 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     }

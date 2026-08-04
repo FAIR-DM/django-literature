@@ -256,3 +256,27 @@ when `transaction.set_rollback(True)` is removed.
 
 **Revisit if**: the flush-per-test cost of `transaction=True` becomes noticeable — the answer is to
 keep these two and refuse more, not to drop them.
+
+## D16 — `import_file` sets `format_name` on a by-name run, though T018's brief did not say to
+
+Self-resolved, during US3 implementation (T018).
+
+`ImportResult.format_name` has existed since T004 (US1) with the docstring "the registered name
+used, when the import was run by name" and the matching row in data-model.md's `ImportResult`
+table, but nothing set it to anything but its `None` default, since no story before this one could
+run an import by name at all. T018's task brief lists resolving a `str` through `get_format` and
+letting `UnknownFormat` propagate, and does not mention this field.
+
+Left unset, `format_name` would be a documented field that permanently reads `None` — the exact
+kind of contract the data model states but the code never keeps. Since setting it is the one-line
+natural completion of "run by name" (`format_name = format if isinstance(format, str) else None`,
+threaded through to the `ImportResult(...)` call already being touched for `dry_run` in D14), and
+the field's own docstring already commits to this behaviour, this is treated as the contract
+(data-model.md) filling a gap the task brief left rather than a disagreement to escalate. Covered by
+`test_result_records_the_name_used` and `test_result_format_name_is_none_when_a_class_was_passed_directly`
+in `test_registry.py`.
+
+**Revisit if**: a future story wants `format_name` to reflect the resolved class's `name` even when
+a `Format` subclass was passed directly (today it stays `None` in that case, matching "when the
+import was run by name" read literally) — that would be a new, separate decision, not a correction
+of this one.
