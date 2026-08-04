@@ -3,7 +3,7 @@
   "feature": "004-import-references-bibtex",
   "branch": "004-import-references-bibtex",
   "repo": "FAIR-DM/django-literature",
-  "state": "CONVERGE",
+  "state": "GATE_MERGE",
   "state_history": [
     {
       "state": "GATE_SPEC",
@@ -28,6 +28,16 @@
       "state": "CONVERGE",
       "at": "2026-08-04T20:05:00Z",
       "note": "US4 verified and merged; convergence added FR-031/032/033 from defects no story's acceptance could see, plus T034/T036/T037/T038"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-04T21:30:00Z",
+      "note": "three-reviewer panel on the merged branch; 9 defects found and fixed, D26; 4 untested corpus fixtures given named tests"
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-04T21:45:00Z",
+      "note": "PR #34 marked ready; awaiting Sam's merge"
     }
   ],
   "gates": {
@@ -739,7 +749,7 @@
       "max": 2
     },
     "review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 2
     },
     "tokens": {
@@ -749,7 +759,7 @@
   },
   "pr": {
     "number": 34,
-    "draft": true
+    "draft": false
   },
   "escalations": []
 }
