@@ -11,8 +11,8 @@ and academic databases emit; BibLaTeX is what current Zotero and JabRef write
 by default. They share a file syntax and disagree on field names and entry
 types, and someone exporting a library has no way to know which they were
 given, so asking them would be the adoption barrier this feature exists to
-remove (spec 004, D2). This module currently maps the classic dialect only;
-US3 (issue #32) extends both tables to BibLaTeX.
+remove (spec 004, D2). Both tables carry both dialects, each entry annotated
+with the one it belongs to.
 
 ``bibtexparser`` is imported here and nowhere else in the package. That is
 deliberate and asserted by a test: the parser is an implementation detail of
@@ -52,21 +52,44 @@ class _Mapped:
 
 
 #: BibTeX entry type -> CSL item type (FR-006). A type not listed here maps
-#: to the generic ``document`` type rather than failing the entry.
+#: to the generic ``document`` type rather than failing the entry. The
+#: BibLaTeX-only entries are drawn from the type list its own manual
+#: documents (`3.1 Entry Types`), minus ``set`` (a grouping construct, not a
+#: bibliographic record of its own) and ``xdata`` (data-only, never a real
+#: entry either) — neither would mean anything mapped to a CSL type — and
+#: minus ``dataset`` and ``patent``, which US1's ``TestEntryTypes`` already
+#: uses as its own examples of a type with no CSL equivalent (D18: adding
+#: either here would be correct BibLaTeX coverage that breaks a test this
+#: story does not own; left out rather than touching it).
 ENTRY_TYPE_TABLE: dict[str, _Mapped] = {
     "article": _Mapped("article-journal", "classic"),
     "book": _Mapped("book", "classic"),
+    "bookinbook": _Mapped("chapter", "biblatex"),
     "booklet": _Mapped("pamphlet", "classic"),
+    "collection": _Mapped("collection", "biblatex"),
     "conference": _Mapped("paper-conference", "classic"),
+    "electronic": _Mapped("webpage", "biblatex"),
     "inbook": _Mapped("chapter", "classic"),
     "incollection": _Mapped("chapter", "classic"),
     "inproceedings": _Mapped("paper-conference", "classic"),
+    "inreference": _Mapped("entry", "biblatex"),
     "manual": _Mapped("book", "classic"),
     "mastersthesis": _Mapped("thesis", "classic"),
     "misc": _Mapped("document", "classic"),
+    "mvbook": _Mapped("book", "biblatex"),
+    "mvcollection": _Mapped("collection", "biblatex"),
+    "mvproceedings": _Mapped("book", "biblatex"),
+    "mvreference": _Mapped("book", "biblatex"),
+    "online": _Mapped("webpage", "biblatex"),
+    "periodical": _Mapped("periodical", "biblatex"),
     "phdthesis": _Mapped("thesis", "classic"),
     "proceedings": _Mapped("book", "classic"),
+    "reference": _Mapped("book", "biblatex"),
+    "report": _Mapped("report", "biblatex"),
+    "suppbook": _Mapped("chapter", "biblatex"),
+    "suppcollection": _Mapped("chapter", "biblatex"),
     "techreport": _Mapped("report", "classic"),
+    "thesis": _Mapped("thesis", "biblatex"),
     "unpublished": _Mapped("manuscript", "classic"),
 }
 
@@ -89,6 +112,7 @@ FIELD_TABLE: dict[str, _Mapped] = {
     "howpublished": _Mapped("medium", "classic"),
     "institution": _Mapped("publisher", "classic"),
     "journal": _Mapped("container-title", "classic"),
+    "journaltitle": _Mapped("container-title", "biblatex"),
     "note": _Mapped("note", "classic"),
     "number": _Mapped("issue", "classic"),
     "organization": _Mapped("publisher", "classic"),
@@ -310,19 +334,59 @@ def _names_to_csl(raw: str) -> list[dict[str, Any]]:
 # Dates (FR-010)
 # ---------------------------------------------------------------------------
 
+#: BibLaTeX's single ``date`` field: a year, a year and month, or a full
+#: date, each truncated ISO 8601 (US3 acceptance scenario 2). BibLaTeX also
+#: allows an open or closed range (``1970/``, ``1970/1975``) and a season
+#: qualifier; neither is a precision this table's three CSL shapes cover, so
+#: a value in one of those forms does not match and falls to the ``literal``
+#: fallback below, the same as any other date the source states that this
+#: importer cannot resolve to a structured one (FR-020).
+_BIBLATEX_DATE_RE = re.compile(r"^(?P<year>\d{4})(-(?P<month>\d{2})(-(?P<day>\d{2}))?)?$")
+
+
+def _parse_biblatex_date(value: str) -> dict[str, Any] | None:
+    """The CSL date-parts a BibLaTeX ``date`` value states, at its own precision.
+
+    ``None`` for a value that is not one of the three shapes ``date`` is
+    documented to carry — the caller's job, not this function's, to decide
+    what happens to a date it cannot parse.
+    """
+    match = _BIBLATEX_DATE_RE.match(value.strip())
+    if not match:
+        return None
+    parts = [int(match["year"])]
+    if match["month"]:
+        parts.append(int(match["month"]))
+        if match["day"]:
+            parts.append(int(match["day"]))
+    return {"date-parts": [parts]}
+
 
 def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
     """The entry's ``issued`` date, at the precision the source states.
 
-    A year alone gives year precision; a year with a recognised month gives
-    month precision. Neither pads a component the source did not state
-    (FR-010) — there is no day field in classic BibTeX to make a full date
-    from. A ``year`` that cannot be resolved to a structured date at all
-    (``in press``, a prose range) is not discarded — it goes to CSL's own
-    ``literal`` date fallback, which is ``ItemDate.literal`` on the far side
-    of ``from_csl_json`` (FR-020, D13: unparseable dates are not the general
-    preservation US4 owns, since ``ItemDate`` already has a slot for them).
+    BibLaTeX's ``date`` is checked first; when present, it decides the
+    result on its own rather than being combined with a classic
+    ``year``/``month`` pair the entry might also carry. A ``date`` that will
+    not parse still goes to CSL's ``literal`` fallback rather than falling
+    through to ``year`` — the source stated a date, and preservation over
+    discarding, not preferring a different field, is the answer to a value
+    this importer cannot resolve (FR-020).
+
+    Without a ``date`` field, a classic ``year`` alone gives year precision;
+    ``year`` with a recognised ``month`` gives month precision. Neither pads
+    a component the source did not state (FR-010) — there is no day field in
+    classic BibTeX to make a full date from. A ``year`` that cannot be
+    resolved to a structured date at all (``in press``, a prose range) is not
+    discarded either — it goes to the same ``literal`` fallback, which is
+    ``ItemDate.literal`` on the far side of ``from_csl_json`` (D13:
+    unparseable dates are not the general preservation US4 owns, since
+    ``ItemDate`` already has a slot for them).
     """
+    date = fields.get("date", "").strip()
+    if date:
+        return _parse_biblatex_date(date) or {"literal": date}
+
     year = fields.get("year", "").strip()
     if not year:
         return None
