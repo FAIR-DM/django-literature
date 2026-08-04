@@ -451,6 +451,33 @@ class TestRecovery:
         assert all(e.outcome == Outcome.CREATED for e in result)
 
 
+class TestCorpusRecovery:
+    """SC-002, across the whole committed corpus: no entry is refused for a
+    reason normalization resolves, and every refusal names what could not
+    be recovered.
+    """
+
+    #: A file that is not valid UTF-8 fails before any entry exists to
+    #: clean — the whole file is unreadable (FR-014), which is SC-008's
+    #: territory, not a value cleaning could ever have reached.
+    _WHOLE_FILE_UNREADABLE = {"latin1_encoded.bib"}
+
+    @pytest.mark.django_db
+    def test_no_entry_across_the_corpus_is_refused_for_a_reason_normalization_resolves(self):
+        failures: list[str] = []
+        for path in sorted(FIXTURES.glob("*.bib")):
+            with fixture(path.name) as handle:
+                result = BibTeXFormat().import_file(handle, dry_run=True)
+            for entry_result in result:
+                if entry_result.outcome is Outcome.FAILED:
+                    assert entry_result.reason, f"{path.name}#{entry_result.index} failed with no reason"
+                    failures.append(path.name)
+
+        assert set(failures) <= self._WHOLE_FILE_UNREADABLE, (
+            f"entries failed outside the known whole-file-unreadable cases: {failures}"
+        )
+
+
 class TestCorpusAcceptance:
     """The acceptance-level checks TASK_BRIEF names directly."""
 
