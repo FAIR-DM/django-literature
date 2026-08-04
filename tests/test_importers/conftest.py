@@ -179,3 +179,25 @@ def bypass_identifier_validation(monkeypatch):
     from literature.models import ItemIdentifier
 
     monkeypatch.setattr(ItemIdentifier, "full_clean", lambda self, *args, **kwargs: None)
+
+
+@pytest.fixture(autouse=True)
+def isolated_registry():
+    """Save and restore the registry's module-level state around every test.
+
+    The registry is module-level, so a registration made by one test is still
+    there for the next one — a format registered here would go on to collide
+    with itself as ``FormatAlreadyRegistered``, or worse, satisfy a later
+    test's assertion that it never made.
+
+    A ``try/finally`` written inside each test still leaks whatever a failed
+    assertion left behind, since the test never reaches its own cleanup line.
+    Restoring here instead runs however the test body exits, and autouse means
+    a new test file cannot forget to ask for it.
+    """
+    from literature.importers import registry
+
+    before = dict(registry._registry)
+    yield
+    registry._registry.clear()
+    registry._registry.update(before)

@@ -16,24 +16,6 @@ from literature.importers.runner import import_file
 from .conftest import make_echo_format
 
 
-@pytest.fixture(autouse=True)
-def _isolated_registry():
-    """Save and restore the registry's module-level state around every test.
-
-    A ``try/finally`` written inside each test still leaks a registration
-    left behind by a failed assertion, since the test never reaches its own
-    cleanup line. An autouse fixture restores the prior state regardless of
-    how the test body exits, so a registration made here can never leak into
-    a test that runs after it.
-    """
-    from literature.importers import registry
-
-    before = dict(registry._registry)
-    yield
-    registry._registry.clear()
-    registry._registry.update(before)
-
-
 class TestRegister:
     def test_registered_format_is_enumerated(self):
         """FR-017."""
