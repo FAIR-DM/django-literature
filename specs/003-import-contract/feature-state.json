@@ -3,7 +3,7 @@
   "feature": "003-import-contract",
   "branch": "003-import-contract",
   "repo": "FAIR-DM/django-literature",
-  "state": "CONVERGE",
+  "state": "GATE_MERGE",
   "state_history": [
     {
       "state": "GATE_SPEC",
@@ -20,6 +20,14 @@
     {
       "state": "CONVERGE",
       "at": "2026-08-04T10:09:25Z"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-04T12:40:00Z"
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-04T12:50:00Z"
     }
   ],
   "gates": {
@@ -447,11 +455,11 @@
   ],
   "budgets": {
     "converge_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 2
     },
     "review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 2
     },
     "tokens": {
@@ -461,7 +469,7 @@
   },
   "pr": {
     "number": 29,
-    "draft": true
+    "draft": false
   },
   "escalations": []
 }

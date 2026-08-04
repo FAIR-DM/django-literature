@@ -285,3 +285,27 @@ test's own transaction. In autocommit it is outermost and rolls back through a d
 Both behave the same, which was checked rather than assumed.
 
 **Verified**: 494 passing, ruff, ruff format, mypy, deptry and `makemigrations --check` all clean.
+
+## 2026-08-04T12:45:00Z · Review panel · full diff
+
+**Reviewer**: independent subagent, clean context, refutation brief, ~4700 lines of diff against spec.md,
+contracts/importers.md and the constitution.
+
+**Verdict**: approve. No critical or high findings. One low: `register()` did not check that a `Format`
+subclass had implemented its abstract stages, so a half-written format registered cleanly and failed
+later inside `import_file` with a raw `TypeError`, outside the documented exception vocabulary.
+
+**Fixed**: reproduced with a probe first (`HalfFormat` with no `to_csl_json` registered and was
+enumerable). `register()` now rejects any class with outstanding `__abstractmethods__`, naming them.
+Test `test_a_format_missing_a_stage_is_refused_and_names_the_stage`, tamper-checked by reverting the
+guard — the new test goes red alone, the other 13 stay green. Recorded as D21.
+
+**Also at convergence**: `forge verify` conformance was red on the Article X mirror rule for
+`test_dry_run.py`, `test_public_surface.py` and `test_converters_unchanged.py`. Each folded into the
+module of its subject with its tests unchanged; 495 passed either side of the move (D23). Two
+`tamper-check` flags on `tests/settings.py` and `tests/test_documentation.py` reviewed and approved as
+additive (D22).
+
+**Verified**: `forge verify --base origin/main` → conformance, lint, typecheck, test, build all pass.
+`forge stage-exit --stage S6` → green on all five checks. CI green on `15cd7f9` across four
+Python/Django combinations plus code quality and security scan.
