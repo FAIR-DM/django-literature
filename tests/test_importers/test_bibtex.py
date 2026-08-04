@@ -403,6 +403,54 @@ class TestCleaning:
         assert "knownmacrox" in title
 
 
+class TestRecovery:
+    """A value cleaning cannot rescue is preserved, not failed (FR-019, FR-020, FR-021)."""
+
+    @pytest.mark.django_db
+    def test_an_identifier_that_still_will_not_validate_after_cleaning_is_preserved(self):
+        with fixture("doi_labelled.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
+
+        item = Item.objects.get(citation_key="doi_not_a_doi")
+        assert "DOI" not in [i.type for i in item.item_identifiers.all()]
+        preserved = item.item_identifiers.get(type="doi")
+        assert preserved.value == "see the publisher website"
+
+    @pytest.mark.django_db
+    def test_an_unresolvable_date_lands_in_the_records_own_fallback(self):
+        with fixture("unparseable_date.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
+
+        nonsense = Item.objects.get(citation_key="date_nonsense")
+        issued = nonsense.item_dates.get(date_type="issued")
+        assert issued.begin is None
+        assert issued.literal == "in press"
+
+        range_text = Item.objects.get(citation_key="date_range_text")
+        issued = range_text.item_dates.get(date_type="issued")
+        assert issued.begin is None
+        assert issued.literal == "Spring 1999--2000"
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize(
+        "filename", ["doi_as_url.bib", "doi_labelled.bib", "unparseable_date.bib", "latex_escapes.bib"]
+    )
+    def test_no_recoverable_malformation_fails_its_entry(self, filename):
+        """FR-021: with cleaning and preservation in place, none of these
+        constructed malformations cost an entry — every one is created.
+        """
+        with fixture(filename) as handle:
+            result = BibTeXFormat().import_file(handle)
+        assert result.ok, [e.reason for e in result.failed]
+        assert all(e.outcome == Outcome.CREATED for e in result)
+
+
 class TestCorpusAcceptance:
     """The acceptance-level checks TASK_BRIEF names directly."""
 

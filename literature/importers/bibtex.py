@@ -29,10 +29,12 @@ import bibtexparser
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.customization import splitname
 from bibtexparser.latexenc import latex_to_unicode
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import SkipEntry
+from literature.validators import validate_identifier
 
 # ---------------------------------------------------------------------------
 # Mapping tables — data, not code (plan.md "Design in brief"). Each entry
@@ -315,11 +317,17 @@ def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
     A year alone gives year precision; a year with a recognised month gives
     month precision. Neither pads a component the source did not state
     (FR-010) — there is no day field in classic BibTeX to make a full date
-    from.
+    from. A ``year`` that cannot be resolved to a structured date at all
+    (``in press``, a prose range) is not discarded — it goes to CSL's own
+    ``literal`` date fallback, which is ``ItemDate.literal`` on the far side
+    of ``from_csl_json`` (FR-020, D13: unparseable dates are not the general
+    preservation US4 owns, since ``ItemDate`` already has a slot for them).
     """
     year = fields.get("year", "").strip()
-    if not year.isdigit():
+    if not year:
         return None
+    if not year.isdigit():
+        return {"literal": year}
     parts = [int(year)]
     month = fields.get("month", "")
     if month:
@@ -385,9 +393,10 @@ class BibTeXFormat(BibFormat):
         and are skipped outright (FR-014). Everything else is a classic
         BibTeX entry dict, mapped in the fixed order plan.md lays out: type,
         fields, names, dates, identifiers, each cleaned ahead of mapping
-        (FR-017, FR-018, D1). Preservation of a value cleaning cannot
-        rescue is US2's next task; a field this story does not recognise at
-        all is US4.
+        (FR-017, FR-018, D1). Preservation of a field this story does not
+        recognise at all is US4; the preservation this story does is the
+        narrower one from D13 — an identifier cleaning could not rescue,
+        written into ``custom`` at the point its own validation fails.
         """
         if not isinstance(raw, dict):
             raise SkipEntry
@@ -415,8 +424,20 @@ class BibTeXFormat(BibFormat):
 
         for bib_key, mapping in IDENTIFIER_FIELD_TABLE.items():
             value = raw.get(bib_key)
-            if value:
-                result[mapping.csl] = _clean_identifier(bib_key, value)
+            if not value:
+                continue
+            cleaned = _clean_identifier(bib_key, value)
+            try:
+                validate_identifier(mapping.csl, cleaned)
+            except ValidationError:
+                # Cleaning could not turn this into something the catalogue
+                # accepts. Preserved under its own source field name rather
+                # than failing the entry (FR-019, D13) — the narrow,
+                # one-field-at-a-time case; the general sweep over every
+                # unmapped field is US4.
+                result.setdefault("custom", {})[bib_key] = cleaned
+            else:
+                result[mapping.csl] = cleaned
 
         return result
 
