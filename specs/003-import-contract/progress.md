@@ -244,3 +244,44 @@ supplied. Log lines and the two `ValueError`s guarding `EntryResult` constructio
 deliberately untranslated. Flagged rather than claimed green.
 
 **Next**: convergence and review, then the merge gate.
+
+## Convergence review
+
+Three independent reviews of the finished branch, on separate lenses: requirement-by-requirement
+conformance, an adversarial defect hunt with probes, and standards and documentation accuracy. They
+converged on the same defect from three directions, which is the one worth reading about.
+
+**`import_file` could still be escaped.** The per-entry net named `SkipEntry`, `EntryError`,
+`ValidationError` and `IntegrityError`. `from_csl_json` raises none of those for a CSL JSON dict
+whose *shape* is wrong rather than whose values are — `{"issued": "2020"}` calls `.get()` on a
+string and raises `AttributeError`. Reproduced before touching anything: three entries, the middle
+one carrying a string date, and `import_file` raised, entry one already committed, entry three never
+attempted, no `ImportResult` returned. FR-013, FR-014 and FR-023 failing at once, in the case the
+contract exists for, and unfixable from a format because FR-003 gives it no route to the stage that
+fails. Both blocks now catch `Exception`. Recorded as D18, with what that costs and what keeps it
+honest.
+
+Five more, each reproduced with a probe first and each now covered by a test that fails without its
+fix:
+
+- `handle_for` shared a block with `to_csl_json`, so a `SkipEntry` out of it reported a good record
+  as deliberately skipped and stored it nowhere (D19).
+- A dry run under a `DATABASE_ROUTERS` setup committed every row and reported that it had stored
+  nothing, because the transaction named the default alias and the writes did not (D20).
+- A failure reason was the `repr` of the list inside a `ValidationError`, brackets and all.
+- An exception raised with no message gave `str(exc) == ""`, which is not `None`, so it passed the
+  invariant meant to stop exactly that and printed as a blank line.
+- `SkipEntry` from `parse` escaped, and `ParseError` from `to_csl_json` was filed one index past the
+  entry that raised it, leaving that entry with no result at all.
+
+**Two tests were replaced rather than kept.** The one asserting the `UnknownFormat` message is
+translatable passed just as well against a bare f-string. The public-surface guard derived every
+assertion from a hand-written list, so a name added to a submodule and left out of both that list
+and `__all__` — the omission it exists for — sailed through. Both now fail when tampered with.
+
+**Coverage at the transaction level a caller actually runs at.** The resilience and atomicity tests
+all ran under non-transactional `django_db`, where the per-entry block is a savepoint nested in the
+test's own transaction. In autocommit it is outermost and rolls back through a different branch.
+Both behave the same, which was checked rather than assumed.
+
+**Verified**: 494 passing, ruff, ruff format, mypy, deptry and `makemigrations --check` all clean.
