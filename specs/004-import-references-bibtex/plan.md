@@ -131,6 +131,14 @@ thing a researcher will search for.
 fields, each annotated with the dialect a key comes from. That is what lets the published mapping
 (FR-007) be generated from the source of truth rather than maintained beside it and left to drift.
 
+**It all lives in one module.** Tables at the top, cleaning helpers next, the class below. The
+estimate is 400 to 500 lines, which sits between `importers/base.py` at 282 and `converters.py` at
+542, so it is unremarkable for this package. An earlier draft of this plan split the tables and the
+cleaning helpers into separate private modules, which was structure argued from a prediction about
+size rather than from a measurement, and Article III bars precisely that. If the tables turn out
+substantially larger than estimated once both dialects are in, lifting them into their own module is
+a mechanical move available at the time, and it should be made then rather than assumed now.
+
 **Where the parser is allowed to appear.** `bibtexparser` is imported by
 `literature/importers/bibtex.py` and by nothing else. A test asserts it, so the reversibility
 `research.md` relies on is a checked property rather than an intention.
@@ -139,20 +147,20 @@ fields, each annotated with the dialect a key comes from. That is what lets the 
 
 ```text
 literature/
-├── importers/
-│   ├── bibtex.py          # BibTeXFormat: parse, to_csl_json, handle_for
-│   ├── _bibtex_maps.py    # entry-type and field tables, both dialects
-│   └── _bibtex_clean.py   # LaTeX decoding, DOI/ISBN normalization, brace stripping
+└── importers/
+    └── bibtex.py          # tables (both dialects), cleaning helpers, BibTeXFormat
 docs/
 └── bibtex-mapping.md      # FR-007, generated from the tables
 tests/
 ├── test_importers/
-│   ├── test_bibtex.py
-│   ├── test_bibtex_clean.py
-│   ├── test_bibtex_biblatex.py
-│   └── test_bibtex_preservation.py
+│   └── test_bibtex.py     # concerns grouped into classes, one module per source module
 └── fixtures/bibtex/       # the committed corpus
 ```
+
+One source module means one test module. The constitution states it plainly, that test modules
+mirror the `literature/` tree with `test_` prefixes, and the existing `test_base.py`,
+`test_config.py` and `test_results.py` each pair with a source module. Concerns are separated by
+test class, not by file.
 
 ## Phases
 
