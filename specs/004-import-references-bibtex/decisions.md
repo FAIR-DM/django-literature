@@ -306,3 +306,18 @@ value; whether that value earns its top-level CSL key or goes to `custom` (D13) 
 `literature.validators.validate_identifier`, the same function `ItemIdentifier.clean()` and
 `.save()` call on every other write path. Reusing it rather than checking the DOI/ISBN shape
 independently in `bibtex.py` is what keeps "valid" meaning one thing.
+
+## D16 — The ISBN normalizer had no test that could fail, so US2 verification added one
+
+Found in verification, not by the story. Coverage read 96% on `bibtex.py` with `_normalize_isbn`
+counted as covered, because every clean ISBN in the corpus passes through it. Covered is not
+tested: no assertion ever asked it to strip anything, so deleting its body would have kept the
+suite green. That is the shape D15 already flagged as speculative, one step worse — speculative
+*and* unfalsifiable.
+
+Resolved by pinning the behaviour on a constructed entry (`ISBN-13: 0-201-13447-0`) rather than a
+new fixture, since a fixture would also enter the `TestCorpusRecovery` sweep and assert nothing
+extra there. Confirmed the test is a real gate by removing `isbn` from `_IDENTIFIER_NORMALIZERS`
+and re-running: the labelled value fails validation and lands in `custom` instead of `ISBN`.
+D15's revisit-if stands unchanged — this makes the current behaviour falsifiable, it does not make
+it evidence-based.

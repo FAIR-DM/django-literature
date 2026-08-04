@@ -151,3 +151,17 @@ afterwards.
   `verify` ritual (ruff/format/mypy/deptry clean). US2 complete. Next: US3 (BibLaTeX, issue #32).
   Watch: the corpus sweep uses `dry_run=True` throughout, so it never has to reason about citation-
   key collisions across 500-plus entries from unrelated fixtures sharing one test database.
+
+- **2026-08-04T19:20 · Orchestrator · US2 verification** — Did: re-ran the machine gates
+  independently of the story's own report (`forge verify`: conformance, lint, typecheck, test,
+  build all green; `forge tamper-check`: one flag on `tests/test_importers/test_bibtex.py`, diff
+  confirmed 127 insertions and 0 deletions, approved on the same evidence as D12). Checked the two
+  claims the report rests on that a green suite would not catch: `latex_to_unicode` leaves URLs,
+  percent-encoding and query strings untouched (probed directly, since `url` is an identifier field
+  and now goes through cleaning), and `IdentifierType`'s values are the same strings as the CSL
+  keys `to_csl_json` passes to `validate_identifier`, so the preservation branch is reachable
+  rather than dead. Added the missing ISBN gate (D16). Next: merge US2 into the feature branch and
+  dispatch US3. Watch: `from_csl_json` turns every string in `custom` into an `ItemIdentifier` row
+  with a warning, which is fine for D13's one rescued-identifier case but will make US4's
+  bookkeeping fields (`file`, `owner`, `timestamp`) arrive as identifiers — US4's brief has to
+  settle that rather than discover it.

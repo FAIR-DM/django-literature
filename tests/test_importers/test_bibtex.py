@@ -369,6 +369,15 @@ class TestCleaning:
             raw = next(iter(BibTeXFormat().parse(handle)))
         assert BibTeXFormat().to_csl_json(raw)["DOI"] == "10.1234/example.2022.001"
 
+    def test_an_isbn_carrying_a_redundant_label_normalizes_to_the_bare_identifier(self):
+        """No export in the corpus writes a labelled ISBN, so the behaviour is
+        pinned on a constructed entry rather than through a fixture — without
+        this the normalizer runs on every clean ISBN and is never asked to
+        strip anything.
+        """
+        raw = {"ENTRYTYPE": "book", "ID": "labelled_isbn", "isbn": "ISBN-13: 0-201-13447-0"}
+        assert BibTeXFormat().to_csl_json(raw)["ISBN"] == "0-201-13447-0"
+
     def test_latex_accents_decode_to_the_characters_they_represent(self):
         with fixture("latex_escapes.bib") as handle:
             raw = next(iter(BibTeXFormat().parse(handle)))
