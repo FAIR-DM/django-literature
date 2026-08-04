@@ -186,3 +186,41 @@ is the guard working, not the guard being silenced.
 
 The distinction that matters: a test asserting *behaviour this feature changed* would be evidence
 that the feature is wrong. These assert *inventory* the feature is supposed to change.
+
+## D11 — Two things `bibtexparser` needed help with, found while implementing US1
+
+Not raised at intake or planning; both surfaced empirically while writing `to_csl_json` against the
+committed corpus.
+
+**Bare full month names abort the whole file's parse.** `real_crossref_classic.bib` writes
+`month=July` — a bare, unquoted macro reference, which is Crossref's own convention. `bibtexparser`'s
+`common_strings` defines the three-letter abbreviations (`jan`…`dec`) as macros, so `month=May` and
+`month=Oct` happen to resolve (they coincide with their own abbreviation), but `july` is not a
+three-letter abbreviation and is therefore an undefined macro. With `interpolate_strings=True` this
+raises `UndefinedString` while loading the file, which is not one entry failing — it is the entire
+`bibtexparser.load()` call raising, which aborts parsing before a single entry is yielded. Resolved
+by extending the parser's own macro table with the twelve full month names
+(`literature/importers/bibtex.py:_MONTH_MACROS`) before loading. This is macro *resolution*, the same
+thing `common_strings` already does for abbreviations — FR-013's territory — not a value cleanup: no
+already-parsed field content is altered, and nothing here reaches into US2. The alternative,
+disabling `interpolate_strings` and resolving macros field-by-field with a fallback, was rejected as
+solving a one-line problem with an architecture-level change to how every field is read.
+
+**A zero-field entry is not parsed as an entry at all.** `sparse_entry.bib` — `@misc{bare_minimum,}` —
+is built to exercise spec.md's edge case: "An entry with no fields at all beyond its type and cite
+key... Sparse is not invalid." `bibtexparser` 1.4.4's grammar requires at least one `field` inside an
+entry (`field_list` is `pp.DelimitedList(field)`, which needs one or more matches), so a zero-field
+entry fails to match the `entry` rule and falls through to `implicit_comment` instead — the whole
+`@misc{bare_minimum,}` block is silently reclassified as a comment. It never reaches `parse()` as an
+entry, so no cite key, no type, nothing for `to_csl_json` to map: the file imports as one skipped
+element rather than one stored item.
+
+This is a real gap between the corpus and the parsing library research.md chose, not a mapping defect
+this story's tasks (T007–T020) can fix. Two ways to close it were considered and rejected for this
+story: patching `bibtexparser`'s private pyparsing grammar (`BibtexExpression.entry`) to accept zero
+fields, which reaches past a documented public API into implementation detail of a "maintenance
+mode" dependency (research.md); or pre-scanning the raw source text for this shape before handing it
+to the parser, which is exactly the hand-written parsing research.md rejected for the whole feature.
+Recorded as a concern rather than worked around. `TestBlocks.test_a_zero_field_entry_is_swallowed_as_a_comment_by_the_parser`
+asserts the actual (skipped, not created) behaviour, so a future fix has a red test to turn green
+rather than a silent gap.

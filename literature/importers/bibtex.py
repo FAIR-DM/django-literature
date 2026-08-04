@@ -30,6 +30,7 @@ from bibtexparser.customization import splitname
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
+from literature.importers.exceptions import SkipEntry
 
 # ---------------------------------------------------------------------------
 # Mapping tables — data, not code (plan.md "Design in brief"). Each entry
@@ -286,19 +287,35 @@ class BibTeXFormat(BibFormat):
         parser.bib_database.strings.update(_MONTH_MACROS)
         return parser
 
-    def parse(self, file) -> Iterator[dict[str, Any]]:
-        """Yield this file's entries in source order."""
+    def parse(self, file) -> Iterator[dict[str, Any] | str]:
+        """Yield this file's entries, then its comments and preambles.
+
+        ``@comment`` and ``@preamble`` blocks are not bibliographic records
+        (FR-014), and ``bibtexparser`` collects them into their own lists
+        rather than interleaving them with entries, so there is no source
+        position to recover them at. They are yielded as plain strings,
+        which :meth:`to_csl_json` uses to tell them apart from an entry
+        (always a ``dict``) and skip. Entries themselves keep their source
+        order, which is what FR-004 is asserted against.
+        """
         database = bibtexparser.load(file, parser=self._parser())
         yield from database.entries
+        yield from database.preambles
+        yield from database.comments
 
-    def to_csl_json(self, raw: dict[str, Any]) -> dict[str, Any]:
+    def to_csl_json(self, raw: dict[str, Any] | str) -> dict[str, Any]:
         """Turn one parsed entry into CSL JSON.
 
-        Mapped in the fixed order plan.md lays out: type, fields, names,
-        dates, identifiers. Cleaning and preservation are later stories in
-        this file's history; a field this story does not recognise is simply
-        not carried into the result yet.
+        Comments and preambles arrive as plain strings (see :meth:`parse`)
+        and are skipped outright (FR-014). Everything else is a classic
+        BibTeX entry dict, mapped in the fixed order plan.md lays out: type,
+        fields, names, dates, identifiers. Cleaning and preservation are
+        later stories (US2, US4); a field this story does not recognise is
+        simply not carried into the result yet.
         """
+        if not isinstance(raw, dict):
+            raise SkipEntry
+
         result: dict[str, Any] = {
             "type": ENTRY_TYPE_TABLE.get(raw.get("ENTRYTYPE", ""), _Mapped(_FALLBACK_TYPE, "classic")).csl,
             "citation-key": raw.get("ID", ""),
@@ -327,6 +344,12 @@ class BibTeXFormat(BibFormat):
 
         return result
 
-    def handle_for(self, raw: dict[str, Any]) -> str | None:
-        """The cite key, which is what a reader will search for (FR-012)."""
+    def handle_for(self, raw: dict[str, Any] | str) -> str | None:
+        """The cite key, which is what a reader will search for (FR-012).
+
+        ``None`` for a comment or preamble (see :meth:`parse`), which has no
+        cite key to report.
+        """
+        if not isinstance(raw, dict):
+            return None
         return raw.get("ID") or None
