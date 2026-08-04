@@ -1,0 +1,299 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "004-import-references-bibtex",
+  "branch": "004-import-references-bibtex",
+  "repo": "FAIR-DM/django-literature",
+  "state": "GATE_PLAN",
+  "state_history": [
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-04T13:35:00Z",
+      "note": "approved by SamuelJennings in session"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-04T13:36:00Z"
+    },
+    {
+      "state": "GATE_PLAN",
+      "at": "2026-08-04T15:40:00Z",
+      "note": "maintainer instruction supersedes the pipeline default: the plan is a hard gate on this run, not a veto notification. No implementation until approved."
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-04T13:35:00Z",
+      "self_resolved": [
+        "D4 crossref inheritance in scope; macros and crossref targets established before conversion",
+        "D5 the caller is a developer or administrator, not the researcher; no interface until R6",
+        "D6 acceptance rests on a corpus committed to the repo, constructed fixtures plus real exports",
+        "D7 glossary gains entry type, field, dialect, cite key; cite key tied to the existing citation key"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 30,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T002",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T003",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T004",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T005",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T006",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T007",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T008",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T009",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T010",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T011",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T012",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T013",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T014",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T015",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T016",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T017",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T018",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T019",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T020",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T034",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T035",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T036",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T037",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T038",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T039",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 31,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T021",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T022",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T023",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T024",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T025",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 32,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T026",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T027",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T028",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T029",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T030",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 33,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T031",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T032",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T033",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "tokens": {
+      "used": 0,
+      "max": 4000000
+    }
+  },
+  "pr": {
+    "number": 34,
+    "draft": true
+  },
+  "escalations": []
+}
