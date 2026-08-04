@@ -40,7 +40,9 @@ Self-resolved. The maintainer asked for the most appropriate terms rather than n
 | **outcome** | The fixed vocabulary value on an entry result | *status* (suggests something that changes over time) |
 | **import result** / **entry result** | The report for a run, and for one entry within it | — |
 
-`django-import-export` was the model raised at intake, and its `BibFormat` concept maps cleanly. Its
+`django-import-export` was the model raised at intake, and its `Format` concept maps cleanly (this
+package's own class was later renamed to `BibFormat`, T024, to avoid colliding with that same
+`django-import-export` name plus `django.utils.formats`/`str.format`). Its
 `Resource` concept deliberately does **not** come across: a `Resource` exists so a caller can
 configure how records map onto a model, and here that mapping is fixed by CSL JSON and not the
 caller's to change.
@@ -283,30 +285,6 @@ a `BibFormat` subclass was passed directly (today it stays `None` in that case, 
 import was run by name" read literally) — that would be a new, separate decision, not a correction
 of this one.
 
-## D17 — A format is registered only once its module has been imported, and nothing autodiscovers
-
-Self-resolved, during review of US3 (T019).
-
-`available_formats()` reports what has registered, and registration happens when the module
-defining a format is imported. With no format in the package this is invisible, but it becomes real
-at BibTeX (#22): a format decorated with `@register` in `literature/importers/formats/bibtex.py` is
-absent from the registry until something imports that module, so a caller enumerating formats would
-get an empty mapping and no error.
-
-Django's answer to this is `autodiscover_modules` from `AppConfig.ready()`, which is what
-`django-import-export` and the admin do. It was considered and not built: with zero formats it is
-machinery over nothing (Article III), and the package's own formats need only a plain import in
-`literature/importers/__init__.py` — which every caller of the contract already imports by
-definition, since that is where the public surface lives (FR-021). A third-party package adding a
-format registers it from its own app's `ready()`, which Django already calls.
-
-Recorded here and in the `literature.importers` module docstring so #22 adds that import rather
-than discovering the gap from an empty dropdown.
-
-**Revisit if**: a format needs to be registered by a package that is installed but whose app is not
-in `INSTALLED_APPS`, or the number of shipped formats makes an explicit import list unwieldy —
-either would justify autodiscovery.
-
 ## D18 — The per-entry net catches every exception, not the three the contract names
 
 > **Graduated to [ADR-0007](../../docs/adr/0007-the-import-runner-catches-everything.md)** at convergence. That is the standing record. This entry is kept as the working note it came from.
@@ -505,3 +483,41 @@ packages writing into shared mutable state, no longer exists in the settings-bas
 
 **Revisit if**: a real installation reports this surprising in practice — the fix is a length check in
 `_resolve()` before the loop returns, naming both colliding paths.
+
+## D28 — The Phase 7 rework in one place, and why D17 is deleted rather than superseded
+
+**Maintainer decision**, recorded here as the summary T030 asks for.
+
+Three changes, agreed in session on 2026-08-04 after the maintainer read the branch, reasoned about
+individually in spec.md's *Refinements* section and D24–D27 above. Together:
+
+1. **`Format` → `BibFormat`** — a name collision risk in a shared namespace (`django.utils.formats`,
+   `str.format`, `django-import-export`'s own `Format`). T024.
+2. **The workflow moved onto the class as ordinary, overridable methods** — `import_file`,
+   `import_entries`, `import_entry`, `get_result`, plus the `entry_created`/`entry_skipped`/
+   `entry_failed` helpers. `runner.py` is deleted. The base class's job is to work correctly when
+   its two required stages are supplied, not to prevent a subclass from replacing anything else.
+   T025, T026.
+3. **The registry became a setting** — `LITERATURE = {"BIB_FORMATS": [...]}` replaces
+   `register()`/`FormatAlreadyRegistered`/module-level mutable state. `registry.py` is deleted,
+   replaced by `config.py`. T027, T028.
+
+**D17 is deleted, not amended or marked superseded.** It recorded a real hazard of the registry
+design: a format was invisible until something imported the module defining it, because
+registration was a side effect of import. That hazard has no equivalent once formats are declared
+by dotted path in a setting — `import_string` imports the path itself as part of resolving
+`available_formats()`/`get_format()`, so there is no long-way-round through "did something import
+this module yet". Keeping D17 with a note pointing at this entry would leave a decision on record
+whose entire premise no longer applies, which is a worse kind of stale than an outdated ADR: an ADR
+still describes a real mechanism with a changed default, but D17 describes a mechanism, decorator
+registration, that does not exist in this codebase at all after T028. Deleting it is the honest
+record; a `git log` on this file recovers it if the reasoning is ever wanted again.
+
+**Why three changes in one phase rather than three specs.** All three were raised together by the
+maintainer from one reading of the finished branch, all three are refinements to a feature not yet
+released (CHANGELOG.md's entry is still under `[Unreleased]`), and none depends on the others being
+staged separately — T024 is a pure rename, T026 depends on T024 only for import paths, T028 depends
+on neither. Splitting them into three specs would mean three plans, three sets of research/data-
+model/contracts documents describing the same feature at three different snapshots, for changes that
+were decided together and reviewed together. One phase, numbered tasks continuing from where S1–S6
+left off (T024–T031), keeps the history legible as one rework rather than three.

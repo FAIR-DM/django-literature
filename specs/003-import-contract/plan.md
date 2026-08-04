@@ -11,12 +11,21 @@ catalogue, with the format-specific parts underneath and out of the caller's way
 fixed at four stages, of which a format supplies only the first two, and the fourth reuses the
 package's existing CSL JSON conversion untouched.
 
+**Amended 2026-08-04** for the maintainer's Phase 7 rework (spec.md Refinements): the workflow that
+was a module-level `import_file` function now lives on `BibFormat` itself, as ordinary overridable
+methods (`import_file`, `import_entries`, `import_entry`, `get_result`), and the format registry
+that mapped names to classes via a `register()` decorator is now a `LITERATURE` Django setting,
+resolved and cached on read. The paragraph below describes the shape as it stands after that
+amendment; the design-in-brief section further down still holds, since it describes mechanism, not
+which module the mechanism lives in.
+
 The technical core is smaller than the feature sounds. A `BibFormat` supplies an iterator of entries
-and a per-entry conversion to CSL JSON. A runner drives that iterator, wraps each entry in its own
-savepoint, calls `from_csl_json`, and records one outcome per entry. A dry run is the same code
-path inside an outer transaction that is rolled back at the end, so rehearsed outcomes are
-observed rather than predicted. A small registry maps names to formats so a caller can ask what is
-available without knowing what is on the list.
+and a per-entry conversion to CSL JSON. `import_entries`/`import_entry` drive that iterator, wrap
+each entry in its own savepoint, call `from_csl_json`, and record one outcome per entry. A dry run
+is the same code path inside an outer transaction that is rolled back at the end, so rehearsed
+outcomes are observed rather than predicted. `literature.importers.config` resolves the `LITERATURE`
+setting into a mapping of names to formats so a caller can ask what is available without knowing
+what is on the list.
 
 ## Technical Context
 
@@ -52,7 +61,7 @@ change to any existing module except `CONTEXT.md` and the docs.
 | Article | Bearing on this feature | Verdict |
 |---|---|---|
 | I — Test-First | Every task pairs a test with its behaviour; the contract is exercised through a test-only format | Pass |
-| II — Simplicity | No new dependency, no models, no migration, no settings key. Five modules, each with one job | Pass |
+| II — Simplicity | No new dependency, no models, no migration. Five modules, each with one job. One settings key, added in the Phase 7 rework, replacing what had been mutable in-process state — Article X requires it for a configurable, embeddable package | Pass |
 | III — Anti-Abstraction | The one real risk, addressed below | Pass, with reasoning |
 | IV — Integration-First | The contract *is* the integration point, and is designed and tested before any format exists to use it | Pass |
 | V — Security & data-safety | FR-023: file content is untrusted. No `eval`, no path handling beyond the file handed in, no unhandled error escaping | Pass |
@@ -101,11 +110,12 @@ literature/
 ├── models.py              # UNCHANGED. no new models, no migration
 └── importers/             # NEW — the whole feature
     ├── __init__.py        # the public surface, re-exported
-    ├── exceptions.py      # the format-to-runner vocabulary  (shared)
+    ├── exceptions.py      # the format's vocabulary + UnknownFormat  (shared)
     ├── results.py         # Outcome, EntryResult, ImportResult  (shared)
-    ├── base.py            # BibFormat, Entry            (US-1)
-    ├── runner.py          # import_file — drives the workflow   (US-1, US-2)
-    └── registry.py        # register, get_format, available_formats  (US-3)
+    ├── base.py            # BibFormat: the two required stages, plus the whole
+    │                      # workflow as overridable methods   (US-1, US-2)
+    └── config.py          # get_format, available_formats — resolves the
+                            # LITERATURE setting  (US-3)
 
 tests/
 └── test_importers/        # mirrors the source tree
@@ -113,19 +123,21 @@ tests/
     ├── conftest.py        # the test-only format, in its several shapes
     ├── test_exceptions.py
     ├── test_results.py
-    ├── test_base.py
-    ├── test_runner.py     # incl. the dry-run classes (D23)
-    ├── test_registry.py
+    ├── test_base.py       # the contract, the workflow, and the dry-run classes (D23)
+    ├── test_config.py
     └── test_smoke.py      # incl. the public-surface classes (D23)
 ```
 
 **Structure Decision.** A package rather than a single module, because #22 and #23 each add a
 module beside these and a flat `literature/importing.py` would become the pile of loosely related
 functions the intake discussion explicitly wanted to avoid. Each module has one job, and they line
-up with the stories: `base` + `runner` carry US-1 and US-2, `registry` carries US-3, which is what
-makes the stories independently implementable. `exceptions` and `results` are shared by all three,
-and are separate from `base` so that `registry` does not have to import the `BibFormat` base class
-merely to raise an error.
+up with the stories: `base` alone now carries US-1 and US-2, since the Phase 7 rework moved the
+workflow onto the class it already defined — `runner.py` no longer exists as a separate module,
+following D23's own precedent that a test (and, by the same reasoning, the code it tests) belongs
+with the subject it describes rather than a module boundary that no longer exists. `config` carries
+US-3, replacing `registry.py`. `exceptions` and `results` are shared by all three, and are separate
+from `base` so that `config` does not have to import the whole workflow merely to raise
+`UnknownFormat`.
 
 ## Design in brief
 
@@ -137,9 +149,10 @@ The detail is in [contracts/importers.md](contracts/importers.md) and
    `transaction.atomic()`, the failure is caught outside that block, and the run continues. A dry
    run wraps the whole file in one more `atomic()` and calls `set_rollback(True)` at the end, so
    every stage really executes and reported outcomes are observed rather than predicted.
-2. **The atomic block lives in the runner, not in `from_csl_json`.** That keeps FR-004 literally
+2. **The atomic block lives in `import_entry`, not in `from_csl_json`.** That keeps FR-004 literally
    true: the existing function and every existing caller are untouched. It also puts the guarantee
-   where it is promised.
+   where it is promised — by default; ADR-0006's 2026-08-04 amendment covers what a subclass
+   overriding `import_entry` takes on.
 3. **A dry run's entry results carry no stored `Item`.** The rows exist inside the transaction and
    are gone after it, so exposing a rolled-back instance would hand the caller an object that
    looks saved and is not. Outcomes match between a dry run and a real run; item references do

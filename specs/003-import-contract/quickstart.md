@@ -1,17 +1,29 @@
 # Quickstart: importing a bibliographic file
 
-Phase 1. What using the contract looks like. Nothing here runs until a format is registered — the
-first one arrives with BibTeX support (#22).
+Phase 1, amended 2026-08-04 for the maintainer's Phase 7 rework. What using the contract looks
+like. Nothing here runs until a format is configured — the first one arrives with BibTeX support
+(#22).
 
 ---
+
+## Configure a format
+
+```python
+# settings.py
+LITERATURE = {
+    "BIB_FORMATS": [
+        "myapp.formats.BibTeXFormat",
+    ],
+}
+```
 
 ## Import a file
 
 ```python
-from literature.importers import import_file
+from literature.importers import get_format
 
 with open("library.bib") as handle:
-    result = import_file(handle, format="bibtex")
+    result = get_format("bibtex")().import_file(handle)
 
 print(f"{len(result.created)} stored, {len(result.failed)} could not be read")
 
@@ -26,12 +38,14 @@ is accounted for in `result.entries` whether it was stored or not.
 ## Rehearse it first
 
 ```python
+bibtex = get_format("bibtex")()
+
 with open("library.bib") as handle:
-    preview = import_file(handle, format="bibtex", dry_run=True)
+    preview = bibtex.import_file(handle, dry_run=True)
 
 if preview.ok:
     with open("library.bib") as handle:
-        import_file(handle, format="bibtex")
+        bibtex.import_file(handle)
 else:
     print(f"{len(preview.failed)} entries need attention before importing")
 ```
@@ -56,10 +70,9 @@ The caller does not need to know what it will get back, which is the point of as
 ```python
 from django.utils.translation import gettext_lazy as _
 
-from literature.importers import BibFormat, SkipEntry, register
+from literature.importers import BibFormat, SkipEntry
 
 
-@register
 class BibTeXFormat(BibFormat):
     name = "bibtex"
     label = _("BibTeX")
@@ -77,11 +90,19 @@ class BibTeXFormat(BibFormat):
         return csl_json_from_bibtex(raw)
 ```
 
-Two stages and an optional third. A format has no say in how an `Item` is built from the CSL JSON
-it returns, and no way to reach that stage.
+Two stages and an optional third. Everything else — `import_file`, `import_entries`,
+`import_entry`, `get_result`, and the `entry_created`/`entry_skipped`/`entry_failed` helpers — is
+provided by `BibFormat` as ordinary methods, so this is enough to get correct behaviour without
+writing any of them. List the class's dotted path in `LITERATURE["BIB_FORMATS"]` and it is
+reachable by name.
 
 `parse` **yields**. Returning a list would read the whole file into memory before anything is
 stored, which the contract does not allow.
+
+**An unusual format may override any of the provided methods.** Nothing in `BibFormat` tries to
+stop that — see contracts/importers.md "Writing a format" for the maintainer's ruling on why, and
+ADR-0006/ADR-0007 for the two guarantees (per-entry atomicity, catching every exception) a subclass
+takes over when it replaces `import_entry`.
 
 ## Where the pieces live
 

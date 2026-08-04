@@ -85,13 +85,25 @@ silently stored; unknown types bypass validation by design.
 
 ### format
 
-A plug-in for one bibliographic file syntax — BibTeX, RIS — registered under a name and reachable
-through `literature.importers`. A format knows two things and nothing else: how to turn a file into
-entries, and how to express one entry as CSL JSON. It has no say in how an `Item` is built from
-that CSL JSON, which is fixed by the package.
+A plug-in for one bibliographic file syntax — BibTeX, RIS — declared by dotted path in the
+`LITERATURE` setting (the **configured set**, below) and reachable by name through
+`literature.importers`. Implemented as a `BibFormat` subclass. A format must supply two things:
+how to turn a file into entries, and how to express one entry as CSL JSON. Everything else —
+looping over entries, storing one, building the report — is provided by `BibFormat` as ordinary,
+overridable methods, so a format gets correct behaviour from the two required stages alone, and one
+with an unusual need may replace any of the rest deliberately.
 
 Written **format**, not *provider* or *importer*. "Provider" says nothing about what is provided,
 and "importer" conflates the file syntax with the act of importing.
+
+### configured formats
+
+The set of formats one installation can read, declared under the namespaced `LITERATURE` setting
+(`LITERATURE = {"BIB_FORMATS": ["path.to.Format", ...]}`) and enumerable through
+`literature.importers.available_formats()` without knowing what is in it. Defaults to the formats
+this package ships — currently none, so an empty set with no configuration required (Article X).
+Not a registry: nothing is registered by a decorator or mutated at runtime, and the mapping is
+resolved from settings on first read.
 
 ### entry
 
@@ -115,10 +127,9 @@ Not *status*, which suggests something that changes over time. An outcome is set
 ### import result / entry result
 
 The report from one import. An **import result** holds one **entry result** per entry the format
-found, in source order, says whether the run was a dry run, and — when the import was run by
-name — the registered format name that was used. An entry result carries its outcome, its index in
-the file, the source's own handle for it where the syntax has one, the `Item` it produced, and —
-when and only when it failed — the reason.
+found, in source order, says whether the run was a dry run, and carries the format's own name. An
+entry result carries its outcome, its index in the file, the source's own handle for it where the
+syntax has one, the `Item` it produced, and — when and only when it failed — the reason.
 
 The result is the **only** reporting channel. Logging may carry the same failures for operator
 visibility, but a failure that appears solely in a log is a defect: a caller must never have to
