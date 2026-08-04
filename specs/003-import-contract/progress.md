@@ -127,3 +127,78 @@ formatted. `makemigrations --check --dry-run` → no changes.
 **Watch**: `django_db(transaction=True)` flushes tables rather than rolling back, so those two tests
 are slower than the rest and must not grow into a habit — they exist because this one guarantee
 cannot be proved any other way.
+
+## 2026-08-04T08:30:00Z · Implementer US3 · T016 (`tests/test_importers/test_registry.py`)
+
+**Did**: Wrote `test_registry.py` against FR-017 through FR-020: a registered format is enumerated
+by `available_formats` and resolvable by name through `import_file` (`TestImportByName`); an
+unregistered name raises `UnknownFormat` naming what is registered; registering a taken name raises
+`FormatAlreadyRegistered` and the first registration still resolves afterwards; `register` returns
+its argument (decorator use); `available_formats()` refuses mutation (`TypeError` on item
+assignment). Added an autouse `_isolated_registry` fixture that saves and restores
+`registry._registry` around every test, per the story brief's warning that a per-test
+`try/finally` still leaks a registration left behind by a failed assertion. Reused
+`make_echo_format` from `conftest.py` rather than adding a second set of format fixtures.
+
+**Verified (confirmed red for the right reason)**:
+```
+poetry run pytest tests/test_importers/test_registry.py -q --no-cov
+```
+→ collection error: `ModuleNotFoundError: No module named 'literature.importers.registry'`. The
+module does not exist yet (T017), not a typo in the test.
+
+**Next**: T017 implements `literature/importers/registry.py` to turn this green.
+
+## 2026-08-04T08:50:00Z · Implementer US3 · T017 (`literature/importers/registry.py`)
+
+**Did**: Added `register`, `get_format`, `available_formats` — a module-level `dict[str,
+type[Format]]`, matching the shape of `base.py`/`exceptions.py`/`results.py` already in the
+package. `register` raises `FormatAlreadyRegistered` (with a `gettext_lazy` message; its
+constructor was not touched, per the story brief) rather than replacing an existing entry.
+`get_format` raises `UnknownFormat(name, available=_registry.keys())`, reusing the message-building
+already written for that exception in T002. `available_formats` wraps the live dict in
+`types.MappingProxyType`, so the read view is genuinely read-only rather than read-only by
+convention, and stays live rather than a stale copy.
+
+**Verified**:
+```
+poetry run pytest tests/test_importers/test_registry.py -q --no-cov
+```
+→ 6 of 9 passed (`TestRegister`, `TestGetFormat`). The 3 `TestImportByName` cases still fail —
+`import_file` does not yet resolve a `str`, which is T018.
+
+**Next**: T018 wires `get_format` into `import_file`.
+
+## 2026-08-04T09:15:00Z · Implementer US3 · T018 (`literature/importers/runner.py`)
+
+**Did**: `format: type[Format] | str` per contracts/importers.md. A `str` is resolved through
+`registry.get_format` before `fmt = format_class()` and before the outer transaction opens, so an
+`UnknownFormat` reaches the caller untouched — nothing in `import_file` catches it, matching
+contracts/importers.md's "reaches the caller" note for programmer error. A `Format` subclass still
+passes straight through, unchanged from before. Updated the module docstring, which previously said
+this lookup "is not implemented here — it belongs to US3". The four-stage loop, the per-entry
+savepoints, and the dry-run wrapper (D13, D14) were not touched.
+
+Also set `ImportResult.format_name` to the name used on a by-name run (decision D16 — the task
+brief did not ask for this, but data-model.md's `ImportResult` table already documented the field
+and nothing before this story could set it).
+
+**Verified**:
+```
+poetry run pytest tests/test_importers/test_registry.py -q --no-cov   → 9 passed
+poetry run pytest tests/test_importers/ -q --no-cov                    → 88 passed
+poetry run pytest -q --no-cov                                          → 421 passed (412 baseline + 9 new)
+poetry run ruff check literature tests                                 → all checks passed
+poetry run ruff format --check literature tests                        → 35 files already formatted
+poetry run python -m django makemigrations --check --dry-run --settings=tests.settings → no changes detected
+```
+
+**Next**: US3 (T016–T018) complete — all three stories now implemented. Phase 6 (T019–T023: public
+re-exports, CONTEXT.md/README/CHANGELOG, smoke test, `forge verify`) is next in tasks.md, out of
+this story's scope.
+
+**Watch**: decisions.md D16 records the `format_name` call for the review gate. Also worth a note
+for whoever does T019: `literature/importers/registry.py` is not yet re-exported from
+`literature/importers/__init__.py` (that re-export is T019's job, not this story's — `__init__.py`
+is explicitly out of scope per the story brief), so `register`/`get_format`/`available_formats` are
+only reachable via the submodule import until then.
