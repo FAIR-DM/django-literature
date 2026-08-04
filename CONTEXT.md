@@ -115,9 +115,10 @@ Not *status*, which suggests something that changes over time. An outcome is set
 ### import result / entry result
 
 The report from one import. An **import result** holds one **entry result** per entry the format
-found, in source order, and says whether the run was a dry run. An entry result carries its
-outcome, its index in the file, the source's own handle for it where the syntax has one, the `Item`
-it produced, and — when and only when it failed — the reason.
+found, in source order, says whether the run was a dry run, and — when the import was run by
+name — the registered format name that was used. An entry result carries its outcome, its index in
+the file, the source's own handle for it where the syntax has one, the `Item` it produced, and —
+when and only when it failed — the reason.
 
 The result is the **only** reporting channel. Logging may carry the same failures for operator
 visibility, but a failure that appears solely in a log is a defect: a caller must never have to

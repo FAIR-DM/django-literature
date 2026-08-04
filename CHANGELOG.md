@@ -14,7 +14,7 @@ All notable changes to this project are documented in this file. The format foll
   handles nothing specific to the file's syntax.
 
   Importing is per entry. An entry that cannot be stored is reported individually with a reason and
-  its position in the file, and the entries after it are still imported — one unreadable record
+  its position in the file, and the entries after it are still imported — one unreadable entry
   from 2011 no longer blocks a four-hundred-entry library. Each entry's fate is one of `created`,
   `skipped`, or `failed`, where *skipped* means the format recognised the element but it is not a
   bibliographic record. Nothing is dropped to a log message and left out of the report.
@@ -33,7 +33,5 @@ All notable changes to this project are documented in this file. The format foll
   and a conversion to CSL JSON — the import workflow, the reported result, and the code that builds
   an `Item` all stay as they are.
 
-### Unchanged
-
-- `from_csl_json` and `from_csl_json_list` behave exactly as before for callers using them
+  `from_csl_json` and `from_csl_json_list` behave exactly as before for callers using them
   directly. The import contract calls the first of these and does not modify either.

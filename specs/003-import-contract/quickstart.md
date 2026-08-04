@@ -54,6 +54,8 @@ The caller does not need to know what it will get back, which is the point of as
 ## Write a format
 
 ```python
+from django.utils.translation import gettext_lazy as _
+
 from literature.importers import Format, SkipEntry, register
 
 

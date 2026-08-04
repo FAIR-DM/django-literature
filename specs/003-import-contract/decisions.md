@@ -47,6 +47,8 @@ caller's to change.
 
 ## D3 — An entry is atomic
 
+> **Graduated to [ADR-0006](../../docs/adr/0006-an-imported-entry-is-atomic.md)** at convergence. That is the standing record. This entry is kept as the working note it came from.
+
 Self-resolved. Per-entry importing was settled at intake at the *file* level: one bad entry does
 not stop the others. That leaves the level below unaddressed, because a single entry produces an
 `Item` plus related `ItemName`, `ItemDate`, and `ItemIdentifier` rows, and a failure part-way
@@ -306,6 +308,8 @@ in `INSTALLED_APPS`, or the number of shipped formats makes an explicit import l
 either would justify autodiscovery.
 
 ## D18 — The per-entry net catches every exception, not the three the contract names
+
+> **Graduated to [ADR-0007](../../docs/adr/0007-the-import-runner-catches-everything.md)** at convergence. That is the standing record. This entry is kept as the working note it came from.
 
 Self-resolved, at convergence review.
 

@@ -159,7 +159,7 @@ for entry in result.failed:
     print(f"  {label}: {entry.reason}")
 ```
 
-Importing is per entry. One unreadable record does not stop the rest of the file, and every entry
+Importing is per entry. One unreadable entry does not stop the rest of the file, and every entry
 is accounted for in the result whether it was stored or not — you never have to compare counts to
 find out something went wrong. An entry is stored in full or not at all, so a rejected contributor
 never leaves an item behind without its authors.
