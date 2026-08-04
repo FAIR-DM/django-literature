@@ -319,3 +319,13 @@ Python/Django combinations plus code quality and security scan.
 **Next**: T025 — write the split-workflow tests in `test_base.py` against the not-yet-built `BibFormat.import_file`/`import_entries`/`import_entry`/`get_result`, expected to fail (`base.py` still only has `parse`/`to_csl_json`/`handle_for`).
 
 **Watch**: `runner.py` and `registry.py` still exist and still work post-rename (T026/T028 delete them next) — this commit is a pure rename with no behaviour change, so the existing 495 tests are the safety net for it, unchanged.
+
+## 2026-08-04T13:35:00Z · Implementer · T025 (`tests/test_importers/test_base.py`)
+
+**Did**: Tests for the split workflow, written against methods that do not exist yet: `TestWorkflowMethodsAreIndividuallyCallable` (`import_entry`, `import_entries`, `get_result` and `import_file` each callable on their own, not only as part of one another), `TestOverridingImportEntry` (a subclass overriding `import_entry` changes only entry 0's outcome — the rest of the file still imports in order), `TestOverridingGetResult` (a subclass overriding `get_result` drops skipped entries from the report). `TestFormatHasNoRouteToBuildingAnItem` is left in place for now — it still holds until T026 actually adds methods to `BibFormat`, at which point it is replaced rather than deleted, per the maintainer's ruling that a route to the workflow is now deliberate, not a defect.
+
+**Verified**: `poetry run pytest tests/test_importers/test_base.py -q --no-cov` → 6 failed (all `AttributeError: '_EchoFormat' object has no attribute 'import_entry'` / `import_entries` / `get_result` / `import_file`, the right reason), 8 passed (the pre-existing contract tests, untouched). `ruff check`/`ruff format --check` clean on the file.
+
+**Next**: T026 — move the workflow from `runner.py` onto `BibFormat`, delete `runner.py`, make T025 green, and replace `TestFormatHasNoRouteToBuildingAnItem`.
+
+**Watch**: `make_echo_format` returns a *class*; the overriding tests subclass its return value inline (`class SkipsTheFirstEntry(make_echo_format(entries)): ...`), which only works because the factory closes over `entries` per call rather than sharing state — confirmed already true from T006.
