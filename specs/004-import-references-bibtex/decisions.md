@@ -271,3 +271,53 @@ would be reported complete with its own acceptance criterion unmet.
 
 Unparseable dates are not this case. `ItemDate` already carries `literal` and `raw` for a date that
 cannot be structured (FR-020), so those go to the model's own fallback rather than to `custom`.
+
+## D14 — Decoding a name runs after the wrapped-literal check, not before
+
+Found while implementing T023. `_is_wrapped_literal` decides whether a name is an unsplit
+institutional literal (`{World Wide Web Consortium}`) by looking for exactly one surviving brace
+pair once the parser has stripped the field's own outer delimiter. `latex_to_unicode` strips every
+brace in a string as part of decoding it (that is what removes capitalization-protecting braces,
+FR-018). Running decode first would remove the very braces the literal check depends on, so a
+brace-wrapped institutional name would silently fall through to `splitname` instead and come out
+split into given/family parts that do not exist.
+
+Resolved by keeping the order fixed: check for the wrapped-literal shape on the raw name first,
+then decode — either the literal's inner text, or the whole name before `splitname` runs on it.
+Both paths decode eventually, so FR-018 holds for institutional names too; only the sequencing
+matters. Worth recording because the two operations look independent (one about brace *meaning*,
+the other about brace *removal*) until you notice they share the same character.
+
+## D15 — ISBN normalization has no fixture, so it mirrors the DOI shape it was asked to match
+
+T023 asks for "per-field normalization for DOI and ISBN", but FR-017 only names DOI by case, and
+the committed corpus carries no malformed-ISBN fixture — every ISBN in the corpus already validates
+once hyphens are stripped, which `validate_isbn` already does on its own.
+
+Resolved by giving ISBN the same shape of normalization as DOI, a label strip
+(`isbn:`, `isbn-10:`, `isbn-13:`, case-insensitive) ahead of validation, on the reasoning that a
+label pasted in front of an otherwise-valid identifier is the one malformation shape FR-017
+demonstrates and ISBN is exactly as likely to carry as DOI. It is speculative in the absence of a
+concrete case: revisit if a real ISBN fixture (an existing export, or one built once a malformation
+is observed) turns out to need something this does not cover.
+
+The validation this normalization feeds is not reimplemented here. `_clean_identifier` produces a
+value; whether that value earns its top-level CSL key or goes to `custom` (D13) is decided by
+`literature.validators.validate_identifier`, the same function `ItemIdentifier.clean()` and
+`.save()` call on every other write path. Reusing it rather than checking the DOI/ISBN shape
+independently in `bibtex.py` is what keeps "valid" meaning one thing.
+
+## D16 — The ISBN normalizer had no test that could fail, so US2 verification added one
+
+Found in verification, not by the story. Coverage read 96% on `bibtex.py` with `_normalize_isbn`
+counted as covered, because every clean ISBN in the corpus passes through it. Covered is not
+tested: no assertion ever asked it to strip anything, so deleting its body would have kept the
+suite green. That is the shape D15 already flagged as speculative, one step worse — speculative
+*and* unfalsifiable.
+
+Resolved by pinning the behaviour on a constructed entry (`ISBN-13: 0-201-13447-0`) rather than a
+new fixture, since a fixture would also enter the `TestCorpusRecovery` sweep and assert nothing
+extra there. Confirmed the test is a real gate by removing `isbn` from `_IDENTIFIER_NORMALIZERS`
+and re-running: the labelled value fails validation and lands in `custom` instead of `ISBN`.
+D15's revisit-if stands unchanged — this makes the current behaviour falsifiable, it does not make
+it evidence-based.

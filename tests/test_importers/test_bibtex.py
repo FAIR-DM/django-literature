@@ -351,6 +351,142 @@ class TestCrossref:
         assert [e.outcome for e in result] == [Outcome.CREATED]
 
 
+class TestCleaning:
+    """Recoverable malformations are normalized before mapping (FR-017, FR-018)."""
+
+    def test_doi_as_a_resolver_url_normalizes_to_the_bare_identifier(self):
+        with fixture("doi_as_url.bib") as handle:
+            raws = {raw["ID"]: raw for raw in BibTeXFormat().parse(handle)}
+
+        full = BibTeXFormat().to_csl_json(raws["doi_full_url"])
+        assert full["DOI"] == "10.1234/example.2021.001"
+
+        dx = BibTeXFormat().to_csl_json(raws["doi_dx_url"])
+        assert dx["DOI"] == "10.1234/example.2021.002"
+
+    def test_doi_carrying_a_label_normalizes_to_the_bare_identifier(self):
+        with fixture("doi_labelled.bib") as handle:
+            raw = next(iter(BibTeXFormat().parse(handle)))
+        assert BibTeXFormat().to_csl_json(raw)["DOI"] == "10.1234/example.2022.001"
+
+    def test_an_isbn_carrying_a_redundant_label_normalizes_to_the_bare_identifier(self):
+        """No export in the corpus writes a labelled ISBN, so the behaviour is
+        pinned on a constructed entry rather than through a fixture — without
+        this the normalizer runs on every clean ISBN and is never asked to
+        strip anything.
+        """
+        raw = {"ENTRYTYPE": "book", "ID": "labelled_isbn", "isbn": "ISBN-13: 0-201-13447-0"}
+        assert BibTeXFormat().to_csl_json(raw)["ISBN"] == "0-201-13447-0"
+
+    def test_latex_accents_decode_to_the_characters_they_represent(self):
+        with fixture("latex_escapes.bib") as handle:
+            raw = next(iter(BibTeXFormat().parse(handle)))
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["author"] == [
+            {"given": "Hans", "family": "Krüger"},
+            {"given": "María", "family": "Álvarez"},
+            {"given": "Jørgen", "family": "Weiß"},
+        ]
+
+    def test_capitalization_protecting_braces_are_removed(self):
+        with fixture("latex_escapes.bib") as handle:
+            raw = next(iter(BibTeXFormat().parse(handle)))
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["title"] == "A Study of DNA Sequencing in Århus"
+        assert "{" not in csl["title"]
+        assert "}" not in csl["title"]
+
+    def test_a_construct_the_decoder_does_not_recognise_is_left_visible_not_dropped(self):
+        """``unknown_macro2020``: the decoder knows ``\\u`` as an accent command,
+
+        so ``\\unknownmacro`` is not left untouched character-for-character —
+        but nothing from the source is discarded either. ``\\textcelsius`` has
+        no unicode equivalent bibtexparser knows, so it is left exactly as
+        written, backslash and all.
+        """
+        with fixture("latex_escapes.bib") as handle:
+            raws = list(BibTeXFormat().parse(handle))
+        raw = next(r for r in raws if r["ID"] == "unknown_macro2020")
+        title = BibTeXFormat().to_csl_json(raw)["title"]
+        assert "\\textcelsius" in title
+        assert "knownmacrox" in title
+
+
+class TestRecovery:
+    """A value cleaning cannot rescue is preserved, not failed (FR-019, FR-020, FR-021)."""
+
+    @pytest.mark.django_db
+    def test_an_identifier_that_still_will_not_validate_after_cleaning_is_preserved(self):
+        with fixture("doi_labelled.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
+
+        item = Item.objects.get(citation_key="doi_not_a_doi")
+        assert "DOI" not in [i.type for i in item.item_identifiers.all()]
+        preserved = item.item_identifiers.get(type="doi")
+        assert preserved.value == "see the publisher website"
+
+    @pytest.mark.django_db
+    def test_an_unresolvable_date_lands_in_the_records_own_fallback(self):
+        with fixture("unparseable_date.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
+
+        nonsense = Item.objects.get(citation_key="date_nonsense")
+        issued = nonsense.item_dates.get(date_type="issued")
+        assert issued.begin is None
+        assert issued.literal == "in press"
+
+        range_text = Item.objects.get(citation_key="date_range_text")
+        issued = range_text.item_dates.get(date_type="issued")
+        assert issued.begin is None
+        assert issued.literal == "Spring 1999--2000"
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize(
+        "filename", ["doi_as_url.bib", "doi_labelled.bib", "unparseable_date.bib", "latex_escapes.bib"]
+    )
+    def test_no_recoverable_malformation_fails_its_entry(self, filename):
+        """FR-021: with cleaning and preservation in place, none of these
+        constructed malformations cost an entry — every one is created.
+        """
+        with fixture(filename) as handle:
+            result = BibTeXFormat().import_file(handle)
+        assert result.ok, [e.reason for e in result.failed]
+        assert all(e.outcome == Outcome.CREATED for e in result)
+
+
+class TestCorpusRecovery:
+    """SC-002, across the whole committed corpus: no entry is refused for a
+    reason normalization resolves, and every refusal names what could not
+    be recovered.
+    """
+
+    #: A file that is not valid UTF-8 fails before any entry exists to
+    #: clean — the whole file is unreadable (FR-014), which is SC-008's
+    #: territory, not a value cleaning could ever have reached.
+    _WHOLE_FILE_UNREADABLE = {"latin1_encoded.bib"}
+
+    @pytest.mark.django_db
+    def test_no_entry_across_the_corpus_is_refused_for_a_reason_normalization_resolves(self):
+        failures: list[str] = []
+        for path in sorted(FIXTURES.glob("*.bib")):
+            with fixture(path.name) as handle:
+                result = BibTeXFormat().import_file(handle, dry_run=True)
+            for entry_result in result:
+                if entry_result.outcome is Outcome.FAILED:
+                    assert entry_result.reason, f"{path.name}#{entry_result.index} failed with no reason"
+                    failures.append(path.name)
+
+        assert set(failures) <= self._WHOLE_FILE_UNREADABLE, (
+            f"entries failed outside the known whole-file-unreadable cases: {failures}"
+        )
+
+
 class TestCorpusAcceptance:
     """The acceptance-level checks TASK_BRIEF names directly."""
 

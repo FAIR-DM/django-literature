@@ -110,3 +110,58 @@ afterwards.
   evidence (D12). Also amended spec.md's sparse-entry edge case to state the behaviour the parser
   can actually deliver, since leaving it claiming "stored" while a test asserts "skipped" would read
   as a defect later (D11, `## Refinements`).
+
+- **2026-08-04T18:20 · Implementer US2 · T021,T023** — Did: added `TestCleaning` (DOI-as-URL,
+  DOI with a `doi:` label, LaTeX accents, capitalization-protecting braces, an unrecognised
+  construct left visible) and the cleaning helpers it needs: `_clean_text` wraps
+  `bibtexparser.latexenc.latex_to_unicode`, which decodes and strips braces in one pass since
+  brace-stripping is already latex_to_unicode's own last step, not a separate operation to write;
+  `_normalize_doi` and `_normalize_isbn` strip a resolver-URL prefix or a label ahead of
+  validation. Wired into `to_csl_json`: every `FIELD_TABLE` value, name text (ahead of
+  `splitname`, decoded after the wrapped-literal check rather than before it — D14), and
+  identifier values. Verified with the story suite (78 passed) and the full `verify` ritual:
+  `poetry run pytest -q --no-cov` (590 passed) `&& poetry run pre-commit run --all-files &&
+  poetry run mypy literature && poetry run deptry .` — all clean, exit 0. Next: preservation and
+  the date fallback. Watch: `mypy` flagged `_clean_text`'s return as `Any` the first pass —
+  `bibtexparser` carries no stubs — fixed with an explicit `str()` wrap, not a type: ignore.
+
+- **2026-08-04T18:35 · Implementer US2 · T022,T024** — Did: added `TestRecovery` (an identifier
+  that still will not validate after cleaning is preserved rather than failing its entry; an
+  unresolvable year lands in `ItemDate.literal`; none of the constructed malformations this story
+  names cost an entry) and wired it: the identifier loop in `to_csl_json` now runs each cleaned
+  value through `literature.validators.validate_identifier` — the same function every other
+  write path already uses — and routes a failure into `result["custom"][bib_key]` instead of the
+  top-level CSL key (D13's narrow per-field case, not US4's general sweep); `_issued_date` returns
+  `{"literal": year}` for a year that is not a year, instead of silently returning `None`. Verified
+  with the story suite (84 passed) and the full `verify` ritual (596 passed, ruff/format/mypy/deptry
+  clean). Next: T025's corpus sweep. Watch: reused `validate_identifier` rather than reimplementing
+  DOI/ISBN format checks in `bibtex.py`, so "valid" has exactly one definition across the package
+  (D15).
+
+- **2026-08-04T18:50 · Implementer US2 · T025** — Did: added `TestCorpusRecovery`, sweeping every
+  `.bib` fixture under `tests/fixtures/bibtex/` with a dry-run import and asserting every `FAILED`
+  outcome carries a reason and belongs to a small, named allowlist of whole-file-unreadable cases
+  (currently just `latin1_encoded.bib`, whose `UnicodeDecodeError` happens before any entry exists
+  to clean — FR-014/SC-008's territory, not this story's). Ran the same sweep by hand against the
+  pre-T023/T024 code first, confirming `doi_as_url.bib` and `doi_labelled.bib` both failed both
+  their entries — the exact gap D1 names — and that every other constructed and real fixture
+  already succeeded even before cleaning existed, which is why this task needed no new fixtures.
+  Verified with the story suite (85 passed), the full suite (597 passed, `--no-cov`), coverage
+  (`--cov=literature`: 98% project, 96% on `bibtex.py`, against floors of 90%/85%), and the full
+  `verify` ritual (ruff/format/mypy/deptry clean). US2 complete. Next: US3 (BibLaTeX, issue #32).
+  Watch: the corpus sweep uses `dry_run=True` throughout, so it never has to reason about citation-
+  key collisions across 500-plus entries from unrelated fixtures sharing one test database.
+
+- **2026-08-04T19:20 · Orchestrator · US2 verification** — Did: re-ran the machine gates
+  independently of the story's own report (`forge verify`: conformance, lint, typecheck, test,
+  build all green; `forge tamper-check`: one flag on `tests/test_importers/test_bibtex.py`, diff
+  confirmed 127 insertions and 0 deletions, approved on the same evidence as D12). Checked the two
+  claims the report rests on that a green suite would not catch: `latex_to_unicode` leaves URLs,
+  percent-encoding and query strings untouched (probed directly, since `url` is an identifier field
+  and now goes through cleaning), and `IdentifierType`'s values are the same strings as the CSL
+  keys `to_csl_json` passes to `validate_identifier`, so the preservation branch is reachable
+  rather than dead. Added the missing ISBN gate (D16). Next: merge US2 into the feature branch and
+  dispatch US3. Watch: `from_csl_json` turns every string in `custom` into an `ItemIdentifier` row
+  with a warning, which is fine for D13's one rescued-identifier case but will make US4's
+  bookkeeping fields (`file`, `owner`, `timestamp`) arrive as identifiers — US4's brief has to
+  settle that rather than discover it.
