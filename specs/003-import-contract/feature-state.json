@@ -45,7 +45,7 @@
       "priority": "P1",
       "issue": 25,
       "worktree": null,
-      "status": "in_progress",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -253,8 +253,23 @@
         },
         {
           "id": "T019",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_public_surface.py",
+              "tests/test_importers/test_smoke.py"
+            ],
+            "commands": [
+              "poetry run pytest -q (452 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run mypy literature",
+              "poetry run deptry .",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T020",
@@ -282,13 +297,43 @@
         },
         {
           "id": "T022",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_public_surface.py",
+              "tests/test_importers/test_smoke.py"
+            ],
+            "commands": [
+              "poetry run pytest -q (452 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run mypy literature",
+              "poetry run deptry .",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T023",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_public_surface.py",
+              "tests/test_importers/test_smoke.py"
+            ],
+            "commands": [
+              "poetry run pytest -q (452 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run mypy literature",
+              "poetry run deptry .",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },

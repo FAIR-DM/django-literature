@@ -202,3 +202,45 @@ for whoever does T019: `literature/importers/registry.py` is not yet re-exported
 `literature/importers/__init__.py` (that re-export is T019's job, not this story's — `__init__.py`
 is explicitly out of scope per the story brief), so `register`/`get_format`/`available_formats` are
 only reachable via the submodule import until then.
+
+## Phase 6 — T019–T023 (polish), reviewer
+
+**T019** — `literature/importers/__init__.py` re-exports the whole contract: `import_file`,
+`Format`, `Outcome`, `EntryResult`, `ImportResult`, `register`, `get_format`, `available_formats`,
+and all six exceptions including the `ImporterError` root, with `__all__` (FR-021, Article X).
+`literature/__init__.py` stays empty per research.md R3. `tests/test_importers/test_public_surface.py`
+holds the documented surface as data and checks it in both directions, so a name added to a
+submodule and never exported fails here rather than at whoever tries to import it. Tamper-checked:
+dropping `register` from the re-export turns three of its tests red.
+
+**T022** — `tests/test_importers/test_smoke.py`. A format written the way a real one will be —
+two stages, an optional handle, a registration, nothing else — then the whole contract used as
+`quickstart.md` describes it: enumerate, rehearse, import, and check the catalogue agrees with both
+results. The file it reads carries all four outcomes, with the two failures arriving by different
+routes: one the format itself rejects (`EntryError`), one the CSL JSON conversion rejects
+(`ValidationError`). This is the standing demonstration of SC-006.
+
+The registry isolation fixture moved from `test_registry.py` to the package `conftest.py` as an
+autouse fixture, since the smoke test needs it too and a duplicated copy is one a new test file can
+forget.
+
+**T023** — full verify, all green:
+```
+poetry run pytest -q                                                    → 452 passed, 98% coverage
+poetry run ruff check literature tests                                  → all checks passed
+poetry run ruff format --check literature tests                         → 37 files already formatted
+poetry run mypy literature                                              → no issues in 14 source files
+poetry run deptry .                                                     → no dependency issues
+poetry run python -m django makemigrations --check --dry-run            → no changes detected
+```
+`literature/importers` is at 99% (the two misses are the abstract `raise NotImplementedError`
+bodies in `base.py`).
+
+**Not run**: `makemessages`. GNU gettext is not installed in this environment
+(`CommandError: Can't find msguniq`) and no CI job runs it either, so Article VIII was checked by
+reading instead: every message the contract produces is either wrapped in `gettext_lazy`
+(`exceptions.py`, `registry.py`, `Outcome` labels) or is `str(exc)` of a message the format
+supplied. Log lines and the two `ValueError`s guarding `EntryResult` construction are internal and
+deliberately untranslated. Flagged rather than claimed green.
+
+**Next**: convergence and review, then the merge gate.

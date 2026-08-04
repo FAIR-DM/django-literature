@@ -280,3 +280,27 @@ in `test_registry.py`.
 a `Format` subclass was passed directly (today it stays `None` in that case, matching "when the
 import was run by name" read literally) — that would be a new, separate decision, not a correction
 of this one.
+
+## D17 — A format is registered only once its module has been imported, and nothing autodiscovers
+
+Self-resolved, during review of US3 (T019).
+
+`available_formats()` reports what has registered, and registration happens when the module
+defining a format is imported. With no format in the package this is invisible, but it becomes real
+at BibTeX (#22): a format decorated with `@register` in `literature/importers/formats/bibtex.py` is
+absent from the registry until something imports that module, so a caller enumerating formats would
+get an empty mapping and no error.
+
+Django's answer to this is `autodiscover_modules` from `AppConfig.ready()`, which is what
+`django-import-export` and the admin do. It was considered and not built: with zero formats it is
+machinery over nothing (Article III), and the package's own formats need only a plain import in
+`literature/importers/__init__.py` — which every caller of the contract already imports by
+definition, since that is where the public surface lives (FR-021). A third-party package adding a
+format registers it from its own app's `ready()`, which Django already calls.
+
+Recorded here and in the `literature.importers` module docstring so #22 adds that import rather
+than discovering the gap from an empty dropdown.
+
+**Revisit if**: a format needs to be registered by a package that is installed but whose app is not
+in `INSTALLED_APPS`, or the number of shipped formats makes an explicit import list unwieldy —
+either would justify autodiscovery.
