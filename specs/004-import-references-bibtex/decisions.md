@@ -321,3 +321,58 @@ extra there. Confirmed the test is a real gate by removing `isbn` from `_IDENTIF
 and re-running: the labelled value fails validation and lands in `custom` instead of `ISBN`.
 D15's revisit-if stands unchanged — this makes the current behaviour falsifiable, it does not make
 it evidence-based.
+
+## D17 — Where the dialects disagree, the BibLaTeX field wins
+
+FR-024 requires the direction to be picked and documented, not discovered by whichever field a
+parser happens to process last. Two shapes carry the same information twice: BibLaTeX's `date`
+against classic `year`/`month`, and BibLaTeX's `journaltitle` against classic `journal`.
+
+Resolved as BibLaTeX wins both times, on two grounds rather than one. First, expressiveness:
+`date` can state a precision — a full day — that a bare `year`/`month` pair has no field for at
+all, so where they disagree, `date` is not just different but more informative; preferring the
+field that can say more is preferring the field more likely to be current. Second, BibLaTeX's own
+documentation treats `journal`, `year` and `month` as legacy fields it accepts for backward
+compatibility, mapped internally onto their BibLaTeX equivalents rather than standing as equals to
+them — so a file carrying both is a file where the newer field is the one the dialect itself
+considers authoritative, not a file where the two conventions were both freshly and equally
+intended.
+
+The alternative, classic-wins, was considered and rejected for the same reason the maintainer
+rejected two registered formats in D2: it would resolve a conflict by trusting the older
+convention over the one the exporting tool most likely wrote last, which is backwards from what a
+researcher migrating between reference managers would expect.
+
+Two mechanisms carry the rule, one per shape. `_issued_date` checks `date` before it looks at
+`year` at all — a `date` field decides the result on its own once it is present, whether or not it
+parses, so it is never combined with a disagreeing `year`/`month` (`literature/importers/bibtex.py`).
+`to_csl_json`'s field loop runs `FIELD_TABLE` twice, once per dialect, classic first — so where two
+keys target the same CSL variable, the BibLaTeX pass's assignment is the one still standing when
+the loop ends. The second mechanism was chosen over letting `FIELD_TABLE`'s own insertion order
+decide it, even though alphabetical order happens to put `journaltitle` after `journal` and would
+have produced the same result by coincidence: an accident of key spelling is not a documented rule,
+and it would silently invert if the table were ever resorted or the biblatex key renamed. Confirmed
+as a real gate, not restated table order, by reversing the two passes and watching
+`TestPrecedence.test_conflicting_journaltitle_and_journal_resolve_to_journaltitle` fail.
+
+## D18 — Two BibLaTeX entry types left out of the table to avoid a test collision
+
+BibLaTeX's own entry-type list (`3.1 Entry Types`) includes `dataset` and `patent`, both with
+direct CSL equivalents (`dataset`, `patent`) and no classic-BibTeX equivalent, so both are
+otherwise exactly the shape of type T028 was extending `ENTRY_TYPE_TABLE` to cover.
+
+Neither is in the table. US1's `TestEntryTypes.test_an_unrecognised_type_maps_to_document_rather_than_failing`
+parametrizes over `["artwork", "dataset", "patent", ""]` as its own examples of a type with no CSL
+mapping, and `tests/fixtures/bibtex/unknown_entry_type.bib` carries a `@dataset` entry for the same
+reason. Adding either type to the table would not be wrong BibLaTeX coverage — it is exactly the
+coverage this story exists to add — but it would flip a pre-existing, correct assertion to false,
+and the prohibition on modifying a test this story does not own is explicit about the alternative:
+mark it a concern rather than take the change.
+
+Left out rather than worked around. The type list without them still covers every type the brief
+names by name (`online`, `thesis`, `report`, `collection`, `mvbook`, `inreference`) plus a dozen
+more from the same manual section, so the gap costs two types out of a large table, not the
+feature's substance. Recorded as a concern for the maintainer: `dataset` and `patent` genuinely
+belong in `ENTRY_TYPE_TABLE`, and closing the gap means either choosing different example types for
+the US1 test (a change to a test this story does not own) or accepting that those two types will
+keep mapping to `document` until a later story is free to make that call.

@@ -165,3 +165,53 @@ afterwards.
   with a warning, which is fine for D13's one rescued-identifier case but will make US4's
   bookkeeping fields (`file`, `owner`, `timestamp`) arrive as identifiers — US4's brief has to
   settle that rather than discover it.
+
+- **2026-08-04T19:40 · Implementer US3 · T026,T027** — Did: added `TestBibLaTeX` (journaltitle,
+  single-date-field precision at year/month/day, every biblatex-only `ENTRY_TYPE_TABLE` entry via
+  the same parametrize-over-the-table pattern US1's `TestEntryTypes` already uses, the
+  `constructed_biblatex.bib` corpus importing with no entry falling back to `document`, a
+  mixed-convention file importing cleanly) and `TestPrecedence` (conflicting `date`/`year`,
+  conflicting `journaltitle`/`journal`, the agreeing case for both, and the corpus's own
+  `mixed_dialect_entry`, which carries both conflicts at once). Verified both classes fail for the
+  right reason pre-implementation: `poetry run pytest tests/test_importers/test_bibtex.py -q
+  --no-cov -k TestBibLaTeX` (5 failed on `KeyError`/wrong-type, 1 passed trivially, 1 skipped —
+  empty parametrize set, since no biblatex entry types exist in the table yet) and `-k
+  TestPrecedence` (3 failed on the wrong value winning, 2 passed trivially — the agreeing-values
+  cases, which don't depend on precedence direction). Next: T028 turns T026 green. Watch: the two
+  trivial passes in each class are expected, not a test-authoring mistake — neither exercises the
+  behaviour its own task adds.
+
+- **2026-08-04T19:55 · Implementer US3 · T028** — Did: extended `ENTRY_TYPE_TABLE` with 15
+  BibLaTeX-only types (`online`, `thesis`, `report`, `collection`, `mvbook`, `inreference` — the
+  ones the brief names — plus `bookinbook`, `electronic`, `mvcollection`, `mvproceedings`,
+  `mvreference`, `periodical`, `reference`, `suppbook`, `suppcollection`, drawn from BibLaTeX's own
+  `§3.1` type list), `FIELD_TABLE` with `journaltitle` → `container-title`, and `_issued_date`
+  with a `date`-field branch (`_parse_biblatex_date`, truncated-ISO-8601 year/year-month/full-date)
+  checked ahead of the existing `year`/`month` logic. Left `dataset` and `patent` out of the type
+  table — both are BibLaTeX types with direct CSL equivalents, but US1's
+  `TestEntryTypes.test_an_unrecognised_type_maps_to_document_rather_than_failing` already uses both
+  as its own examples of a type with none, and so does `unknown_entry_type.bib`; adding either
+  would flip a pre-existing, correct test to failing (D18). Verified with the story suite
+  (`poetry run pytest tests/test_importers/test_bibtex.py -q --no-cov`: 128 passed — T026 green,
+  T027 also fully green already, see Watch) and the full suite (`poetry run pytest -q --no-cov`:
+  640 passed). Next: T029 makes the field-precedence mechanism explicit rather than incidental.
+  Watch: T027 passed in full after this task, before T029 existed, because `_issued_date` checking
+  `date` before `year` is also the correct precedence answer (there was no other sane order to
+  write it in), and `FIELD_TABLE`'s alphabetical insertion order happens to put `journaltitle`
+  after `journal`, so the pre-T029 single-pass loop's last-write-wins already gave BibLaTeX the
+  win by coincidence. Confirmed it was coincidence, not the intended mechanism, in T029.
+
+- **2026-08-04T20:05 · Implementer US3 · T029** — Did: replaced the single-pass `FIELD_TABLE` loop
+  in `to_csl_json` with two explicit passes, classic dialect then BibLaTeX, so a dialect pair
+  targeting the same CSL variable resolves by rule rather than by the table's incidental key order
+  (FR-024). Documented the direction — BibLaTeX wins — in the module docstring, `_issued_date`'s
+  docstring, and `decisions.md` D17, with the reasoning (expressiveness: `date` states a precision
+  the pair cannot; BibLaTeX's own manual treats `year`/`month`/`journal` as legacy aliases of their
+  BibLaTeX equivalents). Confirmed the two-pass mechanism is a real gate, not restated table order,
+  by reversing the pass order and re-running `-k TestPrecedence`: 2 of 5 fail
+  (`test_conflicting_journaltitle_and_journal_resolve_to_journaltitle` and the corpus
+  mixed-dialect-entry test), reverted. Verified with the story suite (128 passed) and the full
+  suite (640 passed). Next: T030, the equivalence pair. Watch: D18 (T028) is a concern for the
+  maintainer, not a defect fixed here — `dataset` and `patent` stay unmapped to BibLaTeX CSL types
+  until a story that owns `test_bibtex.py`'s `TestEntryTypes` class is free to pick different
+  example types.

@@ -14,6 +14,14 @@ given, so asking them would be the adoption barrier this feature exists to
 remove (spec 004, D2). Both tables carry both dialects, each entry annotated
 with the one it belongs to.
 
+Where a BibLaTeX field and its classic counterpart both name the same CSL
+variable — ``date`` over ``year``/``month``, ``journaltitle`` over
+``journal`` — and an entry supplies both with disagreeing values, the
+BibLaTeX field wins (FR-024, decisions.md D17). BibLaTeX's own manual treats
+the classic field as the legacy one its BibLaTeX equivalent replaces, and
+``date`` states a precision ``year``/``month`` cannot, so the more expressive
+field is also the more current one.
+
 ``bibtexparser`` is imported here and nowhere else in the package. That is
 deliberate and asserted by a test: the parser is an implementation detail of
 this class, which is what makes it replaceable (research.md).
@@ -365,13 +373,14 @@ def _parse_biblatex_date(value: str) -> dict[str, Any] | None:
 def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
     """The entry's ``issued`` date, at the precision the source states.
 
-    BibLaTeX's ``date`` is checked first; when present, it decides the
-    result on its own rather than being combined with a classic
-    ``year``/``month`` pair the entry might also carry. A ``date`` that will
-    not parse still goes to CSL's ``literal`` fallback rather than falling
-    through to ``year`` — the source stated a date, and preservation over
-    discarding, not preferring a different field, is the answer to a value
-    this importer cannot resolve (FR-020).
+    BibLaTeX's ``date`` is checked first and, when present, decides the
+    result on its own — including when a classic ``year``/``month`` pair is
+    also present and disagrees, which is the precedence FR-024 requires and
+    D17 documents. A ``date`` that will not parse still wins, going to CSL's
+    ``literal`` fallback rather than falling through to ``year``: the source
+    stated a date, and preservation over discarding, not preferring a
+    different field, is the answer to a value this importer cannot resolve
+    (FR-020).
 
     Without a ``date`` field, a classic ``year`` alone gives year precision;
     ``year`` with a recognised ``month`` gives month precision. Neither pads
@@ -454,13 +463,15 @@ class BibTeXFormat(BibFormat):
         """Turn one parsed entry into CSL JSON.
 
         Comments and preambles arrive as plain strings (see :meth:`parse`)
-        and are skipped outright (FR-014). Everything else is a classic
-        BibTeX entry dict, mapped in the fixed order plan.md lays out: type,
-        fields, names, dates, identifiers, each cleaned ahead of mapping
-        (FR-017, FR-018, D1). Preservation of a field this story does not
-        recognise at all is US4; the preservation this story does is the
-        narrower one from D13 — an identifier cleaning could not rescue,
-        written into ``custom`` at the point its own validation fails.
+        and are skipped outright (FR-014). Everything else is a classic or
+        BibLaTeX entry dict, mapped in the fixed order plan.md lays out:
+        type, fields, names, dates, identifiers, each cleaned ahead of
+        mapping (FR-017, FR-018, D1). Where a dialect pair targets the same
+        CSL variable and disagree, the BibLaTeX value wins (FR-024, D17).
+        Preservation of a field this story does not recognise at all is
+        US4; the preservation this story does is the narrower one from
+        D13 — an identifier cleaning could not rescue, written into
+        ``custom`` at the point its own validation fails.
         """
         if not isinstance(raw, dict):
             raise SkipEntry
@@ -470,10 +481,21 @@ class BibTeXFormat(BibFormat):
             "citation-key": raw.get("ID", ""),
         }
 
-        for bib_key, mapping in FIELD_TABLE.items():
-            value = raw.get(bib_key)
-            if value:
-                result[mapping.csl] = _clean_text(value)
+        # Classic fields first, then BibLaTeX: where a dialect pair targets
+        # the same CSL variable (``journal``/``journaltitle``) and an entry
+        # carries both, the second pass's assignment overwrites the first's,
+        # so the BibLaTeX value is what survives (FR-024, D17). Two passes
+        # over the table rather than one sorted by dialect, so the rule
+        # holds for every present and future pair FIELD_TABLE carries, not
+        # just the one case a single insertion-order trick would happen to
+        # get right.
+        for dialect in ("classic", "biblatex"):
+            for bib_key, mapping in FIELD_TABLE.items():
+                if mapping.dialect != dialect:
+                    continue
+                value = raw.get(bib_key)
+                if value:
+                    result[mapping.csl] = _clean_text(value)
 
         for bib_key, mapping in NAME_FIELD_TABLE.items():
             value = raw.get(bib_key)
