@@ -12,6 +12,7 @@ each file isolates and which of the two real exports is genuine.
 from pathlib import Path
 
 import pytest
+from partial_date import PartialDate
 
 from literature.importers import Outcome, available_formats, get_format
 from literature.importers.base import BibFormat
@@ -132,12 +133,18 @@ class TestEntryTypes:
     def test_every_classic_type_maps_to_its_csl_equivalent(self, bibtex_type, mapping):
         assert BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"] == mapping.csl
 
-    @pytest.mark.parametrize("bibtex_type", ["artwork", "dataset", "patent", ""])
+    @pytest.mark.parametrize("bibtex_type", ["set", "xdata", ""])
     def test_an_unrecognised_type_maps_to_document_rather_than_failing(self, bibtex_type):
+        """``set`` and ``xdata`` are real BibLaTeX types with no CSL meaning:
+        one groups other entries, the other only supplies fields to them.
+        They are the examples here because they are the two the entry-type
+        table is expected never to carry, so this test cannot be made to fail
+        by mapping more of BibLaTeX correctly.
+        """
         assert BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"] == "document"
 
     def test_unknown_types_from_the_corpus_land_as_document(self):
-        """``unknown_entry_type.bib``: neither type is classic BibTeX."""
+        """``unknown_entry_type.bib``: neither type maps to a CSL type."""
         with fixture("unknown_entry_type.bib") as handle:
             raws = list(BibTeXFormat().parse(handle))
         assert [BibTeXFormat().to_csl_json(raw)["type"] for raw in raws] == ["document", "document"]
@@ -517,3 +524,175 @@ class TestCorpusAcceptance:
         assert result.ok, [e.reason for e in result.failed]
         assert len(result.created) == 6
         assert Item.objects.count() == 6
+
+
+class TestBibLaTeX:
+    """A BibLaTeX export reads the same way a classic one does (FR-022, FR-023).
+
+    ``constructed_biblatex.bib`` is written to follow Zotero's and JabRef's
+    BibLaTeX-exporter conventions (README, D9): ``journaltitle`` over
+    ``journal``, a single ``date`` field, and entry types classic BibTeX has
+    no equivalent for.
+    """
+
+    def test_journaltitle_maps_to_container_title_exactly_as_journal_does(self):
+        raw = entry(journaltitle="Nature")
+        assert BibTeXFormat().to_csl_json(raw)["container-title"] == "Nature"
+
+    @pytest.mark.parametrize(
+        ("date", "date_parts"),
+        [
+            ("2015-05-28", [2015, 5, 28]),
+            ("2024-01", [2024, 1]),
+            ("1970", [1970]),
+        ],
+    )
+    def test_a_single_date_field_stores_at_the_precision_it_states(self, date, date_parts):
+        raw = entry(date=date)
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [date_parts]}
+
+    def test_a_date_field_in_a_shape_this_importer_does_not_resolve_falls_back_to_literal(self):
+        """A range, a valid BibLaTeX ``date`` shape, is not one of the
+        year/year-month/full-date precisions FR-010 asks this importer to
+        resolve. Not discarded either way (FR-020) — the same fallback an
+        unparseable classic ``year`` already uses.
+        """
+        raw = entry(date="2019/2020")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"literal": "2019/2020"}
+
+    @pytest.mark.parametrize(
+        ("bibtex_type", "mapping"),
+        sorted(item for item in ENTRY_TYPE_TABLE.items() if item[1].dialect == "biblatex"),
+    )
+    def test_every_biblatex_only_type_maps_to_a_real_csl_type_not_the_fallback(self, bibtex_type, mapping):
+        csl_type = BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"]
+        assert csl_type == mapping.csl
+        assert csl_type != "document"
+
+    @pytest.mark.django_db
+    def test_constructed_biblatex_corpus_imports_with_real_types_container_titles_and_date_precision(self):
+        with fixture("constructed_biblatex.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert len(result.created) == 7
+        assert "document" not in {item.type for item in Item.objects.all()}
+
+        by_key = {item.citation_key: item for item in Item.objects.all()}
+        assert by_key["lecun2015deep"].type == "article-journal"
+        assert by_key["lecun2015deep"].container_title == "Nature"
+        assert by_key["w3c2024standards"].type == "webpage"
+        assert by_key["codd1970relational"].type == "thesis"
+        assert by_key["berners1989information"].type == "report"
+        assert by_key["collected1995"].type == "collection"
+        assert by_key["chapter1995"].type == "chapter"
+
+        assert by_key["lecun2015deep"].item_dates.get(date_type="issued").begin == PartialDate("2015-05-28")
+        assert by_key["w3c2024standards"].item_dates.get(date_type="issued").begin == PartialDate("2024-01")
+        assert by_key["codd1970relational"].item_dates.get(date_type="issued").begin == PartialDate("1970")
+
+    @pytest.mark.django_db
+    def test_a_file_mixing_both_conventions_across_entries_imports_correctly(self):
+        """FR-023 acceptance scenario 4: every entry reads correctly without
+        anyone naming a dialect, whether it writes classic or BibLaTeX field
+        names and entry types.
+        """
+        with fixture("constructed_biblatex.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert all(e.outcome == Outcome.CREATED for e in result)
+
+
+class TestPrecedence:
+    """Where the dialects supply the same information twice and disagree,
+    resolution is deterministic (FR-024). The direction: the BibLaTeX field
+    wins over its classic counterpart (D17).
+    """
+
+    def test_conflicting_date_and_year_resolve_to_the_biblatex_date(self):
+        raw = entry(date="2019-03", year="2018")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [[2019, 3]]}
+
+    def test_a_date_and_year_that_agree_resolve_the_same_way_either_would_alone(self):
+        raw = entry(date="2018", year="2018")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [[2018]]}
+
+    def test_conflicting_journaltitle_and_journal_resolve_to_journaltitle(self):
+        raw = entry(journal="Classic Field Name", journaltitle="BibLaTeX Field Name")
+        assert BibTeXFormat().to_csl_json(raw)["container-title"] == "BibLaTeX Field Name"
+
+    def test_a_journaltitle_and_journal_that_agree_resolve_the_same_way_either_would_alone(self):
+        raw = entry(journal="Nature", journaltitle="Nature")
+        assert BibTeXFormat().to_csl_json(raw)["container-title"] == "Nature"
+
+    def test_the_corpus_mixed_dialect_entry_resolves_both_conflicts_deterministically(self):
+        """``mixed_dialect_entry`` in ``constructed_biblatex.bib`` carries both
+        forms of both conflicts at once: ``journal`` vs. ``journaltitle``, and
+        ``year`` vs. ``date``.
+        """
+        with fixture("constructed_biblatex.bib") as handle:
+            raws = {raw["ID"]: raw for raw in BibTeXFormat().parse(handle)}
+        csl = BibTeXFormat().to_csl_json(raws["mixed_dialect_entry"])
+        assert csl["container-title"] == "BibLaTeX Field Name"
+        assert csl["issued"] == {"date-parts": [[2019, 3]]}
+
+
+class TestDialectEquivalence:
+    """SC-005: the same library exported as classic BibTeX and as BibLaTeX
+    produces equivalent catalogue records, judged on item type, contributors
+    and their order, dates and their precision, and identifiers.
+
+    ``equivalence_classic.bib`` is three entries lifted verbatim from
+    ``real_crossref_classic.bib`` (a genuine Crossref export, D9);
+    ``equivalence_biblatex.bib`` writes the same three references in
+    BibLaTeX convention. See the corpus README for how the pair was built.
+    """
+
+    @pytest.mark.django_db
+    def test_the_equivalence_pair_produce_equivalent_records(self):
+        with fixture("equivalence_classic.bib") as handle:
+            classic_result = BibTeXFormat().import_file(handle)
+        with fixture("equivalence_biblatex.bib") as handle:
+            biblatex_result = BibTeXFormat().import_file(handle)
+
+        assert classic_result.ok, [e.reason for e in classic_result.failed]
+        assert biblatex_result.ok, [e.reason for e in biblatex_result.failed]
+        assert len(classic_result.created) == 3
+        assert len(biblatex_result.created) == 3
+
+        # Both sides are read off their own result entries, never looked up by
+        # cite key: the second import's keys collide with the first's and are
+        # de-collided on the way in (``LeCun_2015`` then ``LeCun_2015b``), so a
+        # lookup by ``handle`` returns the classic row on both sides and the
+        # comparison below comes out true against itself.
+        classic_by_key = {e.handle: e.item for e in classic_result.created}
+        biblatex_by_key = {e.handle: e.item for e in biblatex_result.created}
+        assert classic_by_key.keys() == biblatex_by_key.keys()
+        assert not {item.pk for item in classic_by_key.values()} & {item.pk for item in biblatex_by_key.values()}
+
+        def contributors(item):
+            return [
+                (name.role, name.name.given, name.name.family) for name in item.item_names.order_by("role", "order")
+            ]
+
+        def identifiers(item):
+            return {i.type: i.value for i in item.item_identifiers.all()}
+
+        for key in classic_by_key:
+            classic_item = classic_by_key[key]
+            biblatex_item = biblatex_by_key[key]
+
+            assert classic_item.type == biblatex_item.type, key
+            assert contributors(classic_item) == contributors(biblatex_item), key
+            # Beyond SC-005's four criteria, and deliberately: ``journal``
+            # against ``journaltitle`` is one of only two ways the pair
+            # differs, so leaving it out would let half the difference this
+            # fixture exists to exercise break without the test noticing.
+            assert classic_item.container_title == biblatex_item.container_title, key
+
+            classic_issued = classic_item.item_dates.get(date_type="issued")
+            biblatex_issued = biblatex_item.item_dates.get(date_type="issued")
+            assert classic_issued.begin == biblatex_issued.begin, key
+
+            assert identifiers(classic_item) == identifiers(biblatex_item), key

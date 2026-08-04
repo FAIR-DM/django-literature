@@ -321,3 +321,104 @@ extra there. Confirmed the test is a real gate by removing `isbn` from `_IDENTIF
 and re-running: the labelled value fails validation and lands in `custom` instead of `ISBN`.
 D15's revisit-if stands unchanged — this makes the current behaviour falsifiable, it does not make
 it evidence-based.
+
+## D17 — Where the dialects disagree, the BibLaTeX field wins
+
+FR-024 requires the direction to be picked and documented, not discovered by whichever field a
+parser happens to process last. Two shapes carry the same information twice: BibLaTeX's `date`
+against classic `year`/`month`, and BibLaTeX's `journaltitle` against classic `journal`.
+
+Resolved as BibLaTeX wins both times, on two grounds rather than one. First, expressiveness:
+`date` can state a precision — a full day — that a bare `year`/`month` pair has no field for at
+all, so where they disagree, `date` is not just different but more informative; preferring the
+field that can say more is preferring the field more likely to be current. Second, BibLaTeX's own
+documentation treats `journal`, `year` and `month` as legacy fields it accepts for backward
+compatibility, mapped internally onto their BibLaTeX equivalents rather than standing as equals to
+them — so a file carrying both is a file where the newer field is the one the dialect itself
+considers authoritative, not a file where the two conventions were both freshly and equally
+intended.
+
+The alternative, classic-wins, was considered and rejected for the same reason the maintainer
+rejected two registered formats in D2: it would resolve a conflict by trusting the older
+convention over the one the exporting tool most likely wrote last, which is backwards from what a
+researcher migrating between reference managers would expect.
+
+Two mechanisms carry the rule, one per shape. `_issued_date` checks `date` before it looks at
+`year` at all — a `date` field decides the result on its own once it is present, whether or not it
+parses, so it is never combined with a disagreeing `year`/`month` (`literature/importers/bibtex.py`).
+`to_csl_json`'s field loop runs `FIELD_TABLE` twice, once per dialect, classic first — so where two
+keys target the same CSL variable, the BibLaTeX pass's assignment is the one still standing when
+the loop ends. The second mechanism was chosen over letting `FIELD_TABLE`'s own insertion order
+decide it, even though alphabetical order happens to put `journaltitle` after `journal` and would
+have produced the same result by coincidence: an accident of key spelling is not a documented rule,
+and it would silently invert if the table were ever resorted or the biblatex key renamed. Confirmed
+as a real gate, not restated table order, by reversing the two passes and watching
+`TestPrecedence.test_conflicting_journaltitle_and_journal_resolve_to_journaltitle` fail.
+
+## D18 — Three BibLaTeX entry types the table was missing, and the test that was holding them out
+
+Resolved at verification; the account of how it arose is kept below. `artwork`, `dataset` and
+`patent` are now in `ENTRY_TYPE_TABLE`, mapped to `graphic`, `dataset` and `patent`, and the US1
+test that had been using them as examples of an unmappable type now uses `set`, `xdata` and the
+empty string instead.
+
+The story was right to escalate rather than edit a test it did not own, and right that the two
+types belong in the table. What the escalation could not see is that the repo already holds the
+evidence for all three: `tests/data/csl-typeMap.xml` is Zotero's own map, and it states
+`artwork` → `graphic`, `dataset` → `dataset` and `patent` → `patent`. So three of the four values
+the US1 test offered as types with no CSL equivalent have a documented one, in a file sitting in
+this repository. The examples were the defect, not the table.
+
+The replacements are chosen so this cannot recur. `set` and `xdata` are the two entry types the
+module docstring already commits to never mapping — one groups other entries, the other only
+lends fields to them — so no future story can make the test fail by extending BibLaTeX coverage
+correctly. `dataset` mapping to `document` would have been a poor thing to ship from a package in
+a research-data ecosystem.
+
+## D18 (original) — Two BibLaTeX entry types left out of the table to avoid a test collision
+
+BibLaTeX's own entry-type list (`3.1 Entry Types`) includes `dataset` and `patent`, both with
+direct CSL equivalents (`dataset`, `patent`) and no classic-BibTeX equivalent, so both are
+otherwise exactly the shape of type T028 was extending `ENTRY_TYPE_TABLE` to cover.
+
+Neither is in the table. US1's `TestEntryTypes.test_an_unrecognised_type_maps_to_document_rather_than_failing`
+parametrizes over `["artwork", "dataset", "patent", ""]` as its own examples of a type with no CSL
+mapping, and `tests/fixtures/bibtex/unknown_entry_type.bib` carries a `@dataset` entry for the same
+reason. Adding either type to the table would not be wrong BibLaTeX coverage — it is exactly the
+coverage this story exists to add — but it would flip a pre-existing, correct assertion to false,
+and the prohibition on modifying a test this story does not own is explicit about the alternative:
+mark it a concern rather than take the change.
+
+Left out rather than worked around. The type list without them still covers every type the brief
+names by name (`online`, `thesis`, `report`, `collection`, `mvbook`, `inreference`) plus a dozen
+more from the same manual section, so the gap costs two types out of a large table, not the
+feature's substance. Recorded as a concern for the maintainer: `dataset` and `patent` genuinely
+belong in `ENTRY_TYPE_TABLE`, and closing the gap means either choosing different example types for
+the US1 test (a change to a test this story does not own) or accepting that those two types will
+keep mapping to `document` until a later story is free to make that call.
+
+## D19 — The equivalence test was comparing each record with itself
+
+`TestDialectEquivalence.test_the_equivalence_pair_produce_equivalent_records` is SC-005's evidence:
+import the same three references once per dialect and assert the two sets of records match. It
+passed, and it proved nothing.
+
+Both sides resolved their records with `Item.objects.get(citation_key=e.handle)`, where `handle` is
+the cite key the source file used. Both files use the same three cite keys, and `citation_key` is
+unique per import batch rather than unique in the database, so the second import's rows are stored
+de-collided — `LeCun_2015` from the classic file, `LeCun_2015b` from the BibLaTeX one. The lookup
+by `handle` therefore returned the classic row on both sides, and every assertion in the loop
+compared a record with itself. Deleting the whole BibLaTeX mapping would have left it green.
+
+`EntryResult` already carries the stored `Item`, so both sides now read `e.item` off their own
+result and never look a record up by name. A `pk` disjointness assertion sits ahead of the
+comparison so the two sides can never silently become one again.
+
+Two gate checks, since a passing test is what caused this in the first place. Removing
+`journaltitle` from `FIELD_TABLE` fails it on `container-title`; forcing `_parse_biblatex_date` to
+return `None` fails it on the issued date. Both were reverted.
+
+One assertion was added beyond SC-005's four stated criteria: `container_title`. The pair differs
+in exactly two ways, `journal` against `journaltitle` and `year`/`month` against `date`, and
+without that assertion the first of the two could break with this test still green — which is the
+same failure D19 exists to fix, one level down.
