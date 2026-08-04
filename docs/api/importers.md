@@ -82,6 +82,10 @@ A list of dotted paths, resolved on first read and cached. A path that does not 
 imports to something which is not a usable `BibFormat` with a name, raises `ImproperlyConfigured`
 naming the offending entry rather than failing later from inside somebody's import run.
 
+The shape of the setting is checked the same way. Both the wrapper dict and the list around a
+single path are required, and writing either of them the other plausible way — `LITERATURE = [...]`,
+or `"BIB_FORMATS": "one.path"` — raises `ImproperlyConfigured` naming what it found.
+
 ## Discovering the configured formats
 
 ```python

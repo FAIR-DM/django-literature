@@ -180,3 +180,36 @@ class TestAMisconfiguredEntryFailsAtFirstRead:
 
         with pytest.raises(ImproperlyConfigured, match="BlankNameFormat"):
             available_formats()
+
+
+class TestAMisshapenSettingFailsAtFirstRead:
+    """The same contract as a misconfigured entry, one level up: the shape of
+    the setting is checked before its contents, so the two plausible ways of
+    writing it wrongly say what is wrong rather than failing raw.
+    """
+
+    def test_a_bare_list_says_the_setting_must_be_a_dict(self, settings):
+        """Most Django list settings *are* bare lists, so dropping the
+        ``{"BIB_FORMATS": ...}`` wrapper is the likeliest slip — and reaching
+        straight for ``.get`` on it raises the raw ``AttributeError`` this
+        module exists to convert into something actionable."""
+        settings.LITERATURE = [CONFIGURED_PATH]
+
+        with pytest.raises(ImproperlyConfigured, match="BIB_FORMATS"):
+            available_formats()
+
+    def test_a_single_path_written_without_a_list_names_the_value(self, settings):
+        """A bare string is iterable, so it would otherwise be walked
+        character by character and reported as a one-character import path —
+        an error message that describes a setting nobody wrote."""
+        settings.LITERATURE = {"BIB_FORMATS": CONFIGURED_PATH}
+
+        with pytest.raises(ImproperlyConfigured, match=CONFIGURED_PATH):
+            available_formats()
+
+    def test_a_tuple_of_paths_is_accepted(self, settings):
+        """Rejecting a string must not also reject the other obvious way of
+        writing a fixed sequence."""
+        settings.LITERATURE = {"BIB_FORMATS": (CONFIGURED_PATH,)}
+
+        assert available_formats()["configured"] is ConfiguredFormat

@@ -555,3 +555,33 @@ a subclass may replace.
 
 **Regression test:** `test_a_format_that_parses_the_whole_file_up_front_reports_rather_than_raises`.
 Tamper-checked — restoring the direct `self.parse(file)` call fails that test and only that test.
+
+## D30 — The shape of the `LITERATURE` setting is validated, not only its contents
+
+**2026-08-04, review panel on the reworked branch.**
+
+`_resolve()` exists to turn a misconfiguration into an `ImproperlyConfigured` that names what is
+wrong, rather than letting it surface later as a raw exception a long way from the setting that
+caused it. It did that for every *entry* in the list and for none of the two ways the container
+itself is plausibly written wrongly. Both reproduced with probes before anything was changed:
+
+- `LITERATURE = ["myapp.formats.BibTeXFormat"]` — the wrapper dict forgotten. Most Django list
+  settings are bare lists, so this is the likeliest slip of the two. `getattr(...).get(...)` raised
+  `AttributeError: 'list' object has no attribute 'get'`, which is exactly the failure mode the
+  module's own docstring says it is here to prevent.
+- `LITERATURE = {"BIB_FORMATS": "myapp.formats.BibTeXFormat"}` — one format, written without the
+  list. A string is iterable, so the loop walked it character by character and raised
+  `ImproperlyConfigured: 't' in LITERATURE['BIB_FORMATS'] could not be imported`. The right
+  exception class, describing a setting nobody wrote.
+
+Both are now checked before the loop, naming the actual type and value. `str` and `bytes` are
+rejected explicitly rather than by absence, since both satisfy a bare iterability test; `tuple` is
+accepted alongside `list`, because rejecting a string must not also reject the other obvious way of
+writing a fixed sequence.
+
+This is validation of the host's configuration, not of a subclass's behaviour, so it does not
+reopen the maintainer's ruling on incorrect-usage prevention (D28). What a developer does inside
+their own format stays their business — a setting this package reads is its own to interpret.
+
+**Regression tests:** `TestAMisshapenSettingFailsAtFirstRead`. Tamper-checked — restoring the
+one-line `getattr(...).get(...)` fails those two tests and only those two, with the other 496 green.

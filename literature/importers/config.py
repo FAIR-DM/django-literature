@@ -38,9 +38,26 @@ def _resolve() -> dict[str, type[BibFormat]]:
     something which is not a usable ``BibFormat`` subclass — checked here
     rather than left to fail later as a raw ``TypeError`` or ``AttributeError``
     from inside somebody's import run, a long way from the setting that
-    caused it.
+    caused it. The shape of the setting itself is checked on the same
+    grounds: most Django list settings are bare lists, so writing
+    ``LITERATURE = [...]`` or ``{"BIB_FORMATS": "one.path"}`` is a plausible
+    slip, and neither should surface as a raw ``AttributeError`` or as a
+    complaint about a one-character import path.
     """
-    paths = getattr(settings, "LITERATURE", {}).get("BIB_FORMATS", DEFAULTS)
+    configured = getattr(settings, "LITERATURE", {})
+    if not isinstance(configured, dict):
+        raise ImproperlyConfigured(
+            _("LITERATURE must be a dict, not {actual} — the format list goes under a 'BIB_FORMATS' key.").format(
+                actual=type(configured).__name__
+            )
+        )
+    paths = configured.get("BIB_FORMATS", DEFAULTS)
+    if isinstance(paths, str | bytes) or not isinstance(paths, list | tuple):
+        raise ImproperlyConfigured(
+            _("LITERATURE['BIB_FORMATS'] must be a list of dotted paths, not {actual}: {value!r}").format(
+                actual=type(paths).__name__, value=paths
+            )
+        )
     resolved: dict[str, type[BibFormat]] = {}
     for path in paths:
         try:
