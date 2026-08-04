@@ -79,3 +79,51 @@ Append-only. Each entry is written at the moment the event happens, not reconstr
 **Next**: US1 (T006-T013) complete. US2 (dry run, T014-T015) and US3 (registry, T016-T018) are next in tasks.md, out of this story's scope.
 
 **Watch**: none — all 8 tasks done, budget not exhausted on any of them (each went green within 1 implementation attempt).
+
+## 2026-08-04T07:35:00Z · Implementer US2 · T014 (`tests/test_importers/test_dry_run.py`)
+
+**Did**: `TestDryRun` — created entries reported but row counts (`Item`, `ItemName`, `ItemDate`, `ItemIdentifier`) unchanged (FR-015, SC-004); a failing entry's reason identical to a real run; `result.dry_run` true/false per mode (FR-016); outcomes/reasons/handles match between a dry run and the equivalent real run over the same file (US2 scenario 4); a dry run's created entries carry `item=None` (plan.md, data-model.md); a failing entry inside a dry run still lets the rest through, both for an ordinary `EntryError` and for a genuine `IntegrityError` via the existing `bypass_identifier_validation` fixture — exercising the per-entry savepoint nested inside the outer dry-run transaction (research.md R2).
+
+**Verified**: `poetry run pytest tests/test_importers/test_dry_run.py -q --no-cov` — 7 failed, all `TypeError: import_file() got an unexpected keyword argument 'dry_run'` (right reason — `runner.py` had no `dry_run` parameter yet).
+
+**Next**: T015 implementation.
+
+**Watch**: reused `make_echo_format` and `DuplicateCustomIdentifier`/`bypass_identifier_validation` from `conftest.py` rather than adding a second set of format fixtures, per the story brief.
+
+## 2026-08-04T07:45:00Z · Implementer US2 · T015 (`literature/importers/runner.py`)
+
+**Did**: Added `dry_run: bool = False` to `import_file`. The existing four-stage loop is unchanged; it is now wrapped in `transaction.atomic() if dry_run else contextlib.nullcontext()` so there is exactly one copy of the loop rather than two (decision D14), with `transaction.set_rollback(True)` called just before leaving that block on a dry run. The one `if dry_run` inside the loop sets a `CREATED` entry's `item` to `None` rather than the real (in-memory, about-to-be-rolled-back) `Item` — decision D13 explains why this is not the rehearsal-specific branch the task brief warns against: `from_csl_json` still runs unconditionally, the branch only decides what is handed back. `ImportResult(entries=entries, dry_run=dry_run)` now threads the flag through (`ImportResult.dry_run` already existed in `results.py`, T004; it was just never set to anything but its `False` default before this).
+
+**Verified**: `poetry run pytest tests/test_importers/test_dry_run.py -q --no-cov` → 7 passed, first attempt, no fix-up cycles. `poetry run pytest tests/test_importers/ -q --no-cov` → 77 passed. Full suite `poetry run pytest -q --no-cov` → 410 passed (baseline before this story was reconfirmed at 403, not the 404 the T013 entry above recorded — re-ran the baseline today and got 403 both before and, mechanically, 403 + 7 = 410 after; not investigated further since it is outside T014/T015's scope). `ruff check literature tests` → all checks passed. `ruff format --check literature tests` → 33 files already formatted. `poetry run python -m django makemigrations --check --dry-run --settings=tests.settings` → no changes detected.
+
+**Next**: US2 (T014-T015) complete. US3 (registry, T016-T018) is next in tasks.md, out of this story's scope.
+
+**Watch**: decisions.md D13 and D14 record the two non-obvious calls in this task — the `item=None` branch and the `contextlib.nullcontext()` swap — plus a restated pointer (not a new finding) to research.md R5's long-open-transaction caveat for a future format's dry run at scale. Raising this in `concerns` for the review gate as requested by the task brief, not fixing it here: it is a caller-side sizing question, not a defect in this mechanism.
+
+## 2026-08-04T08:05:00Z · Review US2 · `tests/test_importers/test_dry_run.py`
+
+**Did**: Verified T014/T015 independently — re-ran the full suite (410 passed), ruff, format and
+`makemigrations --check` from a clean checkout of the story branch, and tamper-checked the mechanism
+by deleting `transaction.set_rollback(True)` (3 of the 7 dry-run tests fail, the right 3). Read the
+diff against the contract: the signature, the stage order, the outer-block-only-on-dry-run rule and
+the `item=None` rule all match `contracts/importers.md` and `data-model.md` as written.
+
+Added `TestDryRunOutsideATestTransaction` (decision D15) — every committed dry-run test runs under
+non-transactional `django_db`, which exercises only Django's savepoint branch. A caller in
+autocommit takes the other branch. Two tests under `django_db(transaction=True)` now cover it: a dry
+run stores nothing, and a real run still commits. Confirmed the first fails when
+`set_rollback(True)` is removed.
+
+**Resolved the baseline discrepancy T015 flagged** (403 vs the 404 recorded at T013): not a lost
+test. The US1 review commit `a489550` dropped the unused `Entry` dataclass with its 3 tests and
+added 2 regression tests for the `EntryError`-from-`parse` fix — net −1, so 404 → 403. Nothing to
+investigate.
+
+**Verified**: full suite → 412 passed. `ruff check` clean, `ruff format --check` → 33 files already
+formatted. `makemigrations --check --dry-run` → no changes.
+
+**Next**: merge US2 into `003-import-contract`, then US3 (registry, T016–T018).
+
+**Watch**: `django_db(transaction=True)` flushes tables rather than rolling back, so those two tests
+are slower than the rest and must not grow into a habit — they exist because this one guarantee
+cannot be proved any other way.
