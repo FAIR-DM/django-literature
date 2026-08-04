@@ -117,7 +117,7 @@ Reference managers write their own bookkeeping into every export, fields recordi
 - **An empty file, or one holding only comments and macros.** A successful import of nothing, with an empty result and an unchanged catalogue.
 - **A truncated file.** The entries recovered before the truncation are reported, and the remainder is reported as a failure.
 - **Duplicate cite keys within one file.** The catalogue's existing behaviour applies unchanged: colliding keys are given distinguishing suffixes within the batch, and each entry is still reported as created.
-- **An entry with no fields at all beyond its type and cite key.** Stored, since a type and a citation key are all the catalogue requires. Sparse is not invalid.
+- ~~**An entry with no fields at all beyond its type and cite key.** Stored, since a type and a citation key are all the catalogue requires. Sparse is not invalid.~~ *(Amended 2026-08-04 — reported as skipped rather than stored. See `## Refinements` and D11.)*
 - **A file in an unexpected text encoding.** Reported as a parse failure naming the encoding, rather than storing corrupted text. Latin-1 content in a file assumed to be UTF-8 is the case that occurs in practice.
 - **LaTeX that decodes to nothing recognisable.** A command the decoder does not know is left as it stands rather than dropped, so the reader can still see what the source held.
 - **A `crossref` chain, or a cycle.** Inheritance resolves without looping indefinitely, and a cycle is reported rather than hanging the import.
@@ -244,3 +244,24 @@ Its edge case went with it.
 
 The number FR-005 is retired rather than reused, so FR-006 onward keep the identifiers the story
 issues and the task list already cite.
+
+### 2026-08-04 — an entry with no fields cannot be stored, and is reported instead
+
+One edge case amended. No requirement, user story or acceptance criterion changed.
+
+The spec said an entry carrying nothing but a type and a cite key would be stored, on the reasoning
+that those two values are all the catalogue asks for. That reasoning still holds for the catalogue.
+It does not hold for the file, because such an entry never arrives as an entry: the parsing library
+chosen at planning treats a block with no fields as a comment, so there is no type and no cite key
+to store by the time any of this feature's code runs. The full mechanism is in D11.
+
+Closing the gap would mean either reaching into the library's private grammar or pre-scanning the
+raw text for this one shape, which is the hand-written parsing the plan rejected for the feature as
+a whole. Neither is worth it for a shape no reference manager emits — an export always carries at
+least a title.
+
+So the behaviour is now stated as it is: such a block is reported as skipped. That keeps the promise
+the feature actually rests on, which is that nothing disappears without being reported, and it costs
+a stored record that would have held no bibliographic content anyway. A test pins the current
+behaviour, so if the parser is ever replaced the gap surfaces as a failing test rather than as
+silence.

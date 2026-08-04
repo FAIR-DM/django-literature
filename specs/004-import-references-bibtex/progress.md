@@ -99,3 +99,14 @@ afterwards.
   reaches this format's code, so it reports skipped rather than created. Not fixed here; flagged as
   a concern, with a test that pins the actual (not the idealized) behaviour so a future fix has
   something to turn green.
+
+- **2026-08-04T18:05 · US1 verification (orchestrator)** — Re-ran the gates independently rather than
+  taking the completion report: full suite 585 passed, ruff/format/mypy/deptry clean, coverage 97%
+  project and 95% on `bibtex.py` against floors of 90%/85%. Two things the report did not carry.
+  `forge verify` is red on lint where the Implementer's direct `ruff` call was green — a corpus
+  fixture committed in the foundational phase has no trailing newline, which only the repo's hook
+  chain checks; fixed here. `forge tamper-check` flagged `test_bibtex.py` as a modified pre-existing
+  test; the diff is additive with two import lines widened, nothing weakened, approved on the
+  evidence (D12). Also amended spec.md's sparse-entry edge case to state the behaviour the parser
+  can actually deliver, since leaving it claiming "stored" while a test asserts "skipped" would read
+  as a defect later (D11, `## Refinements`).

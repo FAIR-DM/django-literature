@@ -224,3 +224,30 @@ to the parser, which is exactly the hand-written parsing research.md rejected fo
 Recorded as a concern rather than worked around. `TestBlocks.test_a_zero_field_entry_is_swallowed_as_a_comment_by_the_parser`
 asserts the actual (skipped, not created) behaviour, so a future fix has a red test to turn green
 rather than a silent gap.
+
+## D12 — Two US1 verification flags, triaged
+
+Both raised by re-running the machine gates against the story's base rather than by reading the
+Implementer's report, which is the point of re-running them.
+
+**The tamper guardrail fired, and the change is legitimate.** `tests/test_importers/test_bibtex.py`
+existed before this story (the skeleton commit created it with the registration and handle tests),
+so every later edit to it trips the modified-pre-existing-test check by design. The diff is additive:
+five test classes added, and the only pre-existing lines touched are two import statements that grew
+to cover the names the new tests use. No assertion was weakened, no test removed, none skipped or
+marked expected-to-fail. Approved rather than escalated, on the evidence of the diff.
+
+Worth noting for later stories, since all four write to this one file and each will trip the same
+flag: the guardrail cannot tell an addition from a weakening when both land in a file that already
+existed, which is a consequence of the single-test-module layout the maintainer asked for at the
+plan gate. The layout is still right — the constitution requires test modules to mirror the source
+tree — so the answer is that each story's flag gets triaged on its diff, not that the flag is
+switched off.
+
+**The lint gate is red on a file no story task touched.** `tests/fixtures/bibtex/real_crossref_classic.bib`
+was committed without a trailing newline in the foundational phase, which the repo's commit hooks
+would have fixed had they run on it. `ruff` does not look at `.bib` files, so the Implementer's own
+lint step was clean and the failure only appears under the full hook chain. Fixed in place. The
+general lesson is the one the workspace already recorded about verify not matching CI: a story that
+runs the linter directly rather than the repo's configured hook chain is checking less than the
+pipeline will.
