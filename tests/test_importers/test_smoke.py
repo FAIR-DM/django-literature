@@ -145,6 +145,7 @@ PUBLIC_SURFACE = {
     "Outcome": "literature.importers.results",
     "EntryResult": "literature.importers.results",
     "ImportResult": "literature.importers.results",
+    "BibTeXFormat": "literature.importers.bibtex",
 }
 
 

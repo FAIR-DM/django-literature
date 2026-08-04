@@ -1,0 +1,765 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "004-import-references-bibtex",
+  "branch": "004-import-references-bibtex",
+  "repo": "FAIR-DM/django-literature",
+  "state": "GATE_MERGE",
+  "state_history": [
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-04T13:35:00Z",
+      "note": "approved by SamuelJennings in session"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-04T13:36:00Z"
+    },
+    {
+      "state": "GATE_PLAN",
+      "at": "2026-08-04T15:40:00Z",
+      "note": "maintainer instruction supersedes the pipeline default: the plan is a hard gate on this run, not a veto notification. No implementation until approved."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-04T16:05:00Z",
+      "note": "plan approved by SamuelJennings; FR-004/FR-005 refinement accepted with the plan and applied to spec.md"
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-04T20:05:00Z",
+      "note": "US4 verified and merged; convergence added FR-031/032/033 from defects no story's acceptance could see, plus T034/T036/T037/T038"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-04T21:30:00Z",
+      "note": "three-reviewer panel on the merged branch; 9 defects found and fixed, D26; 4 untested corpus fixtures given named tests"
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-04T21:45:00Z",
+      "note": "PR #34 marked ready; awaiting Sam's merge"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-04T13:35:00Z",
+      "self_resolved": [
+        "D4 crossref inheritance in scope; macros and crossref targets established before conversion",
+        "D5 the caller is a developer or administrator, not the researcher; no interface until R6",
+        "D6 acceptance rests on a corpus committed to the repo, constructed fixtures plus real exports",
+        "D7 glossary gains entry type, field, dialect, cite key; cite key tied to the existing citation key"
+      ]
+    },
+    "plan": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-04T16:05:00Z",
+      "self_resolved": [
+        "spec refinement: FR-004 restored to the import contract's scope, FR-005 struck (numbering preserved)"
+      ]
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 30,
+      "worktree": "/home/sam/projects/fairdm/dl-us1",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (523 passed)",
+              "forge verify --base origin/main (all steps passed)",
+              "poetry run deptry . (clean)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (523 passed)",
+              "forge verify --base origin/main (all steps passed)",
+              "poetry run deptry . (clean)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (523 passed)",
+              "forge verify --base origin/main (all steps passed)",
+              "poetry run deptry . (clean)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (523 passed)",
+              "forge verify --base origin/main (all steps passed)",
+              "poetry run deptry . (clean)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (523 passed)",
+              "forge verify --base origin/main (all steps passed)",
+              "poetry run deptry . (clean)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (523 passed)",
+              "forge verify --base origin/main (all steps passed)",
+              "poetry run deptry . (clean)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (585 passed)",
+              "forge verify --base 004-import-references-bibtex (lint/typecheck/test/build/conformance all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, triaged and approved, D12)"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 31,
+      "worktree": "/home/sam/projects/fairdm/dl-us2",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T024",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T025",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 32,
+      "worktree": "/home/sam/projects/fairdm/dl-us3",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T026",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T027",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T028",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T029",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T030",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 33,
+      "worktree": "/home/sam/projects/fairdm/dl-us4 (pruned)",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T031",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T032",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T033",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T034",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T035",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T036",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T037",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T038",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T039",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (729 passed)",
+              "forge verify (lint/typecheck/test/build passed; conformance red only on the repo-wide line-length 120, the family sweep queued behind PR #34)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)",
+              "coverage 98% project / 97% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 1,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 1,
+      "max": 2
+    },
+    "tokens": {
+      "used": 0,
+      "max": 4000000
+    }
+  },
+  "pr": {
+    "number": 34,
+    "draft": false
+  },
+  "escalations": []
+}

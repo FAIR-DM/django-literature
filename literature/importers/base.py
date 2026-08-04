@@ -20,6 +20,7 @@ from typing import Any, ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import router, transaction
+from django.utils.functional import Promise
 from django.utils.translation import gettext as _
 
 from literature.converters import from_csl_json
@@ -68,8 +69,17 @@ class BibFormat(abc.ABC):
     to be overridden by a format with an unusual need (FR-003).
     """
 
+    #: The name a caller runs an import under, and the key the ``LITERATURE``
+    #: setting resolves. Machine-facing, so never translated.
     name: ClassVar[str]
-    label: ClassVar[str]
+
+    #: The human-readable label. Widened to accept a lazy string 2026-08-04,
+    #: when the first concrete format (#22) tried to translate its own label
+    #: and mypy refused: ``ClassVar[str]`` forbade exactly the
+    #: ``gettext_lazy`` that Article VIII makes non-negotiable, and that
+    #: ``Outcome`` already uses for its own labels. A type widening only —
+    #: nothing about the contract's behaviour changes.
+    label: ClassVar[str | Promise]
 
     @abc.abstractmethod
     def parse(self, file) -> Iterator[Any]:

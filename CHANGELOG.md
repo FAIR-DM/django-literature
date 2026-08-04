@@ -32,12 +32,34 @@ All notable changes to this project are documented in this file. The format foll
   key (`LITERATURE = {"BIB_FORMATS": ["path.to.Format", ...]}`), and the configured set can be
   enumerated through `available_formats()`, so code that accepts an uploaded file can list what
   this installation reads without knowing anything about the individual formats. Defaults to the
-  formats this package ships — none yet — so the built-in behaviour needs no configuration.
+  formats this package ships, so the built-in behaviour needs no configuration.
 
-  No format ships in this release. BibTeX and RIS follow, and adding one means supplying a `BibFormat`
+  RIS follows, and adding a format means supplying a `BibFormat`
   subclass with a parser and a conversion to CSL JSON, then listing its dotted path in
   `LITERATURE["BIB_FORMATS"]` — the import workflow, the reported result, and the code that builds
   an `Item` all stay as they are.
+
+- **Reading BibTeX files.** The first format behind that contract, shipped and enabled by default,
+  so `get_format("bibtex")` works with no settings at all.
+
+  One format reads both dialects: classic BibTeX, which publisher export links and academic
+  databases emit, and BibLaTeX, which current Zotero and JabRef write. Someone exporting a library
+  has no way to know which they were given, and a BibLaTeX file read as classic BibTeX would
+  produce records with no journal and no date that still reported as created.
+
+  It recovers before it refuses. A DOI carrying a resolver URL or a `doi:` label is normalized to
+  the bare identifier, LaTeX-encoded text becomes the characters it represents, XML escaping left
+  over from a publisher's pipeline is resolved, a language name becomes a language tag, and a date
+  of the right shape but no calendar meaning is kept as written rather than failing its entry.
+  `@string` macros are expanded and `crossref` inheritance is resolved, including a forward
+  reference and including a cycle, which is reported rather than followed.
+
+  Nothing a source entry states is thrown away. A field this package maps to no CSL variable — the
+  `file`, `owner` and `timestamp` bookkeeping reference managers write into every export — is kept
+  on the item under `custom["bibtex"]` and can be read back. This adds no new import outcome and no
+  per-field reporting: an entry carrying unmapped fields is reported exactly like one without them.
+
+  New runtime dependencies: `bibtexparser` (and its own `pyparsing`).
 
   `from_csl_json` and `from_csl_json_list` behave exactly as before for callers using them
   directly. The import contract calls the first of these and does not modify either.

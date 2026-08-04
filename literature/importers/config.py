@@ -21,11 +21,10 @@ from django.utils.translation import gettext_lazy as _
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import UnknownFormat
 
-#: The formats this package ships. Empty until a real one lands (#22, #23) —
-#: the mechanism has to work with nothing configured (Article X), which is
-#: what makes an empty default worth shipping ahead of any format that
-#: could fill it.
-DEFAULTS: tuple[str, ...] = ()
+#: The formats this package ships, so the built-in behaviour needs no
+#: configuration (Article X, FR-003). BibTeX landed with #22; RIS follows
+#: with #23.
+DEFAULTS: tuple[str, ...] = ("literature.importers.bibtex.BibTeXFormat",)
 
 _cache: MappingProxyType[str, type[BibFormat]] | None = None
 

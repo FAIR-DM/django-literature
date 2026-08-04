@@ -84,9 +84,11 @@ class TestAvailableFormats:
 
     def test_an_unset_setting_yields_the_shipped_defaults(self):
         """FR-020: the built-in behaviour works with no configuration
-        (Article X) — this package ships no format of its own yet, so the
-        default is an empty mapping, not an error."""
-        assert dict(available_formats()) == {}
+        (Article X). BibTeX landed with #22, so the default is no longer the
+        empty mapping this asserted while the package shipped no format."""
+        from literature.importers.bibtex import BibTeXFormat
+
+        assert dict(available_formats()) == {"bibtex": BibTeXFormat}
 
     def test_available_formats_cannot_be_mutated_by_the_caller(self, settings):
         settings.LITERATURE = {"BIB_FORMATS": [CONFIGURED_PATH]}
