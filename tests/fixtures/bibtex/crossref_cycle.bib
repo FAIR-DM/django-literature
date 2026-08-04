@@ -1,0 +1,17 @@
+@article{cycle_a,
+  title    = {Entry A},
+  author   = {A, Author},
+  crossref = {cycle_b}
+}
+
+@article{cycle_b,
+  title    = {Entry B},
+  author   = {B, Author},
+  crossref = {cycle_a}
+}
+
+@article{self_reference,
+  title    = {Entry That References Itself},
+  author   = {C, Author},
+  crossref = {self_reference}
+}

@@ -132,3 +132,34 @@ Resolved as entry type, field, dialect, and cite key. Cite key is the one that m
 it a cite key, the model calls it a citation key, and they are the same value under two names.
 Leaving that unpinned is exactly how a synonym starts circulating, which is what the glossary's
 *Synonyms to avoid* convention exists to prevent.
+
+## D8 — The contract's `label` annotation forbade the translation Article VIII requires
+
+Found during the foundational phase, by mypy, the first time a real format tried to translate its own
+label. `BibFormat` declared `label: ClassVar[str]`, so `gettext_lazy` was a type error, and
+`gettext_lazy` is what Article VIII makes non-negotiable for human-readable strings. The package
+already had the convention in hand: `Outcome` labels are lazy, and `test_results.py` asserts they are
+`Promise` instances.
+
+Widened to `ClassVar[str | Promise]` in `literature/importers/base.py`. A type annotation only.
+Nothing about the contract's behaviour changes, so FR-002 holds, and no test of the contract changed.
+
+Worth naming because it is the shape of defect a first concrete implementation exists to find. The
+contract shipped verified against a test-only format whose label was a plain literal, so nothing
+exercised the annotation until a format that respects Article VIII arrived.
+
+## D9 — One half of the real corpus is not genuine
+
+The specification asks for a genuine export per dialect. The classic BibTeX half is genuine:
+`real_crossref_classic.bib` came from Crossref by content negotiation, and it earned its place
+immediately by carrying quirks nobody would have constructed, uppercase `ISSN` and `DOI` field names,
+bare `month=July` macros, `&amp;` entities in titles, and real Unicode en-dashes in page ranges.
+
+The BibLaTeX half is not. Producing a genuine Zotero or JabRef export needs the tool, which is not
+available here, so `constructed_biblatex.bib` is written to follow those exporters' conventions and
+is named to say so rather than claiming provenance it lacks. The fixtures README states it plainly.
+
+Recorded rather than quietly accepted, because it is a real gap in the acceptance evidence: the whole
+argument for real exports is that they carry what nobody thought to construct, and a constructed file
+cannot do that by definition. Replacing it with a genuine export is worth doing whenever one can be
+supplied.

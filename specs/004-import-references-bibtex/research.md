@@ -52,8 +52,13 @@ additional dependency.
 
 ## Decision
 
-**`bibtexparser` 1.4.4, and `pyparsing` as its declared dependency. Two new runtime dependencies,
-and no separate LaTeX decoder.**
+**`bibtexparser` 1.4.4, declared alone. It brings `pyparsing` as its own requirement, so the install
+footprint is two packages and the `pyproject.toml` declaration is one line. No separate LaTeX
+decoder.**
+
+`pyparsing` is deliberately *not* declared by this package. We never import it, so declaring it
+would register with `deptry` as a defined-but-unused dependency, which is what happened on the first
+attempt at this task.
 
 Stability decides it. Publishing a package whose install pulls a three-year-old beta puts that risk
 onto every downstream project, and 2.0's API is not fixed. The v1 line is in maintenance rather than

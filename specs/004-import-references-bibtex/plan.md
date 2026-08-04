@@ -23,8 +23,9 @@ Nothing here changes the data model. No new fields, no migration.
 
 **Language/Version**: Python 3.12–3.13 (package floor 3.11), per `pyproject.toml`
 
-**Primary Dependencies**: Django 5.2 and 6.0. **Two new runtime dependencies**: `bibtexparser>=1.4.4,<2`
-and its declared `pyparsing>=2.0.3`. Justified in [research.md](research.md) under Article VII. No
+**Primary Dependencies**: Django 5.2 and 6.0. **One new declared runtime dependency**,
+`bibtexparser>=1.4.4,<2`, which brings `pyparsing` with it as its own declared requirement, so the
+install footprint is two packages. Justified in [research.md](research.md) under Article VII. No
 separate LaTeX decoder is needed, since `bibtexparser.latexenc` covers it.
 
 **Storage**: Django ORM. No new models, no migration.
@@ -54,7 +55,7 @@ entries.
 | III — Anti-Abstraction | No base class is introduced. `BibFormat` already exists and this is its first real subclass, which is what #21 was verified against. | Pass |
 | V — Security & data-safety | FR-029. LaTeX decoding is table substitution, never evaluation. No file, network, or subprocess access from file content. | Planned |
 | VI — Documentation | FR-007 mapping table published in `docs/`; FR-030 adds four glossary entries to `CONTEXT.md`. | Planned |
-| VII — Dependency discipline | Two new runtime dependencies with stated justification in `research.md`; `deptry` must stay green, which means declaring `pyparsing` explicitly rather than relying on it transitively. | Decision recorded |
+| VII — Dependency discipline | One new declared runtime dependency with stated justification in `research.md`, `pyparsing` arriving as its requirement. `deptry` must stay green, which means *not* declaring `pyparsing`: we never import it, so declaring it registers as a declared-but-unused dependency. | Decision recorded |
 | VIII — i18n | Every failure reason and label wrapped for translation; the `makemessages` gate runs in CI. | Planned |
 | IX — CSL JSON as lingua franca | The whole feature converts *into* CSL JSON and reuses `from_csl_json` untouched. Unknown entry types map to `document` rather than inventing a type. | Pass |
 | X — Embeddable | The format is exported from the `literature` namespace and added to the shipped defaults so no configuration is required. | Planned |
