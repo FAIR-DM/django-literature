@@ -545,9 +545,18 @@ class TestBibLaTeX:
         raw = entry(date=date)
         assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [date_parts]}
 
+    def test_a_date_field_in_a_shape_this_importer_does_not_resolve_falls_back_to_literal(self):
+        """A range, a valid BibLaTeX ``date`` shape, is not one of the
+        year/year-month/full-date precisions FR-010 asks this importer to
+        resolve. Not discarded either way (FR-020) — the same fallback an
+        unparseable classic ``year`` already uses.
+        """
+        raw = entry(date="2019/2020")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"literal": "2019/2020"}
+
     @pytest.mark.parametrize(
         ("bibtex_type", "mapping"),
-        sorted((item for item in ENTRY_TYPE_TABLE.items() if item[1].dialect == "biblatex")),
+        sorted(item for item in ENTRY_TYPE_TABLE.items() if item[1].dialect == "biblatex"),
     )
     def test_every_biblatex_only_type_maps_to_a_real_csl_type_not_the_fallback(self, bibtex_type, mapping):
         csl_type = BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"]
@@ -621,3 +630,52 @@ class TestPrecedence:
         csl = BibTeXFormat().to_csl_json(raws["mixed_dialect_entry"])
         assert csl["container-title"] == "BibLaTeX Field Name"
         assert csl["issued"] == {"date-parts": [[2019, 3]]}
+
+
+class TestDialectEquivalence:
+    """SC-005: the same library exported as classic BibTeX and as BibLaTeX
+    produces equivalent catalogue records, judged on item type, contributors
+    and their order, dates and their precision, and identifiers.
+
+    ``equivalence_classic.bib`` is three entries lifted verbatim from
+    ``real_crossref_classic.bib`` (a genuine Crossref export, D9);
+    ``equivalence_biblatex.bib`` writes the same three references in
+    BibLaTeX convention. See the corpus README for how the pair was built.
+    """
+
+    @pytest.mark.django_db
+    def test_the_equivalence_pair_produce_equivalent_records(self):
+        with fixture("equivalence_classic.bib") as handle:
+            classic_result = BibTeXFormat().import_file(handle)
+        with fixture("equivalence_biblatex.bib") as handle:
+            biblatex_result = BibTeXFormat().import_file(handle)
+
+        assert classic_result.ok, [e.reason for e in classic_result.failed]
+        assert biblatex_result.ok, [e.reason for e in biblatex_result.failed]
+        assert len(classic_result.created) == 3
+        assert len(biblatex_result.created) == 3
+
+        classic_by_key = {e.handle: Item.objects.get(citation_key=e.handle) for e in classic_result.created}
+        biblatex_by_key = {e.handle: Item.objects.get(citation_key=e.handle) for e in biblatex_result.created}
+        assert classic_by_key.keys() == biblatex_by_key.keys()
+
+        def contributors(item):
+            return [
+                (name.role, name.name.given, name.name.family) for name in item.item_names.order_by("role", "order")
+            ]
+
+        def identifiers(item):
+            return {i.type: i.value for i in item.item_identifiers.all()}
+
+        for key in classic_by_key:
+            classic_item = classic_by_key[key]
+            biblatex_item = biblatex_by_key[key]
+
+            assert classic_item.type == biblatex_item.type, key
+            assert contributors(classic_item) == contributors(biblatex_item), key
+
+            classic_issued = classic_item.item_dates.get(date_type="issued")
+            biblatex_issued = biblatex_item.item_dates.get(date_type="issued")
+            assert classic_issued.begin == biblatex_issued.begin, key
+
+            assert identifiers(classic_item) == identifiers(biblatex_item), key

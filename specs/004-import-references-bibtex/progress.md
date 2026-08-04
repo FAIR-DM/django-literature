@@ -215,3 +215,22 @@ afterwards.
   maintainer, not a defect fixed here — `dataset` and `patent` stay unmapped to BibLaTeX CSL types
   until a story that owns `test_bibtex.py`'s `TestEntryTypes` class is free to pick different
   example types.
+
+- **2026-08-04T20:20 · Implementer US3 · T030** — Did: built the SC-005 equivalence pair.
+  `tests/fixtures/bibtex/equivalence_classic.bib` is three entries (`LeCun_2015`, `Akiba_2019`,
+  `Lamport_1978`) copied byte-for-byte out of `real_crossref_classic.bib` — extracted with `sed -n`
+  on the exact line numbers rather than retyped, so "verbatim" is a checked property, not a claim.
+  `equivalence_biblatex.bib` writes the same three in BibLaTeX convention: `journaltitle` for
+  `journal`, a single `date` field (`2015-05`, `2019-07`, `1978-07`, converted by hand from each
+  entry's own `year`/`month`) in place of `year`/`month`, everything else — title, volume, pages,
+  identifiers, author lists, `booktitle` (spelled the same in both dialects) — unchanged. Added
+  `TestDialectEquivalence`, importing both files and asserting, per stored `Item`, equal type,
+  equal contributor `(role, given, family)` tuples in order, equal `issued` `PartialDate` (which
+  compares both the date and its precision — `partial_date.PartialDate.__eq__`), and equal
+  `{type: value}` identifier maps. Recorded the pair in the corpus README next to the other real
+  and constructed fixtures. Verified with the story suite (`poetry run pytest
+  tests/test_importers/test_bibtex.py -q --no-cov`: 129 passed) and the full `verify` ritual:
+  `poetry run pytest -q --no-cov` (641 passed) — pre-commit, mypy and deptry runs follow. US3
+  complete pending that last check. Watch: confirmed the assertions are not vacuously true by a
+  throwaway print inside the test before removing it — both sides carry non-empty, matching
+  contributor lists and identifier maps, not `[] == []` or `{} == {}`.

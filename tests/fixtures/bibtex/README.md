@@ -33,3 +33,21 @@ those tools would be better, for the same reason the Crossref file is: it would 
 nobody thought to write down. Replacing it is worth doing if one becomes available.
 
 Both files hold bibliographic metadata only, which is factual, and nothing personal.
+
+## The equivalence pair
+
+`equivalence_classic.bib` and `equivalence_biblatex.bib` are SC-005's evidence: the same three
+references, once in each dialect, asserted to produce equivalent catalogue records (item type,
+contributors and their order, dates and their precision, and identifiers).
+
+`equivalence_classic.bib` is not constructed. It is three entries (`LeCun_2015`, `Akiba_2019`,
+`Lamport_1978`) copied verbatim, byte for byte, out of `real_crossref_classic.bib` — the same
+reason that file is worth keeping applies here: a real export carries quirks a constructed one
+would not think to include (uppercase `ISSN`/`DOI`, a bare `month=July` macro, an `&amp;` entity,
+Unicode en-dashes in the page range).
+
+`equivalence_biblatex.bib` writes the same three references in BibLaTeX convention:
+`journaltitle` for `journal`, a single `date` field (`2015-05`, `2019-07`, `1978-07`) in place of
+`year`/`month`. Everything else — title, volume, pages, identifiers, author lists, `booktitle` on
+the `@inproceedings` entry, which BibLaTeX also spells `booktitle` — is unchanged, so the pair
+differs only in the fields the two dialects actually disagree on.
