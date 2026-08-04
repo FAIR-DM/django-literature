@@ -566,6 +566,75 @@ def _unmapped_fields(raw: dict[str, Any], consumed: set[str]) -> dict[str, str]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Published mapping (FR-007) — the documentation of what maps to what is
+# rendered from the tables above rather than written alongside them, so the
+# two cannot disagree. ``docs/bibtex-mapping.md`` is ``_mapping_document``'s output
+# and a test asserts it still is.
+# ---------------------------------------------------------------------------
+
+
+def _mapping_document() -> str:
+    """The field and entry-type mapping, as a Markdown document.
+
+    Private on purpose. The import contract's public surface is a curated,
+    two-way-asserted list (``literature.importers.__all__``), and a
+    documentation generator does not belong in it. Regenerate the published
+    page after changing any table above::
+
+        poetry run python -c "from literature.importers.bibtex import _mapping_document; \
+            open('docs/bibtex-mapping.md','w').write(_mapping_document())"
+
+    A test asserts the file on disk still matches, so a table change that
+    skips this step fails rather than shipping a stale page.
+    """
+    lines = [
+        "# BibTeX mapping",
+        "",
+        "What this package makes of a `.bib` file: which entry type becomes which",
+        "CSL item type, and which field becomes which CSL variable. Both dialects are",
+        "listed together, each row saying which one it belongs to.",
+        "",
+        "This page is generated from the mapping tables themselves, so it cannot",
+        "describe something the importer does not do. A field with no row here is not",
+        "discarded: it is kept with the record under `custom`, where it can be read",
+        "back afterwards.",
+        "",
+        "## Entry types",
+        "",
+        "| BibTeX entry type | CSL item type | Dialect |",
+        "| --- | --- | --- |",
+    ]
+    lines += [f"| `@{key}` | `{m.csl}` | {m.dialect} |" for key, m in sorted(ENTRY_TYPE_TABLE.items())]
+    lines += [
+        "",
+        f"An entry type with no row above becomes `{_FALLBACK_TYPE}` rather than failing the entry.",
+        "",
+        "## Fields",
+        "",
+        "| BibTeX field | CSL variable | Dialect |",
+        "| --- | --- | --- |",
+    ]
+    fields = {**FIELD_TABLE, **NAME_FIELD_TABLE, **IDENTIFIER_FIELD_TABLE}
+    lines += [f"| `{key}` | `{m.csl}` | {m.dialect} |" for key, m in sorted(fields.items())]
+    lines += [
+        "",
+        "## Dates",
+        "",
+        "| BibTeX field | CSL variable |",
+        "| --- | --- |",
+        "| `date` | `issued` |",
+        "| `year`, `month` | `issued` |",
+        "| `urldate` | `accessed` |",
+        "",
+        "A BibLaTeX `date` takes precedence over a classic `year` and `month` pair, and",
+        "a date that will not resolve to a structured value is kept as written rather",
+        "than dropped.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 class BibTeXFormat(BibFormat):
     """Reads ``.bib`` files, in either the classic or the BibLaTeX dialect."""
 

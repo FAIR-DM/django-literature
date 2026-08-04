@@ -1071,3 +1071,114 @@ class TestConsumedRatherThanTabled:
         csl = BibTeXFormat().to_csl_json(entry(author="{}"))
         assert "author" not in csl
         assert csl["custom"]["bibtex"] == {"author": "{}"}
+
+
+class TestPublishedMapping:
+    """The published mapping is generated from the tables, so it cannot drift
+    from what the importer does (T034, FR-007).
+    """
+
+    def test_the_document_on_disk_matches_the_tables(self):
+        from literature.importers.bibtex import _mapping_document
+
+        published = (Path(__file__).parent.parent.parent / "docs" / "bibtex-mapping.md").read_text(encoding="utf-8")
+        assert published == _mapping_document(), (
+            "docs/bibtex-mapping.md is stale — regenerate it from literature.importers.bibtex._mapping_document()"
+        )
+
+    def test_every_table_row_appears(self):
+        from literature.importers.bibtex import _mapping_document
+
+        document = _mapping_document()
+        for table in (ENTRY_TYPE_TABLE, FIELD_TABLE, NAME_FIELD_TABLE, IDENTIFIER_FIELD_TABLE):
+            for key, mapping in table.items():
+                assert f"`{mapping.csl}`" in document, key
+        assert "`@article`" in document
+        assert "`journaltitle`" in document
+
+
+class TestContainment:
+    """``bibtexparser`` is an implementation detail of this one module (T036).
+
+    Asserted rather than intended: the parser was chosen knowing it would
+    likely be replaced, and what makes that cheap is that exactly one module
+    imports it.
+    """
+
+    def test_only_the_bibtex_module_imports_the_parser(self):
+        package = Path(__file__).parent.parent.parent / "literature"
+        importers = {
+            path.relative_to(package).as_posix()
+            for path in package.rglob("*.py")
+            if "bibtexparser" in path.read_text(encoding="utf-8")
+        }
+        assert importers == {"importers/bibtex.py"}
+
+
+class TestUntrustedInput:
+    """A `.bib` file is untrusted content (FR-029, SC-008, T038).
+
+    No file in the corpus — malformed, truncated, wrongly encoded, or not
+    BibTeX at all — may cause code execution, filesystem access, network
+    access, or an error that escapes the import result.
+    """
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize("path", sorted(FIXTURES.glob("*.bib")), ids=lambda p: p.name)
+    def test_no_corpus_file_raises_out_of_the_import(self, path):
+        """Every outcome arrives through the result, including the failures.
+
+        A file the parser cannot read at all is the one case that raises, and
+        it must still raise something the caller can act on rather than an
+        arbitrary internal error.
+        """
+        with path.open(encoding="utf-8") as handle:
+            try:
+                result = BibTeXFormat().import_file(handle)
+            except UnicodeDecodeError:
+                assert path.name in UNREADABLE_FIXTURES
+                return
+        assert all(e.outcome in set(Outcome) for e in result)
+        assert all(e.reason is not None for e in result.failed)
+
+    def test_the_module_reaches_nothing_outside_itself(self):
+        """No import that could execute, spawn, or connect on file content."""
+        source = (Path(__file__).parent.parent.parent / "literature" / "importers" / "bibtex.py").read_text(
+            encoding="utf-8"
+        )
+        for forbidden in ("subprocess", "socket", "urllib", "requests", "os.system", "eval(", "exec(", "pickle"):
+            assert forbidden not in source, forbidden
+
+    @pytest.mark.parametrize(
+        "hostile",
+        [
+            "&" * 5000,  # entity regex, no closing semicolons
+            "&#" + "9" * 5000 + ";",  # an enormous character reference
+            "{" * 2000 + "}" * 2000,  # deeply nested braces
+            "10." + "1" * 5000,  # DOI normalizer
+            "https://doi.org/" * 500,  # repeated prefix
+            "a" * 20000,  # a very long plain value
+        ],
+    )
+    def test_hostile_field_values_terminate(self, hostile):
+        """Each of these completes rather than backtracking indefinitely; the
+        test fails by timing out if a regex ever becomes quadratic.
+        """
+        csl = BibTeXFormat().to_csl_json(entry(title=hostile, doi=hostile))
+        assert isinstance(csl, dict)
+
+
+class TestTranslatable:
+    """Every human-readable string this feature emits is translatable (FR-028)."""
+
+    def test_the_format_label_is_lazy(self):
+        from django.utils.functional import Promise
+
+        assert isinstance(BibTeXFormat.label, Promise)
+
+    def test_the_module_wraps_every_human_readable_string(self):
+        """The format's own name is machine-facing and deliberately bare; the
+        label a person reads is not.
+        """
+        assert BibTeXFormat.name == "bibtex"
+        assert str(BibTeXFormat.label) == "BibTeX"
