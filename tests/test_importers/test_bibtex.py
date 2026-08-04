@@ -9,6 +9,7 @@ Fixtures live in ``tests/fixtures/bibtex/``. See the README there for what
 each file isolates and which of the two real exports is genuine.
 """
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,14 @@ from partial_date import PartialDate
 
 from literature.importers import Outcome, available_formats, get_format
 from literature.importers.base import BibFormat
-from literature.importers.bibtex import ENTRY_TYPE_TABLE, FIELD_TABLE, BibTeXFormat
+from literature.importers.bibtex import (
+    ENTRY_TYPE_TABLE,
+    FIELD_TABLE,
+    IDENTIFIER_FIELD_TABLE,
+    NAME_FIELD_TABLE,
+    BibTeXFormat,
+)
+from literature.importers.exceptions import SkipEntry
 from literature.models import Item
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "bibtex"
@@ -35,6 +43,51 @@ def entry(entry_type="misc", cite_key="x", **fields):
     the parser.
     """
     return {"ENTRYTYPE": entry_type, "ID": cite_key, **fields}
+
+
+def _is_source_field(bib_key: str) -> bool:
+    """Whether ``bib_key`` is a field the source entry itself wrote.
+
+    Excludes the two keys ``bibtexparser`` adds to every entry structurally
+    (``ENTRYTYPE``, ``ID`` — already surfaced as ``type``/``citation-key``)
+    and anything it prefixes with an underscore as its own bookkeeping
+    (``_FROM_CROSSREF``, added once ``crossref`` inheritance resolves).
+    Neither is something the source file stated (TestCorpusPreservation).
+    """
+    return bib_key not in {"ENTRYTYPE", "ID"} and not bib_key.startswith("_")
+
+
+def _accounted_for(bib_key: str, csl: dict) -> bool:
+    """Whether ``bib_key`` survived conversion, mapped or preserved (SC-006).
+
+    Classified from the same tables ``to_csl_json`` itself reads rather than
+    a hand-written list of field names, so a table entry the mapping code
+    forgot to also emit would show up here as unmapped-and-not-preserved —
+    the gap SC-006 exists to catch.
+    """
+    custom = csl.get("custom")
+    custom = custom if isinstance(custom, dict) else {}
+    bibtex_custom = custom.get("bibtex")
+    bibtex_custom = bibtex_custom if isinstance(bibtex_custom, dict) else {}
+    if bib_key in bibtex_custom or bib_key in custom:
+        return True
+    mapping = FIELD_TABLE.get(bib_key) or NAME_FIELD_TABLE.get(bib_key) or IDENTIFIER_FIELD_TABLE.get(bib_key)
+    if mapping is not None:
+        return mapping.csl in csl
+    if bib_key in {"year", "month", "date"}:
+        return "issued" in csl
+    return False
+
+
+def _parse_or_none(path: Path) -> list | None:
+    """This file's raw entries, or ``None`` for one ``bibtexparser`` cannot
+    even read (whole-file decoding failures, SC-008's territory).
+    """
+    with (FIXTURES / path.name).open(encoding="utf-8") as handle:
+        try:
+            return list(BibTeXFormat().parse(handle))
+        except Exception:
+            return None
 
 
 class TestRegistration:
@@ -696,3 +749,123 @@ class TestDialectEquivalence:
             assert classic_issued.begin == biblatex_issued.begin, key
 
             assert identifiers(classic_item) == identifiers(biblatex_item), key
+
+
+class TestPreservation:
+    """Nothing a source entry carried is thrown away (FR-025, FR-026, D3, D20).
+
+    Reference-manager bookkeeping — ``file``, ``owner``, ``timestamp``,
+    ``groups``, ``mendeley-tags``, ``bdsk-url-1``, ``readstatus`` in
+    ``unknown_fields.bib`` — maps to no CSL variable and has no column of its
+    own, but is still retrievable from the stored record afterwards.
+    """
+
+    def test_unmapped_fields_are_collected_under_a_single_bibtex_key(self):
+        raw = entry(file=":home/sam/papers/x.pdf:PDF", owner="sam", timestamp="2024-03-11")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["custom"]["bibtex"] == {
+            "file": ":home/sam/papers/x.pdf:PDF",
+            "owner": "sam",
+            "timestamp": "2024-03-11",
+        }
+
+    def test_an_entry_with_no_unmapped_fields_carries_no_custom_key(self):
+        assert "custom" not in BibTeXFormat().to_csl_json(entry(title="Plain"))
+
+    def test_the_sorting_key_field_is_preserved_too(self):
+        """``key`` is BibTeX's own sorting hint (FIELD_TABLE's module comment);
+        it has no CSL equivalent and is not consumed by anything else here.
+        """
+        raw = entry(key="alpha-sort")
+        assert BibTeXFormat().to_csl_json(raw)["custom"]["bibtex"] == {"key": "alpha-sort"}
+
+    @pytest.mark.django_db
+    def test_unmapped_fields_are_retrievable_from_the_stored_item(self):
+        with fixture("unknown_fields.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        item = Item.objects.get(citation_key="manager_bookkeeping")
+        assert item.custom["bibtex"] == {
+            "file": ":home/sam/papers/curie1898.pdf:PDF",
+            "owner": "sam",
+            "timestamp": "2024-03-11",
+            "groups": "Physics/Classics",
+            "mendeley-tags": "radioactivity;classics",
+            "bdsk-url-1": "https://example.org/curie",
+            "readstatus": "read",
+        }
+        # The general sweep this story adds is not US2's narrow D13 rescue —
+        # none of this bookkeeping is an identifier field, so none of it is
+        # promoted to an ``ItemIdentifier`` row.
+        assert item.item_identifiers.count() == 0
+
+    @pytest.mark.django_db
+    def test_reported_as_created_with_no_additional_outcome_or_reporting_surface(self):
+        """FR-026: indistinguishable from an entry with no unmapped fields —
+        same outcome, no new ``Outcome`` value, no per-field reporting.
+        """
+        with fixture("unknown_fields.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert [e.outcome for e in result] == [Outcome.CREATED]
+        assert set(Outcome) == {Outcome.CREATED, Outcome.SKIPPED, Outcome.FAILED}
+
+        entry_result = result.created[0]
+        assert entry_result.reason is None
+        assert {f.name for f in dataclasses.fields(entry_result)} == {"outcome", "index", "handle", "item", "reason"}
+
+    @pytest.mark.django_db
+    def test_an_unresolvable_crossref_is_preserved_as_an_ordinary_unmapped_field(self):
+        """Acceptance scenario 3: a ``crossref`` naming an entry the file does
+        not contain resolves nothing, but is not dropped either, and does not
+        fail the entry it appears on.
+        """
+        with fixture("crossref_missing.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert [e.outcome for e in result] == [Outcome.CREATED]
+        item = Item.objects.get(citation_key="references_absent_parent")
+        assert item.custom["bibtex"]["crossref"] == "a_book_that_is_not_here"
+
+    @pytest.mark.django_db
+    def test_a_resolved_crossref_is_preserved_the_same_way_with_no_special_case(self):
+        """``crossref`` names no CSL variable whether or not it resolves, so
+        the same rule preserves it either way (no branch keyed on success).
+        ``_FROM_CROSSREF`` — the parser's own record of which fields were
+        inherited, not something the source file wrote — is not a field of
+        this entry and must not leak into the preserved bookkeeping.
+        """
+        with fixture("crossref_forward.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        chapter = Item.objects.get(citation_key="chapter_referencing_later_parent")
+        assert chapter.custom["bibtex"] == {"crossref": "the_parent_book"}
+
+
+class TestCorpusPreservation:
+    """SC-006, across the whole committed corpus: every field a source entry
+    carries is either mapped to a CSL variable or retrievable from the stored
+    record afterwards, and none is absent from both.
+    """
+
+    def test_every_field_in_every_corpus_entry_is_mapped_or_preserved(self):
+        gaps: list[str] = []
+        for path in sorted(FIXTURES.glob("*.bib")):
+            raws = _parse_or_none(path)
+            if raws is None:
+                # A file bibtexparser cannot even read (``latin1_encoded.bib``)
+                # supplies no entry with fields to check here — SC-008's
+                # territory, not SC-006's.
+                continue
+            for raw in raws:
+                try:
+                    csl = BibTeXFormat().to_csl_json(raw)
+                except SkipEntry:
+                    continue
+                for bib_key, value in raw.items():
+                    if _is_source_field(bib_key) and value and not _accounted_for(bib_key, csl):
+                        gaps.append(f"{path.name}#{raw.get('ID')}: {bib_key!r}")
+
+        assert not gaps

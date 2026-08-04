@@ -234,3 +234,79 @@ afterwards.
   complete pending that last check. Watch: confirmed the assertions are not vacuously true by a
   throwaway print inside the test before removing it — both sides carry non-empty, matching
   contributor lists and identifier maps, not `[] == []` or `{} == {}`.
+
+- **2026-08-04T20:35 · Implementer US4 · T031** — Did: added `TestPreservation` (7 tests):
+  unmapped fields collected under a single `custom["bibtex"]` key at the `to_csl_json` level; an
+  entry with no unmapped fields carries no `custom` key at all; the sorting `key` field (named in
+  `FIELD_TABLE`'s own comment as intentionally uncarried) is preserved the same way; the corpus
+  fixture `unknown_fields.bib` is retrievable from the stored `Item` after a real import, with zero
+  `ItemIdentifier` rows created from it; the entry is reported `CREATED` with no new `Outcome`
+  value and no new field on `EntryResult` (asserted via `dataclasses.fields`, not just visual
+  inspection); an unresolvable `crossref` (`crossref_missing.bib`) is preserved and does not fail
+  its entry; a resolved `crossref` (`crossref_forward.bib`) is preserved the same way, with
+  `bibtexparser`'s own `_FROM_CROSSREF` bookkeeping key confirmed absent from what's preserved.
+  Also added `TestCorpusPreservation` (T033's class, written now so both new classes could be
+  confirmed red for the right reason together) and its two module-level helpers,
+  `_is_source_field` and `_accounted_for`, which classify a raw field as mapped or preserved by
+  reading `FIELD_TABLE`/`NAME_FIELD_TABLE`/`IDENTIFIER_FIELD_TABLE` directly rather than
+  reimplementing or importing the production sweep, so the test can catch production and
+  classification drifting apart. Verified pre-implementation:
+  `poetry run pytest tests/test_importers/test_bibtex.py -q --no-cov -k "TestPreservation and not
+  Corpus"` — 5 failed (`KeyError: 'custom'` / `TypeError: 'NoneType' object is not subscriptable`),
+  2 passed trivially (the no-unmapped-fields case and the reporting-shape case, neither of which
+  depends on code T032 adds). Next: T032 turns these green.
+
+- **2026-08-04T20:45 · Implementer US4 · T032** — Did: added `_unmapped_fields` to
+  `literature/importers/bibtex.py` — every raw field not one of `bibtexparser`'s own structural
+  keys (`ENTRYTYPE`, `ID`), not a date-source field (`year`/`month`/`date`, already consumed by
+  `_issued_date`), not prefixed with an underscore (`_FROM_CROSSREF`, the parser's own
+  bookkeeping, not a source field), and not a key any of `FIELD_TABLE`/`IDENTIFIER_FIELD_TABLE`/
+  `NAME_FIELD_TABLE` recognises — collected into `custom["bibtex"]` at the end of `to_csl_json`
+  (D20: nested under one key rather than spilled flat, so `from_csl_json`'s identifier-promotion
+  loop, which only acts on string values, skips the dict and leaves it for `item.custom` to store
+  whole). `crossref` needed no special case for the unresolved acceptance scenario: it has no
+  table entry either way, resolved or not, so the same rule preserves it always (D21). Verified
+  with the story suite (`poetry run pytest tests/test_importers/test_bibtex.py -q --no-cov`: 143
+  passed — both T031's and T033's classes green) and the full suite (`poetry run pytest -q
+  --no-cov`: 655 passed, baseline 647 + 8 new tests). Confirmed both new test classes are real
+  gates, not restated implementation, by removing the `custom["bibtex"]` assignment from
+  `to_csl_json` and re-running `-k "TestPreservation or TestCorpusPreservation"`: 6 of 8 fail
+  (the same 5 from T031's pre-implementation run, plus `TestCorpusPreservation`'s corpus sweep,
+  which reported the exact gap list — `constructed_biblatex.bib`'s `langid`/`location`/`urldate`,
+  every fixture's `crossref`, `unknown_fields.bib`'s seven bookkeeping fields, `unknown_entry_type
+  .bib`'s `entryset`, and `real_crossref_classic.bib`'s `collection`); reverted with `git checkout
+  -- literature/importers/bibtex.py` and re-applied the same edits by hand after confirming the
+  revert had reset the whole file rather than just the sabotage. Ran the full `verify` ritual after
+  restoring: `poetry run pre-commit run --all-files` (one round-trip: ruff's `S112` flagged the
+  `TestCorpusPreservation` test's own `try`/`except`/`continue` around a whole-file parse failure;
+  fixed by moving the try/except into a `_parse_or_none` helper so the `continue` sits outside the
+  except block, not by suppressing the rule), `poetry run mypy literature` (clean), `poetry run
+  deptry .` (clean). US4 complete pending T033's write-up below, which landed in the same edit as
+  T032's implementation rather than a separate one — see T033's entry for why. Next: none; this is
+  the feature's last story. Watch: `constructed_biblatex.bib` carries `location`, BibLaTeX's
+  current name for what classic BibTeX calls `address` (already mapped to `publisher-place`) —
+  genuinely a candidate for `FIELD_TABLE`, but extending the table is US1/US3's mapping territory,
+  not this story's preservation territory, so it is left preserved-but-unmapped and recorded as a
+  concern (D21) rather than taken as a drive-by fix.
+
+- **2026-08-04T20:50 · Implementer US4 · T033** — Did: `TestCorpusPreservation` was written
+  alongside `TestPreservation` in the T031 commit (see above) so both could be confirmed red for
+  the right reason in one pre-implementation run, and turned green by the same T032 implementation
+  — there was no separate red/green cycle for T033 alone. Its one test,
+  `test_every_field_in_every_corpus_entry_is_mapped_or_preserved`, walks `BibTeXFormat().parse()`
+  over every fixture in `tests/fixtures/bibtex/` (skipping a file `bibtexparser` cannot even decode
+  — `latin1_encoded.bib` — since that supplies no entry with fields to check, SC-008's territory
+  rather than SC-006's), converts every entry with `to_csl_json` (skipping comments/preambles via
+  `SkipEntry`), and asserts every field the raw entry carries is either accounted for by one of the
+  three mapping tables (its CSL variable is present in the result) or retrievable from
+  `custom["bibtex"]` or `custom` directly (D13's narrow case). Verified as a real gate against the
+  whole corpus, not a hand-picked example: pre-T032 it failed with a full gap list spanning nine
+  fixtures (logged in T032's entry above); post-T032 it passes with zero gaps across all 27
+  fixture files. Verified with the story suite (143 passed), the full suite (655 passed), and the
+  full `verify` ritual (pre-commit, mypy, deptry all clean). US4 complete. This is the feature's
+  final story — nothing left to hand off. Watch: the classification helpers
+  (`_is_source_field`, `_accounted_for`) live in the test module and read the same three
+  production tables `to_csl_json` reads, but do not call `_unmapped_fields` itself — deliberately,
+  so a bug in the production sweep (forgetting to exclude a mapped key, say) would show up as a
+  test failure rather than being invisible because the test and the code share one definition of
+  "unmapped."
