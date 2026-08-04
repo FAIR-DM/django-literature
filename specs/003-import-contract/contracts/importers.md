@@ -92,7 +92,26 @@ build an `EntryResult` itself.
 
 `SkipEntry`, `EntryError` and `ParseError` are the format's vocabulary for talking to the runner and
 never reach the caller. `UnknownFormat` and `FormatAlreadyRegistered` are the caller's problem and
-do.
+do. `register` also raises `TypeError` for something that is not a `Format` subclass, or for one
+that has not set a name.
+
+**Anything else a format raises is reported, not raised.** The three above are what a format *says*;
+they are not the only things that can come out of it. A format is third-party code reading untrusted
+content, and the stage that builds an `Item` is not defensive about the shape of the CSL JSON it is
+handed — a date variable that is a string rather than an object raises `AttributeError` from inside
+`from_csl_json`, and no format can pre-empt that, because `to_csl_json`'s only obligation is to
+return a dict. So the runner reports every exception from the converting and storing stages as a
+`FAILED` entry, and every exception from the reading stage as a `FAILED` entry that ends the file.
+The exception's type is named in the reason when it is not one the contract knows.
+
+Nothing narrower keeps the promise at the top of this document. The failure it prevents is the
+expensive one: the exception escapes `import_file`, so the caller gets no result for any entry, the
+entries after the bad one are never attempted, and the entries already stored stay stored.
+
+**`handle_for` gets its own block.** It reads the same untrusted content, but it only decides what an
+entry is *called*. An entry whose handle cannot be read is converted and stored as normal and
+reported without a handle — never failed, and never given whatever outcome the exception it raised
+would have meant coming from `to_csl_json`.
 
 ## The registry
 

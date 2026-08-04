@@ -304,3 +304,60 @@ than discovering the gap from an empty dropdown.
 **Revisit if**: a format needs to be registered by a package that is installed but whose app is not
 in `INSTALLED_APPS`, or the number of shipped formats makes an explicit import list unwieldy —
 either would justify autodiscovery.
+
+## D18 — The per-entry net catches every exception, not the three the contract names
+
+Self-resolved, at convergence review.
+
+A review of the finished branch found that `import_file` could still be escaped. The runner caught
+`SkipEntry`, `EntryError` and `ValidationError` around converting, and `ValidationError` and
+`IntegrityError` around storing. `from_csl_json` raises neither of the latter for several shapes of
+plausible CSL JSON: `{"issued": "2020"}` — a date variable as a string rather than an object —
+reaches `.get()` on a string and raises `AttributeError`, and `{"author": 42}` raises `TypeError`.
+
+Reproduced before changing anything. With three entries where the middle one carries a string date,
+`import_file` raised `AttributeError`, entry one was already committed, entry three was never
+attempted, and the caller received no `ImportResult` at all. That is FR-013, FR-014 and FR-023
+failing together, in the exact case the contract exists for, and a format cannot prevent it: FR-003
+gives it no route to the stage that fails, and `to_csl_json`'s only obligation is to return a dict.
+
+Both `except` clauses are now `except Exception`. The cost is real and worth naming: a genuine bug
+in a format, or in this package, is reported as a failed entry rather than crashing loudly. Two
+things keep that honest. The reason names the exception type when it is not one the contract knows
+(`KeyError: author`), so a bug does not masquerade as bad file content. And every one of them is
+logged with `exc_info=True`, so the traceback is still there for whoever goes looking. This is what
+`django-import-export` does for the same reason.
+
+**Revisit if**: `from_csl_json` ever becomes strict about the shape of its input and raises
+`ValidationError` for everything malformed — the narrow net would then be defensible again, though
+a format with a bug would still escape it.
+
+## D19 — `handle_for` is its own block, and an unreadable handle costs only the handle
+
+Self-resolved, at convergence review.
+
+The US1 review moved `handle_for` inside the block that turns a bad entry into a result, on the
+grounds that it reads the same untrusted content (FR-023). That stopped it ending the run, and
+introduced a worse fault: it shares the block with `to_csl_json`, so whatever `handle_for` raises is
+routed as though the conversion had raised it. A `SkipEntry` out of `handle_for` reported a perfectly
+good bibliographic record as "recognised, deliberately not stored" and stored it nowhere, with no
+reason attached — the silent drop this whole contract exists to remove. An `EntryError` failed a
+record because its *name* was unreadable.
+
+`handle_for` now has its own `try`. Anything it raises costs the handle and nothing else: the entry
+is converted, stored and reported as usual, with `handle=None` and a logged warning.
+
+## D20 — Every transaction names the alias the models are written on
+
+Self-resolved, at convergence review.
+
+`transaction.atomic()` and `transaction.set_rollback(True)` both default to the `default` alias,
+while `from_csl_json` writes through whichever alias `DATABASE_ROUTERS` picks for `Item`. This
+package is a reusable app, so that routing is the installing project's choice. Where the two differ,
+a dry run opened a transaction on an idle connection, set the rollback flag on that connection, and
+let every write commit on the other one — reporting `dry_run=True` alongside a list of created
+entries while permanently storing all of them. The caller had no signal at all.
+
+Both calls, and the per-entry savepoint, now pass `using=router.db_for_write(Item)`. Covered by
+`TestDryRunFollowsTheRouter`, which runs against a second database alias with a router sending
+`literature` models to it. Removing either `using=` turns it red.

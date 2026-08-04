@@ -114,3 +114,22 @@ class TestImportResult:
 
     def test_length_is_the_entry_count(self, mixed):
         assert len(mixed) == 4
+
+
+class TestAFailureAlwaysExplainsItself:
+    """FR-010, and the hole the original invariant left.
+
+    The guard tested ``reason is None``. An exception raised with no message —
+    ``EntryError()`` — gives ``str(exc) == ""``, which is not ``None``, so a
+    failed entry with nothing to act on passed straight through and printed as
+    a blank line beside its index. That is the silent drop this record exists
+    to make impossible, one indirection further along.
+    """
+
+    def test_an_empty_reason_is_refused(self):
+        with pytest.raises(ValueError, match="reason"):
+            EntryResult(outcome=Outcome.FAILED, index=0, reason="")
+
+    def test_a_whitespace_only_reason_is_refused(self):
+        with pytest.raises(ValueError, match="reason"):
+            EntryResult(outcome=Outcome.FAILED, index=0, reason="   \n")

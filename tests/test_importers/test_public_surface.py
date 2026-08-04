@@ -11,6 +11,7 @@ re-exported, is caught here rather than by whoever tries to import it.
 """
 
 import importlib
+import inspect
 
 import pytest
 
@@ -43,6 +44,28 @@ class TestPublicSurface:
         loudly as one added to the contract and never exported.
         """
         assert set(importers.__all__) == set(PUBLIC_SURFACE)
+
+    @pytest.mark.parametrize("module", sorted(set(PUBLIC_SURFACE.values())))
+    def test_every_public_name_a_submodule_defines_is_exported(self, module):
+        """The half a hand-written list cannot catch.
+
+        Both assertions above are derived from ``PUBLIC_SURFACE``, so a name
+        added to ``registry.py`` and left out of *both* ``__all__`` and this
+        file passes them without complaint — which is exactly the omission the
+        guard is for. This one reads the submodules instead: anything they
+        define without a leading underscore is public by Python's own
+        convention, and must be reachable from the package (FR-021).
+        """
+        submodule = importlib.import_module(module)
+        defined_here = {
+            name
+            for name, value in vars(submodule).items()
+            if not name.startswith("_")
+            and getattr(value, "__module__", None) == module
+            and (inspect.isclass(value) or inspect.isfunction(value))
+        }
+
+        assert defined_here <= set(importers.__all__)
 
     @pytest.mark.parametrize("name", sorted(PUBLIC_SURFACE))
     def test_name_is_importable_from_the_package(self, name):

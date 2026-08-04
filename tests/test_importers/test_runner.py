@@ -13,6 +13,7 @@ import logging
 import pytest
 
 from literature.importers.base import Format
+from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
 from literature.importers.runner import import_file
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName
@@ -22,6 +23,8 @@ from .conftest import (
     make_bad_handle_format,
     make_echo_format,
     make_failing_parse_format,
+    make_raising_format,
+    make_skipping_handle_format,
     make_unparseable_format,
 )
 
@@ -248,17 +251,34 @@ class TestResilience:
         assert result.entries[1].reason == "entry 2 is malformed"
         assert Item.objects.count() == 1
 
-    def test_a_handle_that_cannot_be_read_is_reported_not_raised(self):
-        """FR-023: ``handle_for`` reads untrusted content too. The entry is
-        still reported, with no handle, rather than ending the run."""
+    def test_a_handle_that_cannot_be_read_costs_the_handle_and_nothing_else(self):
+        """FR-023: ``handle_for`` reads untrusted content too, so it can fail
+        on a malformed entry — but it only decides what the entry is *called*.
+        A record that converts and stores perfectly well is imported without a
+        handle, rather than failed because its key was unreadable or, worse,
+        given whatever outcome the exception it raised happens to mean.
+        """
         entries = [{"kind": "good", "id": "a", "type": "book"}]
 
         result = import_file(io.StringIO(), make_bad_handle_format(entries))
 
         assert len(result.entries) == 1
-        assert result.entries[0].outcome == Outcome.FAILED
+        assert result.entries[0].outcome == Outcome.CREATED
         assert result.entries[0].handle is None
-        assert Item.objects.count() == 0
+        assert Item.objects.count() == 1
+
+    def test_a_handle_that_raises_skipentry_does_not_discard_the_entry(self):
+        """``handle_for`` sharing a block with ``to_csl_json`` meant a
+        ``SkipEntry`` out of it silently dropped a good bibliographic record —
+        reported as "recognised, deliberately not stored", stored nowhere, with
+        no reason to explain it. The two stages have separate blocks now.
+        """
+        entries = [{"kind": "good", "id": "a", "type": "book"}]
+
+        result = import_file(io.StringIO(), make_skipping_handle_format(entries))
+
+        assert [entry.outcome for entry in result.entries] == [Outcome.CREATED]
+        assert Item.objects.count() == 1
 
     def test_unparseable_file_returns_a_one_entry_failed_result(self):
         """FR-014, SC-007."""
@@ -315,3 +335,161 @@ class TestResilience:
         ]
         assert result.entries[2].index == 2
         assert result.entries[2].reason == "truncated mid-entry"
+
+
+@pytest.mark.django_db
+class TestExceptionsOutsideTheContract:
+    """FR-013, FR-014, FR-023 for the exceptions the contract never named.
+
+    A format is third-party code reading untrusted content, and the stage that
+    builds an ``Item`` is not defensive about the *shape* of the CSL JSON it is
+    handed — ``from_csl_json`` calls ``.get()`` on a date variable and iterates
+    a name variable without checking either. So a real file can produce an
+    ``AttributeError`` or a ``TypeError`` from a format that did nothing wrong.
+
+    Catching only the three exceptions the contract names meant those escaped
+    ``import_file``: the caller got no result at all, every entry after the bad
+    one was never attempted, and the entries already stored stayed committed.
+    That is the one failure this whole contract exists to rule out, so the net
+    is deliberately every ``Exception`` rather than a list of types.
+    """
+
+    def test_a_csl_shape_the_conversion_cannot_handle_fails_one_entry_only(self):
+        """A date variable as a bare string rather than an object. Nothing in
+        the format is wrong, and ``from_csl_json`` raises ``AttributeError``.
+        """
+        entries = [
+            {"id": "a", "type": "book"},
+            {"id": "b", "type": "book", "issued": "2020"},
+            {"id": "c", "type": "book"},
+        ]
+
+        result = import_file(io.StringIO(), make_echo_format(entries))
+
+        assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.FAILED, Outcome.CREATED]
+        assert Item.objects.count() == 2
+        assert "AttributeError" in result.failed[0].reason
+
+    def test_a_name_variable_of_the_wrong_type_fails_one_entry_only(self):
+        entries = [{"id": "a", "type": "book", "author": 42}, {"id": "b", "type": "book"}]
+
+        result = import_file(io.StringIO(), make_echo_format(entries))
+
+        assert [entry.outcome for entry in result] == [Outcome.FAILED, Outcome.CREATED]
+        assert Item.objects.count() == 1
+
+    def test_a_format_with_a_bug_fails_its_entry_rather_than_the_run(self):
+        """A ``KeyError`` out of ``to_csl_json`` is a bug in the format, not a
+        signal in the contract's vocabulary. It still cannot cost the caller
+        the report for every other entry.
+        """
+        result = import_file(io.StringIO(), make_raising_format([{"id": "a"}], KeyError("author")))
+
+        assert [entry.outcome for entry in result] == [Outcome.FAILED]
+        assert "KeyError" in result.failed[0].reason
+
+    def test_a_format_whose_reader_has_a_bug_ends_the_file_and_is_reported(self):
+        entries = [{"kind": "good", "id": "a", "type": "book"}]
+
+        result = import_file(io.StringIO(), make_raising_format(entries, RuntimeError("iterator broke"), stage="parse"))
+
+        assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.FAILED]
+        assert result.failed[0].index == 1
+        assert "RuntimeError" in result.failed[0].reason
+        assert Item.objects.count() == 1
+
+    def test_skipentry_from_the_reader_is_a_skip_not_an_escape(self):
+        """``exceptions.py``: none of a format's three signals ever reaches the
+        caller. ``SkipEntry`` is a sibling of ``ParseError`` rather than a
+        subclass, so a handler naming only the other two let it straight out.
+        """
+        entries = [{"kind": "good", "id": "a", "type": "book"}]
+
+        result = import_file(io.StringIO(), make_raising_format(entries, SkipEntry("trailing junk"), stage="parse"))
+
+        assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.SKIPPED]
+
+    def test_parseerror_from_the_converting_stage_is_filed_at_the_right_index(self):
+        """Out of contract — ``ParseError`` belongs to ``parse`` — but when the
+        outer handler caught it, the index had already moved past the entry
+        that raised, so entry 1 got no result and the failure claimed index 2.
+        """
+        entries = [{"kind": "good", "id": "a", "type": "book"}, {"id": "b", "type": "book"}]
+
+        result = import_file(io.StringIO(), make_raising_format(entries, ParseError("boom")))
+
+        assert [(entry.index, entry.outcome) for entry in result] == [(0, Outcome.FAILED), (1, Outcome.FAILED)]
+
+
+@pytest.mark.django_db
+class TestFailureReasons:
+    """FR-010: every failure carries a reason somebody can act on."""
+
+    def test_a_validation_error_reads_as_its_message_not_its_repr(self):
+        """``str(ValidationError)`` is the ``repr`` of the list inside it, so
+        a reader got ``["Unknown CSL JSON item type: 'nope'"]`` — brackets,
+        quotes and all — for the failure mode the contract names as a format's
+        ordinary way of rejecting an entry.
+        """
+        result = import_file(io.StringIO(), make_echo_format([{"id": "a", "type": "nope"}]))
+
+        assert result.failed[0].reason == "Unknown CSL JSON item type: 'nope'"
+
+    def test_an_exception_raised_with_no_message_still_yields_a_reason(self):
+        """``str(EntryError())`` is ``""`` — not ``None``, so it passed the
+        invariant, and printed as a blank line next to the entry's index.
+        """
+        result = import_file(io.StringIO(), make_raising_format([{"id": "a"}], EntryError()))
+
+        assert result.failed[0].reason.strip()
+        assert "EntryError" in result.failed[0].reason
+
+    def test_a_reason_the_format_wrote_is_passed_through_unchanged(self):
+        """The contract's own exceptions carry a message written for whoever
+        has to fix the file, so nothing is prepended to it.
+        """
+        result = import_file(io.StringIO(), make_raising_format([{"id": "a"}], EntryError("no author, no year")))
+
+        assert result.failed[0].reason == "no author, no year"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestResilienceOutsideATestTransaction:
+    """The resilience guarantees at the transaction level a caller runs at.
+
+    Every test in ``TestResilience`` runs under non-transactional
+    ``django_db``, so the runner's per-entry ``transaction.atomic()`` is a
+    savepoint nested inside the test's own transaction, and a failure rolls
+    back through Django's ``savepoint_rollback`` branch. A real caller in
+    autocommit hits the other branch entirely: the per-entry block is
+    outermost, and the rollback is a genuine ``connection.rollback()``.
+
+    Both branches behave the same here, but "we never checked" and "it works"
+    are different claims, and the per-entry savepoint is the mechanism the
+    atomicity promise rests on.
+    """
+
+    def test_a_database_failure_rolls_back_its_entry_alone(self, bypass_identifier_validation):
+        entries = [
+            {"kind": "good", "id": "a", "type": "book"},
+            {"id": "b", "type": "book", "custom": DuplicateCustomIdentifier()},
+            {"kind": "good", "id": "c", "type": "book"},
+        ]
+
+        result = import_file(io.StringIO(), make_echo_format(entries))
+
+        assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.FAILED, Outcome.CREATED]
+        assert Item.objects.count() == 2
+        assert not Item.objects.filter(citation_key="b").exists()
+        assert ItemIdentifier.objects.count() == 0
+
+    def test_a_partway_failure_leaves_nothing_of_its_entry_behind(self):
+        """FR-006, SC-008 — an entry is atomic, counted across every table it
+        would have touched.
+        """
+        entries = [{"id": "a", "type": "book", "author": [{"family": "Kuhn"}], "issued": "2020"}]
+
+        result = import_file(io.StringIO(), make_echo_format(entries))
+
+        assert [entry.outcome for entry in result] == [Outcome.FAILED]
+        assert _counts() == (0, 0, 0, 0)

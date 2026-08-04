@@ -91,3 +91,41 @@ class TestImportByName:
         result = import_file(io.StringIO(), make_echo_format([]))
 
         assert result.format_name is None
+
+
+class TestRegisterRefusesWhatCannotBeAFormat:
+    """contracts/importers.md: the contract raises for programmer error — "an
+    unregistered format name, or something that is not a ``Format``".
+
+    Checked at registration rather than left to fail later. Without it, the
+    first sign is an ``AttributeError`` from inside somebody's import run, a
+    long way from the registration that caused it.
+    """
+
+    def test_something_that_is_not_a_format_is_refused(self):
+        class NotAFormat:
+            name = "impostor"
+
+        with pytest.raises(TypeError):
+            register(NotAFormat)
+
+        assert "impostor" not in available_formats()
+
+    def test_an_instance_rather_than_a_class_is_refused(self):
+        with pytest.raises(TypeError):
+            register(make_echo_format([])())
+
+    def test_a_format_that_forgot_its_name_is_refused_by_name(self):
+        """The message has to say which of the two things is missing, since
+        ``AttributeError: type object 'X' has no attribute 'name'`` reads like
+        a bug in the registry rather than an omission in the format.
+        """
+        nameless = make_echo_format([])
+        del nameless.name
+
+        with pytest.raises(TypeError, match="name"):
+            register(nameless)
+
+    def test_a_blank_name_is_refused(self):
+        with pytest.raises(TypeError):
+            register(make_echo_format([], format_name="   "))

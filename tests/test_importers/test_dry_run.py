@@ -156,3 +156,58 @@ class TestDryRunOutsideATestTransaction:
 
         assert len(result.created) == 1
         assert Item.objects.count() == items_before + 1
+
+
+class SecondaryRouter:
+    """Send every ``literature`` model to the ``secondary`` alias.
+
+    What an installing project does when the catalogue lives somewhere other
+    than its default database. This package is a reusable app, so that choice
+    is never its own to make.
+    """
+
+    def db_for_read(self, model, **hints):
+        return "secondary" if model._meta.app_label == "literature" else None
+
+    db_for_write = db_for_read
+
+    def allow_migrate(self, db, app_label, **hints):
+        if app_label == "literature":
+            return db == "secondary"
+        return None
+
+
+@pytest.mark.django_db(databases=["default", "secondary"], transaction=True)
+class TestDryRunFollowsTheRouter:
+    """FR-015 when the catalogue is not on the default connection.
+
+    ``transaction.atomic()`` and ``set_rollback(True)`` both default to the
+    ``default`` alias, while ``from_csl_json`` writes through whichever alias
+    the router picks. When those differ, the outer transaction wrapped an idle
+    connection and the rollback flag was set on it — so a dry run ran on the
+    real connection with no transaction around it at all, committed every row,
+    and reported ``dry_run=True`` with a list of created entries. The caller
+    had no signal whatsoever.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _route_literature_elsewhere(self, settings):
+        settings.DATABASE_ROUTERS = [SecondaryRouter()]
+
+    def test_a_dry_run_stores_nothing_on_the_routed_database(self):
+        entries = [
+            {"kind": "good", "id": "a", "type": "book"},
+            {"kind": "good", "id": "b", "type": "book"},
+        ]
+
+        result = import_file(io.StringIO(), make_echo_format(entries), dry_run=True)
+
+        assert result.dry_run is True
+        assert len(result.created) == 2
+        assert Item.objects.count() == 0
+
+    def test_a_real_run_still_commits_on_the_routed_database(self):
+        result = import_file(io.StringIO(), make_echo_format([{"kind": "good", "id": "a", "type": "book"}]))
+
+        assert len(result.created) == 1
+        assert Item.objects.count() == 1

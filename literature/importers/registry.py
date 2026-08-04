@@ -23,8 +23,19 @@ def register(format_class: type[Format]) -> type[Format]:
     rather than replacing an existing entry (FR-020) — silently shadowing
     another package's format is the kind of failure that surfaces days later
     as "the wrong parser ran".
+
+    Raises ``TypeError`` for anything that is not a ``Format`` subclass with a
+    name (contracts/importers.md: the contract raises for programmer error,
+    "an unregistered format name, or something that is not a ``Format``").
+    Checked here rather than left to fail later, because the alternative is an
+    ``AttributeError`` from inside somebody's import run, a long way from the
+    registration that caused it.
     """
-    name = format_class.name
+    if not (isinstance(format_class, type) and issubclass(format_class, Format)):
+        raise TypeError(f"{format_class!r} is not a Format subclass")
+    name = getattr(format_class, "name", None)
+    if not isinstance(name, str) or not name.strip():
+        raise TypeError(f"{format_class.__name__} must set a non-empty 'name' before it can be registered")
     if name in _registry:
         raise FormatAlreadyRegistered(_("A format is already registered under '{name}'.").format(name=name))
     _registry[name] = format_class

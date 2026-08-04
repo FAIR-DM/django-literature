@@ -5,10 +5,12 @@ caller; two are the caller's problem and do. The distinction is the point of the
 hierarchy, so it is asserted here rather than left to the runner's tests.
 """
 
+from unittest import mock
+
 import pytest
-from django.utils import translation
 from django.utils.functional import Promise
 
+from literature.importers import exceptions
 from literature.importers.exceptions import (
     EntryError,
     FormatAlreadyRegistered,
@@ -89,13 +91,26 @@ class TestUnknownFormat:
         assert UnknownFormat("bibtex", available=[]).name == "bibtex"
 
     def test_message_is_built_from_a_translatable_template(self):
-        """The message reaches a developer, so it goes through gettext."""
-        with translation.override("en"):
-            english = str(UnknownFormat("bibtex", available=["ris"]))
-        # A no-op override still proves the message went through the machinery
-        # rather than being assembled from a bare f-string.
-        assert "bibtex" in english
-        assert "ris" in english
+        """FR-022: the message goes through gettext rather than an f-string.
+
+        Asserted by watching the translation call, not by reading the finished
+        message. The previous version wrapped ``translation.override("en")``
+        around the message and checked that the format name and the registered
+        names appeared in it — which a bare f-string satisfies exactly as well,
+        so it would have stayed green through the very change it exists to
+        catch.
+        """
+        seen = []
+
+        def spy(message):
+            seen.append(message)
+            return message
+
+        with mock.patch.object(exceptions, "_", spy):
+            str(UnknownFormat("bibtex", available=["ris"]))
+
+        assert seen, "the message was assembled without going through gettext"
+        assert "{name}" in seen[0], "the template must carry placeholders, not interpolated values"
 
     def test_available_names_are_sorted(self):
         """Order should not depend on registration order, or the message churns."""

@@ -57,8 +57,11 @@ class EntryResult:
     def __post_init__(self):
         # A failure without a reason is exactly the silent drop this contract
         # exists to remove, so it is refused at construction rather than caught
-        # later by whoever reads the report.
-        if self.outcome == Outcome.FAILED and self.reason is None:
+        # later by whoever reads the report. Emptiness counts: an exception
+        # raised with no message gives ``str(exc) == ""``, which is not None
+        # and prints as a blank line — the same silent drop, one indirection
+        # further along.
+        if self.outcome == Outcome.FAILED and not (self.reason or "").strip():
             raise ValueError("a failed entry result must carry a reason")
         if self.outcome != Outcome.FAILED and self.reason is not None:
             raise ValueError("only a failed entry result may carry a reason")

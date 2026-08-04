@@ -201,3 +201,54 @@ def isolated_registry():
     yield
     registry._registry.clear()
     registry._registry.update(before)
+
+
+def make_skipping_handle_format(entries, format_name="skipping-handle"):
+    """Build a ``Format`` whose ``handle_for`` raises ``SkipEntry``.
+
+    Out of contract — ``SkipEntry`` belongs to ``to_csl_json`` — but a format
+    can reach for it anywhere, and when ``handle_for`` shared a block with
+    ``to_csl_json`` the result was a good bibliographic record reported as
+    deliberately skipped and stored nowhere.
+    """
+
+    class _SkippingHandleFormat(Format):
+        label = "Skipping handle (test-only)"
+
+        def parse(self, file):
+            yield from entries
+
+        def to_csl_json(self, raw):
+            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+
+        def handle_for(self, raw):
+            raise SkipEntry("not a record, apparently")
+
+    _SkippingHandleFormat.name = format_name
+    return _SkippingHandleFormat
+
+
+def make_raising_format(entries, exception, *, stage="to_csl_json", format_name="raising"):
+    """Build a ``Format`` that raises ``exception`` at ``stage``.
+
+    For the exception types the contract does *not* name. A format is
+    third-party code and ``from_csl_json`` is not defensive about the shape of
+    the CSL JSON it is handed, so an import meets exceptions outside the
+    contract's vocabulary and has to report them rather than let them out.
+    """
+
+    class _RaisingFormat(Format):
+        label = "Raising (test-only)"
+
+        def parse(self, file):
+            yield from entries
+            if stage == "parse":
+                raise exception
+
+        def to_csl_json(self, raw):
+            if stage == "to_csl_json":
+                raise exception
+            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+
+    _RaisingFormat.name = format_name
+    return _RaisingFormat
