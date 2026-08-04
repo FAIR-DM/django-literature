@@ -40,7 +40,7 @@ Self-resolved. The maintainer asked for the most appropriate terms rather than n
 | **outcome** | The fixed vocabulary value on an entry result | *status* (suggests something that changes over time) |
 | **import result** / **entry result** | The report for a run, and for one entry within it | — |
 
-`django-import-export` was the model raised at intake, and its `Format` concept maps cleanly. Its
+`django-import-export` was the model raised at intake, and its `BibFormat` concept maps cleanly. Its
 `Resource` concept deliberately does **not** come across: a `Resource` exists so a caller can
 configure how records map onto a model, and here that mapping is fixed by CSL JSON and not the
 caller's to change.
@@ -279,7 +279,7 @@ the field's own docstring already commits to this behaviour, this is treated as 
 in `test_registry.py`.
 
 **Revisit if**: a future story wants `format_name` to reflect the resolved class's `name` even when
-a `Format` subclass was passed directly (today it stays `None` in that case, matching "when the
+a `BibFormat` subclass was passed directly (today it stays `None` in that case, matching "when the
 import was run by name" read literally) — that would be a new, separate decision, not a correction
 of this one.
 
@@ -370,7 +370,7 @@ Both calls, and the per-entry savepoint, now pass `using=router.db_for_write(Ite
 
 Self-resolved, from the independent review round.
 
-`register()` already checked that a candidate is a `Format` subclass with a usable `name`, on the
+`register()` already checked that a candidate is a `BibFormat` subclass with a usable `name`, on the
 stated principle that programmer error belongs at registration rather than inside somebody's import
 run. It did not check that the subclass implements `parse` and `to_csl_json`. A half-written format
 therefore registered cleanly and was enumerable, and the first sign of the omission was a raw

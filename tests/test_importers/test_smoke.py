@@ -25,8 +25,8 @@ from django.utils.translation import gettext_lazy as _
 
 import literature.importers as importers
 from literature.importers import (
+    BibFormat,
     EntryError,
-    Format,
     Outcome,
     SkipEntry,
     available_formats,
@@ -45,7 +45,7 @@ popper1959 | book | The Logic of Scientific Discovery
 """
 
 
-class LineFormat(Format):
+class LineFormat(BibFormat):
     """A bibliographic syntax in the smallest form the contract allows."""
 
     name = "smoke-lines"
@@ -132,7 +132,7 @@ class TestTheWholeContract:
 
 #: Every name the contract publishes, and the submodule that defines it.
 PUBLIC_SURFACE = {
-    "Format": "literature.importers.base",
+    "BibFormat": "literature.importers.base",
     "ImporterError": "literature.importers.exceptions",
     "SkipEntry": "literature.importers.exceptions",
     "EntryError": "literature.importers.exceptions",

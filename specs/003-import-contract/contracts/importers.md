@@ -10,7 +10,7 @@ Phase 1. The public surface, signature by signature. Everything named here is im
 ```python
 def import_file(
     file,
-    format: type[Format] | str,
+    format: type[BibFormat] | str,
     *,
     dry_run: bool = False,
 ) -> ImportResult
@@ -21,7 +21,7 @@ The one documented way to import a bibliographic file (FR-001), identical for ev
 
 - **`file`** — an open file object or anything with a `read()`. The runner does not open paths and
   does not touch the filesystem beyond what it is handed (FR-023).
-- **`format`** — a `Format` subclass, or the registered name of one. A name is looked up through
+- **`format`** — a `BibFormat` subclass, or the registered name of one. A name is looked up through
   `get_format`, so an unregistered name fails with an error saying which names are registered
   (FR-019).
 - **`dry_run`** — run every stage and report every outcome, then leave the catalogue exactly as it
@@ -29,7 +29,7 @@ The one documented way to import a bibliographic file (FR-001), identical for ev
 
 **Never raises for bad file content.** A file that cannot be parsed at all comes back as an
 `ImportResult` whose single entry failed, with the parser's reason (FR-014). It still raises for
-programmer error — an unregistered format name, or something that is not a `Format`.
+programmer error — an unregistered format name, or something that is not a `BibFormat`.
 
 **What it does, in order:**
 
@@ -52,7 +52,7 @@ entry, in the order the entries arrived (FR-007).
 ## Writing a format
 
 ```python
-class Format(abc.ABC):
+class BibFormat(abc.ABC):
     name: ClassVar[str]
     label: ClassVar[str]          # translatable
 
@@ -92,7 +92,7 @@ build an `EntryResult` itself.
 
 `SkipEntry`, `EntryError` and `ParseError` are the format's vocabulary for talking to the runner and
 never reach the caller. `UnknownFormat` and `FormatAlreadyRegistered` are the caller's problem and
-do. `register` also raises `TypeError` for something that is not a `Format` subclass, or for one
+do. `register` also raises `TypeError` for something that is not a `BibFormat` subclass, or for one
 that has not set a name.
 
 **Anything else a format raises is reported, not raised.** The three above are what a format *says*;
@@ -116,9 +116,9 @@ would have meant coming from `to_csl_json`.
 ## The registry
 
 ```python
-def register(format_class: type[Format]) -> type[Format]     # usable as a decorator
-def get_format(name: str) -> type[Format]
-def available_formats() -> Mapping[str, type[Format]]
+def register(format_class: type[BibFormat]) -> type[BibFormat]     # usable as a decorator
+def get_format(name: str) -> type[BibFormat]
+def available_formats() -> Mapping[str, type[BibFormat]]
 ```
 
 `register` returns the class it was given so it can sit above a class as a decorator. It raises

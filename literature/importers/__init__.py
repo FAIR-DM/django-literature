@@ -26,7 +26,7 @@ one imports it from here or from its app's ``ready()`` — see
 See ``specs/003-import-contract/contracts/importers.md`` for the full contract.
 """
 
-from literature.importers.base import Format
+from literature.importers.base import BibFormat
 from literature.importers.exceptions import (
     EntryError,
     FormatAlreadyRegistered,
@@ -40,9 +40,9 @@ from literature.importers.results import EntryResult, ImportResult, Outcome
 from literature.importers.runner import import_file
 
 __all__ = [
+    "BibFormat",
     "EntryError",
     "EntryResult",
-    "Format",
     "FormatAlreadyRegistered",
     "ImportResult",
     "ImporterError",

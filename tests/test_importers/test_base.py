@@ -1,4 +1,4 @@
-"""Tests for the ``Format`` contract itself (data-model.md, contracts/importers.md).
+"""Tests for the ``BibFormat`` contract itself (data-model.md, contracts/importers.md).
 
 A format supplies exactly two stages and may override a third. FR-003 is the
 point of this module: nothing here gives a format a route to the stage that
@@ -10,12 +10,12 @@ import abc
 
 import pytest
 
-from literature.importers.base import Format
+from literature.importers.base import BibFormat
 
 
 class TestFormatIsAbstract:
     def test_cannot_instantiate_without_parse_and_to_csl_json(self):
-        class Incomplete(Format):
+        class Incomplete(BibFormat):
             label = "Incomplete"
 
         Incomplete.name = "incomplete"
@@ -24,7 +24,7 @@ class TestFormatIsAbstract:
             Incomplete()
 
     def test_cannot_instantiate_missing_only_parse(self):
-        class NoParse(Format):
+        class NoParse(BibFormat):
             label = "No parse"
 
             def to_csl_json(self, raw):
@@ -36,7 +36,7 @@ class TestFormatIsAbstract:
             NoParse()
 
     def test_cannot_instantiate_missing_only_to_csl_json(self):
-        class NoConvert(Format):
+        class NoConvert(BibFormat):
             label = "No convert"
 
             def parse(self, file):
@@ -48,12 +48,12 @@ class TestFormatIsAbstract:
             NoConvert()
 
     def test_is_an_abc(self):
-        assert issubclass(Format, abc.ABC)
+        assert issubclass(BibFormat, abc.ABC)
 
 
 class TestHandleFor:
     def test_defaults_to_none(self):
-        class Minimal(Format):
+        class Minimal(BibFormat):
             label = "Minimal"
 
             def parse(self, file):
@@ -67,7 +67,7 @@ class TestHandleFor:
         assert Minimal().handle_for(object()) is None
 
     def test_can_be_overridden(self):
-        class WithHandles(Format):
+        class WithHandles(BibFormat):
             label = "With handles"
 
             def parse(self, file):
@@ -86,7 +86,7 @@ class TestHandleFor:
 
 class TestFullSubclass:
     def test_a_subclass_supplying_all_three_works(self):
-        class Full(Format):
+        class Full(BibFormat):
             label = "Full"
 
             def parse(self, file):
@@ -117,5 +117,5 @@ class TestFormatHasNoRouteToBuildingAnItem:
     """
 
     def test_public_surface_is_exactly_the_three_stages(self):
-        public_attrs = {name for name in vars(Format) if not name.startswith("_")}
+        public_attrs = {name for name in vars(BibFormat) if not name.startswith("_")}
         assert public_attrs == {"parse", "to_csl_json", "handle_for"}

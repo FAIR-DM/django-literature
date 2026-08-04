@@ -309,3 +309,13 @@ additive (D22).
 **Verified**: `forge verify --base origin/main` → conformance, lint, typecheck, test, build all pass.
 `forge stage-exit --stage S6` → green on all five checks. CI green on `15cd7f9` across four
 Python/Django combinations plus code quality and security scan.
+
+## 2026-08-04T13:30:00Z · Implementer · Phase 7 rework begins (T024)
+
+**Did**: Mechanical rename `Format` → `BibFormat` across `literature/importers/{base,runner,registry,__init__}.py`, `tests/test_importers/{conftest,test_base,test_runner,test_registry,test_smoke}.py`, and the spec artifacts (`spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `decisions.md`, `contracts/importers.md`, `quickstart.md`) via a word-boundary substitution (`\bFormat\b`), which left `FormatAlreadyRegistered` and unrelated hits (`tests/data/csl-typeMap.xml`'s CSL field label, `docs/adr/0002`'s prose "Format validation") untouched. `progress.md`'s own history (append-only) is not rewritten — those entries describe what was literally true when written.
+
+**Verified**: `poetry run pytest -q --no-cov` → 495 passed. `ruff check literature tests` → 2 auto-fixed (import/`__all__` sort order in `__init__.py` and `test_smoke.py`, alphabetical placement of `BibFormat`), 0 remaining. `ruff format --check` clean. `mypy` → no issues in 14 source files. Grepped `\bFormat\b` afterward and every remaining hit is justified (above).
+
+**Next**: T025 — write the split-workflow tests in `test_base.py` against the not-yet-built `BibFormat.import_file`/`import_entries`/`import_entry`/`get_result`, expected to fail (`base.py` still only has `parse`/`to_csl_json`/`handle_for`).
+
+**Watch**: `runner.py` and `registry.py` still exist and still work post-rename (T026/T028 delete them next) — this commit is a pure rename with no behaviour change, so the existing 495 tests are the safety net for it, unchanged.

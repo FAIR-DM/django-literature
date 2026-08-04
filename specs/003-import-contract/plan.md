@@ -11,7 +11,7 @@ catalogue, with the format-specific parts underneath and out of the caller's way
 fixed at four stages, of which a format supplies only the first two, and the fourth reuses the
 package's existing CSL JSON conversion untouched.
 
-The technical core is smaller than the feature sounds. A `Format` supplies an iterator of entries
+The technical core is smaller than the feature sounds. A `BibFormat` supplies an iterator of entries
 and a per-entry conversion to CSL JSON. A runner drives that iterator, wraps each entry in its own
 savepoint, calls `from_csl_json`, and records one outcome per entry. A dry run is the same code
 path inside an outer transaction that is rolled back at the end, so rehearsed outcomes are
@@ -103,7 +103,7 @@ literature/
     ├── __init__.py        # the public surface, re-exported
     ├── exceptions.py      # the format-to-runner vocabulary  (shared)
     ├── results.py         # Outcome, EntryResult, ImportResult  (shared)
-    ├── base.py            # Format, Entry            (US-1)
+    ├── base.py            # BibFormat, Entry            (US-1)
     ├── runner.py          # import_file — drives the workflow   (US-1, US-2)
     └── registry.py        # register, get_format, available_formats  (US-3)
 
@@ -124,7 +124,7 @@ module beside these and a flat `literature/importing.py` would become the pile o
 functions the intake discussion explicitly wanted to avoid. Each module has one job, and they line
 up with the stories: `base` + `runner` carry US-1 and US-2, `registry` carries US-3, which is what
 makes the stories independently implementable. `exceptions` and `results` are shared by all three,
-and are separate from `base` so that `registry` does not have to import the `Format` base class
+and are separate from `base` so that `registry` does not have to import the `BibFormat` base class
 merely to raise an error.
 
 ## Design in brief

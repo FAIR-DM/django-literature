@@ -184,8 +184,8 @@ A developer, or code acting on their behalf, needs to know which file formats th
 Three changes to the agreed shape, raised by the maintainer after reading the branch and agreed in
 session. Nothing in the feature's purpose or its user stories changed; the surface it presents did.
 
-1. **`Format` became `BibFormat`.** `Format` is too generic for a shared namespace, where it reads
-   against `django.utils.formats`, `str.format`, and the unrelated `Format` in `django-import-export`.
+1. **`BibFormat` became `BibFormat`.** `BibFormat` is too generic for a shared namespace, where it reads
+   against `django.utils.formats`, `str.format`, and the unrelated `BibFormat` in `django-import-export`.
    Article X requires the public surface not to collide with common Django structures.
 
 2. **The workflow moved onto the class as overridable methods.** It had been a module-level function

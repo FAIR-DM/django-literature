@@ -1,27 +1,27 @@
 """The test-only format used to exercise the import contract (US1).
 
 Real bibliographic syntaxes arrive with BibTeX (#22) and RIS (#23). Until
-then, this module stands in for one: a small ``Format`` whose entries are
+then, this module stands in for one: a small ``BibFormat`` whose entries are
 built from raw dicts tagged by ``kind``, so a test can ask for exactly the
 mix of good, unreadable, skippable, and part-way-failing entries a scenario
 needs (spec.md "Independent Test") without any real file syntax getting in
 the way.
 
-``import_file`` (contracts/importers.md) takes ``type[Format]`` — a class,
+``import_file`` (contracts/importers.md) takes ``type[BibFormat]`` — a class,
 not an instance — because that is also what a registry lookup returns
-(US3). The factories below build a fresh ``Format`` subclass per call, with
+(US3). The factories below build a fresh ``BibFormat`` subclass per call, with
 the entries and any observer closed over, so each test gets its own
 independent format to hand to ``import_file``.
 """
 
 import pytest
 
-from literature.importers.base import Format
+from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 
 
 def make_echo_format(entries, *, on_yield=None, format_name="echo"):
-    """Build a ``Format`` that yields ``entries`` one at a time.
+    """Build a ``BibFormat`` that yields ``entries`` one at a time.
 
     Each raw entry is a dict. ``to_csl_json`` dispatches on its ``kind``:
 
@@ -45,7 +45,7 @@ def make_echo_format(entries, *, on_yield=None, format_name="echo"):
     can mix entries that carry one with entries that do not (FR-009).
     """
 
-    class _EchoFormat(Format):
+    class _EchoFormat(BibFormat):
         label = "Echo (test-only)"
 
         def parse(self, file):
@@ -70,7 +70,7 @@ def make_echo_format(entries, *, on_yield=None, format_name="echo"):
 
 
 def make_failing_parse_format(entries, reason="bad entry", format_name="failing-parse"):
-    """Build a ``Format`` that yields ``entries`` and then raises ``EntryError``.
+    """Build a ``BibFormat`` that yields ``entries`` and then raises ``EntryError``.
 
     ``parse`` may raise ``EntryError`` as well as ``ParseError``
     (exceptions.py, contracts/importers.md) — a syntax can recognise that
@@ -78,7 +78,7 @@ def make_failing_parse_format(entries, reason="bad entry", format_name="failing-
     report that as a failure rather than let it escape (FR-014).
     """
 
-    class _FailingParseFormat(Format):
+    class _FailingParseFormat(BibFormat):
         label = "Failing parse (test-only)"
 
         def parse(self, file):
@@ -93,14 +93,14 @@ def make_failing_parse_format(entries, reason="bad entry", format_name="failing-
 
 
 def make_bad_handle_format(entries, reason="cannot read this entry's key", format_name="bad-handle"):
-    """Build a ``Format`` whose ``handle_for`` raises on untrusted content.
+    """Build a ``BibFormat`` whose ``handle_for`` raises on untrusted content.
 
     ``handle_for`` reads the same raw entry as ``to_csl_json``, so a
     malformed entry can break it too (FR-023). The entry is still reported,
     without a handle.
     """
 
-    class _BadHandleFormat(Format):
+    class _BadHandleFormat(BibFormat):
         label = "Bad handle (test-only)"
 
         def parse(self, file):
@@ -117,7 +117,7 @@ def make_bad_handle_format(entries, reason="cannot read this entry's key", forma
 
 
 def make_unparseable_format(reason="not this format", format_name="unparseable"):
-    """Build a ``Format`` whose ``parse`` cannot read the file at all.
+    """Build a ``BibFormat`` whose ``parse`` cannot read the file at all.
 
     ``parse`` is written as a generator (the unreachable ``yield`` after
     the ``raise`` is what makes it one) so the ``ParseError`` fires only
@@ -125,7 +125,7 @@ def make_unparseable_format(reason="not this format", format_name="unparseable")
     recovers a few entries before truncation would also raise mid-stream.
     """
 
-    class _UnparseableFormat(Format):
+    class _UnparseableFormat(BibFormat):
         label = "Unparseable (test-only)"
 
         def parse(self, file):
@@ -204,7 +204,7 @@ def isolated_registry():
 
 
 def make_skipping_handle_format(entries, format_name="skipping-handle"):
-    """Build a ``Format`` whose ``handle_for`` raises ``SkipEntry``.
+    """Build a ``BibFormat`` whose ``handle_for`` raises ``SkipEntry``.
 
     Out of contract — ``SkipEntry`` belongs to ``to_csl_json`` — but a format
     can reach for it anywhere, and when ``handle_for`` shared a block with
@@ -212,7 +212,7 @@ def make_skipping_handle_format(entries, format_name="skipping-handle"):
     deliberately skipped and stored nowhere.
     """
 
-    class _SkippingHandleFormat(Format):
+    class _SkippingHandleFormat(BibFormat):
         label = "Skipping handle (test-only)"
 
         def parse(self, file):
@@ -229,7 +229,7 @@ def make_skipping_handle_format(entries, format_name="skipping-handle"):
 
 
 def make_raising_format(entries, exception, *, stage="to_csl_json", format_name="raising"):
-    """Build a ``Format`` that raises ``exception`` at ``stage``.
+    """Build a ``BibFormat`` that raises ``exception`` at ``stage``.
 
     For the exception types the contract does *not* name. A format is
     third-party code and ``from_csl_json`` is not defensive about the shape of
@@ -237,7 +237,7 @@ def make_raising_format(entries, exception, *, stage="to_csl_json", format_name=
     contract's vocabulary and has to report them rather than let them out.
     """
 
-    class _RaisingFormat(Format):
+    class _RaisingFormat(BibFormat):
         label = "Raising (test-only)"
 
         def parse(self, file):

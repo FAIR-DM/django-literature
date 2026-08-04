@@ -16,7 +16,7 @@ import logging
 
 import pytest
 
-from literature.importers.base import Format
+from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
 from literature.importers.runner import import_file
@@ -178,7 +178,7 @@ class TestResilience:
         """The runner passes ``file`` straight through — it never opens a path itself."""
         received = []
 
-        class _CapturingFormat(Format):
+        class _CapturingFormat(BibFormat):
             label = "capturing"
 
             def parse(self, file):
@@ -314,7 +314,7 @@ class TestResilience:
     def test_truncated_file_reports_recovered_entries_and_a_failure_for_the_remainder(self):
         """Edge case: a ParseError raised mid-stream, after some entries."""
 
-        class _TruncatedFormat(Format):
+        class _TruncatedFormat(BibFormat):
             label = "truncated"
 
             def parse(self, file):

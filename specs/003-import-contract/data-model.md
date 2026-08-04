@@ -76,7 +76,7 @@ A whole-file parse failure (FR-014) is reported as an `ImportResult` carrying a 
 result plus a separate error field — gives the caller two places to look for the same news, and
 every caller then has to remember both.
 
-## Format
+## BibFormat
 
 The plug-in for one file syntax. An abstract base class, with two stages a subclass must supply.
 
@@ -93,7 +93,7 @@ contract offers it a way to.
 
 ## The registry
 
-Module-level, keyed by `Format.name`. Not a model, not a setting — an in-process mapping populated
+Module-level, keyed by `BibFormat.name`. Not a model, not a setting — an in-process mapping populated
 by explicit registration.
 
 - `register(format_class)` — adds it. Raises on a name already registered, rather than replacing it

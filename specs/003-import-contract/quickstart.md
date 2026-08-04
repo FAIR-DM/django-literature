@@ -56,11 +56,11 @@ The caller does not need to know what it will get back, which is the point of as
 ```python
 from django.utils.translation import gettext_lazy as _
 
-from literature.importers import Format, SkipEntry, register
+from literature.importers import BibFormat, SkipEntry, register
 
 
 @register
-class BibTeXFormat(Format):
+class BibTeXFormat(BibFormat):
     name = "bibtex"
     label = _("BibTeX")
 

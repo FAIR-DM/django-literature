@@ -1,7 +1,7 @@
 """The import workflow: one call, four fixed stages, one result.
 
 See contracts/importers.md for the full contract. ``format`` may be a
-``Format`` subclass or the registered name of one — a name is resolved
+``BibFormat`` subclass or the registered name of one — a name is resolved
 through :func:`~literature.importers.registry.get_format` (FR-018), whose
 ``UnknownFormat`` is programmer error and is left to propagate rather than
 becoming a failed entry (FR-019, contracts/importers.md "Exceptions").
@@ -15,7 +15,7 @@ from django.db import router, transaction
 from django.utils.translation import gettext as _
 
 from literature.converters import from_csl_json
-from literature.importers.base import Format
+from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.registry import get_format
 from literature.importers.results import EntryResult, ImportResult, Outcome
@@ -51,7 +51,7 @@ def _reason_for(exc: Exception) -> str:
 
 def import_file(
     file,
-    format: type[Format] | str,  # noqa: A002 -- contracts/importers.md names it `format`
+    format: type[BibFormat] | str,  # noqa: A002 -- contracts/importers.md names it `format`
     *,
     dry_run: bool = False,
 ) -> ImportResult:
@@ -61,7 +61,7 @@ def import_file(
         file: An open file object, or anything with a ``read()``. Never
             opened as a path — passed straight through to ``format.parse``
             (FR-023).
-        format: A ``Format`` subclass, or the registered name of one
+        format: A ``BibFormat`` subclass, or the registered name of one
             (FR-018). A name is resolved through
             :func:`~literature.importers.registry.get_format`, which raises
             ``UnknownFormat`` for a name that is not registered (FR-019).

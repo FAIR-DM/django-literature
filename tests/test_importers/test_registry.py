@@ -9,7 +9,7 @@ import io
 
 import pytest
 
-from literature.importers.base import Format
+from literature.importers.base import BibFormat
 from literature.importers.exceptions import FormatAlreadyRegistered, UnknownFormat
 from literature.importers.registry import available_formats, get_format, register
 from literature.importers.runner import import_file
@@ -96,7 +96,7 @@ class TestImportByName:
 
 class TestRegisterRefusesWhatCannotBeAFormat:
     """contracts/importers.md: the contract raises for programmer error — "an
-    unregistered format name, or something that is not a ``Format``".
+    unregistered format name, or something that is not a ``BibFormat``".
 
     Checked at registration rather than left to fail later. Without it, the
     first sign is an ``AttributeError`` from inside somebody's import run, a
@@ -138,7 +138,7 @@ class TestRegisterRefusesWhatCannotBeAFormat:
         vocabulary the contract documents, and a long way from the mistake.
         """
 
-        class HalfFormat(Format):
+        class HalfFormat(BibFormat):
             name = "half"
             label = "Half a format"
 

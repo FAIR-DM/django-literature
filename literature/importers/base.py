@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from typing import Any, ClassVar
 
 
-class Format(abc.ABC):
+class BibFormat(abc.ABC):
     """A plug-in for one bibliographic file syntax, such as BibTeX or RIS.
 
     Registered under :attr:`name` (see :mod:`literature.importers.registry`).
