@@ -83,6 +83,53 @@ Model-layer format validators (`validators.py`) for the known identifier types: 
 `validate_pmcid`. Invalid known-type identifiers are rejected at the model/form layer, never
 silently stored; unknown types bypass validation by design.
 
+### format
+
+A plug-in for one bibliographic file syntax — BibTeX, RIS — registered under a name and reachable
+through `literature.importers`. A format knows two things and nothing else: how to turn a file into
+entries, and how to express one entry as CSL JSON. It has no say in how an `Item` is built from
+that CSL JSON, which is fixed by the package.
+
+Written **format**, not *provider* or *importer*. "Provider" says nothing about what is provided,
+and "importer" conflates the file syntax with the act of importing.
+
+### entry
+
+One bibliographic record **as it appears in a source file**, before it becomes an `Item`. The unit
+an import reports against: every entry a format finds gets exactly one outcome.
+
+`entry` and `Item` are deliberately different words for the two sides of the import boundary. An
+entry is what the source file holds, and an `Item` is what the catalogue stores. An entry that is
+skipped or fails never becomes an `Item` at all.
+
+### outcome
+
+What became of one entry: **created**, **skipped**, or **failed**. A fixed vocabulary rather than a
+pass/fail flag, so a later feature that can tell an entry is already in the catalogue reports that
+as *skipped* without changing the shape. *Skipped* means the format recognised the element but it
+is not a bibliographic record (a BibTeX `@comment`, an RIS header) — recognised and deliberately not
+stored, which is not an error.
+
+Not *status*, which suggests something that changes over time. An outcome is settled once.
+
+### import result / entry result
+
+The report from one import. An **import result** holds one **entry result** per entry the format
+found, in source order, and says whether the run was a dry run. An entry result carries its
+outcome, its index in the file, the source's own handle for it where the syntax has one, the `Item`
+it produced, and — when and only when it failed — the reason.
+
+The result is the **only** reporting channel. Logging may carry the same failures for operator
+visibility, but a failure that appears solely in a log is a defect: a caller must never have to
+compare a count of inputs against a count of stored items to discover something went wrong.
+
+### dry run
+
+An import that runs every stage and reports every outcome while leaving the catalogue exactly as it
+was. Outcomes are observed rather than predicted, because the work genuinely happens inside a
+transaction that is then rolled back. A dry run's entry results carry no `Item`, since those rows do
+not survive the rollback.
+
 ## Synonyms to avoid
 
 - **`Reference` / `Publication` / `Record`** for an item — the canonical term is **`Item`**
@@ -93,6 +140,11 @@ silently stored; unknown types bypass validation by design.
 - **`LiteratureItem` / `CSLDate`** — early pre-implementation names that appear in older
   constitution drafts. The implemented, canonical names are `Item` and `ItemDate`.
 - **"date field"** for `ItemDate` — it is a date *slot* (one per `DateType`), not a single field.
+- **`provider`** for an import plug-in — the canonical term is **format**. The word circulated
+  informally while the import contract was being designed and does not appear in the code.
+- **`record`** for a source-side entry — use **entry**. `Record` is already retired as a synonym
+  for an item above, and reusing it on the import side would collide with that.
+- **`status`** for an entry's fate — it is an **outcome**, settled once, not a state that moves.
 
 ## Notes for spec authors
 
@@ -102,3 +154,9 @@ silently stored; unknown types bypass validation by design.
   `choices=` to it would break the store-unknown-types contract (FR-017).
 - One identifier per `(item, type)` and one date per `(item, date_type)` are current design limits,
   not oversights — widening either is a feature, not a fix.
+- An import is per **entry**, and an entry is atomic: it lands with its names, dates and identifiers
+  or it lands not at all. A spec that assumes a partly-imported entry can exist is wrong against the
+  import contract.
+- Importing the same file twice creates duplicates. Matching an entry against records already stored
+  is deliberately out of scope; `citation_key` de-duplication remains batch-scoped as described
+  above.

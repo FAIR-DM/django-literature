@@ -140,6 +140,52 @@ with open("references.json") as f:
 print(f"Imported {len(items)} references")
 ```
 
+### Import a bibliography file
+
+CSL JSON is what this package stores, but researchers keep their libraries in BibTeX and RIS. The
+import contract reads any registered format through one call and tells you what happened to every
+entry in the file.
+
+```python
+from literature.importers import import_file
+
+with open("library.bib") as handle:
+    result = import_file(handle, format="bibtex")
+
+print(f"{len(result.created)} stored, {len(result.failed)} could not be read")
+
+for entry in result.failed:
+    label = entry.handle or f"entry {entry.index}"
+    print(f"  {label}: {entry.reason}")
+```
+
+Importing is per entry. One unreadable record does not stop the rest of the file, and every entry
+is accounted for in the result whether it was stored or not — you never have to compare counts to
+find out something went wrong. An entry is stored in full or not at all, so a rejected contributor
+never leaves an item behind without its authors.
+
+Rehearse it first if you like. Every stage runs, nothing is written:
+
+```python
+with open("library.bib") as handle:
+    preview = import_file(handle, format="bibtex", dry_run=True)
+
+if not preview.ok:
+    print(f"{len(preview.failed)} entries need attention first")
+```
+
+To find out which formats an installation can read:
+
+```python
+from literature.importers import available_formats
+
+for name, format_class in available_formats().items():
+    print(name, "—", format_class.label)
+```
+
+> **No format ships yet.** The contract is in place; BibTeX and RIS support follow. Adding a format
+> means writing a parser and a conversion to CSL JSON — the workflow above does not change.
+
 ### Query
 
 ```python

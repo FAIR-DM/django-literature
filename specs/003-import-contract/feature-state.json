@@ -258,13 +258,27 @@
         },
         {
           "id": "T020",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "git diff --stat CONTEXT.md README.md"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T021",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "git diff --stat CONTEXT.md README.md"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T022",
