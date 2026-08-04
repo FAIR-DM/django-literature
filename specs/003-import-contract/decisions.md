@@ -417,3 +417,49 @@ module of its subject as another `Test*` class.
 Every test moves unchanged and the suite count is identical either side of the move. The alternative
 was declaring the three under `[tool.forge.conformance] non-mirror-paths`, which the kit reserves
 for tests whose subject is not a Python module at all — all three of these have one.
+
+## D24 — `import_file` has no module-level counterpart; a caller reaches it through an instance
+
+Self-resolved, during T026.
+
+The maintainer's ruling said `import_file`, `import_entries`, `import_entry` and `get_result` "are
+ordinary methods" and that `runner.py` is gone. That leaves open whether a convenience module-level
+`import_file(file, format, dry_run=False)` should also remain, resolving `format` and delegating to
+an instance. FR-001, FR-005 and FR-018 do not disambiguate on their own: "one documented way to
+import," "without referring to anything specific to the file's format," and "runnable by naming a
+configured format" are all satisfiable either way.
+
+Resolved against keeping a module-level function. `runner.py` housed the whole module-scoped call,
+string-vs-class resolution included; deleting the module and saying the workflow "moved onto the
+class" reads as replacing that call shape, not duplicating it under the same name in two places. A
+caller now writes `get_format("bibtex")().import_file(handle)` — the name passed to `get_format` is
+still a string, so FR-005 and FR-018 hold, and there is exactly one documented way to run an import
+(FR-001) rather than a function and a method doing the same thing under the same name at two import
+paths, which is its own source of "which one is *the* entry point" confusion.
+
+**Revisit if**: the class-then-instantiate-then-call shape proves awkward for callers in practice — a
+convenience wrapper could be reintroduced later without touching `BibFormat` itself.
+
+## D25 — `ImportResult.format_name` is always the format's own name, not sometimes `None`
+
+Self-resolved, during T026.
+
+D16 recorded that `format_name` stayed `None` unless an import was run by resolving a string name
+through the (then) registry, because a `Format` subclass passed directly to the old module-level
+`import_file` gave the runner nothing but the class itself — no name was ever looked up. That
+distinction no longer exists: every import now starts from a `BibFormat` instance calling
+`self.import_file(...)` on itself, and every such instance already knows its own `name`. There is no
+longer a "class passed directly, so no name was resolved" case to distinguish from "name resolved
+through `get_format`" — `get_format("bibtex")()` and `BibTeXFormat()` are now the same kind of value
+at the point `import_file` runs, just reached two different ways.
+
+`get_result` sets `format_name=self.name` unconditionally. `test_result_format_name_is_none_when_a_class_was_passed_directly`
+(`tests/test_importers/test_registry.py`) is dropped rather than kept and weakened, because it
+asserted a distinction the new call shape has no way to reproduce — there is no `import_file(file,
+format_class)` call left to pass a bare class to.
+`test_result_records_the_name_used` continues to cover the field, now asserting what is always true
+rather than one of two cases.
+
+**Revisit if**: a future need arises to distinguish "resolved through settings" from "held directly
+by the caller" — under the current shape both are the same `instance.import_file(...)` call, so the
+distinction would have to be threaded through explicitly; nothing on the instance carries it today.

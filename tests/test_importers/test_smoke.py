@@ -12,7 +12,7 @@ what is available, rehearse the file, import it, and check the catalogue agrees
 with what the two results said.
 
 The format below is the whole of what supporting a new syntax costs. Nothing in
-``runner.py``, ``results.py`` or ``converters.py`` knows it exists, which is the
+``base.py``, ``results.py`` or ``converters.py`` knows it exists, which is the
 claim SC-006 makes and this file is the standing demonstration of it.
 """
 
@@ -30,7 +30,7 @@ from literature.importers import (
     Outcome,
     SkipEntry,
     available_formats,
-    import_file,
+    get_format,
     register,
 )
 from literature.models import Item
@@ -99,7 +99,7 @@ class TestTheWholeContract:
         outcomes in the same order, the rehearsal stores nothing, and what the
         real run reported as created is exactly what ends up in the catalogue.
         """
-        preview = import_file(io.StringIO(LIBRARY), "smoke-lines", dry_run=True)
+        preview = get_format("smoke-lines")().import_file(io.StringIO(LIBRARY), dry_run=True)
 
         assert preview.dry_run is True
         assert [entry.outcome for entry in preview] == [
@@ -115,7 +115,7 @@ class TestTheWholeContract:
         assert all(entry.item is None for entry in preview)
         assert Item.objects.count() == 0, "a rehearsal must leave the catalogue untouched"
 
-        result = import_file(io.StringIO(LIBRARY), "smoke-lines")
+        result = get_format("smoke-lines")().import_file(io.StringIO(LIBRARY))
 
         assert result.dry_run is False
         assert result.format_name == "smoke-lines"
@@ -145,7 +145,6 @@ PUBLIC_SURFACE = {
     "Outcome": "literature.importers.results",
     "EntryResult": "literature.importers.results",
     "ImportResult": "literature.importers.results",
-    "import_file": "literature.importers.runner",
 }
 
 

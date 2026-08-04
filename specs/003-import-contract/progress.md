@@ -329,3 +329,23 @@ Python/Django combinations plus code quality and security scan.
 **Next**: T026 — move the workflow from `runner.py` onto `BibFormat`, delete `runner.py`, make T025 green, and replace `TestFormatHasNoRouteToBuildingAnItem`.
 
 **Watch**: `make_echo_format` returns a *class*; the overriding tests subclass its return value inline (`class SkipsTheFirstEntry(make_echo_format(entries)): ...`), which only works because the factory closes over `entries` per call rather than sharing state — confirmed already true from T006.
+
+## 2026-08-04T13:50:00Z · Implementer · T026 (`literature/importers/base.py`, `runner.py` deleted)
+
+**Did**: Moved the workflow onto `BibFormat` as ordinary, overridable instance methods — `import_file` (opens the dry-run transaction, drives the rest), `import_entries` (the loop over parsed entries, catching a whole-file `SkipEntry`/`ParseError`/`EntryError`/bug from the generator itself), `import_entry` (one entry: handle, convert, store inside its own savepoint), `get_result` (builds the `ImportResult`, now setting `format_name=self.name` unconditionally — D25), and `entry_created`/`entry_skipped`/`entry_failed` helpers. **No `@final`, no `__init_subclass__` guard, no abstractmethod-completeness check on the workflow methods** — exactly the maintainer's instruction. The per-entry `except` stays outside the `transaction.atomic()` block (research.md R2), unchanged from `runner.py`. Deleted `literature/importers/runner.py`.
+
+Replaced `TestFormatHasNoRouteToBuildingAnItem` (asserted the class's public surface was exactly `{parse, to_csl_json, handle_for}` — now false by design) with `TestBibFormatRequiresOnlyTwoStages`, asserting `BibFormat.__abstractmethods__ == {"parse", "to_csl_json"}` and that the workflow methods are present, callable, and not abstract.
+
+Merged `tests/test_importers/test_runner.py` into `test_base.py` and deleted it — Article X requires the test tree mirror the source tree (D23's precedent, applied to the same move: the workflow's tests follow the workflow). All ~45 `import_file(file, format_expr[, dry_run=True])` call sites mechanically rewritten to `format_expr().import_file(file[, dry_run=True])` (a small parenthesis-matching script, not hand-edited, to avoid transcription slips across that many sites); every assertion is untouched. Fixed the one behaviour-adjacent reference: `caplog.at_level(..., logger="literature.importers.runner")` → `"literature.importers.base"`, since that's where the workflow's logger now lives.
+
+Minimally patched `test_registry.py` and `test_smoke.py` to stop importing the deleted `literature.importers.runner.import_file` — `test_registry.py`'s `TestImportByName` now calls `get_format("echo")().import_file(...)`, and dropped `test_result_format_name_is_none_when_a_class_was_passed_directly` (D25: the distinction it tested no longer exists). Both files are still using the old `register()`-based registry; T027/T028 replace that mechanism next, at which point `test_registry.py` is deleted outright per its own task brief.
+
+`literature/importers/__init__.py`: dropped `import_file` from the module's re-exports (it is no longer a module-level name — D24), rewrote the module docstring's example to `get_format("bibtex")().import_file(handle)`.
+
+**Deviation**: D24 records that there is deliberately no module-level `import_file` convenience function alongside the method — the maintainer's language ("moved onto the class," "runner.py is gone") reads as a replacement of that call shape, not an addition alongside it.
+
+**Verified**: `poetry run pytest tests/test_importers/ -q --no-cov` → 147 passed (T025's 6 previously-red tests now green). `poetry run pytest -q --no-cov` → 504 passed (495 baseline + 6 T025 tests + 2 replacement tests in `TestBibFormatRequiresOnlyTwoStages` − 1 dropped registry test − the old 1-test `TestFormatHasNoRouteToBuildingAnItem`, net +9). `ruff check literature tests` clean. `ruff format` reformatted `test_base.py` once (blank-line spacing at the merge point), clean after. `mypy` → no issues in 13 source files (one fewer than before — `runner.py` is gone).
+
+**Next**: T027/T028 — settings-declared formats, replacing `registry.py` with `literature/importers/config.py`.
+
+**Watch**: `test_registry.py` and `test_smoke.py`'s registration-based tests are a known-temporary patch, not the final shape — they still call `register()` against the old in-process registry, which T028 deletes. Confirmed decisions.md D24 and D25 read correctly against the merged `test_base.py` before moving on.

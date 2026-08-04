@@ -12,7 +12,6 @@ import pytest
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import FormatAlreadyRegistered, UnknownFormat
 from literature.importers.registry import available_formats, get_format, register
-from literature.importers.runner import import_file
 
 from .conftest import make_echo_format
 
@@ -69,29 +68,23 @@ class TestImportByName:
         """FR-018."""
         register(make_echo_format([{"kind": "good", "id": "a", "type": "book"}]))
 
-        result = import_file(io.StringIO(), "echo")
+        result = get_format("echo")().import_file(io.StringIO())
 
         assert len(result.created) == 1
 
-    def test_import_file_raises_for_an_unregistered_name_rather_than_failing_an_entry(self):
+    def test_get_format_raises_for_an_unregistered_name_rather_than_failing_an_entry(self):
         """contracts/importers.md: UnknownFormat is programmer error and reaches
         the caller, rather than becoming a FAILED entry in the result."""
         with pytest.raises(UnknownFormat):
-            import_file(io.StringIO(), "nonexistent")
+            get_format("nonexistent")
 
     def test_result_records_the_name_used(self):
-        """data-model.md: ``ImportResult.format_name`` is set when the import
-        was run by name."""
+        """data-model.md: ``ImportResult.format_name`` is the format's own name."""
         register(make_echo_format([{"kind": "good", "id": "a", "type": "book"}]))
 
-        result = import_file(io.StringIO(), "echo")
+        result = get_format("echo")().import_file(io.StringIO())
 
         assert result.format_name == "echo"
-
-    def test_result_format_name_is_none_when_a_class_was_passed_directly(self):
-        result = import_file(io.StringIO(), make_echo_format([]))
-
-        assert result.format_name is None
 
 
 class TestRegisterRefusesWhatCannotBeAFormat:
