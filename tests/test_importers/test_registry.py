@@ -9,6 +9,7 @@ import io
 
 import pytest
 
+from literature.importers.base import Format
 from literature.importers.exceptions import FormatAlreadyRegistered, UnknownFormat
 from literature.importers.registry import available_formats, get_format, register
 from literature.importers.runner import import_file
@@ -129,3 +130,22 @@ class TestRegisterRefusesWhatCannotBeAFormat:
     def test_a_blank_name_is_refused(self):
         with pytest.raises(TypeError):
             register(make_echo_format([], format_name="   "))
+
+    def test_a_format_missing_a_stage_is_refused_and_names_the_stage(self):
+        """A subclass that leaves ``parse`` or ``to_csl_json`` unimplemented
+        registers happily but cannot be instantiated, so the first sign is a
+        raw ``TypeError`` from inside ``import_file`` — outside the exception
+        vocabulary the contract documents, and a long way from the mistake.
+        """
+
+        class HalfFormat(Format):
+            name = "half"
+            label = "Half a format"
+
+            def parse(self, file):
+                yield {}
+
+        with pytest.raises(TypeError, match="to_csl_json"):
+            register(HalfFormat)
+
+        assert "half" not in available_formats()

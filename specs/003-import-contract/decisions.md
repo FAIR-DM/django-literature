@@ -365,3 +365,18 @@ entries while permanently storing all of them. The caller had no signal at all.
 Both calls, and the per-entry savepoint, now pass `using=router.db_for_write(Item)`. Covered by
 `TestDryRunFollowsTheRouter`, which runs against a second database alias with a router sending
 `literature` models to it. Removing either `using=` turns it red.
+
+## D21 — Registration refuses a format that has not implemented every stage
+
+Self-resolved, from the independent review round.
+
+`register()` already checked that a candidate is a `Format` subclass with a usable `name`, on the
+stated principle that programmer error belongs at registration rather than inside somebody's import
+run. It did not check that the subclass implements `parse` and `to_csl_json`. A half-written format
+therefore registered cleanly and was enumerable, and the first sign of the omission was a raw
+`TypeError: Can't instantiate abstract class ...` from inside `import_file` — a failure mode outside
+the exception vocabulary the contract documents, raised a long way from the mistake that caused it.
+
+`register()` now rejects any class with outstanding `__abstractmethods__`, naming the ones missing.
+Covered by `test_a_format_missing_a_stage_is_refused_and_names_the_stage`, which goes red if the
+check is removed.

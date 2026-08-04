@@ -36,6 +36,11 @@ def register(format_class: type[Format]) -> type[Format]:
     name = getattr(format_class, "name", None)
     if not isinstance(name, str) or not name.strip():
         raise TypeError(f"{format_class.__name__} must set a non-empty 'name' before it can be registered")
+    missing = sorted(getattr(format_class, "__abstractmethods__", ()))
+    if missing:
+        raise TypeError(
+            f"{format_class.__name__} does not implement {', '.join(missing)} and cannot be registered as a format"
+        )
     if name in _registry:
         raise FormatAlreadyRegistered(_("A format is already registered under '{name}'.").format(name=name))
     _registry[name] = format_class
