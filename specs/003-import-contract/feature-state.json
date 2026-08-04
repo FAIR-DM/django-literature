@@ -1,0 +1,520 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "003-import-contract",
+  "branch": "003-import-contract",
+  "repo": "FAIR-DM/django-literature",
+  "state": "IMPLEMENT",
+  "state_history": [
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-03T19:48:14Z"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-03T19:48:14Z"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-03T19:55:00Z"
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-04T10:09:25Z"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-04T12:40:00Z"
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-04T12:50:00Z"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-04T10:30:00Z"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-03T19:48:14Z",
+      "self_resolved": [
+        "D3 an entry is atomic: all-or-nothing below the file level",
+        "D4 entry identity is index plus optional source handle",
+        "D5 the result is the reporting channel, logging is additive",
+        "D6 no throughput target, entries consumed one at a time",
+        "D7 CONTEXT.md vocabulary updated in the same change",
+        "2026-08-04 amendment agreed in session: BibFormat rename, workflow onto the class as overridable methods (no @final), registry replaced by LITERATURE settings"
+      ]
+    },
+    "plan": {
+      "approved_by": "notified",
+      "at": "2026-08-03T19:55:00Z"
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 25,
+      "worktree": null,
+      "status": "in_progress",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_exceptions.py",
+              "tests/test_importers/test_results.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q",
+              "poetry run ruff check literature/importers tests/test_importers"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_exceptions.py",
+              "tests/test_importers/test_results.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q",
+              "poetry run ruff check literature/importers tests/test_importers"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_exceptions.py",
+              "tests/test_importers/test_results.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q",
+              "poetry run ruff check literature/importers tests/test_importers"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_exceptions.py",
+              "tests/test_importers/test_results.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q",
+              "poetry run ruff check literature/importers tests/test_importers"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_exceptions.py",
+              "tests/test_importers/test_results.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q",
+              "poetry run ruff check literature/importers tests/test_importers"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/conftest.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_base.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_base.py -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_base.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q --no-cov",
+              "poetry run pytest -q --no-cov",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py::TestReporting"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_runner.py -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py::TestResilience"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_runner.py -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/ -q --no-cov (69 passed)",
+              "poetry run pytest -q --no-cov (402 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_runner.py::TestLazyConsumption"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_runner.py -q --no-cov -k Lazy",
+              "poetry run pytest -q --no-cov (403 passed)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_converters_unchanged.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_converters_unchanged.py -q --no-cov",
+              "poetry run pytest -q --no-cov (404 passed)",
+              "git status --short tests/test_converters.py literature/converters.py (clean)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_public_surface.py",
+              "tests/test_importers/test_smoke.py"
+            ],
+            "commands": [
+              "poetry run pytest -q (452 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run mypy literature",
+              "poetry run deptry .",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "git diff --stat CONTEXT.md README.md"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "git diff --stat CONTEXT.md README.md"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_public_surface.py",
+              "tests/test_importers/test_smoke.py"
+            ],
+            "commands": [
+              "poetry run pytest -q (452 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run mypy literature",
+              "poetry run deptry .",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_public_surface.py",
+              "tests/test_importers/test_smoke.py"
+            ],
+            "commands": [
+              "poetry run pytest -q (452 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run mypy literature",
+              "poetry run deptry .",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T024",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T025",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T026",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T029",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T030",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T031",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 26,
+      "worktree": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_dry_run.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_dry_run.py -q --no-cov",
+              "poetry run pytest tests/test_importers/ -q --no-cov",
+              "poetry run pytest -q --no-cov"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_dry_run.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_dry_run.py -q --no-cov",
+              "poetry run pytest tests/test_importers/ -q --no-cov",
+              "poetry run pytest -q --no-cov",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 27,
+      "worktree": null,
+      "status": "in_progress",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_registry.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_registry.py -q --no-cov (confirmed red: ModuleNotFoundError: No module named 'literature.importers.registry')"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_registry.py::TestRegister",
+              "tests/test_importers/test_registry.py::TestGetFormat"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_registry.py -q --no-cov (6 of 9 passed; TestImportByName still red pending T018)"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_registry.py::TestImportByName"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_importers/test_registry.py -q --no-cov (9 passed)",
+              "poetry run pytest tests/test_importers/ -q --no-cov (88 passed)",
+              "poetry run pytest -q --no-cov (421 passed)",
+              "poetry run ruff check literature tests",
+              "poetry run ruff format --check literature tests",
+              "poetry run python -m django makemigrations --check --dry-run --settings=tests.settings"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T027",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T028",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 1,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 1,
+      "max": 2
+    },
+    "tokens": {
+      "used": 0,
+      "max": 4000000
+    }
+  },
+  "pr": {
+    "number": 29,
+    "draft": false
+  },
+  "escalations": []
+}

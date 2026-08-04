@@ -140,6 +140,67 @@ with open("references.json") as f:
 print(f"Imported {len(items)} references")
 ```
 
+### Import a bibliography file
+
+CSL JSON is what this package stores, but researchers keep their libraries in BibTeX and RIS. The
+import contract reads any configured format through one call and tells you what happened to every
+entry in the file. Declare which formats your project reads in settings:
+
+```python
+# settings.py
+LITERATURE = {
+    "BIB_FORMATS": [
+        "myapp.formats.BibTeXFormat",
+    ],
+}
+```
+
+Then import by name:
+
+```python
+from literature.importers import get_format
+
+with open("library.bib") as handle:
+    result = get_format("bibtex")().import_file(handle)
+
+print(f"{len(result.created)} stored, {len(result.failed)} could not be read")
+
+for entry in result.failed:
+    label = entry.handle or f"entry {entry.index}"
+    print(f"  {label}: {entry.reason}")
+```
+
+Importing is per entry. One unreadable entry does not stop the rest of the file, and every entry
+is accounted for in the result whether it was stored or not — you never have to compare counts to
+find out something went wrong. An entry is stored in full or not at all, so a rejected contributor
+never leaves an item behind without its authors.
+
+Rehearse it first if you like. Every stage runs, nothing is written:
+
+```python
+with open("library.bib") as handle:
+    preview = get_format("bibtex")().import_file(handle, dry_run=True)
+
+if not preview.ok:
+    print(f"{len(preview.failed)} entries need attention first")
+```
+
+To find out which formats an installation can read:
+
+```python
+from literature.importers import available_formats
+
+for name, format_class in available_formats().items():
+    print(name, "—", format_class.label)
+```
+
+> **No format ships yet.** The contract is in place; BibTeX and RIS support follow. Adding a format
+> means writing a `BibFormat` subclass with a parser and a conversion to CSL JSON, then listing its
+> dotted path in `LITERATURE["BIB_FORMATS"]` — the workflow above does not change. A format with an
+> unusual need may override any of the workflow's other steps (`import_entries`, `import_entry`,
+> `get_result`); the base class only has to get the job done when its two required stages are
+> supplied, not stop you from replacing the rest.
+
 ### Query
 
 ```python

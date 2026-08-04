@@ -8,7 +8,15 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
-    }
+    },
+    # A second alias, used by the import tests that route ``literature`` models
+    # away from ``default``. This package is a reusable app, so the project
+    # installing it chooses the routing, and a transaction opened on the wrong
+    # connection is invisible until it fails to roll anything back.
+    "secondary": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    },
 }
 
 INSTALLED_APPS = [
