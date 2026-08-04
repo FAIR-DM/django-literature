@@ -373,3 +373,13 @@ Removed the autouse `isolated_registry` fixture from `conftest.py` — there is 
 **Next**: T029 — rewrite ADR-0006 and ADR-0007, whose "every format inherits the guarantee, none can weaken it" claim the overridable workflow makes false.
 
 **Watch**: `contracts/importers.md` and `data-model.md` still have sections titled "The registry" describing the deleted `register()`/`get_format()`/`available_formats()` trio — T030 rewrites both for the settings-based mechanism; `config.py`'s own docstring references them by their old section title deliberately, to be updated in the same pass.
+
+## 2026-08-04T14:35:00Z · Implementer · T029 (`docs/adr/0006-*.md`, `docs/adr/0007-*.md`)
+
+**Did**: Rewrote both ADRs' Decision and Consequences sections to say what `BibFormat` does **by default** and what a subclass overriding the relevant hook takes on, rather than stating an unconditional guarantee the overridable workflow now makes false. Neither ADR is deleted — the decisions stand, per T029's brief, only their reach changed. Both gain an "Amendment, 2026-08-04" paragraph explaining why, rather than silently rewriting history. ADR-0006 ("An entry is atomic") now reads: true by default for a format that only implements `parse`/`to_csl_json`; a subclass overriding `import_entry` takes over the responsibility of preserving atomicity itself, since `BibFormat` no longer gives it no route to that stage — it gives it every route. ADR-0007 ("catches every exception") now reads the same way for the broad `except Exception` net inside `import_entry`: a subclass replacing that method may narrow, widen, or drop the net, and owns FR-013/FR-014/FR-023 for its own entries once it does. Both titles and context-date lines updated from `runner.py` to `base.py`.
+
+**Verified**: Both files are prose/markdown with no executable coverage; read back after editing to confirm no stray reference to the deleted `runner.py` module survives outside historical/explanatory prose (two hits in each file, both explanatory, not API references — confirmed by grep). `poetry run pytest -q --no-cov` → 493 passed (unaffected, no code touched).
+
+**Next**: T030 — update `CONTEXT.md`, `README.md`, `CHANGELOG.md`, `data-model.md`, `contracts/importers.md`, `quickstart.md`, `plan.md`; delete D17 from `decisions.md`; add a decision recording the three Phase 7 changes together.
+
+**Watch**: neither ADR references the new `LITERATURE` setting at all — that mechanism doesn't bear on the atomicity or exception-catching guarantees, so it was deliberately left out rather than shoehorned in for completeness.

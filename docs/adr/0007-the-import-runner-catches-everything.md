@@ -1,7 +1,7 @@
-# ADR-0007 — The import runner catches every exception, not a named few
+# ADR-0007 — `import_entry` catches every exception by default, not a named few
 
-- **Status:** Accepted
-- **Context date:** spec 003 (FR-013, FR-014, FR-023), `literature/importers/runner.py`, issue #21
+- **Status:** Accepted, amended 2026-08-04 for the maintainer's Phase 7 rework
+- **Context date:** spec 003 (FR-013, FR-014, FR-023), `literature/importers/base.py`, issue #21
 
 ## Context
 
@@ -32,8 +32,8 @@ fails, and its only obligation is to return a dict.
 
 ## Decision
 
-Both `except` clauses catch `Exception`. Any exception raised while converting or storing one entry
-becomes that entry's failure, and the run continues.
+Both `except` clauses, in `BibFormat.import_entry`, catch `Exception`. Any exception raised while
+converting or storing one entry becomes that entry's failure, and the run continues.
 
 Two things keep this from hiding real bugs:
 
@@ -45,17 +45,32 @@ Two things keep this from hiding real bugs:
 
 This is what `django-import-export` does at its row boundary, for the same reason.
 
+**Amendment, 2026-08-04.** `import_entry` is no longer a step inside a module-level function a
+format has no way to reach — it is an ordinary method on `BibFormat`, and the maintainer's ruling
+was explicit that nothing should try to stop a subclass from overriding it. What follows was
+written as an unconditional guarantee of the whole contract; it is now what `import_entry` does
+**by default**, and a subclass that overrides it inherits the responsibility of keeping the
+guarantee, not the guarantee itself.
+
 ## Consequences
 
-- The contract's promise is now true for any input, rather than for the subset of malformed input
-  whose failure mode was anticipated.
+- **By default**, the contract's promise holds for any input, rather than for the subset of
+  malformed input whose failure mode was anticipated — this is true for every format that does not
+  override `import_entry`, which is the base class's whole job.
 - **A genuine bug in a format, or in this package, is reported as a failed entry rather than
-  crashing loudly.** That is the real cost and it is accepted knowingly: a bulk import of someone's
-  library should not abort halfway because one record found an edge case, and the exception type in
-  the reason plus the logged traceback keep the bug diagnosable.
-- Reviewers should resist narrowing this back to a list of known exception types. The list was
-  wrong once already, and it was wrong in a way that passed every test written against it, because
-  the tests used a format that raised the exceptions the runner expected.
+  crashing loudly**, under the default `import_entry`. That is the real cost and it is accepted
+  knowingly: a bulk import of someone's library should not abort halfway because one record found
+  an edge case, and the exception type in the reason plus the logged traceback keep the bug
+  diagnosable.
+- Reviewers should resist narrowing the default `import_entry`'s net back to a list of known
+  exception types. The list was wrong once already, and it was wrong in a way that passed every
+  test written against it, because the tests used a format that raised the exceptions the runner
+  expected.
+- **A subclass that overrides `import_entry` takes over this decision entirely.** It may narrow the
+  net, widen it, or drop it — nothing in `BibFormat` prevents that, per the maintainer's ruling that
+  the base class only has to get the job done when its instructions are followed, not police what a
+  subclass does instead. A subclass doing so is responsible for FR-013/FR-014/FR-023 holding for its
+  own entries; the base class no longer enforces them on its behalf once `import_entry` is replaced.
 - **Revisit if** `from_csl_json` ever becomes strict about the shape of its input and raises
-  `ValidationError` for everything malformed. The narrow net would then be defensible for content,
-  though a format with a bug in it would still escape.
+  `ValidationError` for everything malformed. The narrow net would then be defensible for content in
+  the default implementation, though a format with a bug in it would still escape.
