@@ -397,3 +397,23 @@ Deleted D17 from `decisions.md` (the import-timing/registration-order hazard it 
 **Next**: T031 — full verify: pytest, ruff, ruff format, mypy, deptry, `makemigrations --check`, `makemessages`, coverage not decreased.
 
 **Watch**: `research.md` was left untouched — it documents Phase 0 findings against the code *as it stood before this feature existed at all* (e.g. R3's "`literature/__init__.py` is empty" is still true), not the shape of the finished contract, so nothing in it needed correcting for the rework.
+
+## 2026-08-04T15:05:00Z · Implementer · T031 (full verify)
+
+**Did**: Ran the full verify suite. Caught one real gap first: `poetry run coverage report` showed `literature/importers/config.py` at 96% (line 65, the blank-`name` `ImproperlyConfigured` raise, uncovered — D26/D21's abstractmethod check had a test, but the sibling blank-name check did not). Added `BlankNameFormat` and `test_a_format_with_a_blank_name_fails_naming_the_entry` to `test_config.py`, mirroring the old `test_registry.py`'s `test_a_blank_name_is_refused` for the settings-based design. `config.py` now 100%.
+
+**Verified**:
+- `poetry run pytest -q` → **494 passed**.
+- `poetry run coverage report` → **98% overall** (734 statements, 7 missed, 178 branches, 10 partial — was 8 missed before the blank-name test, an improvement not a regression). The two remaining misses are `base.py` lines 82/96, the `raise NotImplementedError` bodies of `parse`/`to_csl_json`'s abstract stubs — structurally unreachable, since Python's `abc.ABCMeta` refuses to instantiate a class that hasn't overridden them, same as every abstract method stub in this codebase before the rework.
+- `poetry run ruff check literature tests` → all checks passed.
+- `poetry run ruff format --check literature tests` → all 32 files already formatted.
+- `poetry run mypy` → no issues in 13 source files.
+- `poetry run deptry .` → no dependency issues found.
+- `DJANGO_SETTINGS_MODULE=tests.settings poetry run python -m django makemigrations literature --check --dry-run` → no changes detected (no model touched by this rework, as required).
+- `makemessages` → **not run**. GNU gettext (`msguniq`/`msgmerge`/`msgattrib`) is not installed in this environment — confirmed by `which` returning nothing for all three and Django's own `CommandError` naming the same missing tool. This is not new to this session: an earlier progress.md entry from before Phase 7 records the identical "Not run: GNU gettext is not installed in this environment" for the same reason. Every string this rework touches (`config.py`'s four `ImproperlyConfigured` messages, `exceptions.py`'s reworded `UnknownFormat` message) is wrapped in `gettext_lazy`/`gettext`, matching the pattern of every string that shipped before it; that is what's verifiable without the gettext toolchain present.
+
+**Coverage vs. baseline**: 98% both before (T024 baseline) and after this rework, with the miss count improving from 8 to 7 statements. No regression.
+
+**Next**: none — T024 through T031 are all complete. Ready for maintainer review.
+
+**Watch**: the worktree is clean after this commit — everything from T024 onward is committed, nothing staged or stashed.

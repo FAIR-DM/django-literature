@@ -55,9 +55,23 @@ class IncompleteFormat(BibFormat):
     label = "Incomplete (test-only)"
 
 
+class BlankNameFormat(BibFormat):
+    """A complete ``BibFormat`` subclass that forgot to set ``name``."""
+
+    name = "   "
+    label = "Blank name (test-only)"
+
+    def parse(self, file):
+        return iter([])
+
+    def to_csl_json(self, raw):
+        return {}
+
+
 CONFIGURED_PATH = "tests.test_importers.test_config.ConfiguredFormat"
 NOT_A_FORMAT_PATH = "tests.test_importers.test_config.NotABibFormat"
 INCOMPLETE_PATH = "tests.test_importers.test_config.IncompleteFormat"
+BLANK_NAME_PATH = "tests.test_importers.test_config.BlankNameFormat"
 DOES_NOT_IMPORT_PATH = "tests.test_importers.test_config.DoesNotExist"
 
 
@@ -156,4 +170,13 @@ class TestAMisconfiguredEntryFailsAtFirstRead:
         settings.LITERATURE = {"BIB_FORMATS": [INCOMPLETE_PATH]}
 
         with pytest.raises(ImproperlyConfigured, match="IncompleteFormat"):
+            available_formats()
+
+    def test_a_format_with_a_blank_name_fails_naming_the_entry(self, settings):
+        """A complete subclass that forgot to set ``name`` would otherwise
+        resolve to an unreachable entry — nothing could ever key a mapping
+        on whitespace and expect ``get_format`` to find it."""
+        settings.LITERATURE = {"BIB_FORMATS": [BLANK_NAME_PATH]}
+
+        with pytest.raises(ImproperlyConfigured, match="BlankNameFormat"):
             available_formats()
