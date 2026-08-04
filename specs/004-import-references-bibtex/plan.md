@@ -64,7 +64,9 @@ No violation requiring justification.
 
 ## Proposed specification refinement
 
-**This needs a ruling before implementation starts, because it changes two approved requirements.**
+**Ruled 2026-08-04: accepted with the plan.** Applied to `spec.md` under *Refinements*, by
+strikethrough rather than deletion, so FR-006 onward keep the identifiers the story issues cite.
+The section below is the reasoning as it was put to the maintainer.
 
 FR-004 as approved requires that what an import holds be bounded by a file's macros and
 cross-reference parents rather than by its entry count, and FR-005 requires the source to be
@@ -87,15 +89,13 @@ streaming that is preserved either way, since entries are converted and stored o
 source text is proportional to a `.bib` file, which is small, bounded, and something the caller
 already had in hand.
 
-The alternative, if you would rather keep FR-004 as written, is to write an entry-level splitter over
-the raw text and drive the parser per entry, with our own macro and cross-reference pre-pass. It
-keeps the stricter memory guarantee, keeps FR-005 and its caller-facing constraint, and adds bespoke
-parsing of exactly the kind `research.md` argues against. I do not recommend it, but it is a real
-option and the choice is yours.
+The alternative, keeping FR-004 as written, would have meant an entry-level splitter over the raw
+text driving the parser per entry, with our own macro and cross-reference pre-pass. It keeps the
+stricter memory guarantee and the caller-facing constraint, and adds bespoke parsing of exactly the
+kind `research.md` argues against. Not taken.
 
-Applying the refinement means the amendment ritual: `refine.update`, `refine.diff`,
-`refine.propagate`, re-sync of the issue graph, then implementation. Nothing is edited until you
-rule.
+The issue graph needed no re-sync: the amendment struck FR-005 rather than deleting it, so every
+later requirement kept its number and the ranges cited by story issues #30 to #33 still resolve.
 
 ## Design in brief
 

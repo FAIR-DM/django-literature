@@ -3,7 +3,7 @@
   "feature": "004-import-references-bibtex",
   "branch": "004-import-references-bibtex",
   "repo": "FAIR-DM/django-literature",
-  "state": "GATE_PLAN",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "GATE_SPEC",
@@ -18,6 +18,11 @@
       "state": "GATE_PLAN",
       "at": "2026-08-04T15:40:00Z",
       "note": "maintainer instruction supersedes the pipeline default: the plan is a hard gate on this run, not a veto notification. No implementation until approved."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-04T16:05:00Z",
+      "note": "plan approved by SamuelJennings; FR-004/FR-005 refinement accepted with the plan and applied to spec.md"
     }
   ],
   "gates": {
@@ -32,8 +37,11 @@
       ]
     },
     "plan": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-04T16:05:00Z",
+      "self_resolved": [
+        "spec refinement: FR-004 restored to the import contract's scope, FR-005 struck (numbering preserved)"
+      ]
     },
     "merge": {
       "approved_by": null,

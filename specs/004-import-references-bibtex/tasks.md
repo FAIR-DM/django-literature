@@ -11,10 +11,9 @@ behaviour it describes and is expected to fail when written.
 US1, US2, US3 and US4 are independently implementable and independently testable, though they are
 listed in priority order and US2 through US4 build on the mapping US1 establishes.
 
-**Pending ruling**: this list assumes the specification refinement proposed in `plan.md` is accepted,
-which removes FR-005 and restores FR-004 to the import contract's scope. If it is declined, T004 and
-T005 are replaced by an entry-level splitter and a macro and cross-reference pre-pass, which is
-roughly a phase of work on its own.
+**Specification refinement applied 2026-08-04**: FR-005 is removed and FR-004 restored to the import
+contract's scope, approved with the plan. The entry-level splitter and macro pre-pass that the
+alternative would have required are not needed, so this list stands as written.
 
 ## Format: `[ID] [P?] [Story] Description`
 

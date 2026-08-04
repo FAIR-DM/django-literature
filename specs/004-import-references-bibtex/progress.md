@@ -35,5 +35,16 @@ afterwards.
   applied** pending a ruling. `tasks.md` breaks the work into 39 tasks across a setup phase, a
   blocking foundational phase, one phase per story, and a cross-cutting phase at convergence.
   `feature-state.json` written, all 39 tasks `todo`. `forge stage-exit --stage S3` green.
-- **State: GATE_PLAN.** Awaiting the maintainer's decision on the plan and on the proposed FR-004
-  and FR-005 refinement. No implementation has started and no Implementer has been dispatched.
+- **Plan review** — the maintainer challenged the split into `_bibtex_maps.py` and `_bibtex_clean.py`
+  and was right: it was structure argued from a prediction about size rather than a measurement,
+  which Article III bars. Collapsed to one `bibtex.py`, estimated 400–500 lines against
+  `converters.py` at 542. The same correction applied to the tests, where the constitution requires
+  test modules to mirror the `literature/` tree, so four planned test modules became one
+  `test_bibtex.py` with concerns grouped by class. The parallel markers on tasks that now share that
+  file were removed, since they were claiming a parallelism the layout no longer allows.
+- **Plan gate — APPROVED** by SamuelJennings, 2026-08-04. The FR-004 and FR-005 refinement was taken
+  as accepted with the plan, since the plan carried the recommendation, and this reading was stated
+  back for veto rather than assumed silently. Applied to `spec.md` under `## Refinements` by
+  strikethrough, so FR-006 onward keep the numbers the story issues cite and the issue graph needed
+  no re-sync.
+- **S4 IMPLEMENT** — begins here.

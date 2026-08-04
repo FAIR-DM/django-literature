@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-04
 
-**Status**: Draft
+**Status**: Draft · **Refined**: 2026-08-04 (see *Refinements* below)
 
 **Serves**: G5 (import references from common bibliography formats) · Roadmap R5 · Issue #22
 
@@ -24,7 +24,7 @@
 
 Resolved against the intake session's context rather than escalated. Fuller rationale is in `decisions.md`.
 
-- Q: Reading a file's entries one at a time and resolving `crossref` contradict each other. Classic BibTeX requires a cross-referenced entry to appear *after* every entry referencing it, so the parent a child needs has not been read yet when the child is converted. Which requirement gives way? → A: Neither. The format establishes the file's `@string` macros and its cross-reference targets before converting anything, and converts entries against that. What an import holds in memory is then bounded by the macros and cross-reference parents a file defines rather than by the number of entries in it, which is the constraint that actually mattered, and the order entries are reported in is untouched. The cost is that the source must be readable more than once, which holds for a path and for an uploaded file alike, and is stated as a requirement rather than left as an assumption about the caller.
+- Q: Reading a file's entries one at a time and resolving `crossref` contradict each other. Classic BibTeX requires a cross-referenced entry to appear *after* every entry referencing it, so the parent a child needs has not been read yet when the child is converted. Which requirement gives way? → A: Neither. The format establishes the file's `@string` macros and its cross-reference targets before converting anything, and converts entries against that. What an import holds in memory is then bounded by the macros and cross-reference parents a file defines rather than by the number of entries in it, which is the constraint that actually mattered, and the order entries are reported in is untouched. The cost is that the source must be readable more than once, which holds for a path and for an uploaded file alike, and is stated as a requirement rather than left as an assumption about the caller. *(Superseded 2026-08-04 — see Refinements. The parsing library does both within one load, so there is no second pass and no cost to the caller. The reasoning is kept because it is why FR-004 read as it did.)*
 - Q: The stories are written around a researcher who "runs an import", but this feature ships no interface, and the roadmap places the front end at R6. Who actually calls it? → A: A developer, or an administrator acting for the researcher, exactly as in the import contract's own stories. The researcher is who the feature is for and whose library and judgement decide whether it succeeded, but the caller is someone working in code until R6 exists. The stories name both rather than conflating them.
 - Q: "No entry is refused for a reason that normalization resolves" cannot be measured against an unnamed body of files, and the roadmap asks for tests over representative real-world files. What establishes it? → A: A corpus committed to the repository: fixture files built to reproduce the malformations real exports contain, plus a genuine export per dialect from a mainstream reference manager, carrying only bibliographic metadata and nothing personal. Acceptance is judged against that committed corpus, so it is reproducible and needs no network. Bibliographic metadata is factual and raises no licensing question.
 - Q: The requirement to add vocabulary to `CONTEXT.md` does not say which terms, where the import contract's equivalent named its own. Which are they? → A: Entry type, field, and dialect, plus cite key — and cite key matters most, because the glossary already defines *citation key* for `Item.citation_key`. They are the same value arriving under two names, one the source's and one the model's, and leaving that unpinned is how a synonym starts circulating.
@@ -122,7 +122,7 @@ Reference managers write their own bookkeeping into every export, fields recordi
 - **LaTeX that decodes to nothing recognisable.** A command the decoder does not know is left as it stands rather than dropped, so the reader can still see what the source held.
 - **A `crossref` chain, or a cycle.** Inheritance resolves without looping indefinitely, and a cycle is reported rather than hanging the import.
 - **An entry carrying the same field twice.** Resolved deterministically rather than depending on parser internals.
-- **A source that cannot be read twice.** Reported as a failure naming that as the cause, rather than silently importing with macros unexpanded and cross-references unresolved.
+- ~~**A source that cannot be read twice.** Reported as a failure naming that as the cause, rather than silently importing with macros unexpanded and cross-references unresolved.~~ *(Removed 2026-08-04 with FR-005. Nothing reads the source twice.)*
 
 ## Requirements *(mandatory)*
 
@@ -133,8 +133,8 @@ Reference managers write their own bookkeeping into every export, fields recordi
 - **FR-001**: The package MUST ship a BibTeX format that plugs into the import contract delivered under issue #21, supplying the file-to-entries and entry-to-CSL-JSON stages and the per-entry source handle.
 - **FR-002**: The format MUST NOT change the contract's behaviour. Entry atomicity, per-entry reporting and its outcome vocabulary, source ordering, dry runs, and the configured-format lookup MUST apply exactly as delivered.
 - **FR-003**: The format MUST be among the formats the package ships by default, so a project that configures nothing can import BibTeX (Article X).
-- **FR-004**: The format MUST consume a file's entries one at a time. Because `@string` macros and `crossref` targets must be known before an entry that uses them can be converted, and classic BibTeX places a cross-referenced entry after every entry referencing it, the format MUST establish a file's macros and cross-reference targets before converting entries. What an import holds MUST then be bounded by the macros and cross-reference parents the file defines, not by the number of entries it contains, and the order entries are reported in MUST be unaffected.
-- **FR-005**: The format MUST be able to read its source more than once, which is what FR-004 costs, and MUST state that requirement rather than assume it. A source that cannot be re-read MUST fail with a reason saying so rather than produce an import with macros or cross-references left unresolved.
+- **FR-004**: The format MUST consume a file's entries one at a time, so that the whole file's *converted* content is not materialised before any entry is stored. Entries MUST be converted and stored one at a time, and the order they are reported in MUST follow the order they occur in the source. *(Reworded 2026-08-04. The original tightened the import contract's FR-024 from converted content to all content, which #21 did not settle and which the parsing library makes moot; it also required macros and cross-reference targets to be established before conversion, which the library does within its own single load.)*
+- **FR-005**: ~~The format MUST be able to read its source more than once, which is what FR-004 costs, and MUST state that requirement rather than assume it. A source that cannot be re-read MUST fail with a reason saying so rather than produce an import with macros or cross-references left unresolved.~~ **Removed 2026-08-04.** It existed only to pay for the original FR-004. The parsing library expands `@string` macros and resolves `crossref` inside a single load, so there is no second pass and nothing is asked of the caller that the import contract did not already ask. The number is retired rather than reused, so every later requirement keeps its identifier.
 
 **Mapping**
 
@@ -219,3 +219,28 @@ Exported files carry bibliographic metadata only, with anything personal removed
 - **RIS is out of scope.** It is issue #23, and it is what will prove the contract holds for a second real format.
 - **Export is out of scope.** Writing a `.bib` file from the catalogue is a later feature, though the mapping this feature documents is what an export would run in reverse.
 - **No user interface.** Nothing here assumes a view, a form, or an upload. The front end is roadmap item R6.
+
+## Refinements
+
+### 2026-08-04 — planning found FR-004 stricter than the contract it inherits from
+
+Two changes, agreed with the maintainer at the plan gate. Nothing in the feature's purpose, its user
+stories, or its acceptance changed. One requirement was reworded and one was removed.
+
+The parsing library chosen at planning (`research.md`) expands `@string` macros and resolves
+`crossref` inheritance inside a single load of the file. That exposed two problems with requirements
+written before the library was chosen.
+
+**FR-004 was stricter than #21.** The import contract's FR-024 requires that an import not
+materialise the whole file's *converted* content before storing any entry. FR-004 had tightened that
+to all content, including parsed source text, which the contract never settled and which was not
+argued on its merits at the spec gate. Reworded to the contract's scope. Converted content is where
+the cost actually lives, an `Item` with its contributors, dates and identifiers per entry, and that
+stays streamed.
+
+**FR-005 was removed.** It required the source to be readable more than once, which existed solely to
+pay for the original FR-004. With no second pass it asks something of the caller that nothing needs.
+Its edge case went with it.
+
+The number FR-005 is retired rather than reused, so FR-006 onward keep the identifiers the story
+issues and the task list already cite.

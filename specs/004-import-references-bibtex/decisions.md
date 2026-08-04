@@ -86,10 +86,11 @@ worded it. Bounding what is held to a file's macros and cross-reference parents 
 because neither scales with entry count. Reporting order is unaffected, since entries are still
 converted in the order they occur.
 
-The cost is that the source must be readable more than once. That holds for a path and for an
-uploaded file alike, and where it does not hold the import fails saying so rather than quietly
-importing with macros unexpanded. Degrading silently there would reproduce the exact failure D2
-rejects, a record that lands looking complete while missing what the source supplied.
+The cost was that the source must be readable more than once. **Superseded at the plan gate,
+2026-08-04**: the parsing library expands macros and resolves cross-references inside one load, so
+there is no second pass and the cost never materialised. FR-005 was removed and FR-004 restored to
+the import contract's scope. What survives of this decision is that inheritance is in scope and that
+an unresolvable `crossref` is preserved rather than failed.
 
 Holding entries with unresolved cross-references until their parent turns up was considered and
 rejected. It preserves single-pass reading but breaks source-order reporting, because everything
