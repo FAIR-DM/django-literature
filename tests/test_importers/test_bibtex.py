@@ -173,3 +173,32 @@ class TestNames:
         w3c = next(raw for raw in raws if raw["ID"] == "w3c2024standards")
         csl = BibTeXFormat().to_csl_json(w3c)
         assert csl["author"] == [{"literal": "World Wide Web Consortium"}]
+
+
+class TestDates:
+    """Dates are stored at the precision the source states (FR-010)."""
+
+    def test_year_alone_gives_year_precision(self):
+        raw = entry(year="1978")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [[1978]]}
+
+    def test_year_and_numeric_month_give_month_precision(self):
+        raw = entry(year="1948", month="7")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [[1948, 7]]}
+
+    def test_no_year_means_no_issued_date(self):
+        assert "issued" not in BibTeXFormat().to_csl_json(entry())
+
+    def test_a_spelled_out_month_macro_resolves_to_its_number(self):
+        """``string_macros.bib``: ``month = jan`` expands to ``January`` (FR-013)."""
+        with fixture("string_macros.bib") as handle:
+            raws = list(BibTeXFormat().parse(handle))
+        hopper = next(raw for raw in raws if raw["ID"] == "uses_macro_two")
+        assert BibTeXFormat().to_csl_json(hopper)["issued"] == {"date-parts": [[1952, 1]]}
+
+    def test_bare_full_month_name_does_not_pad_a_day(self):
+        """``real_crossref_classic.bib`` writes bare ``month=July`` (no day stated)."""
+        with fixture("real_crossref_classic.bib") as handle:
+            raws = list(BibTeXFormat().parse(handle))
+        akiba = next(raw for raw in raws if raw["ID"] == "Akiba_2019")
+        assert BibTeXFormat().to_csl_json(akiba)["issued"] == {"date-parts": [[2019, 7]]}

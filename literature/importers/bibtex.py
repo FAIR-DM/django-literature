@@ -19,6 +19,7 @@ deliberate and asserted by a test: the parser is an implementation detail of
 this class, which is what makes it replaceable (research.md).
 """
 
+import calendar
 import dataclasses
 from collections.abc import Iterator
 from typing import Any
@@ -100,6 +101,34 @@ NAME_FIELD_TABLE: dict[str, _Mapped] = {
     "author": _Mapped("author", "classic"),
     "editor": _Mapped("editor", "classic"),
 }
+
+#: Month names, both the three-letter abbreviation ``common_strings`` already
+#: supplies and the full spelling real exports write bare (``month = July``).
+#: Crossref's own classic BibTeX export is the case this table exists for:
+#: ``common_strings`` defines ``jul`` but not ``july``, so a bare ``July``
+#: macro reference is otherwise undefined and aborts the whole file's parse.
+#: This is macro *resolution* (FR-013's territory, the same thing
+#: ``common_strings`` already does for abbreviations), not a value cleanup —
+#: no field's already-parsed content is altered.
+_MONTH_MACROS: dict[str, str] = {calendar.month_name[i].lower(): calendar.month_name[i] for i in range(1, 13)}
+
+#: Month name or abbreviation (case-insensitive) -> its 1-based number, for
+#: building date-parts (FR-010). Covers both the abbreviation
+#: ``common_strings`` expands to and the full name ``_MONTH_MACROS`` expands
+#: to, plus the abbreviation itself for a value written in braces or quotes,
+#: which never goes through macro expansion at all.
+_MONTH_NUMBERS: dict[str, int] = {calendar.month_abbr[i].lower(): i for i in range(1, 13)} | {
+    calendar.month_name[i].lower(): i for i in range(1, 13)
+}
+
+
+def _month_number(raw: str) -> int | None:
+    """The 1-based month number a source's ``month`` value states, if any."""
+    text = raw.strip()
+    if text.isdigit():
+        value = int(text)
+        return value if 1 <= value <= 12 else None
+    return _MONTH_NUMBERS.get(text.lower())
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +220,31 @@ def _names_to_csl(raw: str) -> list[dict[str, Any]]:
     return [parsed for parsed in (_name_to_csl(one) for one in _split_name_list(raw)) if parsed]
 
 
+# ---------------------------------------------------------------------------
+# Dates (FR-010)
+# ---------------------------------------------------------------------------
+
+
+def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
+    """The entry's ``issued`` date, at the precision the source states.
+
+    A year alone gives year precision; a year with a recognised month gives
+    month precision. Neither pads a component the source did not state
+    (FR-010) — there is no day field in classic BibTeX to make a full date
+    from.
+    """
+    year = fields.get("year", "").strip()
+    if not year.isdigit():
+        return None
+    parts = [int(year)]
+    month = fields.get("month", "")
+    if month:
+        month_number = _month_number(month)
+        if month_number is not None:
+            parts.append(month_number)
+    return {"date-parts": [parts]}
+
+
 class BibTeXFormat(BibFormat):
     """Reads ``.bib`` files, in either the classic or the BibLaTeX dialect."""
 
@@ -211,13 +265,18 @@ class BibTeXFormat(BibFormat):
         a generic document rather than vanishing (FR-006), and a dropped entry
         would be a silent loss of exactly the kind this feature exists to stop.
         """
-        return BibTexParser(
+        parser = BibTexParser(
             interpolate_strings=True,
             common_strings=True,
             add_missing_from_crossref=True,
             ignore_nonstandard_types=False,
             homogenize_fields=False,
         )
+        # See _MONTH_MACROS: without this, a bare full month name that is not
+        # also a three-letter abbreviation (``July``, unlike ``May``) is an
+        # undefined macro reference and aborts parsing the whole file.
+        parser.bib_database.strings.update(_MONTH_MACROS)
+        return parser
 
     def parse(self, file) -> Iterator[dict[str, Any]]:
         """Yield this file's entries in source order."""
@@ -227,8 +286,8 @@ class BibTeXFormat(BibFormat):
     def to_csl_json(self, raw: dict[str, Any]) -> dict[str, Any]:
         """Turn one parsed entry into CSL JSON.
 
-        Mapped in the fixed order plan.md lays out: type, fields, names.
-        Dates, identifiers, cleaning and preservation are later stories in
+        Mapped in the fixed order plan.md lays out: type, fields, names,
+        dates. Identifiers, cleaning and preservation are later stories in
         this file's history; a field this story does not recognise is simply
         not carried into the result yet.
         """
@@ -248,6 +307,10 @@ class BibTeXFormat(BibFormat):
                 names = _names_to_csl(value)
                 if names:
                     result[mapping.csl] = names
+
+        issued = _issued_date(raw)
+        if issued:
+            result["issued"] = issued
 
         return result
 
