@@ -349,3 +349,13 @@ Minimally patched `test_registry.py` and `test_smoke.py` to stop importing the d
 **Next**: T027/T028 — settings-declared formats, replacing `registry.py` with `literature/importers/config.py`.
 
 **Watch**: `test_registry.py` and `test_smoke.py`'s registration-based tests are a known-temporary patch, not the final shape — they still call `register()` against the old in-process registry, which T028 deletes. Confirmed decisions.md D24 and D25 read correctly against the merged `test_base.py` before moving on.
+
+## 2026-08-04T14:05:00Z · Implementer · T027 (`tests/test_importers/test_config.py`)
+
+**Did**: Tests for settings-declared formats, written against `literature.importers.config` which does not exist yet. `TestAvailableFormats` (a configured format is enumerated; an unset setting yields the empty shipped default; the mapping is read-only; the resolved mapping is cached across calls and invalidated when the setting changes — using the `settings` fixture throughout rather than raw mutation, so `setting_changed` fires both directions). `TestImportByName` (a configured name resolves and imports; an unconfigured name fails naming what is configured, both with and without anything configured). `TestAMisconfiguredEntryFailsAtFirstRead` (a path that does not import, a path that is not a `BibFormat` subclass, and a `BibFormat` subclass missing its two required stages each fail at `available_formats()`, naming the offending entry). Three fixture formats (`ConfiguredFormat`, `NotABibFormat`, `IncompleteFormat`) live at module level rather than behind `conftest.py`'s factories, because settings resolution needs a real dotted import path and a closure-built class has none.
+
+**Verified**: `poetry run pytest tests/test_importers/test_config.py -q --no-cov` → collection error, `ModuleNotFoundError: No module named 'literature.importers.config'` (right reason — the module doesn't exist until T028). `ruff check` auto-fixed one import-order issue (an unresolvable-yet import sorted into the third-party group instead of first-party); reordered by hand to the shape it will settle into once `config.py` exists, `ruff format --check` clean.
+
+**Next**: T028 — implement `literature/importers/config.py`, delete `registry.py` and `test_registry.py`, and update `conftest.py`/`test_smoke.py` off the old registration mechanism.
+
+**Watch**: the four fixture-format dotted paths (`CONFIGURED_PATH` etc.) all point into this test module itself (`tests.test_importers.test_config.*`) — `import_string` needs `tests` importable as a real package, which it already is (`pythonpath = [".", "tests"]` in pyproject.toml, `tests/__init__.py` and `tests/test_importers/__init__.py` both present since T001).
