@@ -355,7 +355,27 @@ and it would silently invert if the table were ever resorted or the biblatex key
 as a real gate, not restated table order, by reversing the two passes and watching
 `TestPrecedence.test_conflicting_journaltitle_and_journal_resolve_to_journaltitle` fail.
 
-## D18 — Two BibLaTeX entry types left out of the table to avoid a test collision
+## D18 — Three BibLaTeX entry types the table was missing, and the test that was holding them out
+
+Resolved at verification; the account of how it arose is kept below. `artwork`, `dataset` and
+`patent` are now in `ENTRY_TYPE_TABLE`, mapped to `graphic`, `dataset` and `patent`, and the US1
+test that had been using them as examples of an unmappable type now uses `set`, `xdata` and the
+empty string instead.
+
+The story was right to escalate rather than edit a test it did not own, and right that the two
+types belong in the table. What the escalation could not see is that the repo already holds the
+evidence for all three: `tests/data/csl-typeMap.xml` is Zotero's own map, and it states
+`artwork` → `graphic`, `dataset` → `dataset` and `patent` → `patent`. So three of the four values
+the US1 test offered as types with no CSL equivalent have a documented one, in a file sitting in
+this repository. The examples were the defect, not the table.
+
+The replacements are chosen so this cannot recur. `set` and `xdata` are the two entry types the
+module docstring already commits to never mapping — one groups other entries, the other only
+lends fields to them — so no future story can make the test fail by extending BibLaTeX coverage
+correctly. `dataset` mapping to `document` would have been a poor thing to ship from a package in
+a research-data ecosystem.
+
+## D18 (original) — Two BibLaTeX entry types left out of the table to avoid a test collision
 
 BibLaTeX's own entry-type list (`3.1 Entry Types`) includes `dataset` and `patent`, both with
 direct CSL equivalents (`dataset`, `patent`) and no classic-BibTeX equivalent, so both are
@@ -376,3 +396,29 @@ feature's substance. Recorded as a concern for the maintainer: `dataset` and `pa
 belong in `ENTRY_TYPE_TABLE`, and closing the gap means either choosing different example types for
 the US1 test (a change to a test this story does not own) or accepting that those two types will
 keep mapping to `document` until a later story is free to make that call.
+
+## D19 — The equivalence test was comparing each record with itself
+
+`TestDialectEquivalence.test_the_equivalence_pair_produce_equivalent_records` is SC-005's evidence:
+import the same three references once per dialect and assert the two sets of records match. It
+passed, and it proved nothing.
+
+Both sides resolved their records with `Item.objects.get(citation_key=e.handle)`, where `handle` is
+the cite key the source file used. Both files use the same three cite keys, and `citation_key` is
+unique per import batch rather than unique in the database, so the second import's rows are stored
+de-collided — `LeCun_2015` from the classic file, `LeCun_2015b` from the BibLaTeX one. The lookup
+by `handle` therefore returned the classic row on both sides, and every assertion in the loop
+compared a record with itself. Deleting the whole BibLaTeX mapping would have left it green.
+
+`EntryResult` already carries the stored `Item`, so both sides now read `e.item` off their own
+result and never look a record up by name. A `pk` disjointness assertion sits ahead of the
+comparison so the two sides can never silently become one again.
+
+Two gate checks, since a passing test is what caused this in the first place. Removing
+`journaltitle` from `FIELD_TABLE` fails it on `container-title`; forcing `_parse_biblatex_date` to
+return `None` fails it on the issued date. Both were reverted.
+
+One assertion was added beyond SC-005's four stated criteria: `container_title`. The pair differs
+in exactly two ways, `journal` against `journaltitle` and `year`/`month` against `date`, and
+without that assertion the first of the two could break with this test still green — which is the
+same failure D19 exists to fix, one level down.

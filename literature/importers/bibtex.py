@@ -64,18 +64,20 @@ class _Mapped:
 #: BibLaTeX-only entries are drawn from the type list its own manual
 #: documents (`3.1 Entry Types`), minus ``set`` (a grouping construct, not a
 #: bibliographic record of its own) and ``xdata`` (data-only, never a real
-#: entry either) — neither would mean anything mapped to a CSL type — and
-#: minus ``dataset`` and ``patent``, which US1's ``TestEntryTypes`` already
-#: uses as its own examples of a type with no CSL equivalent (D18: adding
-#: either here would be correct BibLaTeX coverage that breaks a test this
-#: story does not own; left out rather than touching it).
+#: entry either) — neither would mean anything mapped to a CSL type, and
+#: they are the two this table is expected never to carry. Where Zotero's
+#: own type map (``tests/data/csl-typeMap.xml``) states an equivalent, it is
+#: followed rather than second-guessed: that is where ``artwork``,
+#: ``dataset`` and ``patent`` come from (D18).
 ENTRY_TYPE_TABLE: dict[str, _Mapped] = {
     "article": _Mapped("article-journal", "classic"),
+    "artwork": _Mapped("graphic", "biblatex"),
     "book": _Mapped("book", "classic"),
     "bookinbook": _Mapped("chapter", "biblatex"),
     "booklet": _Mapped("pamphlet", "classic"),
     "collection": _Mapped("collection", "biblatex"),
     "conference": _Mapped("paper-conference", "classic"),
+    "dataset": _Mapped("dataset", "biblatex"),
     "electronic": _Mapped("webpage", "biblatex"),
     "inbook": _Mapped("chapter", "classic"),
     "incollection": _Mapped("chapter", "classic"),
@@ -89,6 +91,7 @@ ENTRY_TYPE_TABLE: dict[str, _Mapped] = {
     "mvproceedings": _Mapped("book", "biblatex"),
     "mvreference": _Mapped("book", "biblatex"),
     "online": _Mapped("webpage", "biblatex"),
+    "patent": _Mapped("patent", "biblatex"),
     "periodical": _Mapped("periodical", "biblatex"),
     "phdthesis": _Mapped("thesis", "classic"),
     "proceedings": _Mapped("book", "classic"),

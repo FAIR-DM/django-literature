@@ -133,12 +133,18 @@ class TestEntryTypes:
     def test_every_classic_type_maps_to_its_csl_equivalent(self, bibtex_type, mapping):
         assert BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"] == mapping.csl
 
-    @pytest.mark.parametrize("bibtex_type", ["artwork", "dataset", "patent", ""])
+    @pytest.mark.parametrize("bibtex_type", ["set", "xdata", ""])
     def test_an_unrecognised_type_maps_to_document_rather_than_failing(self, bibtex_type):
+        """``set`` and ``xdata`` are real BibLaTeX types with no CSL meaning:
+        one groups other entries, the other only supplies fields to them.
+        They are the examples here because they are the two the entry-type
+        table is expected never to carry, so this test cannot be made to fail
+        by mapping more of BibLaTeX correctly.
+        """
         assert BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"] == "document"
 
     def test_unknown_types_from_the_corpus_land_as_document(self):
-        """``unknown_entry_type.bib``: neither type is classic BibTeX."""
+        """``unknown_entry_type.bib``: neither type maps to a CSL type."""
         with fixture("unknown_entry_type.bib") as handle:
             raws = list(BibTeXFormat().parse(handle))
         assert [BibTeXFormat().to_csl_json(raw)["type"] for raw in raws] == ["document", "document"]
@@ -655,9 +661,15 @@ class TestDialectEquivalence:
         assert len(classic_result.created) == 3
         assert len(biblatex_result.created) == 3
 
-        classic_by_key = {e.handle: Item.objects.get(citation_key=e.handle) for e in classic_result.created}
-        biblatex_by_key = {e.handle: Item.objects.get(citation_key=e.handle) for e in biblatex_result.created}
+        # Both sides are read off their own result entries, never looked up by
+        # cite key: the second import's keys collide with the first's and are
+        # de-collided on the way in (``LeCun_2015`` then ``LeCun_2015b``), so a
+        # lookup by ``handle`` returns the classic row on both sides and the
+        # comparison below comes out true against itself.
+        classic_by_key = {e.handle: e.item for e in classic_result.created}
+        biblatex_by_key = {e.handle: e.item for e in biblatex_result.created}
         assert classic_by_key.keys() == biblatex_by_key.keys()
+        assert not {item.pk for item in classic_by_key.values()} & {item.pk for item in biblatex_by_key.values()}
 
         def contributors(item):
             return [
@@ -673,6 +685,11 @@ class TestDialectEquivalence:
 
             assert classic_item.type == biblatex_item.type, key
             assert contributors(classic_item) == contributors(biblatex_item), key
+            # Beyond SC-005's four criteria, and deliberately: ``journal``
+            # against ``journaltitle`` is one of only two ways the pair
+            # differs, so leaving it out would let half the difference this
+            # fixture exists to exercise break without the test noticing.
+            assert classic_item.container_title == biblatex_item.container_title, key
 
             classic_issued = classic_item.item_dates.get(date_type="issued")
             biblatex_issued = biblatex_item.item_dates.get(date_type="issued")
