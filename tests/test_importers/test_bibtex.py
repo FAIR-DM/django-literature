@@ -16,6 +16,7 @@ import pytest
 from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.bibtex import ENTRY_TYPE_TABLE, FIELD_TABLE, BibTeXFormat
+from literature.models import Item
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "bibtex"
 
@@ -106,6 +107,22 @@ class TestHandles:
         with fixture("clean_multi_type.bib") as handle:
             first = next(iter(BibTeXFormat().parse(handle)))
         assert BibTeXFormat().handle_for(first) == "shannon1948mathematical"
+
+    @pytest.mark.django_db
+    def test_handle_is_also_the_built_items_citation_key(self):
+        """The same cite key names the entry in the report and the stored Item."""
+        with fixture("clean_multi_type.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert [e.handle for e in result.created] == [
+            "shannon1948mathematical",
+            "knuth1984texbook",
+            "lamport1978time",
+            "codd1970relational",
+            "berners1989information",
+            "w3c2024standards",
+        ]
+        assert set(Item.objects.values_list("citation_key", flat=True)) == {e.handle for e in result.created}
 
 
 class TestEntryTypes:
