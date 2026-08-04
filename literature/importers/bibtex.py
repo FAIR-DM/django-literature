@@ -112,8 +112,9 @@ _FALLBACK_TYPE = "document"
 #: and identifier fields are mapped separately (later stories in this
 #: file's history); ``key`` (BibTeX's sorting hint) and ``crossref``
 #: (consumed for inheritance, not copied) have no entry here and are simply
-#: not carried into CSL JSON by this story — preservation of unmapped
-#: fields is US4 (issue #33).
+#: not carried directly into CSL JSON — both, like every other field with no
+#: entry in any of this module's tables, are preserved instead under
+#: ``custom["bibtex"]`` (US4, FR-025, :func:`_unmapped_fields`).
 FIELD_TABLE: dict[str, _Mapped] = {
     "address": _Mapped("publisher-place", "classic"),
     "annote": _Mapped("annote", "classic"),
@@ -413,6 +414,50 @@ def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
     return {"date-parts": [parts]}
 
 
+# ---------------------------------------------------------------------------
+# Preservation (FR-025, FR-026, D3, D20) — a field this importer maps to no
+# CSL variable is not discarded, and preserving it must not open a second
+# reporting channel: per-entry reporting stays exactly what the import
+# contract already defines (D3, spec 004 US4).
+# ---------------------------------------------------------------------------
+
+#: The two keys ``bibtexparser`` adds to every entry structurally — already
+#: surfaced as ``type`` and ``citation-key`` — rather than fields the source
+#: file itself wrote.
+_STRUCTURAL_KEYS = frozenset({"ENTRYTYPE", "ID"})
+
+#: The three fields :func:`_issued_date` itself consumes (FR-010, FR-024).
+#: Not "unmapped" in the FR-025 sense: whichever of them an entry carries
+#: always lands in ``issued``, resolved or as its ``literal`` fallback (D13).
+_DATE_SOURCE_FIELDS = frozenset({"year", "month", "date"})
+
+
+def _unmapped_fields(raw: dict[str, Any]) -> dict[str, str]:
+    """Every field ``raw`` carries that this importer maps to no CSL variable.
+
+    Worked out from the tables rather than a hand-written list of field
+    names, so a field added to none of them is preserved automatically: a
+    key survives here unless it is one of the structural keys the parser
+    itself adds, one of the fields the date logic already consumes, or a key
+    any of the three mapping tables recognises.
+
+    That includes ``crossref``. ``add_missing_from_crossref`` already copies
+    an inherited field onto the child entry (FR-015), but the ``crossref``
+    key itself names no CSL variable whether or not it resolved, so the same
+    rule preserves it either way — there is no separate branch for the
+    unresolvable case (acceptance scenario 3). ``_FROM_CROSSREF``, the
+    parser's own record of which fields it copied, is not something the
+    source file wrote, and is excluded along with anything else the parser
+    prefixes with an underscore.
+    """
+    mapped = set(FIELD_TABLE) | set(IDENTIFIER_FIELD_TABLE) | set(NAME_FIELD_TABLE) | _DATE_SOURCE_FIELDS
+    return {
+        key: value
+        for key, value in raw.items()
+        if key not in _STRUCTURAL_KEYS and key not in mapped and not key.startswith("_") and value
+    }
+
+
 class BibTeXFormat(BibFormat):
     """Reads ``.bib`` files, in either the classic or the BibLaTeX dialect."""
 
@@ -468,13 +513,20 @@ class BibTeXFormat(BibFormat):
         Comments and preambles arrive as plain strings (see :meth:`parse`)
         and are skipped outright (FR-014). Everything else is a classic or
         BibLaTeX entry dict, mapped in the fixed order plan.md lays out:
-        type, fields, names, dates, identifiers, each cleaned ahead of
-        mapping (FR-017, FR-018, D1). Where a dialect pair targets the same
-        CSL variable and disagree, the BibLaTeX value wins (FR-024, D17).
-        Preservation of a field this story does not recognise at all is
-        US4; the preservation this story does is the narrower one from
-        D13 — an identifier cleaning could not rescue, written into
-        ``custom`` at the point its own validation fails.
+        type, fields, names, dates, identifiers, preservation, each cleaned
+        ahead of mapping (FR-017, FR-018, D1). Where a dialect pair targets
+        the same CSL variable and disagree, the BibLaTeX value wins
+        (FR-024, D17).
+
+        Two things end up in ``custom``, and they are not the same
+        mechanism. An identifier cleaning could not rescue is written under
+        its own source field name, one field at a time, at the point its
+        own validation fails (FR-019, D13) — the narrow case. Every field
+        this importer maps nowhere at all is swept up afterwards, nested
+        under a single ``bibtex`` key rather than spilled flat, so it
+        cannot be mistaken for an identifier of the catalogue record itself
+        (FR-025, FR-026, D3, D20, :func:`_unmapped_fields`) — the general
+        case.
         """
         if not isinstance(raw, dict):
             raise SkipEntry
@@ -527,6 +579,10 @@ class BibTeXFormat(BibFormat):
                 result.setdefault("custom", {})[bib_key] = cleaned
             else:
                 result[mapping.csl] = cleaned
+
+        unmapped = _unmapped_fields(raw)
+        if unmapped:
+            result.setdefault("custom", {})["bibtex"] = unmapped
 
         return result
 

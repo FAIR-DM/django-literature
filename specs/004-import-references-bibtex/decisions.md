@@ -422,3 +422,54 @@ One assertion was added beyond SC-005's four stated criteria: `container_title`.
 in exactly two ways, `journal` against `journaltitle` and `year`/`month` against `date`, and
 without that assertion the first of the two could break with this test still green — which is the
 same failure D19 exists to fix, one level down.
+
+## D20 — Preservation nests under one `bibtex` key rather than spilling flat
+
+**Maintainer decision, settled before implementation.**
+
+`from_csl_json` turns every top-level string value in CSL `custom` whose key is not a known
+identifier type into an `ItemIdentifier` row, with a logged warning (spec 003, converters.py). US4's
+brief flagged this before T032 was written: writing `file`, `owner` and `timestamp` in at the top
+level of `custom` would file each of them as an identifier of the catalogue record — plainly wrong,
+and something that would flood the log on every real library a researcher imports.
+
+Resolved by nesting. `custom` carries one key, `bibtex`, whose value is a dict of every field this
+importer maps nowhere (`_unmapped_fields`, `literature/importers/bibtex.py`). A dict value is not a
+string, so `from_csl_json`'s identifier-promotion loop skips it outright, `item.custom` stores it
+whole, and `to_csl_json` (the model-to-CSL direction) merges it back out unchanged since it only
+ever `dict.update`s `item.custom` into the result. The round trip holds with no change to
+`converters.py`, which the brief's prohibitions ruled out reopening, and the nesting also states
+where the fields came from — a flat spill under each field's own bare name would not.
+
+This leaves US2's narrow preservation (D13) untouched and correct: a value cleaning could not
+rescue is still written as a top-level string under its own type in `custom`, and it still becomes
+an `ItemIdentifier` row, which is what D13 intended for that one case. The two mechanisms write to
+the same dict but never collide — no field this importer maps to a CSL identifier type is ever also
+in `_unmapped_fields`'s output, since table membership is exactly what excludes a key from it.
+
+## D21 — `crossref` is preserved by the same rule whether or not it resolves, and three BibLaTeX
+fields the corpus sweep surfaced are left unmapped
+
+Not raised at intake. `_unmapped_fields` classifies a field as unmapped by checking table
+membership, not by asking whether `crossref` inheritance succeeded, so an entry whose `crossref`
+resolved and one whose `crossref` named a missing parent are preserved identically — there is no
+branch for the unresolvable case named in acceptance scenario 3, because the general rule already
+covers it. Considered and rejected: a special case that preserves `crossref` only when it fails to
+resolve, which would have required the sweep to know something FR-015's inheritance step already
+decided, duplicating a fact rather than reading the same field it left behind on the entry either
+way.
+
+Running that classification against the whole committed corpus for T033 (SC-006) surfaced three
+BibLaTeX fields with no entry in `FIELD_TABLE`: `constructed_biblatex.bib` carries `langid`,
+`location` and `urldate`. `location` in particular is BibLaTeX's current name for what classic
+BibTeX calls `address` — `FIELD_TABLE` already maps `address` to `publisher-place` — so a case can
+be made that `location` belongs in the table as `address`'s BibLaTeX-dialect pair, the same shape as
+`journal`/`journaltitle`.
+
+Left unmapped rather than added here. Extending `FIELD_TABLE` is FR-007/FR-023's territory — US1's
+and US3's mapping work, already reviewed and merged — not FR-025/FR-026's, which this story owns.
+All three are preserved correctly under `custom["bibtex"]`, so SC-006 holds regardless of whether
+`location` ever gains a direct mapping; nothing here is a functional gap, only an opportunity a
+later mapping story is free to take. Recorded as a concern for the maintainer rather than taken as a
+drive-by fix, on the same reasoning D18 gives for not reaching into a table a story's own tasks
+don't name.
