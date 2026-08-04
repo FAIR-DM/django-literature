@@ -188,3 +188,51 @@ failure is recorded against the next index and the entries already recovered are
 a handle rather than ending the run.
 
 Both are covered by regression tests that were confirmed to fail against the pre-fix runner.
+
+## D13 — `item=None` on a dry run's created entries is not the rehearsal-specific branch the brief warns against
+
+Self-resolved, during US2 implementation (T015).
+
+The task brief for T015 says: "There must be no rehearsal-specific branch beyond that transaction
+... If you find yourself writing `if dry_run:` around conversion or storage logic, that is the
+wrong design." The implementation does contain one `if dry_run` — `item=None if dry_run else item`
+on the line that builds a `CREATED` `EntryResult` — which reads at first glance like exactly that.
+
+It is not the same thing. The warning is about *execution*: a format's `to_csl_json` and
+`from_csl_json` must genuinely run on a dry run rather than being skipped or faked, which is what
+makes a rehearsal's outcomes observed instead of predicted. `item=None` does not skip anything —
+`from_csl_json` still runs, still returns a real (in-memory) `Item`, and the local `item` variable
+still holds it. The branch only decides what the *caller* is handed back afterwards, and
+data-model.md and plan.md's "Design in brief" point 3 require exactly this: exposing the rolled-back
+instance would hand back an object that looks saved and is not, since its rows do not survive
+`set_rollback(True)`. Doing this unconditionally (never returning `item`) was rejected because it
+would break FR-007's contract for a real run, where the caller does need the stored `Item`.
+
+**Revisit if**: a future story needs the in-memory (never persisted) `Item` from a dry run for some
+purpose — at that point this decision is what to reopen, not the transaction wrapping.
+
+## D14 — The outer transaction is a `contextlib.nullcontext()` swap, not two loop bodies
+
+Self-resolved, during US2 implementation (T015).
+
+The two ways to make the outer `transaction.atomic()` conditional on `dry_run` are: write the loop
+twice, once inside the `atomic()` block and once without, or wrap a single copy of the loop in
+`transaction.atomic() if dry_run else contextlib.nullcontext()`. The first was rejected outright —
+duplicating the four-stage loop is the direct opposite of "the same code path", and any later change
+to the loop would need to be made twice and kept in sync by hand, which is exactly the copy-paste
+Article II exists to prevent. `contextlib.nullcontext()` costs nothing at runtime and keeps
+`import_file` at one loop, one set of savepoints, one place the workflow is described.
+
+**Worth recording for whoever adds a format next (raised in this story's `concerns`, not a defect):**
+research.md R5 already flags that a dry run holds one transaction open for the length of the file,
+which is a long transaction on PostgreSQL for a large import. Implementing T015 confirms the
+mechanism carries no additional cost beyond that already-known one — the per-entry savepoints nest
+inside the outer transaction exactly as research.md R2 predicted, verified here by
+`test_a_database_level_failure_inside_a_dry_run_does_not_poison_the_rest` in `test_dry_run.py`, so a
+database-level failure on entry *N* of a dry run still lets entry *N+1* be reported as created. No
+new interaction was found; this is a pointer back to R5 for the reader of this file, not a new
+finding.
+
+**Revisit if**: a real format's import volume makes the long-open dry-run transaction a practical
+problem — the fix is a caller-side decision (chunking, a row-count cap before offering a dry run),
+not a change to this mechanism.
