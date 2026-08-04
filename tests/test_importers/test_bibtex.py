@@ -587,3 +587,37 @@ class TestBibLaTeX:
 
         assert result.ok, [e.reason for e in result.failed]
         assert all(e.outcome == Outcome.CREATED for e in result)
+
+
+class TestPrecedence:
+    """Where the dialects supply the same information twice and disagree,
+    resolution is deterministic (FR-024). The direction: the BibLaTeX field
+    wins over its classic counterpart (D17).
+    """
+
+    def test_conflicting_date_and_year_resolve_to_the_biblatex_date(self):
+        raw = entry(date="2019-03", year="2018")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [[2019, 3]]}
+
+    def test_a_date_and_year_that_agree_resolve_the_same_way_either_would_alone(self):
+        raw = entry(date="2018", year="2018")
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [[2018]]}
+
+    def test_conflicting_journaltitle_and_journal_resolve_to_journaltitle(self):
+        raw = entry(journal="Classic Field Name", journaltitle="BibLaTeX Field Name")
+        assert BibTeXFormat().to_csl_json(raw)["container-title"] == "BibLaTeX Field Name"
+
+    def test_a_journaltitle_and_journal_that_agree_resolve_the_same_way_either_would_alone(self):
+        raw = entry(journal="Nature", journaltitle="Nature")
+        assert BibTeXFormat().to_csl_json(raw)["container-title"] == "Nature"
+
+    def test_the_corpus_mixed_dialect_entry_resolves_both_conflicts_deterministically(self):
+        """``mixed_dialect_entry`` in ``constructed_biblatex.bib`` carries both
+        forms of both conflicts at once: ``journal`` vs. ``journaltitle``, and
+        ``year`` vs. ``date``.
+        """
+        with fixture("constructed_biblatex.bib") as handle:
+            raws = {raw["ID"]: raw for raw in BibTeXFormat().parse(handle)}
+        csl = BibTeXFormat().to_csl_json(raws["mixed_dialect_entry"])
+        assert csl["container-title"] == "BibLaTeX Field Name"
+        assert csl["issued"] == {"date-parts": [[2019, 3]]}
