@@ -146,11 +146,15 @@ CSL JSON is what this package stores, but researchers keep their libraries in Bi
 import contract reads any configured format through one call and tells you what happened to every
 entry in the file. Declare which formats your project reads in settings:
 
+BibTeX is read out of the box and needs no configuration. Declare `BIB_FORMATS` only to add a
+format of your own, which replaces the default list rather than extending it:
+
 ```python
 # settings.py
 LITERATURE = {
     "BIB_FORMATS": [
-        "myapp.formats.BibTeXFormat",
+        "literature.importers.bibtex.BibTeXFormat",
+        "myapp.formats.RISFormat",
     ],
 }
 ```
@@ -194,12 +198,36 @@ for name, format_class in available_formats().items():
     print(name, "—", format_class.label)
 ```
 
-> **No format ships yet.** The contract is in place; BibTeX and RIS support follow. Adding a format
-> means writing a `BibFormat` subclass with a parser and a conversion to CSL JSON, then listing its
-> dotted path in `LITERATURE["BIB_FORMATS"]` — the workflow above does not change. A format with an
-> unusual need may override any of the workflow's other steps (`import_entries`, `import_entry`,
-> `get_result`); the base class only has to get the job done when its two required stages are
-> supplied, not stop you from replacing the rest.
+#### Reading BibTeX
+
+`bibtex` reads a `.bib` file in either dialect — classic BibTeX, which is what a publisher's
+"export citation" link and most academic databases emit, and BibLaTeX, which is what current
+Zotero and JabRef write. You do not have to know which one you were given.
+
+An export is rarely clean, so the format recovers before it refuses. A DOI written as a resolver
+URL is normalized to the bare identifier, LaTeX-encoded text becomes the characters it stands for,
+XML escaping left over from a publisher's pipeline is resolved, and a value that cannot be
+recovered is kept with the record instead of costing you the whole entry. `@string` macros are
+expanded and `crossref` inheritance is resolved, including a reference to an entry defined further
+down the file.
+
+Fields that no bibliographic standard defines — the `file`, `owner` and `timestamp` bookkeeping
+every reference manager writes into its exports — have no CSL equivalent and are not thrown away
+either. They are stored on the item under `custom["bibtex"]` and can be read back:
+
+```python
+item = result.created[0].item
+print(item.custom["bibtex"])   # {'file': ':papers/curie1898.pdf:PDF', 'owner': 'sam', ...}
+```
+
+[What maps to what](https://django-literature.readthedocs.io/en/latest/bibtex-mapping.html) is
+generated from the mapping tables themselves, so it cannot fall out of step with the code.
+
+RIS follows. Adding a format means writing a `BibFormat` subclass with a parser and a conversion
+to CSL JSON, then listing its dotted path in `LITERATURE["BIB_FORMATS"]` — the workflow above does
+not change. A format with an unusual need may override any of the workflow's other steps
+(`import_entries`, `import_entry`, `get_result`); the base class only has to get the job done when
+its two required stages are supplied, not stop you from replacing the rest.
 
 ### Query
 

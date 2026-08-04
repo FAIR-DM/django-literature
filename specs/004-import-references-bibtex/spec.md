@@ -115,7 +115,7 @@ Reference managers write their own bookkeeping into every export, fields recordi
 
 - **A file that is not BibTeX at all.** A file of prose, or one holding a different bibliography format, produces a reported parse failure rather than an unhandled error or a catalogue of nonsense.
 - **An empty file, or one holding only comments and macros.** A successful import of nothing, with an empty result and an unchanged catalogue.
-- **A truncated file.** The entries recovered before the truncation are reported, and the remainder is reported as a failure.
+- **A truncated file.** The entries recovered before the truncation are reported, and the remainder is reported as ~~a failure~~ *skipped (amended 2026-08-04, D26 — the parser reclassifies the cut-off block as a comment before this feature's code runs, the same mechanism D11 documents; what matters is that it is reported, not which of the two reported outcomes it carries)*.
 - **Duplicate cite keys within one file.** The catalogue's existing behaviour applies unchanged: colliding keys are given distinguishing suffixes within the batch, and each entry is still reported as created.
 - ~~**An entry with no fields at all beyond its type and cite key.** Stored, since a type and a citation key are all the catalogue requires. Sparse is not invalid.~~ *(Amended 2026-08-04 — reported as skipped rather than stored. See `## Refinements` and D11.)*
 - **A file in an unexpected text encoding.** Reported as a parse failure naming the encoding, rather than storing corrupted text. Latin-1 content in a file assumed to be UTF-8 is the case that occurs in practice.
@@ -144,7 +144,7 @@ Reference managers write their own bookkeeping into every export, fields recordi
 - **FR-009**: Contributor names MUST be parsed into their parts where the source states them, and a name the source gives as an unparsed or institutional string MUST be stored as such rather than split.
 - **FR-010**: Dates MUST be stored at the precision the source states, without padding an unstated month or day.
 - **FR-011**: Identifier fields MUST become typed identifier records.
-- **FR-012**: An entry's cite key MUST become the item's citation key, and MUST be the source handle reported against that entry.
+- **FR-012**: An entry's cite key MUST become the item's citation key, and MUST be the source handle reported against that entry. *(Qualified 2026-08-04, D26: where one file carries two entries under one cite key, the catalogue resolves the collision by suffixing, so the second entry's stored citation key differs from the key its own report names. The report names what the source wrote, which is what a reader searching the file will look for.)*
 - **FR-013**: `@string` macros defined in a file MUST be expanded in the entries that reference them.
 - **FR-014**: Elements that are not bibliographic records, `@comment` and `@preamble` among them, MUST be reported as skipped rather than failed.
 - **FR-015**: An entry whose `crossref` names another entry in the same file MUST inherit that parent's fields where it does not state its own. A `crossref` naming an entry the file does not contain MUST be preserved as an unmapped field. Inheritance MUST terminate on a cyclic or self-referential chain and report it rather than failing to complete.

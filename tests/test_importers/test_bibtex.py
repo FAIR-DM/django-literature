@@ -11,6 +11,7 @@ each file isolates and which of the two real exports is genuine.
 
 import dataclasses
 import io
+import re
 from pathlib import Path
 
 import pytest
@@ -82,11 +83,12 @@ def _accounted_for(bib_key: str, csl: dict) -> bool:
     return False
 
 
-#: The one corpus file ``bibtexparser`` cannot read at all: its bytes are
-#: Latin-1, so decoding fails before any entry exists to check. Named rather
-#: than inferred, so a change that made a second file unreadable would fail
+#: The corpus files that yield no entry to check: ``latin1_encoded.bib``,
+#: whose bytes this decoder cannot read, and ``not_bibtex.bib``, which is
+#: refused as a whole because it holds no BibTeX syntax (D26). Named rather
+#: than inferred, so a change that made a third file unreadable would fail
 #: the sweep instead of quietly shrinking what it covers.
-UNREADABLE_FIXTURES = {"latin1_encoded.bib"}
+UNREADABLE_FIXTURES = {"latin1_encoded.bib", "not_bibtex.bib"}
 
 
 def _parse_or_none(path: Path) -> list | None:
@@ -550,7 +552,11 @@ class TestCorpusRecovery:
     #: A file that is not valid UTF-8 fails before any entry exists to
     #: clean — the whole file is unreadable (FR-014), which is SC-008's
     #: territory, not a value cleaning could ever have reached.
-    _WHOLE_FILE_UNREADABLE = {"latin1_encoded.bib"}
+    #: The two files that fail as a whole rather than entry by entry:
+    #: bytes this decoder cannot read, and content that is not BibTeX at
+    #: all (D26). Neither is a normalization failure, which is what this
+    #: sweep is about.
+    _WHOLE_FILE_UNREADABLE = {"latin1_encoded.bib", "not_bibtex.bib"}
 
     @pytest.mark.django_db
     def test_no_entry_across_the_corpus_is_refused_for_a_reason_normalization_resolves(self):
@@ -1048,10 +1054,21 @@ class TestAccessDate:
         item = Item.objects.get(citation_key="w3c2024standards")
         assert item.item_dates.get(date_type="accessed").begin == PartialDate("2024-06-01")
 
-    def test_a_urldate_that_will_not_parse_is_preserved_not_discarded(self):
-        csl = BibTeXFormat().to_csl_json(entry(urldate="last Tuesday"))
-        assert "accessed" not in csl
-        assert csl["custom"]["bibtex"] == {"urldate": "last Tuesday"}
+    @pytest.mark.django_db
+    def test_a_urldate_that_will_not_parse_takes_the_literal_slot(self):
+        """The same slot an unresolvable ``issued`` takes, not the generic
+        preservation an unmapped field gets. The model has a date slot for
+        exactly this and D13 settled that unparseable dates belong in it, so
+        an access date behaving differently from a publication date would be
+        an inconsistency with no reason behind it (D26).
+        """
+        source = "@online{loose_date, title = {A page}, urldate = {last Tuesday}}"
+        result = BibTeXFormat().import_file(io.StringIO(source))
+
+        assert [e.outcome for e in result] == [Outcome.CREATED]
+        item = Item.objects.get(citation_key="loose_date")
+        assert item.item_dates.get(date_type="accessed").literal == "last Tuesday"
+        assert "custom" not in BibTeXFormat().to_csl_json(entry(urldate="last Tuesday"))
 
 
 class TestConsumedRatherThanTabled:
@@ -1133,13 +1150,14 @@ class TestUntrustedInput:
         arbitrary internal error.
         """
         with path.open(encoding="utf-8") as handle:
-            try:
-                result = BibTeXFormat().import_file(handle)
-            except UnicodeDecodeError:
-                assert path.name in UNREADABLE_FIXTURES
-                return
+            result = BibTeXFormat().import_file(handle)
+
         assert all(e.outcome in set(Outcome) for e in result)
         assert all(e.reason is not None for e in result.failed)
+        if path.name in UNREADABLE_FIXTURES:
+            # Even the file that cannot be decoded at all comes back through
+            # the result rather than out of the call.
+            assert [e.outcome for e in result] == [Outcome.FAILED]
 
     def test_the_module_reaches_nothing_outside_itself(self):
         """No import that could execute, spawn, or connect on file content."""
@@ -1182,3 +1200,209 @@ class TestTranslatable:
         """
         assert BibTeXFormat.name == "bibtex"
         assert str(BibTeXFormat.label) == "BibTeX"
+
+
+class TestNothingIsOverwritten:
+    """A field that loses a race for its CSL variable keeps its value (D26).
+
+    Several classic fields legitimately name one CSL variable: `booktitle`
+    and `journal` are both a container title, and `institution`,
+    `organization`, `publisher` and `school` are all a publisher. Only one
+    can be the stored value. The others are not therefore discardable.
+    """
+
+    def test_a_second_field_naming_the_same_variable_is_preserved(self):
+        csl = BibTeXFormat().to_csl_json(entry(entry_type="incollection", booktitle="Big Book", journal="Journal"))
+        assert csl["container-title"] == "Big Book"
+        assert csl["custom"]["bibtex"] == {"journal": "Journal"}
+
+    def test_every_loser_among_four_publisher_fields_is_preserved(self):
+        raw = entry(entry_type="techreport", institution="MIT", publisher="Acme", organization="ACM", school="Harvard")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["publisher"] == "MIT"
+        assert csl["custom"]["bibtex"] == {"publisher": "Acme", "organization": "ACM", "school": "Harvard"}
+
+    def test_the_classic_value_a_biblatex_field_overrules_is_preserved(self):
+        """D17 decides which value is *stored*. It does not make the other
+        one disposable — FR-025 still applies to it.
+        """
+        csl = BibTeXFormat().to_csl_json(entry(journal="Old", journaltitle="New"))
+        assert csl["container-title"] == "New"
+        assert csl["custom"]["bibtex"] == {"journal": "Old"}
+
+    def test_a_month_that_does_not_reach_the_date_is_preserved(self):
+        """`Sept.` is a real abbreviation this importer does not recognise.
+        It contributes nothing to `issued`, so it is not consumed by it.
+        """
+        csl = BibTeXFormat().to_csl_json(entry(year="2020", month="Sept."))
+        assert csl["issued"] == {"date-parts": [[2020]]}
+        assert csl["custom"]["bibtex"] == {"month": "Sept."}
+
+    def test_a_month_beside_an_unresolvable_year_is_preserved(self):
+        csl = BibTeXFormat().to_csl_json(entry(year="in press", month="jan"))
+        assert csl["issued"] == {"literal": "in press"}
+        assert csl["custom"]["bibtex"] == {"month": "jan"}
+
+
+class TestImpossibleDates:
+    """A date of the right shape and no calendar meaning (D26).
+
+    `2024-13-45` matches the pattern BibLaTeX documents and names no day of
+    any year. Treating shape as validity produced date-parts the catalogue
+    rejects, which failed the whole entry — losing its title, its authors
+    and its identifiers over one field.
+    """
+
+    @pytest.mark.parametrize("impossible", ["2024-13-45", "2024-02-30", "2024-00-10", "2024-06-31"])
+    def test_an_impossible_date_takes_the_literal_slot(self, impossible):
+        csl = BibTeXFormat().to_csl_json(entry(date=impossible))
+        assert csl["issued"] == {"literal": impossible}
+
+    def test_a_leap_day_is_not_mistaken_for_one(self):
+        assert BibTeXFormat().to_csl_json(entry(date="2024-02-29"))["issued"] == {"date-parts": [[2024, 2, 29]]}
+
+    @pytest.mark.django_db
+    def test_the_rest_of_the_entry_survives_an_impossible_date(self):
+        source = (
+            "@article{bad_date, title = {A Title}, author = {Doe, Jane}, "
+            "journal = {J}, doi = {10.1234/x}, date = {2024-13-45}}"
+        )
+        result = BibTeXFormat().import_file(io.StringIO(source))
+
+        assert [e.outcome for e in result] == [Outcome.CREATED], [e.reason for e in result.failed]
+        item = Item.objects.get(citation_key="bad_date")
+        assert item.title == "A Title"
+        assert item.item_names.count() == 1
+        assert item.item_dates.get(date_type="issued").literal == "2024-13-45"
+
+
+class TestIdentifierRecovery:
+    """A DOI wearing both of its common wrappers at once (D26)."""
+
+    @pytest.mark.parametrize(
+        "written",
+        [
+            "10.1234/x",
+            "doi:10.1234/x",
+            "https://doi.org/10.1234/x",
+            "http://dx.doi.org/10.1234/x",
+            "doi:https://doi.org/10.1234/x",
+            "  DOI: HTTPS://DX.DOI.ORG/10.1234/x  ",
+        ],
+    )
+    def test_every_written_form_reaches_the_same_bare_doi(self, written):
+        assert BibTeXFormat().to_csl_json(entry(doi=written))["DOI"] == "10.1234/x"
+
+
+class TestWrongFileEntirely:
+    """A file with content and no entries is unreadable, not empty (D26).
+
+    `bibtexparser` answers "is this BibTeX?" by falling through to its
+    comment rule, so a RIS file handed over under a `.bib` name parses
+    without complaint and imports nothing. Reporting that as one skipped
+    comment tells the person who picked the wrong format almost nothing.
+    """
+
+    @pytest.mark.django_db
+    def test_a_file_that_is_not_bibtex_is_reported_as_a_failure(self):
+        with fixture("not_bibtex.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert [e.outcome for e in result] == [Outcome.FAILED]
+        assert "BibTeX" in str(result.failed[0].reason)
+        assert not Item.objects.exists()
+
+    @pytest.mark.django_db
+    def test_an_empty_file_is_not_that_case(self):
+        """It states nothing, so nothing is the right answer — not an error."""
+        with fixture("empty.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert list(result) == []
+        assert result.ok
+
+    @pytest.mark.django_db
+    def test_a_file_with_one_good_entry_and_unreadable_remainder_keeps_the_entry(self):
+        """`truncated.bib`. The parser reclassifies the cut-off block as a
+        comment, so it is reported as skipped rather than failed. What the
+        feature promises is that nothing disappears unreported, and a report
+        is what this is.
+        """
+        with fixture("truncated.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.SKIPPED]
+        assert Item.objects.get(citation_key="complete_entry")
+
+    @pytest.mark.django_db
+    def test_braces_nested_past_the_parsers_limit_are_reported_not_raised(self):
+        source = "@article{deep, title = {" + "{" * 400 + "x" + "}" * 400 + "}}"
+        result = BibTeXFormat().import_file(io.StringIO(source))
+
+        assert [e.outcome for e in result] == [Outcome.FAILED]
+        assert "braces" in str(result.failed[0].reason)
+
+
+class TestCiteKeyCollision:
+    """Two entries in one file under one cite key (D26).
+
+    The cite key is the handle an entry is reported against, and the value
+    the item stores. It cannot always be both: the catalogue resolves a
+    collision by suffixing, so the second entry's stored key differs from
+    the key its own report names. The report names what the file said.
+    """
+
+    @pytest.mark.django_db
+    def test_both_entries_are_stored_and_both_report_the_key_the_file_wrote(self):
+        with fixture("duplicate_cite_keys.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
+        assert [e.handle for e in result] == ["samekey", "samekey"]
+        stored = {e.item.citation_key for e in result.created}
+        assert len(stored) == 2, "a collision must not overwrite the first entry"
+        assert "samekey" in stored
+
+
+class TestVolume:
+    """The corpus's large file, imported end to end (FR-004, SC-001).
+
+    It exists so that a whole-file conversion would be visible rather than
+    theoretical. Nothing had opened it before this.
+    """
+
+    @pytest.mark.django_db
+    def test_every_entry_in_the_large_file_is_stored_and_reported(self):
+        with fixture("bulk_500_entries.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed][:3]
+        assert len(result.created) == 500
+        assert Item.objects.count() == 500
+        assert [e.index for e in result] == list(range(500))
+
+
+class TestCorpusCleaning:
+    """SC-004, across the whole corpus: nothing stored keeps LaTeX markup the
+    decoder recognises.
+    """
+
+    def test_no_mapped_value_in_the_corpus_retains_a_decodable_escape(self):
+        residue: list[str] = []
+        for path in sorted(FIXTURES.glob("*.bib")):
+            raws = _parse_or_none(path)
+            if raws is None:
+                continue
+            for raw in raws:
+                try:
+                    csl = BibTeXFormat().to_csl_json(raw)
+                except SkipEntry:
+                    continue
+                for key, value in csl.items():
+                    if key == "custom" or not isinstance(value, str):
+                        continue
+                    # An accent or symbol command, and the brace pairs that
+                    # protect capitalisation — the two shapes FR-018 names.
+                    if re.search(r"\\[a-zA-Z]+\s*\{|\\[\"'`^~]|\{[A-Za-z]", value):
+                        residue.append(f"{path.name}#{raw.get('ID')}: {key}={value!r}")
+        assert not residue

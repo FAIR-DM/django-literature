@@ -29,6 +29,7 @@ this class, which is what makes it replaceable (research.md).
 
 import calendar
 import dataclasses
+import datetime
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -41,7 +42,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
-from literature.importers.exceptions import SkipEntry
+from literature.importers.exceptions import ParseError, SkipEntry
 from literature.validators import validate_identifier
 
 # ---------------------------------------------------------------------------
@@ -258,8 +259,18 @@ def _normalize_doi(value: str) -> str:
     removes what it recognises, and cleaning that cannot recover a value
     leaves it for preservation rather than guessing at it (D1).
     """
-    text = _DOI_URL_RE.sub("", value.strip())
-    return _DOI_LABEL_RE.sub("", text).strip()
+    text = value.strip()
+    # Both wrappers, in either order and in combination: a `doi:` label in
+    # front of a resolver URL is what a hand-maintained file and some export
+    # pipelines produce, and stripping only one leaves a URL where a bare
+    # DOI belongs (D26). Bounded rather than `while True`, since each pass
+    # must remove something for the next to run.
+    for _pass in range(4):
+        stripped = _DOI_LABEL_RE.sub("", _DOI_URL_RE.sub("", text)).strip()
+        if stripped == text:
+            break
+        text = stripped
+    return text
 
 
 #: An ISBN carrying a redundant ``isbn:`` / ``isbn-13:`` label, the same
@@ -420,10 +431,19 @@ def _parse_biblatex_date(value: str) -> dict[str, Any] | None:
         parts.append(int(match["month"]))
         if match["day"]:
             parts.append(int(match["day"]))
+    # Shape is not validity. ``2024-13-45`` matches the pattern and names no
+    # day of any year, and the catalogue rejects it — which, without this
+    # check, fails the whole entry rather than falling to the ``literal``
+    # slot every other unresolvable date uses (FR-020, D1, D26).
+    year, month, day = [*parts, 1, 1][:3]
+    try:
+        datetime.date(year, month, day)
+    except ValueError:
+        return None
     return {"date-parts": [parts]}
 
 
-def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
+def _issued_date(fields: dict[str, str]) -> tuple[dict[str, Any] | None, set[str]]:
     """The entry's ``issued`` date, at the precision the source states.
 
     BibLaTeX's ``date`` is checked first and, when present, decides the
@@ -444,23 +464,31 @@ def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
     ``ItemDate.literal`` on the far side of ``from_csl_json`` (D13:
     unparseable dates are not the general preservation US4 owns, since
     ``ItemDate`` already has a slot for them).
+
+    Returns the date and the source fields it was built from. The second
+    half matters because the two are not the same set every time: a ``month``
+    the source states but this importer cannot resolve contributes nothing
+    to the date, so reporting it as used would drop it, where reporting it
+    as unused preserves it (D26).
     """
     date = fields.get("date", "").strip()
     if date:
-        return _parse_biblatex_date(date) or {"literal": date}
+        return _parse_biblatex_date(date) or {"literal": date}, {"date"}
 
     year = fields.get("year", "").strip()
     if not year:
-        return None
+        return None, set()
     if not year.isdigit():
-        return {"literal": year}
+        return {"literal": year}, {"year"}
     parts = [int(year)]
+    used = {"year"}
     month = fields.get("month", "")
     if month:
         month_number = _month_number(month)
         if month_number is not None:
             parts.append(month_number)
-    return {"date-parts": [parts]}
+            used.add("month")
+    return {"date-parts": [parts]}, used
 
 
 #: The language names ``babel`` and ``polyglossia`` define, which is what a
@@ -526,11 +554,6 @@ def _language_tag(value: str) -> str | None:
 #: surfaced as ``type`` and ``citation-key`` — rather than fields the source
 #: file itself wrote.
 _STRUCTURAL_KEYS = frozenset({"ENTRYTYPE", "ID"})
-
-#: The three fields :func:`_issued_date` reads (FR-010, FR-024). Consumed
-#: together, since ``issued`` is built from whichever of them an entry
-#: carries and the ones it does not carry are absent anyway.
-_DATE_SOURCE_FIELDS = frozenset({"year", "month", "date"})
 
 
 def _unmapped_fields(raw: dict[str, Any], consumed: set[str]) -> dict[str, str]:
@@ -635,6 +658,11 @@ def _mapping_document() -> str:
     return "\n".join(lines)
 
 
+#: Any BibTeX block at all — ``@article{``, ``@comment{``, ``@string(``.
+#: A file with content and none of these is not BibTeX (D26).
+_BIBTEX_BLOCK_RE = re.compile(r"@\s*[A-Za-z]+\s*[{(]")
+
+
 class BibTeXFormat(BibFormat):
     """Reads ``.bib`` files, in either the classic or the BibLaTeX dialect."""
 
@@ -678,8 +706,41 @@ class BibTeXFormat(BibFormat):
         which :meth:`to_csl_json` uses to tell them apart from an entry
         (always a ``dict``) and skip. Entries themselves keep their source
         order, which is what FR-004 is asserted against.
+
+        A file holding no entries and no BibTeX syntax at all is reported as
+        unreadable rather than as a list of skipped comments (D26).
+        ``bibtexparser`` answers "is this BibTeX?" by falling through to its
+        comment rule, so a RIS file handed over under a ``.bib`` name parses
+        without complaint and imports nothing — and the person who chose the
+        wrong format is told only that one thing was skipped. Two cases are
+        deliberately not that: an empty file, which states nothing and
+        produces nothing, and a file whose blocks begin with ``@``, which is
+        BibTeX the parser declined to read as an entry rather than a file of
+        some other kind.
+
+        A field nesting braces a few hundred deep exhausts the parser's own
+        recursion before it yields anything. Nothing can be recovered from
+        the file at that point — the parser reads the whole file before
+        producing its first entry — so it is reported as one unreadable file
+        with a reason a person can act on, rather than as an interpreter
+        error and a traceback thousands of lines long (D26).
+
+        A field written twice inside one entry keeps its first occurrence
+        (FR-016). That is ``bibtexparser``'s own behaviour rather than a
+        choice made here, and it is written down because a rule nothing
+        states is a rule nobody can rely on.
         """
-        database = bibtexparser.load(file, parser=self._parser())
+        text = file.read()
+        if text.strip() and not _BIBTEX_BLOCK_RE.search(text):
+            raise ParseError(
+                _("No BibTeX entries found. Is this a BibTeX file?"),
+            )
+        try:
+            database = bibtexparser.loads(text, parser=self._parser())
+        except RecursionError:
+            raise ParseError(
+                _("This file nests braces too deeply to read."),
+            ) from None
         yield from database.entries
         yield from database.preambles
         yield from database.comments
@@ -723,12 +784,24 @@ class BibTeXFormat(BibFormat):
         # get right.
         consumed: set[str] = set()
 
+        # Which source field supplied each CSL variable, so the one that did
+        # is consumed and any other field naming the same variable is not —
+        # it goes to preservation with its value intact rather than being
+        # silently overwritten (D26). Several classic fields legitimately
+        # name one variable: `booktitle` and `journal` are both a container
+        # title, and `institution`, `organization`, `publisher` and `school`
+        # are all a publisher. Within a dialect the first in table order
+        # wins, which is stated here because nothing else would state it.
+        claimed: dict[str, str] = {}
+
         for dialect in ("classic", "biblatex"):
             for bib_key, mapping in FIELD_TABLE.items():
                 if mapping.dialect != dialect:
                     continue
                 value = raw.get(bib_key)
                 if not value:
+                    continue
+                if mapping.csl in claimed and FIELD_TABLE[claimed[mapping.csl]].dialect == dialect:
                     continue
                 cleaned = _clean_text(value)
                 if mapping.csl == "language":
@@ -737,6 +810,8 @@ class BibTeXFormat(BibFormat):
                         continue
                     cleaned = tag
                 result[mapping.csl] = cleaned
+                consumed.discard(claimed.get(mapping.csl, ""))
+                claimed[mapping.csl] = bib_key
                 consumed.add(bib_key)
 
         for bib_key, mapping in NAME_FIELD_TABLE.items():
@@ -747,14 +822,19 @@ class BibTeXFormat(BibFormat):
                     result[mapping.csl] = names
                     consumed.add(bib_key)
 
-        issued = _issued_date(raw)
+        issued, date_fields = _issued_date(raw)
         if issued:
             result["issued"] = issued
-            consumed.update(_DATE_SOURCE_FIELDS)
+            consumed.update(date_fields)
 
-        accessed = _parse_biblatex_date(raw.get("urldate", "").strip())
-        if accessed:
-            result["accessed"] = accessed
+        # A ``urldate`` this importer cannot resolve takes the same
+        # ``literal`` slot an unresolvable ``issued`` takes, rather than
+        # falling to the generic preservation an unmapped field gets: the
+        # model has a date slot for exactly this and D13 already settled
+        # that unparseable dates belong in it (D26).
+        urldate = raw.get("urldate", "").strip()
+        if urldate:
+            result["accessed"] = _parse_biblatex_date(urldate) or {"literal": urldate}
             consumed.add("urldate")
 
         for bib_key, mapping in IDENTIFIER_FIELD_TABLE.items():

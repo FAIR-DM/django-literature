@@ -541,3 +541,87 @@ ruled out.
 passes through. Anything else is left unconsumed, which under D22 preserves it. Only unambiguous
 names are in the table: `english` says nothing about which English, so it is `en` rather than a
 choice between `en-GB` and `en-US`, while `british` and `american` do say and map accordingly.
+
+## D26 — What the review panel found, and how each was answered
+
+Raised at convergence by an independent review of the merged branch against the spec, the
+constitution and the corpus. Every finding below was reproduced before it was acted on. They are
+recorded together because they share one shape: each is a record that lands, reports as created,
+and holds less than its source stated — the failure this feature was grilled on at intake and the
+one its own tests were least able to see, because each story's acceptance passed.
+
+**Values silently overwritten.** Several classic fields legitimately name one CSL variable —
+`booktitle` and `journal` are both a container title, and `institution`, `organization`,
+`publisher` and `school` are all a publisher. The mapping loop assigned into a plain dict, so the
+last one read won and every other value vanished, counted as mapped by the very `consumed` set D22
+introduced to prevent exactly that. Conversion now records which source field supplied each
+variable: that one is consumed, and any other field naming it is not, so it reaches preservation
+with its value intact. Within a dialect the first in table order wins, which is stated in the code
+because nothing else stated it. Across dialects D17 still gives BibLaTeX precedence — but
+precedence decides which value is *stored*, and it never made the other one disposable, so the
+overruled classic value is now preserved too.
+
+**A month that reached no date.** `_issued_date` consumed `year`, `month` and `date` as a block
+whenever it produced anything. A `month` of `Sept.` — a real abbreviation this importer does not
+recognise — contributes nothing to `issued` and was dropped anyway, as was a `month` beside a
+`year` of `in press`. It now reports which fields it actually used.
+
+**A date of the right shape and no calendar meaning.** `2024-13-45` matched the pattern BibLaTeX
+documents, produced date-parts the catalogue rejects, and failed the whole entry — its title, its
+authors and its identifiers, over one field. Shape is now checked against the calendar, and a date
+that names no real day takes the `literal` slot every other unresolvable date takes. `2024-02-29`
+still parses; `2024-02-30` does not.
+
+**An access date that could not be resolved** went to generic preservation while an unresolvable
+publication date went to the model's date-literal slot. The model has that slot for every date
+type. There was no reason for the two to differ, and they no longer do.
+
+**A DOI wearing both wrappers.** `doi:https://doi.org/10.1234/x` had only its label stripped,
+because the URL pattern is anchored and the label was in front of it. The value then failed
+validation and landed in preservation, fully recoverable and not recovered. Normalization now
+repeats until the value stops changing.
+
+**A file that is not BibTeX at all.** `bibtexparser` answers "is this BibTeX?" by falling through
+to its comment rule, so a RIS file under a `.bib` name parsed without complaint, imported nothing,
+and reported one skipped comment. Someone who picked the wrong format learned almost nothing. The
+file's text is now checked for any BibTeX block before parsing, and one with content and none is
+reported as unreadable with a reason. Two cases are deliberately not that: an empty file, which
+states nothing, and a file whose blocks begin with `@`, which is BibTeX the parser declined to read
+as an entry rather than a file of another kind. Considered and rejected: deciding from the parsed
+blocks rather than the raw text — `@comment{...}` is stored with its wrapper already stripped, so a
+legitimate comments-only file was misread as not BibTeX.
+
+The related edge case is left as it is. A truncated file's unreadable remainder is reported as
+skipped rather than failed, because the parser reclassifies it as a comment before any of this
+code runs — the same mechanism D11 documents. The spec's edge-case wording is amended to match.
+What the feature promises is that nothing disappears without being reported, and a report is what
+this is.
+
+**Braces nested past the parser's own recursion limit** raised `RecursionError` out of the parse
+and logged a traceback of some three thousand lines. The whole file is lost either way, because the
+parser reads all of it before yielding anything, and that is inherent to a whole-file parser rather
+than something this module can recover from. What it can do is report it as one unreadable file
+with a reason a person can act on, which it now does.
+
+**A name list of `{}`** produced a contributor row carrying an empty literal name. It now produces
+no name, which leaves the field unconsumed and therefore preserved.
+
+**Documentation the branch had not updated.** `README.md` still said no format ships and
+`CHANGELOG.md` still said the default format list was empty, both false as of this branch, which
+Article VI does not allow. Both now describe what shipped. The README gains a section on reading
+BibTeX, and the mapping page it links is generated from the tables.
+
+**FR-012 and a duplicate cite key.** Two entries in one file under one key: both are reported
+against the key the file wrote, and the second is stored under a de-collided key, because a citation
+key is unique per import batch. The spec asserted the reported handle and the stored citation key
+are the same value without qualification. They are the same value except here, and the report is
+right to name what the source said. Recorded rather than changed, and now tested.
+
+**Untested corpus files.** `bulk_500_entries.bib` was committed so a whole-file conversion would be
+visible and nothing had ever opened it; `duplicate_cite_keys.bib`, `not_bibtex.bib` and
+`truncated.bib` were only swept generically. Each now has a test that names it. SC-004 gains the
+corpus-wide sweep its siblings SC-002 and SC-006 already had.
+
+**FR-016's rule was undocumented.** A field written twice keeps its first occurrence. That is the
+parser's own behaviour, and a rule nothing states is a rule nobody can rely on. It is now in the
+module.
