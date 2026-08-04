@@ -133,3 +133,43 @@ class TestFields:
     def test_every_classic_field_maps_to_its_csl_variable(self, bibtex_field, mapping):
         raw = entry(**{bibtex_field: "some value"})
         assert BibTeXFormat().to_csl_json(raw)[mapping.csl] == "some value"
+
+
+class TestNames:
+    """Contributor lists keep source order and role (FR-008, FR-009)."""
+
+    def test_authors_keep_source_order_and_role(self):
+        raw = entry(author="Shannon, Claude E. and Doe, Jane")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["author"] == [
+            {"given": "Claude E.", "family": "Shannon"},
+            {"given": "Jane", "family": "Doe"},
+        ]
+
+    def test_editors_land_under_their_own_role(self):
+        raw = entry(editor="Editor, Enid")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["editor"] == [{"given": "Enid", "family": "Editor"}]
+        assert "author" not in csl
+
+    def test_von_particle_lands_as_non_dropping_particle(self):
+        raw = entry(author="van Beethoven, Ludwig")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["author"] == [{"given": "Ludwig", "family": "Beethoven", "non-dropping-particle": "van"}]
+
+    def test_jr_suffix_lands_as_suffix(self):
+        raw = entry(author="King, Jr., Martin Luther")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["author"] == [{"given": "Martin Luther", "family": "King", "suffix": "Jr."}]
+
+    def test_first_von_last_form_is_understood_too(self):
+        raw = entry(author="Ludwig van Beethoven")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["author"] == [{"given": "Ludwig", "family": "Beethoven", "non-dropping-particle": "van"}]
+
+    def test_brace_wrapped_institutional_name_goes_to_literal_unsplit(self):
+        with fixture("clean_multi_type.bib") as handle:
+            raws = list(BibTeXFormat().parse(handle))
+        w3c = next(raw for raw in raws if raw["ID"] == "w3c2024standards")
+        csl = BibTeXFormat().to_csl_json(w3c)
+        assert csl["author"] == [{"literal": "World Wide Web Consortium"}]

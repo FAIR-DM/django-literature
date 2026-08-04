@@ -25,6 +25,7 @@ from typing import Any
 
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
+from bibtexparser.customization import splitname
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
@@ -94,6 +95,101 @@ FIELD_TABLE: dict[str, _Mapped] = {
     "volume": _Mapped("volume", "classic"),
 }
 
+#: BibTeX name-list field -> CSL name-variable role (FR-008).
+NAME_FIELD_TABLE: dict[str, _Mapped] = {
+    "author": _Mapped("author", "classic"),
+    "editor": _Mapped("editor", "classic"),
+}
+
+
+# ---------------------------------------------------------------------------
+# Names (FR-008, FR-009)
+# ---------------------------------------------------------------------------
+
+
+def _is_wrapped_literal(name: str) -> bool:
+    """Whether ``name`` is a single name string entirely wrapped in one brace pair.
+
+    ``author = {{World Wide Web Consortium}}`` leaves one brace level on the
+    field value once the outer pair (the field's own value delimiter) is
+    stripped by the parser — ``{World Wide Web Consortium}``. That remaining
+    pair is BibTeX's convention for "do not split this name", used for
+    institutions and other unparsed names (FR-009, acceptance scenario 5).
+    """
+    if not (name.startswith("{") and name.endswith("}")):
+        return False
+    depth = 0
+    for index, char in enumerate(name):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0 and index != len(name) - 1:
+                return False
+    return depth == 0
+
+
+def _split_name_list(raw: str) -> list[str]:
+    """Split a BibTeX name list on ``and``, ignoring one braced inside a name.
+
+    BibTeX separates a name list with the literal word ``and``. A name may
+    itself contain braced text, so the split has to track brace depth rather
+    than being a plain ``str.split`` — otherwise a literal name that happened
+    to contain the word would be cut in two. None of this story's names do,
+    but the corpus is not the full space of real exports.
+    """
+    names: list[str] = []
+    current: list[str] = []
+    depth = 0
+    for token in raw.split():
+        depth += token.count("{") - token.count("}")
+        if depth == 0 and token.lower() == "and" and current:
+            names.append(" ".join(current))
+            current = []
+        else:
+            current.append(token)
+    if current:
+        names.append(" ".join(current))
+    return [name for name in (n.strip() for n in names) if name]
+
+
+def _name_to_csl(name: str) -> dict[str, Any]:
+    """One name string to a CSL name-variable object.
+
+    A brace-wrapped literal goes to ``literal`` unsplit (FR-009). Otherwise
+    ``splitname`` breaks it into First/von/Last/Jr, which map directly onto
+    CSL's ``given``, ``non-dropping-particle``, ``family`` and ``suffix``
+    (FR-008). Non-strict mode: a name this story cannot parse cleanly should
+    not abort the entry over a name, which is the contract's own per-entry
+    robustness (base.py), not a cleaning transform on the name's content.
+    """
+    stripped = name.strip()
+    if not stripped:
+        return {}
+    if _is_wrapped_literal(stripped):
+        return {"literal": stripped[1:-1]}
+
+    parts = splitname(stripped, strict_mode=False)
+    result: dict[str, Any] = {}
+    given = " ".join(parts.get("first", []))
+    family = " ".join(parts.get("last", []))
+    von = " ".join(parts.get("von", []))
+    jr = " ".join(parts.get("jr", []))
+    if given:
+        result["given"] = given
+    if family:
+        result["family"] = family
+    if von:
+        result["non-dropping-particle"] = von
+    if jr:
+        result["suffix"] = jr
+    return result
+
+
+def _names_to_csl(raw: str) -> list[dict[str, Any]]:
+    """A whole BibTeX name-list field to a CSL name-variable array, in order."""
+    return [parsed for parsed in (_name_to_csl(one) for one in _split_name_list(raw)) if parsed]
+
 
 class BibTeXFormat(BibFormat):
     """Reads ``.bib`` files, in either the classic or the BibLaTeX dialect."""
@@ -131,8 +227,8 @@ class BibTeXFormat(BibFormat):
     def to_csl_json(self, raw: dict[str, Any]) -> dict[str, Any]:
         """Turn one parsed entry into CSL JSON.
 
-        Mapped in the fixed order plan.md lays out: type, then fields. Names,
-        dates, identifiers, cleaning and preservation are later stories in
+        Mapped in the fixed order plan.md lays out: type, fields, names.
+        Dates, identifiers, cleaning and preservation are later stories in
         this file's history; a field this story does not recognise is simply
         not carried into the result yet.
         """
@@ -145,6 +241,13 @@ class BibTeXFormat(BibFormat):
             value = raw.get(bib_key)
             if value:
                 result[mapping.csl] = value
+
+        for bib_key, mapping in NAME_FIELD_TABLE.items():
+            value = raw.get(bib_key)
+            if value:
+                names = _names_to_csl(value)
+                if names:
+                    result[mapping.csl] = names
 
         return result
 
