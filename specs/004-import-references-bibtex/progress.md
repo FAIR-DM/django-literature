@@ -234,3 +234,24 @@ afterwards.
   complete pending that last check. Watch: confirmed the assertions are not vacuously true by a
   throwaway print inside the test before removing it — both sides carry non-empty, matching
   contributor lists and identifier maps, not `[] == []` or `{} == {}`.
+
+- **2026-08-04T20:35 · Implementer US4 · T031** — Did: added `TestPreservation` (7 tests):
+  unmapped fields collected under a single `custom["bibtex"]` key at the `to_csl_json` level; an
+  entry with no unmapped fields carries no `custom` key at all; the sorting `key` field (named in
+  `FIELD_TABLE`'s own comment as intentionally uncarried) is preserved the same way; the corpus
+  fixture `unknown_fields.bib` is retrievable from the stored `Item` after a real import, with zero
+  `ItemIdentifier` rows created from it; the entry is reported `CREATED` with no new `Outcome`
+  value and no new field on `EntryResult` (asserted via `dataclasses.fields`, not just visual
+  inspection); an unresolvable `crossref` (`crossref_missing.bib`) is preserved and does not fail
+  its entry; a resolved `crossref` (`crossref_forward.bib`) is preserved the same way, with
+  `bibtexparser`'s own `_FROM_CROSSREF` bookkeeping key confirmed absent from what's preserved.
+  Also added `TestCorpusPreservation` (T033's class, written now so both new classes could be
+  confirmed red for the right reason together) and its two module-level helpers,
+  `_is_source_field` and `_accounted_for`, which classify a raw field as mapped or preserved by
+  reading `FIELD_TABLE`/`NAME_FIELD_TABLE`/`IDENTIFIER_FIELD_TABLE` directly rather than
+  reimplementing or importing the production sweep, so the test can catch production and
+  classification drifting apart. Verified pre-implementation:
+  `poetry run pytest tests/test_importers/test_bibtex.py -q --no-cov -k "TestPreservation and not
+  Corpus"` — 5 failed (`KeyError: 'custom'` / `TypeError: 'NoneType' object is not subscriptable`),
+  2 passed trivially (the no-unmapped-fields case and the reporting-shape case, neither of which
+  depends on code T032 adds). Next: T032 turns these green.
