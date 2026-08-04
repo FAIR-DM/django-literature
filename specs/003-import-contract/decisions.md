@@ -463,3 +463,45 @@ rather than one of two cases.
 **Revisit if**: a future need arises to distinguish "resolved through settings" from "held directly
 by the caller" — under the current shape both are the same `instance.import_file(...)` call, so the
 distinction would have to be threaded through explicitly; nothing on the instance carries it today.
+
+## D26 — `config.py` keeps D21's abstractmethod-completeness check, ported from registration to resolution
+
+Self-resolved, during T028.
+
+D21 added a check to `register()`: a `Format` subclass with outstanding `__abstractmethods__` was
+refused at registration, naming the missing stage, rather than registering cleanly and failing later
+with a raw `TypeError` from inside `import_file`. T028's brief only names two failure modes for a
+settings entry — "does not import" and "is not a `BibFormat` subclass" — and does not mention a
+half-written subclass.
+
+The check is kept anyway, moved into `_resolve()`. The failure mode D21 was written to prevent has
+not gone away: a `BibFormat` subclass can still pass `issubclass(format_class, BibFormat)` while
+leaving `parse` or `to_csl_json` unimplemented, and the first sign would again be a bare `TypeError`
+from `get_format(name)()` deep inside a caller's import run, outside the exception vocabulary the
+contract documents. Dropping the check here would be a silent regression against a defect this
+package already fixed once, not a simplification — Article III's target is unearned abstraction, not
+a completeness check whose defect is on record. Covered by
+`test_a_format_missing_its_required_stages_fails_naming_the_entry` in `test_config.py`.
+
+**Revisit if**: this proves to duplicate work `import_string` or Python's own `ABCMeta` already do
+cheaply enough that the explicit check is redundant — it is not today, since neither raises until
+instantiation.
+
+## D27 — A settings entry's own name collision is not detected
+
+Self-resolved, during T028.
+
+`register()` refused a second format claiming a name already taken (the old FR-020), because the
+registry was mutable global state that any installed package could write to, and a silent collision
+there meant "the wrong parser ran" days later with nothing at fault-time to point at. `LITERATURE["BIB_FORMATS"]`
+is a list the host project writes itself, in one place, under its own control — there is no second
+package racing to register into the same namespace. Two entries resolving to the same `name` now
+overwrite in list order (last one wins), which is `dict`'s ordinary behaviour and not special-cased.
+
+Not tested, and deliberately so: adding a check here would be validating a configuration mistake a
+host project would catch immediately by testing its own settings, which is not this package's job to
+guard (Article III — no behaviour is added without a present need, and the old need, third-party
+packages writing into shared mutable state, no longer exists in the settings-based design).
+
+**Revisit if**: a real installation reports this surprising in practice — the fix is a length check in
+`_resolve()` before the loop returns, naming both colliding paths.

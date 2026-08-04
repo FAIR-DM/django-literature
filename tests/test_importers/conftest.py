@@ -7,11 +7,11 @@ mix of good, unreadable, skippable, and part-way-failing entries a scenario
 needs (spec.md "Independent Test") without any real file syntax getting in
 the way.
 
-``import_file`` (contracts/importers.md) takes ``type[BibFormat]`` — a class,
-not an instance — because that is also what a registry lookup returns
-(US3). The factories below build a fresh ``BibFormat`` subclass per call, with
-the entries and any observer closed over, so each test gets its own
-independent format to hand to ``import_file``.
+Each factory below returns a *class*, not an instance — the same shape
+:func:`~literature.importers.config.get_format` returns (US3) — so a test
+calls ``some_format().import_file(...)``, building a fresh instance with the
+entries and any observer closed over. That keeps every test's format
+independent of every other's.
 """
 
 import pytest
@@ -179,28 +179,6 @@ def bypass_identifier_validation(monkeypatch):
     from literature.models import ItemIdentifier
 
     monkeypatch.setattr(ItemIdentifier, "full_clean", lambda self, *args, **kwargs: None)
-
-
-@pytest.fixture(autouse=True)
-def isolated_registry():
-    """Save and restore the registry's module-level state around every test.
-
-    The registry is module-level, so a registration made by one test is still
-    there for the next one — a format registered here would go on to collide
-    with itself as ``FormatAlreadyRegistered``, or worse, satisfy a later
-    test's assertion that it never made.
-
-    A ``try/finally`` written inside each test still leaks whatever a failed
-    assertion left behind, since the test never reaches its own cleanup line.
-    Restoring here instead runs however the test body exits, and autouse means
-    a new test file cannot forget to ask for it.
-    """
-    from literature.importers import registry
-
-    before = dict(registry._registry)
-    yield
-    registry._registry.clear()
-    registry._registry.update(before)
 
 
 def make_skipping_handle_format(entries, format_name="skipping-handle"):

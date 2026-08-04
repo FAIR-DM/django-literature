@@ -27,22 +27,20 @@ See ``specs/003-import-contract/contracts/importers.md`` for the full contract.
 """
 
 from literature.importers.base import BibFormat
+from literature.importers.config import available_formats, get_format
 from literature.importers.exceptions import (
     EntryError,
-    FormatAlreadyRegistered,
     ImporterError,
     ParseError,
     SkipEntry,
     UnknownFormat,
 )
-from literature.importers.registry import available_formats, get_format, register
 from literature.importers.results import EntryResult, ImportResult, Outcome
 
 __all__ = [
     "BibFormat",
     "EntryError",
     "EntryResult",
-    "FormatAlreadyRegistered",
     "ImportResult",
     "ImporterError",
     "Outcome",
@@ -51,5 +49,4 @@ __all__ = [
     "UnknownFormat",
     "available_formats",
     "get_format",
-    "register",
 ]

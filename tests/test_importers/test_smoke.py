@@ -6,10 +6,10 @@ Article X), and the end-to-end path (T022, SC-006).
 
 Every other test in this package exercises one story against a format built by
 a factory in ``conftest.py``. This one writes a format the way a real one will
-be written — a class with two stages, an optional handle, and a registration —
-and then uses the contract exactly as ``quickstart.md`` describes: enumerate
-what is available, rehearse the file, import it, and check the catalogue agrees
-with what the two results said.
+be written — a class with two stages, an optional handle, and a settings
+entry — and then uses the contract exactly as ``quickstart.md`` describes:
+enumerate what is available, rehearse the file, import it, and check the
+catalogue agrees with what the two results said.
 
 The format below is the whole of what supporting a new syntax costs. Nothing in
 ``base.py``, ``results.py`` or ``converters.py`` knows it exists, which is the
@@ -31,7 +31,6 @@ from literature.importers import (
     SkipEntry,
     available_formats,
     get_format,
-    register,
 )
 from literature.models import Item
 
@@ -75,17 +74,20 @@ class LineFormat(BibFormat):
 
 
 @pytest.fixture
-def smoke_format():
-    """Register :class:`LineFormat`, as a package shipping a format would.
+def smoke_format(settings):
+    """Configure :class:`LineFormat`, as a package shipping a format would.
 
-    Undone after the test by the autouse ``isolated_registry`` fixture.
+    Uses the ``settings`` fixture rather than mutating ``django.conf.settings``
+    directly, so ``setting_changed`` fires and undoes it — and invalidates
+    :mod:`literature.importers.config`'s cache — after the test.
     """
-    return register(LineFormat)
+    settings.LITERATURE = {"BIB_FORMATS": ["tests.test_importers.test_smoke.LineFormat"]}
+    return LineFormat
 
 
 @pytest.mark.django_db
 class TestTheWholeContract:
-    def test_a_registered_format_is_enumerable_by_name_and_label(self, smoke_format):
+    def test_a_configured_format_is_enumerable_by_name_and_label(self, smoke_format):
         """US3: a caller that knows nothing about formats can list them."""
         formats = available_formats()
 
@@ -138,10 +140,8 @@ PUBLIC_SURFACE = {
     "EntryError": "literature.importers.exceptions",
     "ParseError": "literature.importers.exceptions",
     "UnknownFormat": "literature.importers.exceptions",
-    "FormatAlreadyRegistered": "literature.importers.exceptions",
-    "register": "literature.importers.registry",
-    "get_format": "literature.importers.registry",
-    "available_formats": "literature.importers.registry",
+    "get_format": "literature.importers.config",
+    "available_formats": "literature.importers.config",
     "Outcome": "literature.importers.results",
     "EntryResult": "literature.importers.results",
     "ImportResult": "literature.importers.results",
@@ -162,8 +162,8 @@ class TestPublicSurface:
         """The half a hand-written list cannot catch.
 
         Both assertions above are derived from ``PUBLIC_SURFACE``, so a name
-        added to ``registry.py`` and left out of *both* ``__all__`` and this
-        file passes them without complaint — which is exactly the omission the
+        added to a submodule and left out of *both* ``__all__`` and this file
+        passes them without complaint — which is exactly the omission the
         guard is for. This one reads the submodules instead: anything they
         define without a leading underscore is public by Python's own
         convention, and must be reachable from the package (FR-021).

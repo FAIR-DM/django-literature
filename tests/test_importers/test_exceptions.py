@@ -13,7 +13,6 @@ from django.utils.functional import Promise
 from literature.importers import exceptions
 from literature.importers.exceptions import (
     EntryError,
-    FormatAlreadyRegistered,
     ImporterError,
     ParseError,
     SkipEntry,
@@ -26,7 +25,7 @@ class TestHierarchy:
 
     @pytest.mark.parametrize(
         "exc_class",
-        [SkipEntry, EntryError, ParseError, UnknownFormat, FormatAlreadyRegistered],
+        [SkipEntry, EntryError, ParseError, UnknownFormat],
     )
     def test_descends_from_importer_error(self, exc_class):
         assert issubclass(exc_class, ImporterError)
@@ -38,16 +37,17 @@ class TestHierarchy:
     def test_format_vocabulary_is_distinct_from_caller_facing(self, exc_class):
         """A format's signals must not be catchable as caller-facing errors.
 
-        The runner turns these into outcomes. If one were a subclass of
-        UnknownFormat or FormatAlreadyRegistered, a caller's ``except`` around
-        ``import_file`` would swallow an entry-level signal.
+        ``import_entries``/``import_entry`` (base.py) turn these into
+        outcomes. If one were a subclass of ``UnknownFormat``, a caller's
+        ``except`` around ``import_file`` would swallow an entry-level
+        signal.
         """
-        assert not issubclass(exc_class, (UnknownFormat, FormatAlreadyRegistered))
+        assert not issubclass(exc_class, UnknownFormat)
 
 
 # UnknownFormat is excluded from these: it builds its own message from a format
 # name rather than taking one, and is covered by TestUnknownFormat below.
-MESSAGE_CARRYING = [SkipEntry, EntryError, ParseError, FormatAlreadyRegistered]
+MESSAGE_CARRYING = [SkipEntry, EntryError, ParseError]
 
 
 class TestMessages:
@@ -72,16 +72,16 @@ class TestMessages:
 
 
 class TestUnknownFormat:
-    """The message must name what IS registered (FR-019)."""
+    """The message must name what IS configured (FR-019)."""
 
-    def test_lists_the_registered_names(self):
+    def test_lists_the_configured_names(self):
         exc = UnknownFormat("bibtex", available=["ris", "endnote"])
         text = str(exc)
         assert "bibtex" in text
         assert "ris" in text
         assert "endnote" in text
 
-    def test_says_so_when_nothing_is_registered(self):
+    def test_says_so_when_nothing_is_configured(self):
         """The empty case is the one a user hits first, before any format ships."""
         text = str(UnknownFormat("bibtex", available=[]))
         assert "bibtex" in text
@@ -95,7 +95,7 @@ class TestUnknownFormat:
 
         Asserted by watching the translation call, not by reading the finished
         message. The previous version wrapped ``translation.override("en")``
-        around the message and checked that the format name and the registered
+        around the message and checked that the format name and the configured
         names appeared in it — which a bare f-string satisfies exactly as well,
         so it would have stayed green through the very change it exists to
         catch.
@@ -113,5 +113,5 @@ class TestUnknownFormat:
         assert "{name}" in seen[0], "the template must carry placeholders, not interpolated values"
 
     def test_available_names_are_sorted(self):
-        """Order should not depend on registration order, or the message churns."""
+        """Order should not depend on configuration order, or the message churns."""
         assert UnknownFormat("x", available=["ris", "bibtex"]).available == ["bibtex", "ris"]
