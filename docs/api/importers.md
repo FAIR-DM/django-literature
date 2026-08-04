@@ -1,17 +1,17 @@
 # `literature.importers`
 
-The plug-in contract for importing bibliographic files. One call, `import_file`, runs any
-registered `Format` through the same fixed workflow and returns one outcome per entry the file
-contained. See `specs/003-import-contract/quickstart.md` for the full walkthrough and
+The plug-in contract for importing bibliographic files. Every `BibFormat` runs through the same
+fixed workflow and returns one outcome per entry the file contained. See
+`specs/003-import-contract/quickstart.md` for the full walkthrough and
 `specs/003-import-contract/contracts/importers.md` for the signatures.
 
 ## Running an import
 
 ```python
-from literature.importers import import_file
+from literature.importers import get_format
 
 with open("library.bib") as handle:
-    result = import_file(handle, format="bibtex")
+    result = get_format("bibtex")().import_file(handle)
 
 print(f"{len(result.created)} stored, {len(result.failed)} could not be read")
 
@@ -27,7 +27,7 @@ Rehearse it first if you like. Every stage runs, nothing is written:
 
 ```python
 with open("library.bib") as handle:
-    preview = import_file(handle, format="bibtex", dry_run=True)
+    preview = get_format("bibtex")().import_file(handle, dry_run=True)
 
 if not preview.ok:
     print(f"{len(preview.failed)} entries need attention first")
@@ -38,11 +38,10 @@ if not preview.ok:
 ```python
 from django.utils.translation import gettext_lazy as _
 
-from literature.importers import Format, SkipEntry, register
+from literature.importers import BibFormat, SkipEntry
 
 
-@register
-class BibTeXFormat(Format):
+class BibTeXFormat(BibFormat):
     name = "bibtex"
     label = _("BibTeX")
 
@@ -59,12 +58,31 @@ class BibTeXFormat(Format):
         return csl_json_from_bibtex(raw)
 ```
 
-Two stages to supply and one to override if the syntax has entry names of its own. A format has no
-say in how an `Item` is built from the CSL JSON it returns, and no way to reach that stage.
-Registering the same name twice raises `FormatAlreadyRegistered` rather than silently replacing
-the first format.
+Two stages to supply and one to override if the syntax has entry names of its own. A format that
+implements only those gets the whole workflow — the loop, the per-entry transaction, the dry run
+and the report — from `BibFormat`.
 
-## Discovering registered formats
+The other steps (`import_file`, `import_entries`, `import_entry`, `get_result`, and the
+`entry_created` / `entry_skipped` / `entry_failed` helpers) are ordinary methods. Override any of
+them if your syntax needs something the default does not do. Nothing stops you, and nothing checks.
+What you take on by doing it is recorded in ADR-0006 and ADR-0007.
+
+## Declaring which formats an installation can read
+
+```python
+# settings.py
+LITERATURE = {
+    "BIB_FORMATS": [
+        "myproject.formats.BibTeXFormat",
+    ],
+}
+```
+
+A list of dotted paths, resolved on first read and cached. A path that does not import, or that
+imports to something which is not a usable `BibFormat` with a name, raises `ImproperlyConfigured`
+naming the offending entry rather than failing later from inside somebody's import run.
+
+## Discovering the configured formats
 
 ```python
 from literature.importers import available_formats, get_format
@@ -76,7 +94,7 @@ for name, format_class in available_formats().items():
 try:
     get_format("bibtex")
 except UnknownFormat as exc:
-    print(exc)  # "No import format named 'bibtex'. No import formats are registered."
+    print(exc)  # "No import format named 'bibtex'. No import formats are configured."
 ```
 
 The caller does not need to know what it will get back, which is the point of asking.
@@ -88,12 +106,10 @@ The caller does not need to know what it will get back, which is the point of as
 | `SkipEntry` | a format, from `to_csl_json` | Recognised, not a bibliographic record. Becomes `SKIPPED` |
 | `EntryError` | a format, from `parse` or `to_csl_json` | This entry is bad. Becomes `FAILED` with its reason |
 | `ParseError` | a format, from `parse` | The file cannot be read at all. Becomes a one-entry failed result |
-| `UnknownFormat` | `get_format` | The name is not registered. Message lists the names that are. **Reaches the caller** |
-| `FormatAlreadyRegistered` | `register` | That name is taken |
+| `UnknownFormat` | `get_format` | The name is not configured. Message lists the names that are. **Reaches the caller** |
 
-`SkipEntry`, `EntryError` and `ParseError` are the format's vocabulary for talking to the runner
-and never reach the caller. `UnknownFormat` and `FormatAlreadyRegistered` are the caller's problem
-and do.
+`SkipEntry`, `EntryError` and `ParseError` are the format's vocabulary for talking to the workflow
+and never reach the caller. `UnknownFormat` is the caller's problem and does.
 
 ## Reference
 

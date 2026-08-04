@@ -40,7 +40,9 @@ Self-resolved. The maintainer asked for the most appropriate terms rather than n
 | **outcome** | The fixed vocabulary value on an entry result | *status* (suggests something that changes over time) |
 | **import result** / **entry result** | The report for a run, and for one entry within it | — |
 
-`django-import-export` was the model raised at intake, and its `Format` concept maps cleanly. Its
+`django-import-export` was the model raised at intake, and its `Format` concept maps cleanly (this
+package's own class was later renamed to `BibFormat`, T024, to avoid colliding with that same
+`django-import-export` name plus `django.utils.formats`/`str.format`). Its
 `Resource` concept deliberately does **not** come across: a `Resource` exists so a caller can
 configure how records map onto a model, and here that mapping is fixed by CSL JSON and not the
 caller's to change.
@@ -279,33 +281,9 @@ the field's own docstring already commits to this behaviour, this is treated as 
 in `test_registry.py`.
 
 **Revisit if**: a future story wants `format_name` to reflect the resolved class's `name` even when
-a `Format` subclass was passed directly (today it stays `None` in that case, matching "when the
+a `BibFormat` subclass was passed directly (today it stays `None` in that case, matching "when the
 import was run by name" read literally) — that would be a new, separate decision, not a correction
 of this one.
-
-## D17 — A format is registered only once its module has been imported, and nothing autodiscovers
-
-Self-resolved, during review of US3 (T019).
-
-`available_formats()` reports what has registered, and registration happens when the module
-defining a format is imported. With no format in the package this is invisible, but it becomes real
-at BibTeX (#22): a format decorated with `@register` in `literature/importers/formats/bibtex.py` is
-absent from the registry until something imports that module, so a caller enumerating formats would
-get an empty mapping and no error.
-
-Django's answer to this is `autodiscover_modules` from `AppConfig.ready()`, which is what
-`django-import-export` and the admin do. It was considered and not built: with zero formats it is
-machinery over nothing (Article III), and the package's own formats need only a plain import in
-`literature/importers/__init__.py` — which every caller of the contract already imports by
-definition, since that is where the public surface lives (FR-021). A third-party package adding a
-format registers it from its own app's `ready()`, which Django already calls.
-
-Recorded here and in the `literature.importers` module docstring so #22 adds that import rather
-than discovering the gap from an empty dropdown.
-
-**Revisit if**: a format needs to be registered by a package that is installed but whose app is not
-in `INSTALLED_APPS`, or the number of shipped formats makes an explicit import list unwieldy —
-either would justify autodiscovery.
 
 ## D18 — The per-entry net catches every exception, not the three the contract names
 
@@ -370,7 +348,7 @@ Both calls, and the per-entry savepoint, now pass `using=router.db_for_write(Ite
 
 Self-resolved, from the independent review round.
 
-`register()` already checked that a candidate is a `Format` subclass with a usable `name`, on the
+`register()` already checked that a candidate is a `BibFormat` subclass with a usable `name`, on the
 stated principle that programmer error belongs at registration rather than inside somebody's import
 run. It did not check that the subclass implements `parse` and `to_csl_json`. A half-written format
 therefore registered cleanly and was enumerable, and the first sign of the omission was a raw
@@ -417,3 +395,163 @@ module of its subject as another `Test*` class.
 Every test moves unchanged and the suite count is identical either side of the move. The alternative
 was declaring the three under `[tool.forge.conformance] non-mirror-paths`, which the kit reserves
 for tests whose subject is not a Python module at all — all three of these have one.
+
+## D24 — `import_file` has no module-level counterpart; a caller reaches it through an instance
+
+Self-resolved, during T026.
+
+The maintainer's ruling said `import_file`, `import_entries`, `import_entry` and `get_result` "are
+ordinary methods" and that `runner.py` is gone. That leaves open whether a convenience module-level
+`import_file(file, format, dry_run=False)` should also remain, resolving `format` and delegating to
+an instance. FR-001, FR-005 and FR-018 do not disambiguate on their own: "one documented way to
+import," "without referring to anything specific to the file's format," and "runnable by naming a
+configured format" are all satisfiable either way.
+
+Resolved against keeping a module-level function. `runner.py` housed the whole module-scoped call,
+string-vs-class resolution included; deleting the module and saying the workflow "moved onto the
+class" reads as replacing that call shape, not duplicating it under the same name in two places. A
+caller now writes `get_format("bibtex")().import_file(handle)` — the name passed to `get_format` is
+still a string, so FR-005 and FR-018 hold, and there is exactly one documented way to run an import
+(FR-001) rather than a function and a method doing the same thing under the same name at two import
+paths, which is its own source of "which one is *the* entry point" confusion.
+
+**Revisit if**: the class-then-instantiate-then-call shape proves awkward for callers in practice — a
+convenience wrapper could be reintroduced later without touching `BibFormat` itself.
+
+## D25 — `ImportResult.format_name` is always the format's own name, not sometimes `None`
+
+Self-resolved, during T026.
+
+D16 recorded that `format_name` stayed `None` unless an import was run by resolving a string name
+through the (then) registry, because a `Format` subclass passed directly to the old module-level
+`import_file` gave the runner nothing but the class itself — no name was ever looked up. That
+distinction no longer exists: every import now starts from a `BibFormat` instance calling
+`self.import_file(...)` on itself, and every such instance already knows its own `name`. There is no
+longer a "class passed directly, so no name was resolved" case to distinguish from "name resolved
+through `get_format`" — `get_format("bibtex")()` and `BibTeXFormat()` are now the same kind of value
+at the point `import_file` runs, just reached two different ways.
+
+`get_result` sets `format_name=self.name` unconditionally. `test_result_format_name_is_none_when_a_class_was_passed_directly`
+(`tests/test_importers/test_registry.py`) is dropped rather than kept and weakened, because it
+asserted a distinction the new call shape has no way to reproduce — there is no `import_file(file,
+format_class)` call left to pass a bare class to.
+`test_result_records_the_name_used` continues to cover the field, now asserting what is always true
+rather than one of two cases.
+
+**Revisit if**: a future need arises to distinguish "resolved through settings" from "held directly
+by the caller" — under the current shape both are the same `instance.import_file(...)` call, so the
+distinction would have to be threaded through explicitly; nothing on the instance carries it today.
+
+## D26 — `config.py` keeps D21's abstractmethod-completeness check, ported from registration to resolution
+
+Self-resolved, during T028.
+
+D21 added a check to `register()`: a `Format` subclass with outstanding `__abstractmethods__` was
+refused at registration, naming the missing stage, rather than registering cleanly and failing later
+with a raw `TypeError` from inside `import_file`. T028's brief only names two failure modes for a
+settings entry — "does not import" and "is not a `BibFormat` subclass" — and does not mention a
+half-written subclass.
+
+The check is kept anyway, moved into `_resolve()`. The failure mode D21 was written to prevent has
+not gone away: a `BibFormat` subclass can still pass `issubclass(format_class, BibFormat)` while
+leaving `parse` or `to_csl_json` unimplemented, and the first sign would again be a bare `TypeError`
+from `get_format(name)()` deep inside a caller's import run, outside the exception vocabulary the
+contract documents. Dropping the check here would be a silent regression against a defect this
+package already fixed once, not a simplification — Article III's target is unearned abstraction, not
+a completeness check whose defect is on record. Covered by
+`test_a_format_missing_its_required_stages_fails_naming_the_entry` in `test_config.py`.
+
+**Revisit if**: this proves to duplicate work `import_string` or Python's own `ABCMeta` already do
+cheaply enough that the explicit check is redundant — it is not today, since neither raises until
+instantiation.
+
+## D27 — A settings entry's own name collision is not detected
+
+Self-resolved, during T028.
+
+`register()` refused a second format claiming a name already taken (the old FR-020), because the
+registry was mutable global state that any installed package could write to, and a silent collision
+there meant "the wrong parser ran" days later with nothing at fault-time to point at. `LITERATURE["BIB_FORMATS"]`
+is a list the host project writes itself, in one place, under its own control — there is no second
+package racing to register into the same namespace. Two entries resolving to the same `name` now
+overwrite in list order (last one wins), which is `dict`'s ordinary behaviour and not special-cased.
+
+Not tested, and deliberately so: adding a check here would be validating a configuration mistake a
+host project would catch immediately by testing its own settings, which is not this package's job to
+guard (Article III — no behaviour is added without a present need, and the old need, third-party
+packages writing into shared mutable state, no longer exists in the settings-based design).
+
+**Revisit if**: a real installation reports this surprising in practice — the fix is a length check in
+`_resolve()` before the loop returns, naming both colliding paths.
+
+## D28 — The Phase 7 rework in one place, and why D17 is deleted rather than superseded
+
+**Maintainer decision**, recorded here as the summary T030 asks for.
+
+Three changes, agreed in session on 2026-08-04 after the maintainer read the branch, reasoned about
+individually in spec.md's *Refinements* section and D24–D27 above. Together:
+
+1. **`Format` → `BibFormat`** — a name collision risk in a shared namespace (`django.utils.formats`,
+   `str.format`, `django-import-export`'s own `Format`). T024.
+2. **The workflow moved onto the class as ordinary, overridable methods** — `import_file`,
+   `import_entries`, `import_entry`, `get_result`, plus the `entry_created`/`entry_skipped`/
+   `entry_failed` helpers. `runner.py` is deleted. The base class's job is to work correctly when
+   its two required stages are supplied, not to prevent a subclass from replacing anything else.
+   T025, T026.
+3. **The registry became a setting** — `LITERATURE = {"BIB_FORMATS": [...]}` replaces
+   `register()`/`FormatAlreadyRegistered`/module-level mutable state. `registry.py` is deleted,
+   replaced by `config.py`. T027, T028.
+
+**D17 is deleted, not amended or marked superseded.** It recorded a real hazard of the registry
+design: a format was invisible until something imported the module defining it, because
+registration was a side effect of import. That hazard has no equivalent once formats are declared
+by dotted path in a setting — `import_string` imports the path itself as part of resolving
+`available_formats()`/`get_format()`, so there is no long-way-round through "did something import
+this module yet". Keeping D17 with a note pointing at this entry would leave a decision on record
+whose entire premise no longer applies, which is a worse kind of stale than an outdated ADR: an ADR
+still describes a real mechanism with a changed default, but D17 describes a mechanism, decorator
+registration, that does not exist in this codebase at all after T028. Deleting it is the honest
+record; a `git log` on this file recovers it if the reasoning is ever wanted again.
+
+**Why three changes in one phase rather than three specs.** All three were raised together by the
+maintainer from one reading of the finished branch, all three are refinements to a feature not yet
+released (CHANGELOG.md's entry is still under `[Unreleased]`), and none depends on the others being
+staged separately — T024 is a pure rename, T026 depends on T024 only for import paths, T028 depends
+on neither. Splitting them into three specs would mean three plans, three sets of research/data-
+model/contracts documents describing the same feature at three different snapshots, for changes that
+were decided together and reviewed together. One phase, numbered tasks continuing from where S1–S6
+left off (T024–T031), keeps the history legible as one rework rather than three.
+
+---
+
+## D29 — `import_file` defers the `parse` call so an eager parser is reported, not raised
+
+**2026-08-04, review of the T024–T031 rework.**
+
+The rework moved the workflow onto `BibFormat` and, in doing so, moved the `self.parse(file)` call
+out of the `try` that protects it. In `runner.py` the call sat inside the loop's `try` (`for raw in
+fmt.parse(file):`); after T026 it was evaluated in `import_file` as the argument to
+`import_entries`, which is outside every `try` in the class.
+
+Nothing caught it, because every test format in the suite implements `parse` as a generator, and a
+generator function does not execute a line of its body until first iterated — so its `ParseError`
+was still raised inside `import_entries`. A format that parses the whole file up front raises when
+`parse` is *called*, and that exception escaped `import_file` to the caller. Reproduced with a probe
+before changing anything: FR-014 ("never raises for bad file content") held only for formats that
+happened to be written as generators, which is the shape our test doubles use and not the shape most
+third-party bibliography parsers force on a real one. #22's `parse` around `bibtexparser.load()`
+would have hit it.
+
+`import_file` now calls a small private generator, `_parsed`, that does `yield from self.parse(file)`
+— deferring the call to the first `next()`, which happens inside `import_entries`'s `try`. Both
+shapes of `parse` now report an unreadable file identically. The alternative, changing
+`import_entries` to take the file and call `parse` itself, would have kept the fix in a documented
+method but changed a signature that spec.md, data-model.md, contracts/importers.md and the T025
+tests all name.
+
+This is not a retreat from the maintainer's ruling on override-prevention. FR-014 is a promise the
+contract makes about bad *file content*, which the ruling did not touch; nothing here constrains what
+a subclass may replace.
+
+**Regression test:** `test_a_format_that_parses_the_whole_file_up_front_reports_rather_than_raises`.
+Tamper-checked — restoring the direct `self.parse(file)` call fails that test and only that test.

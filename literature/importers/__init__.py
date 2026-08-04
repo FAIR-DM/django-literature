@@ -1,13 +1,14 @@
 """Reading bibliographic files into the catalogue.
 
-One call, four fixed stages, one result:
+``import_file`` is a method on every :class:`~literature.importers.base.BibFormat`,
+so running one starts from the format itself:
 
 .. code-block:: python
 
-    from literature.importers import import_file
+    from literature.importers import get_format
 
     with open("library.bib") as handle:
-        result = import_file(handle, format="bibtex")
+        result = get_format("bibtex")().import_file(handle)
 
     for entry in result.failed:
         print(entry.index, entry.handle, entry.reason)
@@ -18,32 +19,28 @@ because a Django app's top-level ``__init__`` is imported before the app
 registry is populated and re-exporting anything that reaches the models would
 raise ``AppRegistryNotReady`` at startup).
 
-Ships with no format of its own: BibTeX and RIS arrive later. A format is only
-registered once the module defining it has been imported, so a package adding
-one imports it from here or from its app's ``ready()`` — see
-:mod:`literature.importers.registry`.
+Ships with no format of its own: BibTeX and RIS arrive later. Which formats an
+installation can read is declared in the ``LITERATURE`` setting — see
+:mod:`literature.importers.config`.
 
 See ``specs/003-import-contract/contracts/importers.md`` for the full contract.
 """
 
-from literature.importers.base import Format
+from literature.importers.base import BibFormat
+from literature.importers.config import available_formats, get_format
 from literature.importers.exceptions import (
     EntryError,
-    FormatAlreadyRegistered,
     ImporterError,
     ParseError,
     SkipEntry,
     UnknownFormat,
 )
-from literature.importers.registry import available_formats, get_format, register
 from literature.importers.results import EntryResult, ImportResult, Outcome
-from literature.importers.runner import import_file
 
 __all__ = [
+    "BibFormat",
     "EntryError",
     "EntryResult",
-    "Format",
-    "FormatAlreadyRegistered",
     "ImportResult",
     "ImporterError",
     "Outcome",
@@ -52,6 +49,4 @@ __all__ = [
     "UnknownFormat",
     "available_formats",
     "get_format",
-    "import_file",
-    "register",
 ]

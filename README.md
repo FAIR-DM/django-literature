@@ -143,14 +143,25 @@ print(f"Imported {len(items)} references")
 ### Import a bibliography file
 
 CSL JSON is what this package stores, but researchers keep their libraries in BibTeX and RIS. The
-import contract reads any registered format through one call and tells you what happened to every
-entry in the file.
+import contract reads any configured format through one call and tells you what happened to every
+entry in the file. Declare which formats your project reads in settings:
 
 ```python
-from literature.importers import import_file
+# settings.py
+LITERATURE = {
+    "BIB_FORMATS": [
+        "myapp.formats.BibTeXFormat",
+    ],
+}
+```
+
+Then import by name:
+
+```python
+from literature.importers import get_format
 
 with open("library.bib") as handle:
-    result = import_file(handle, format="bibtex")
+    result = get_format("bibtex")().import_file(handle)
 
 print(f"{len(result.created)} stored, {len(result.failed)} could not be read")
 
@@ -168,7 +179,7 @@ Rehearse it first if you like. Every stage runs, nothing is written:
 
 ```python
 with open("library.bib") as handle:
-    preview = import_file(handle, format="bibtex", dry_run=True)
+    preview = get_format("bibtex")().import_file(handle, dry_run=True)
 
 if not preview.ok:
     print(f"{len(preview.failed)} entries need attention first")
@@ -184,7 +195,11 @@ for name, format_class in available_formats().items():
 ```
 
 > **No format ships yet.** The contract is in place; BibTeX and RIS support follow. Adding a format
-> means writing a parser and a conversion to CSL JSON — the workflow above does not change.
+> means writing a `BibFormat` subclass with a parser and a conversion to CSL JSON, then listing its
+> dotted path in `LITERATURE["BIB_FORMATS"]` — the workflow above does not change. A format with an
+> unusual need may override any of the workflow's other steps (`import_entries`, `import_entry`,
+> `get_result`); the base class only has to get the job done when its two required stages are
+> supplied, not stop you from replacing the rest.
 
 ### Query
 

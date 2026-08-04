@@ -309,3 +309,111 @@ additive (D22).
 **Verified**: `forge verify --base origin/main` → conformance, lint, typecheck, test, build all pass.
 `forge stage-exit --stage S6` → green on all five checks. CI green on `15cd7f9` across four
 Python/Django combinations plus code quality and security scan.
+
+## 2026-08-04T13:30:00Z · Implementer · Phase 7 rework begins (T024)
+
+**Did**: Mechanical rename `Format` → `BibFormat` across `literature/importers/{base,runner,registry,__init__}.py`, `tests/test_importers/{conftest,test_base,test_runner,test_registry,test_smoke}.py`, and the spec artifacts (`spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `decisions.md`, `contracts/importers.md`, `quickstart.md`) via a word-boundary substitution (`\bFormat\b`), which left `FormatAlreadyRegistered` and unrelated hits (`tests/data/csl-typeMap.xml`'s CSL field label, `docs/adr/0002`'s prose "Format validation") untouched. `progress.md`'s own history (append-only) is not rewritten — those entries describe what was literally true when written.
+
+**Verified**: `poetry run pytest -q --no-cov` → 495 passed. `ruff check literature tests` → 2 auto-fixed (import/`__all__` sort order in `__init__.py` and `test_smoke.py`, alphabetical placement of `BibFormat`), 0 remaining. `ruff format --check` clean. `mypy` → no issues in 14 source files. Grepped `\bFormat\b` afterward and every remaining hit is justified (above).
+
+**Next**: T025 — write the split-workflow tests in `test_base.py` against the not-yet-built `BibFormat.import_file`/`import_entries`/`import_entry`/`get_result`, expected to fail (`base.py` still only has `parse`/`to_csl_json`/`handle_for`).
+
+**Watch**: `runner.py` and `registry.py` still exist and still work post-rename (T026/T028 delete them next) — this commit is a pure rename with no behaviour change, so the existing 495 tests are the safety net for it, unchanged.
+
+## 2026-08-04T13:35:00Z · Implementer · T025 (`tests/test_importers/test_base.py`)
+
+**Did**: Tests for the split workflow, written against methods that do not exist yet: `TestWorkflowMethodsAreIndividuallyCallable` (`import_entry`, `import_entries`, `get_result` and `import_file` each callable on their own, not only as part of one another), `TestOverridingImportEntry` (a subclass overriding `import_entry` changes only entry 0's outcome — the rest of the file still imports in order), `TestOverridingGetResult` (a subclass overriding `get_result` drops skipped entries from the report). `TestFormatHasNoRouteToBuildingAnItem` is left in place for now — it still holds until T026 actually adds methods to `BibFormat`, at which point it is replaced rather than deleted, per the maintainer's ruling that a route to the workflow is now deliberate, not a defect.
+
+**Verified**: `poetry run pytest tests/test_importers/test_base.py -q --no-cov` → 6 failed (all `AttributeError: '_EchoFormat' object has no attribute 'import_entry'` / `import_entries` / `get_result` / `import_file`, the right reason), 8 passed (the pre-existing contract tests, untouched). `ruff check`/`ruff format --check` clean on the file.
+
+**Next**: T026 — move the workflow from `runner.py` onto `BibFormat`, delete `runner.py`, make T025 green, and replace `TestFormatHasNoRouteToBuildingAnItem`.
+
+**Watch**: `make_echo_format` returns a *class*; the overriding tests subclass its return value inline (`class SkipsTheFirstEntry(make_echo_format(entries)): ...`), which only works because the factory closes over `entries` per call rather than sharing state — confirmed already true from T006.
+
+## 2026-08-04T13:50:00Z · Implementer · T026 (`literature/importers/base.py`, `runner.py` deleted)
+
+**Did**: Moved the workflow onto `BibFormat` as ordinary, overridable instance methods — `import_file` (opens the dry-run transaction, drives the rest), `import_entries` (the loop over parsed entries, catching a whole-file `SkipEntry`/`ParseError`/`EntryError`/bug from the generator itself), `import_entry` (one entry: handle, convert, store inside its own savepoint), `get_result` (builds the `ImportResult`, now setting `format_name=self.name` unconditionally — D25), and `entry_created`/`entry_skipped`/`entry_failed` helpers. **No `@final`, no `__init_subclass__` guard, no abstractmethod-completeness check on the workflow methods** — exactly the maintainer's instruction. The per-entry `except` stays outside the `transaction.atomic()` block (research.md R2), unchanged from `runner.py`. Deleted `literature/importers/runner.py`.
+
+Replaced `TestFormatHasNoRouteToBuildingAnItem` (asserted the class's public surface was exactly `{parse, to_csl_json, handle_for}` — now false by design) with `TestBibFormatRequiresOnlyTwoStages`, asserting `BibFormat.__abstractmethods__ == {"parse", "to_csl_json"}` and that the workflow methods are present, callable, and not abstract.
+
+Merged `tests/test_importers/test_runner.py` into `test_base.py` and deleted it — Article X requires the test tree mirror the source tree (D23's precedent, applied to the same move: the workflow's tests follow the workflow). All ~45 `import_file(file, format_expr[, dry_run=True])` call sites mechanically rewritten to `format_expr().import_file(file[, dry_run=True])` (a small parenthesis-matching script, not hand-edited, to avoid transcription slips across that many sites); every assertion is untouched. Fixed the one behaviour-adjacent reference: `caplog.at_level(..., logger="literature.importers.runner")` → `"literature.importers.base"`, since that's where the workflow's logger now lives.
+
+Minimally patched `test_registry.py` and `test_smoke.py` to stop importing the deleted `literature.importers.runner.import_file` — `test_registry.py`'s `TestImportByName` now calls `get_format("echo")().import_file(...)`, and dropped `test_result_format_name_is_none_when_a_class_was_passed_directly` (D25: the distinction it tested no longer exists). Both files are still using the old `register()`-based registry; T027/T028 replace that mechanism next, at which point `test_registry.py` is deleted outright per its own task brief.
+
+`literature/importers/__init__.py`: dropped `import_file` from the module's re-exports (it is no longer a module-level name — D24), rewrote the module docstring's example to `get_format("bibtex")().import_file(handle)`.
+
+**Deviation**: D24 records that there is deliberately no module-level `import_file` convenience function alongside the method — the maintainer's language ("moved onto the class," "runner.py is gone") reads as a replacement of that call shape, not an addition alongside it.
+
+**Verified**: `poetry run pytest tests/test_importers/ -q --no-cov` → 147 passed (T025's 6 previously-red tests now green). `poetry run pytest -q --no-cov` → 504 passed (495 baseline + 6 T025 tests + 2 replacement tests in `TestBibFormatRequiresOnlyTwoStages` − 1 dropped registry test − the old 1-test `TestFormatHasNoRouteToBuildingAnItem`, net +9). `ruff check literature tests` clean. `ruff format` reformatted `test_base.py` once (blank-line spacing at the merge point), clean after. `mypy` → no issues in 13 source files (one fewer than before — `runner.py` is gone).
+
+**Next**: T027/T028 — settings-declared formats, replacing `registry.py` with `literature/importers/config.py`.
+
+**Watch**: `test_registry.py` and `test_smoke.py`'s registration-based tests are a known-temporary patch, not the final shape — they still call `register()` against the old in-process registry, which T028 deletes. Confirmed decisions.md D24 and D25 read correctly against the merged `test_base.py` before moving on.
+
+## 2026-08-04T14:05:00Z · Implementer · T027 (`tests/test_importers/test_config.py`)
+
+**Did**: Tests for settings-declared formats, written against `literature.importers.config` which does not exist yet. `TestAvailableFormats` (a configured format is enumerated; an unset setting yields the empty shipped default; the mapping is read-only; the resolved mapping is cached across calls and invalidated when the setting changes — using the `settings` fixture throughout rather than raw mutation, so `setting_changed` fires both directions). `TestImportByName` (a configured name resolves and imports; an unconfigured name fails naming what is configured, both with and without anything configured). `TestAMisconfiguredEntryFailsAtFirstRead` (a path that does not import, a path that is not a `BibFormat` subclass, and a `BibFormat` subclass missing its two required stages each fail at `available_formats()`, naming the offending entry). Three fixture formats (`ConfiguredFormat`, `NotABibFormat`, `IncompleteFormat`) live at module level rather than behind `conftest.py`'s factories, because settings resolution needs a real dotted import path and a closure-built class has none.
+
+**Verified**: `poetry run pytest tests/test_importers/test_config.py -q --no-cov` → collection error, `ModuleNotFoundError: No module named 'literature.importers.config'` (right reason — the module doesn't exist until T028). `ruff check` auto-fixed one import-order issue (an unresolvable-yet import sorted into the third-party group instead of first-party); reordered by hand to the shape it will settle into once `config.py` exists, `ruff format --check` clean.
+
+**Next**: T028 — implement `literature/importers/config.py`, delete `registry.py` and `test_registry.py`, and update `conftest.py`/`test_smoke.py` off the old registration mechanism.
+
+**Watch**: the four fixture-format dotted paths (`CONFIGURED_PATH` etc.) all point into this test module itself (`tests.test_importers.test_config.*`) — `import_string` needs `tests` importable as a real package, which it already is (`pythonpath = [".", "tests"]` in pyproject.toml, `tests/__init__.py` and `tests/test_importers/__init__.py` both present since T001).
+
+## 2026-08-04T14:20:00Z · Implementer · T028 (`literature/importers/config.py`)
+
+**Did**: `literature/importers/config.py` replacing `registry.py` — `_resolve()` reads `LITERATURE["BIB_FORMATS"]` (defaulting to `()`, an empty tuple — Article X, no configuration needed for the built-in, currently-empty, behaviour), `import_string`s each path, and validates in order: imports cleanly → is a `BibFormat` subclass → has no outstanding `__abstractmethods__` (D26, porting D21's check across the redesign) → has a non-empty `name`. Any failure raises `ImproperlyConfigured` naming the offending path. `available_formats()` caches the resolved `MappingProxyType` (not just the underlying dict — first attempt returned a fresh proxy per call, which broke identity-based caching tests; fixed by caching the proxy itself) and `get_format(name)` raises `UnknownFormat` on a miss, same as before. A `setting_changed` receiver drops the cache when `setting == "LITERATURE"`, so `override_settings`/the `settings` fixture behave and nothing leaks between tests. Deleted `literature/importers/registry.py`, `FormatAlreadyRegistered` (exceptions.py), and `tests/test_importers/test_registry.py`.
+
+Removed the autouse `isolated_registry` fixture from `conftest.py` — there is no more module-level mutable registry to snapshot/restore; `setting_changed` plus pytest-django's `settings` fixture now does that job. Rewired `test_smoke.py`'s `smoke_format` fixture from `register(LineFormat)` to `settings.LITERATURE = {"BIB_FORMATS": ["tests.test_importers.test_smoke.LineFormat"]}` — needs `LineFormat` reachable by dotted path, which it already is (a real module-level class, not a closure factory). Updated `test_smoke.py`'s `PUBLIC_SURFACE` dict (`get_format`/`available_formats` now point at `literature.importers.config`; `register`/`FormatAlreadyRegistered` entries removed) and `literature/importers/__init__.py`'s re-exports and module docstring to match. `UnknownFormat`'s message wording changed from "registered"/"Registered formats" to "configured"/"Configured formats" (exceptions.py), matching FR-019's already-rewritten spec wording; `test_exceptions.py` updated to match (no test asserted the literal old wording, so nothing was weakened — confirmed by reading each assertion before editing).
+
+**Deviations**: D26 (kept the abstractmethod-completeness check across the registration→settings redesign — the defect it fixes did not go away) and D27 (a settings entry naming collision is not detected; last one wins, undetected, unlike the old registry's refusal — the mutable-shared-state hazard that justified refusing collisions does not exist when one project owns the whole list).
+
+**Verified**: `poetry run pytest tests/test_importers/ -q --no-cov` → 138 passed. `poetry run pytest -q --no-cov` → 493 passed (504 after T026, minus the 12 tests in the deleted `test_registry.py`, plus 1 net from `TestAvailableFormats`/`TestAMisconfiguredEntryFailsAtFirstRead` sizing — exact accounting not required, every deletion is accounted for by name above). `ruff check literature tests` clean. `ruff format` reformatted `config.py` once (line-length wrapping in `_resolve`'s first raise), clean after. `mypy` → no issues in 13 source files. `grep -rln "importers\.registry\|FormatAlreadyRegistered\|isolated_registry" literature tests` → no hits.
+
+**Next**: T029 — rewrite ADR-0006 and ADR-0007, whose "every format inherits the guarantee, none can weaken it" claim the overridable workflow makes false.
+
+**Watch**: `contracts/importers.md` and `data-model.md` still have sections titled "The registry" describing the deleted `register()`/`get_format()`/`available_formats()` trio — T030 rewrites both for the settings-based mechanism; `config.py`'s own docstring references them by their old section title deliberately, to be updated in the same pass.
+
+## 2026-08-04T14:35:00Z · Implementer · T029 (`docs/adr/0006-*.md`, `docs/adr/0007-*.md`)
+
+**Did**: Rewrote both ADRs' Decision and Consequences sections to say what `BibFormat` does **by default** and what a subclass overriding the relevant hook takes on, rather than stating an unconditional guarantee the overridable workflow now makes false. Neither ADR is deleted — the decisions stand, per T029's brief, only their reach changed. Both gain an "Amendment, 2026-08-04" paragraph explaining why, rather than silently rewriting history. ADR-0006 ("An entry is atomic") now reads: true by default for a format that only implements `parse`/`to_csl_json`; a subclass overriding `import_entry` takes over the responsibility of preserving atomicity itself, since `BibFormat` no longer gives it no route to that stage — it gives it every route. ADR-0007 ("catches every exception") now reads the same way for the broad `except Exception` net inside `import_entry`: a subclass replacing that method may narrow, widen, or drop the net, and owns FR-013/FR-014/FR-023 for its own entries once it does. Both titles and context-date lines updated from `runner.py` to `base.py`.
+
+**Verified**: Both files are prose/markdown with no executable coverage; read back after editing to confirm no stray reference to the deleted `runner.py` module survives outside historical/explanatory prose (two hits in each file, both explanatory, not API references — confirmed by grep). `poetry run pytest -q --no-cov` → 493 passed (unaffected, no code touched).
+
+**Next**: T030 — update `CONTEXT.md`, `README.md`, `CHANGELOG.md`, `data-model.md`, `contracts/importers.md`, `quickstart.md`, `plan.md`; delete D17 from `decisions.md`; add a decision recording the three Phase 7 changes together.
+
+**Watch**: neither ADR references the new `LITERATURE` setting at all — that mechanism doesn't bear on the atomicity or exception-catching guarantees, so it was deliberately left out rather than shoehorned in for completeness.
+
+## 2026-08-04T14:50:00Z · Implementer · T030 (docs)
+
+**Did**: Updated every documentation surface to match the Phase 7 rework. `CONTEXT.md`: the `format` glossary entry now describes `BibFormat` and the two-required-stages/rest-provided shape, plus a new `configured formats` entry replacing the registry description; `import result / entry result` no longer says `format_name` is conditional on a by-name run (D25). `README.md`: the import section now shows a `LITERATURE` settings block and `get_format("bibtex")().import_file(handle)`, and the "no format ships yet" note mentions overriding the workflow's other steps. `CHANGELOG.md`: rewrote the still-`[Unreleased]` entry in place (not appended a second entry) to describe the final `BibFormat`-method/settings-driven shape directly, since nothing describing the old shape has shipped. `data-model.md`: the `BibFormat` section now lists all seven workflow methods alongside the two required stages, and "The registry" became "Configured formats" describing settings resolution, caching, and `ImproperlyConfigured`. `contracts/importers.md`: rewritten in full — `import_file` as a method reached via `get_format(name)()`, the "Writing a format" section quoting the maintainer's ruling verbatim, `FormatAlreadyRegistered` removed from the exceptions table, "The registry" replaced by "Configured formats". `quickstart.md`: added a "Configure a format" section, updated every example to the method-call shape, dropped `@register`. `plan.md`: Summary gained a 2026-08-04 amendment paragraph, the Article II constitution-check row now accounts for the `LITERATURE` setting instead of claiming none exists, the module tree shows `base.py`/`config.py` instead of `base.py`/`runner.py`/`registry.py`, the Structure Decision paragraph and design-in-brief point 2 both updated to name the current module.
+
+Deleted D17 from `decisions.md` (the import-timing/registration-order hazard it recorded has no equivalent once formats resolve by `import_string` from settings) and added D28, summarising all three Phase 7 changes together with the reasoning for deleting D17 outright rather than marking it superseded, and for doing all three changes in one phase rather than three separate specs.
+
+**Bug caught while doing this**: T024's original word-boundary rename (`\bFormat\b` → `BibFormat`) had silently corrupted two places where `Format` names *django-import-export's own class*, not this package's — spec.md's Refinements #1 ("`Format` became `BibFormat`" had become "`BibFormat` became `BibFormat`", and *"the unrelated `Format` in `django-import-export`"* had become *"the unrelated `BibFormat` in `django-import-export`"*, which is false — that library's class is still named `Format`) and decisions.md's D2 (same). Both fixed here, since T030's full read-through of every doc surfaced them; T024's own progress.md entry did not catch this because the grep-and-justify pass there checked for *remaining* bare `Format`, not for `BibFormat` appearing somewhere it shouldn't.
+
+**Verified**: `poetry run pytest -q --no-cov` → 493 passed (docs-only change, no code touched). `ruff check`/`ruff format --check` clean. `mypy` → no issues in 13 source files. `grep -rn "BibFormat.*became BibFormat\|Rename.*BibFormat.*to.*BibFormat"` across specs/docs → no hits, confirming the corruption is fully fixed.
+
+**Next**: T031 — full verify: pytest, ruff, ruff format, mypy, deptry, `makemigrations --check`, `makemessages`, coverage not decreased.
+
+**Watch**: `research.md` was left untouched — it documents Phase 0 findings against the code *as it stood before this feature existed at all* (e.g. R3's "`literature/__init__.py` is empty" is still true), not the shape of the finished contract, so nothing in it needed correcting for the rework.
+
+## 2026-08-04T15:05:00Z · Implementer · T031 (full verify)
+
+**Did**: Ran the full verify suite. Caught one real gap first: `poetry run coverage report` showed `literature/importers/config.py` at 96% (line 65, the blank-`name` `ImproperlyConfigured` raise, uncovered — D26/D21's abstractmethod check had a test, but the sibling blank-name check did not). Added `BlankNameFormat` and `test_a_format_with_a_blank_name_fails_naming_the_entry` to `test_config.py`, mirroring the old `test_registry.py`'s `test_a_blank_name_is_refused` for the settings-based design. `config.py` now 100%.
+
+**Verified**:
+- `poetry run pytest -q` → **494 passed**.
+- `poetry run coverage report` → **98% overall** (734 statements, 7 missed, 178 branches, 10 partial — was 8 missed before the blank-name test, an improvement not a regression). The two remaining misses are `base.py` lines 82/96, the `raise NotImplementedError` bodies of `parse`/`to_csl_json`'s abstract stubs — structurally unreachable, since Python's `abc.ABCMeta` refuses to instantiate a class that hasn't overridden them, same as every abstract method stub in this codebase before the rework.
+- `poetry run ruff check literature tests` → all checks passed.
+- `poetry run ruff format --check literature tests` → all 32 files already formatted.
+- `poetry run mypy` → no issues in 13 source files.
+- `poetry run deptry .` → no dependency issues found.
+- `DJANGO_SETTINGS_MODULE=tests.settings poetry run python -m django makemigrations literature --check --dry-run` → no changes detected (no model touched by this rework, as required).
+- `makemessages` → **not run**. GNU gettext (`msguniq`/`msgmerge`/`msgattrib`) is not installed in this environment — confirmed by `which` returning nothing for all three and Django's own `CommandError` naming the same missing tool. This is not new to this session: an earlier progress.md entry from before Phase 7 records the identical "Not run: GNU gettext is not installed in this environment" for the same reason. Every string this rework touches (`config.py`'s four `ImproperlyConfigured` messages, `exceptions.py`'s reworded `UnknownFormat` message) is wrapped in `gettext_lazy`/`gettext`, matching the pattern of every string that shipped before it; that is what's verifiable without the gettext toolchain present.
+
+**Coverage vs. baseline**: 98% both before (T024 baseline) and after this rework, with the miss count improving from 8 to 7 statements. No regression.
+
+**Next**: none — T024 through T031 are all complete. Ready for maintainer review.
+
+**Watch**: the worktree is clean after this commit — everything from T024 onward is committed, nothing staged or stashed.
