@@ -142,6 +142,36 @@ was. Outcomes are observed rather than predicted, because the work genuinely hap
 transaction that is then rolled back. A dry run's entry results carry no `Item`, since those rows do
 not survive the rollback.
 
+### entry type
+
+The kind of record a source entry declares, in the source's own vocabulary — BibTeX's `@article`,
+`@book`, `@phdthesis`. A format maps it to a CSL item type, which is what the catalogue stores. The
+two vocabularies are not the same size: an entry type with no CSL equivalent maps to the generic
+one rather than failing the entry.
+
+### field
+
+One labelled value inside a source entry, again in the source's own vocabulary — BibTeX's `journal`,
+`author`, `doi`. A format maps a field to a CSL variable. A field it maps to none is preserved on
+the item rather than discarded, so *unmapped* describes what a format did with a field, not
+something wrong with the field.
+
+### dialect
+
+A variant of a source format that shares its file syntax and differs in the names it uses — classic
+BibTeX and BibLaTeX are one format's two dialects, one writing `journal` and `year` where the other
+writes `journaltitle` and `date`. A single format reads both, because the person exporting a library
+has no way to know which one their reference manager wrote. Where an entry supplies both spellings
+of the same information and they disagree, precedence is documented rather than incidental.
+
+### cite key
+
+The source's own handle for an entry, the label in `@article{shannon1948mathematical, ...}`. It is
+the same value as the **citation key** above, arriving under the source's name before it becomes an
+`Item`: an import reports an entry against its cite key, and the item it creates stores that value
+in `Item.citation_key`. Two names for one value, on either side of the import boundary, in the same
+way `entry` and `Item` are two names for the two sides of a record.
+
 ## Synonyms to avoid
 
 - **`Reference` / `Publication` / `Record`** for an item — the canonical term is **`Item`**
@@ -157,6 +187,10 @@ not survive the rollback.
 - **`record`** for a source-side entry — use **entry**. `Record` is already retired as a synonym
   for an item above, and reusing it on the import side would collide with that.
 - **`status`** for an entry's fate — it is an **outcome**, settled once, not a state that moves.
+- **`key`** on its own for a source entry's handle — write **cite key** on the source side and
+  **citation key** on the model side. Both are unambiguous, and `key` is also BibTeX's name for an
+  unrelated sorting field.
+- **`flavour`** / **`variant`** for classic BibTeX versus BibLaTeX — the term is **dialect**.
 
 ## Notes for spec authors
 

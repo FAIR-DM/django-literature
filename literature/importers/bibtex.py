@@ -116,7 +116,9 @@ _FALLBACK_TYPE = "document"
 #: entry in any of this module's tables, are preserved instead under
 #: ``custom["bibtex"]`` (US4, FR-025, :func:`_unmapped_fields`).
 FIELD_TABLE: dict[str, _Mapped] = {
+    "abstract": _Mapped("abstract", "classic"),
     "address": _Mapped("publisher-place", "classic"),
+    "annotation": _Mapped("annote", "biblatex"),
     "annote": _Mapped("annote", "classic"),
     "booktitle": _Mapped("container-title", "classic"),
     "chapter": _Mapped("chapter-number", "classic"),
@@ -125,13 +127,19 @@ FIELD_TABLE: dict[str, _Mapped] = {
     "institution": _Mapped("publisher", "classic"),
     "journal": _Mapped("container-title", "classic"),
     "journaltitle": _Mapped("container-title", "biblatex"),
+    "keywords": _Mapped("keyword", "classic"),
+    "langid": _Mapped("language", "biblatex"),
+    "language": _Mapped("language", "classic"),
+    "location": _Mapped("publisher-place", "biblatex"),
     "note": _Mapped("note", "classic"),
     "number": _Mapped("issue", "classic"),
     "organization": _Mapped("publisher", "classic"),
     "pages": _Mapped("page", "classic"),
+    "pagetotal": _Mapped("number-of-pages", "biblatex"),
     "publisher": _Mapped("publisher", "classic"),
     "school": _Mapped("publisher", "classic"),
     "series": _Mapped("collection-title", "classic"),
+    "shorttitle": _Mapped("title-short", "classic"),
     "title": _Mapped("title", "classic"),
     "type": _Mapped("genre", "classic"),
     "volume": _Mapped("volume", "classic"),
@@ -188,6 +196,36 @@ def _month_number(raw: str) -> int | None:
 # ---------------------------------------------------------------------------
 
 
+#: The five entities XML predefines, plus a decimal or hexadecimal character
+#: reference. Deliberately not :func:`html.unescape`, which also resolves the
+#: ~2000 HTML5 named references and does so without requiring the closing
+#: semicolon: that would rewrite ordinary bibliographic prose, turning a
+#: title containing ``&not`` or ``&sect`` into ``¬`` or ``§``. What real
+#: exports actually emit is XML escaping — Crossref's own BibTeX export
+#: writes ``Knowledge Discovery &amp; Data Mining`` — so this recognises
+#: exactly that and leaves every other ampersand alone.
+_ENTITY_RE = re.compile(r"&(?:(amp|lt|gt|quot|apos)|#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6}));")
+
+_NAMED_ENTITIES = {"amp": "&", "lt": "<", "gt": ">", "quot": '"', "apos": "'"}
+
+
+def _unescape_entities(value: str) -> str:
+    """Resolve XML character escaping a source wrote into a field's text.
+
+    Applied after the LaTeX decode, so a value written ``\\&amp;`` — escaped
+    once for LaTeX and once for XML — resolves through both layers.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        name, decimal, hexadecimal = match.groups()
+        if name:
+            return _NAMED_ENTITIES[name]
+        code = int(decimal) if decimal else int(hexadecimal, 16)
+        return chr(code) if 0 < code <= 0x10FFFF else match.group(0)
+
+    return _ENTITY_RE.sub(replace, value)
+
+
 def _clean_text(value: str) -> str:
     """Decode LaTeX escapes to the characters they represent (FR-018).
 
@@ -196,8 +234,14 @@ def _clean_text(value: str) -> str:
     (``{DNA}`` -> ``DNA``) without a separate step. A construct it does not
     recognise is left in the string rather than raising or dropping anything
     — pure string substitution, so it never evaluates its input.
+
+    XML character escaping is resolved afterwards (:func:`_unescape_entities`).
+    A ``.bib`` file is not XML, but real exports carry escaping from the
+    pipeline upstream of them, and a title reading ``Knowledge Discovery
+    &amp; Data Mining`` in the catalogue is the same shape of defect as an
+    undecoded ``Kr{\\"u}ger``: recoverable, so recovered (D1).
     """
-    return str(latex_to_unicode(value))
+    return _unescape_entities(str(latex_to_unicode(value)))
 
 
 #: A DOI written with its resolver URL prefix (FR-017's named case).
@@ -318,7 +362,12 @@ def _name_to_csl(name: str) -> dict[str, Any]:
     if not stripped:
         return {}
     if _is_wrapped_literal(stripped):
-        return {"literal": _clean_text(stripped[1:-1])}
+        # A pair of braces with nothing in them names nobody. Returning it as
+        # a literal would put a contributor row carrying no name on the record
+        # (D22); returning nothing leaves the source field unconsumed, so it
+        # is preserved instead (FR-025).
+        literal = _clean_text(stripped[1:-1]).strip()
+        return {"literal": literal} if literal else {}
 
     parts = splitname(_clean_text(stripped), strict_mode=False)
     result: dict[str, Any] = {}
@@ -414,6 +463,58 @@ def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
     return {"date-parts": [parts]}
 
 
+#: The language names ``babel`` and ``polyglossia`` define, which is what a
+#: BibLaTeX ``langid`` states, mapped to the BCP 47 tag CSL's ``language``
+#: variable expects. Only the unambiguous ones: ``langid = {english}`` says
+#: nothing about which English, so it is ``en`` rather than a guess between
+#: ``en-GB`` and ``en-US``, while ``british`` and ``american`` do say.
+_LANGUAGE_TAGS: dict[str, str] = {
+    "american": "en-US",
+    "australian": "en-AU",
+    "brazilian": "pt-BR",
+    "british": "en-GB",
+    "canadian": "en-CA",
+    "czech": "cs",
+    "danish": "da",
+    "dutch": "nl",
+    "english": "en",
+    "finnish": "fi",
+    "french": "fr",
+    "german": "de",
+    "greek": "el",
+    "italian": "it",
+    "japanese": "ja",
+    "ngerman": "de",
+    "norsk": "no",
+    "polish": "pl",
+    "portuguese": "pt",
+    "russian": "ru",
+    "spanish": "es",
+    "swedish": "sv",
+    "turkish": "tr",
+    "ukrainian": "uk",
+    "usenglish": "en-US",
+}
+
+#: A value already written as a language tag (``en``, ``en-GB``, ``pt-BR``).
+_LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
+
+
+def _language_tag(value: str) -> str | None:
+    """The BCP 47 tag ``value`` states, or ``None`` if it states none.
+
+    ``None`` rather than the raw string, because the catalogue's ``language``
+    holds a tag and nothing longer than one. A name this table does not carry
+    is not truncated to fit and does not fail the entry: it goes unconsumed,
+    which sends it to preservation with everything else (D1, FR-025).
+    """
+    text = value.strip()
+    tag = _LANGUAGE_TAGS.get(text.casefold())
+    if tag:
+        return tag
+    return text if _LANGUAGE_TAG_RE.match(text) and len(text) <= 10 else None
+
+
 # ---------------------------------------------------------------------------
 # Preservation (FR-025, FR-026, D3, D20) — a field this importer maps to no
 # CSL variable is not discarded, and preserving it must not open a second
@@ -426,35 +527,42 @@ def _issued_date(fields: dict[str, str]) -> dict[str, Any] | None:
 #: file itself wrote.
 _STRUCTURAL_KEYS = frozenset({"ENTRYTYPE", "ID"})
 
-#: The three fields :func:`_issued_date` itself consumes (FR-010, FR-024).
-#: Not "unmapped" in the FR-025 sense: whichever of them an entry carries
-#: always lands in ``issued``, resolved or as its ``literal`` fallback (D13).
+#: The three fields :func:`_issued_date` reads (FR-010, FR-024). Consumed
+#: together, since ``issued`` is built from whichever of them an entry
+#: carries and the ones it does not carry are absent anyway.
 _DATE_SOURCE_FIELDS = frozenset({"year", "month", "date"})
 
 
-def _unmapped_fields(raw: dict[str, Any]) -> dict[str, str]:
-    """Every field ``raw`` carries that this importer maps to no CSL variable.
+def _unmapped_fields(raw: dict[str, Any], consumed: set[str]) -> dict[str, str]:
+    """Every field ``raw`` carries that conversion did not put anywhere.
 
-    Worked out from the tables rather than a hand-written list of field
-    names, so a field added to none of them is preserved automatically: a
-    key survives here unless it is one of the structural keys the parser
-    itself adds, one of the fields the date logic already consumes, or a key
-    any of the three mapping tables recognises.
+    ``consumed`` is what :meth:`BibTeXFormat.to_csl_json` actually used, not
+    what the mapping tables promise it might. The difference matters: a field
+    a table recognises can still land nowhere — a ``language`` this importer
+    cannot resolve to a language tag, an ``author`` list that parses to no
+    names, a ``month`` with no ``year`` to date. Deciding preservation from
+    the tables would call all three mapped and drop them; deciding it from
+    what happened preserves them, which is what FR-025 asks for.
 
-    That includes ``crossref``. ``add_missing_from_crossref`` already copies
-    an inherited field onto the child entry (FR-015), but the ``crossref``
-    key itself names no CSL variable whether or not it resolved, so the same
-    rule preserves it either way — there is no separate branch for the
-    unresolvable case (acceptance scenario 3). ``_FROM_CROSSREF``, the
-    parser's own record of which fields it copied, is not something the
-    source file wrote, and is excluded along with anything else the parser
-    prefixes with an underscore.
+    So a key survives here unless conversion consumed it, it is one of the
+    two structural keys the parser itself adds (already surfaced as ``type``
+    and ``citation-key``), or the parser prefixes it with an underscore as
+    its own bookkeeping. That last is why ``_FROM_CROSSREF`` — its record of
+    which fields it copied, not something the source file wrote — does not
+    leak into the preserved bookkeeping.
+
+    ``crossref`` is preserved by the ordinary rule. Inheritance copies the
+    parent's fields onto the child (FR-015), but the ``crossref`` key itself
+    names no CSL variable whether or not it resolved, so nothing consumes it
+    either way and there is no branch for the unresolvable case (acceptance
+    scenario 3). An empty value is not preserved: there is no content to
+    keep, and ``{}`` is what a reference manager writes for a field it holds
+    no value for.
     """
-    mapped = set(FIELD_TABLE) | set(IDENTIFIER_FIELD_TABLE) | set(NAME_FIELD_TABLE) | _DATE_SOURCE_FIELDS
     return {
         key: value
         for key, value in raw.items()
-        if key not in _STRUCTURAL_KEYS and key not in mapped and not key.startswith("_") and value
+        if key not in _STRUCTURAL_KEYS and key not in consumed and not key.startswith("_") and value
     }
 
 
@@ -544,13 +652,23 @@ class BibTeXFormat(BibFormat):
         # holds for every present and future pair FIELD_TABLE carries, not
         # just the one case a single insertion-order trick would happen to
         # get right.
+        consumed: set[str] = set()
+
         for dialect in ("classic", "biblatex"):
             for bib_key, mapping in FIELD_TABLE.items():
                 if mapping.dialect != dialect:
                     continue
                 value = raw.get(bib_key)
-                if value:
-                    result[mapping.csl] = _clean_text(value)
+                if not value:
+                    continue
+                cleaned = _clean_text(value)
+                if mapping.csl == "language":
+                    tag = _language_tag(cleaned)
+                    if tag is None:
+                        continue
+                    cleaned = tag
+                result[mapping.csl] = cleaned
+                consumed.add(bib_key)
 
         for bib_key, mapping in NAME_FIELD_TABLE.items():
             value = raw.get(bib_key)
@@ -558,16 +676,24 @@ class BibTeXFormat(BibFormat):
                 names = _names_to_csl(value)
                 if names:
                     result[mapping.csl] = names
+                    consumed.add(bib_key)
 
         issued = _issued_date(raw)
         if issued:
             result["issued"] = issued
+            consumed.update(_DATE_SOURCE_FIELDS)
+
+        accessed = _parse_biblatex_date(raw.get("urldate", "").strip())
+        if accessed:
+            result["accessed"] = accessed
+            consumed.add("urldate")
 
         for bib_key, mapping in IDENTIFIER_FIELD_TABLE.items():
             value = raw.get(bib_key)
             if not value:
                 continue
             cleaned = _clean_identifier(bib_key, value)
+            consumed.add(bib_key)
             try:
                 validate_identifier(mapping.csl, cleaned)
             except ValidationError:
@@ -580,7 +706,7 @@ class BibTeXFormat(BibFormat):
             else:
                 result[mapping.csl] = cleaned
 
-        unmapped = _unmapped_fields(raw)
+        unmapped = _unmapped_fields(raw, consumed)
         if unmapped:
             result.setdefault("custom", {})["bibtex"] = unmapped
 

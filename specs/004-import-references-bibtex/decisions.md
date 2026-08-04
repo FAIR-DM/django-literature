@@ -473,3 +473,71 @@ All three are preserved correctly under `custom["bibtex"]`, so SC-006 holds rega
 later mapping story is free to take. Recorded as a concern for the maintainer rather than taken as a
 drive-by fix, on the same reasoning D18 gives for not reaching into a table a story's own tasks
 don't name.
+
+## D22 — Preservation is decided by what conversion consumed, not by what the mapping tables promise
+
+Raised at convergence, verifying US4. `_unmapped_fields` classified a field as mapped by looking it
+up in `FIELD_TABLE`, `NAME_FIELD_TABLE` or `IDENTIFIER_FIELD_TABLE`. Table membership is a promise
+that conversion *might* use a field, not a record that it did. Three cases already broke the
+promise: a `month` with no `year` builds no date, an `author` of `{}` parses to no name, and — once
+FR-032 landed — a `language` this importer cannot resolve to a tag maps nowhere. All three were
+classified as mapped and dropped. `to_csl_json` now accumulates a `consumed` set as it goes and
+`_unmapped_fields` reads that, so preservation follows what happened.
+
+Considered and rejected: naming the three cases as exceptions in the table lookup. It fixes the
+three known ones and leaves the class open, and the class is exactly the one FR-025 exists to close.
+
+One case remains where a source value does not survive, and it is deliberate rather than an
+oversight: when an entry carries both spellings of a dialect pair with disagreeing values, D17 gives
+the BibLaTeX one precedence and the classic value is discarded. The field is consumed, so it is not
+preserved. That is what FR-024 settled and this decision does not reopen it — the value was not
+lost, it was overruled by a rule the spec states.
+
+While fixing this, `{}` as a whole name-list was found to produce a contributor row carrying an
+empty literal name. Now returns no name at all, which sends the field to preservation.
+
+## D23 — XML character escaping is resolved, by a rule narrow enough to leave prose alone
+
+Raised at convergence (FR-031). The genuine Crossref export in the corpus writes `Knowledge
+Discovery &amp; Data Mining` as a `booktitle` — its text passed through an XML pipeline upstream of
+the `.bib` file — and it was stored with the entity intact.
+
+Considered and rejected: `html.unescape`, the obvious answer. It resolves the roughly two thousand
+HTML5 named references, and does so without requiring the closing semicolon, so `Rules &not to be
+broken` becomes `Rules ¬o be broken` and `AT&T &amp` becomes `AT&T &`. Corrupting ordinary
+bibliographic prose is a worse failure than leaving an entity unresolved, because the entity is at
+least visibly wrong.
+
+What landed recognises the five entities XML predefines and decimal or hexadecimal character
+references, each requiring its semicolon, and nothing else. That is exactly what an XML pipeline
+emits. Tests assert both directions: the escaping resolves, and four shapes that only look like
+escaping are left untouched.
+
+## D24 — The three BibLaTeX fields D21 left unmapped are mapped, and five more with them
+
+Supersedes D21's deferral. D21 was right to leave `langid`, `location` and `urldate` unmapped inside
+US4, whose tasks named preservation and not the mapping tables, and right to record them rather than
+fix them as a drive-by. Convergence is where they belong, and the case for mapping them is the case
+the feature was grilled on at intake: a BibLaTeX file read with a thin field mapping produces
+records that are created, reported as created, and quietly missing what the source stated. A book
+whose `location` went to bookkeeping has no place of publication.
+
+`FIELD_TABLE` gains `location` (publisher-place), `langid` (language), `annotation` (annote) and
+`pagetotal` (number-of-pages) as BibLaTeX dialect entries, and `abstract`, `keywords`, `language`
+and `shorttitle`, which both dialects write and neither table carried. `urldate` is FR-033 and is
+handled with the dates rather than in the table, since it builds a date variable. Each pair with a
+classic counterpart inherits D17's precedence rule with no new code, because that rule was written
+to hold for every present and future pair rather than for `journal`/`journaltitle` alone.
+
+## D25 — A language is normalized to a tag, or preserved; never truncated and never a guess
+
+Raised at convergence (FR-032). `Item.language` holds a BCP 47 tag in ten characters. BibLaTeX's
+`langid` states a babel language name, `english` or `ngerman`, and classic `language` is written
+both ways. Copying the name across would store a value the field does not hold, and a name longer
+than ten characters would fail `full_clean` and take the whole entry with it — the outcome intake
+ruled out.
+
+`_LANGUAGE_TAGS` maps the babel and polyglossia names to tags, and a value already written as a tag
+passes through. Anything else is left unconsumed, which under D22 preserves it. Only unambiguous
+names are in the table: `english` says nothing about which English, so it is `en` rather than a
+choice between `en-GB` and `en-US`, while `british` and `american` do say and map accordingly.

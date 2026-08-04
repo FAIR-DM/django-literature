@@ -176,6 +176,12 @@ Reference managers write their own bookkeeping into every export, fields recordi
 - **FR-029**: File content MUST be treated as untrusted input. No content in a `.bib` file may cause code execution, filesystem access, network access, or an unhandled error, and decoding LaTeX MUST NOT evaluate it (Article V).
 - **FR-030**: The vocabulary this feature introduces MUST be added to `CONTEXT.md` in the same change (Article VI): entry type, field, dialect, and cite key. The cite key entry MUST record its relationship to the glossary's existing *citation key*, since they are one value under two names, the source's and the model's.
 
+**Source fidelity** *(added 2026-08-04 at convergence — see Refinements)*
+
+- **FR-031**: XML character escaping carried in a source field's text MUST be resolved to the characters it represents. Text that is not XML character escaping, a bare ampersand among it, MUST be left exactly as written.
+- **FR-032**: Where a source value states something the catalogue's field holds in a different form, it MUST be normalized to that form. Where the value cannot be resolved to that form, the field MUST be preserved under FR-025 rather than truncated, guessed at, or allowed to fail its entry.
+- **FR-033**: A date a source records as the date its subject was retrieved MUST be mapped to the item's access date.
+
 ### Requirement coverage
 
 - **User Story 1** carries FR-006 through FR-016: reading a file and mapping what it holds.
@@ -184,6 +190,7 @@ Reference managers write their own bookkeeping into every export, fields recordi
 - **User Story 4** carries FR-025 and FR-026.
 - **FR-001 through FR-005** define the format's relationship to the import contract and constrain every story.
 - **FR-027 through FR-030** are package-wide constraints, and each story's acceptance is judged against them.
+- **FR-031 through FR-033** were added at convergence, from defects the four stories' own acceptance could not have caught: each is a case where a record is created and reported as created while quietly holding less than its source stated. They belong to no single story and are asserted against the committed corpus.
 
 ## Success Criteria *(mandatory)*
 
@@ -265,3 +272,31 @@ the feature actually rests on, which is that nothing disappears without being re
 a stored record that would have held no bibliographic content anyway. A test pins the current
 behaviour, so if the parser is ever replaced the gap surfaces as a failing test rather than as
 silence.
+
+### 2026-08-04 — convergence added three requirements, from defects no story could see
+
+Three requirements added (FR-031, FR-032, FR-033). No existing requirement, user story or acceptance
+criterion changed.
+
+Each came from checking the merged feature against the committed corpus rather than against a
+story's own acceptance, and each has the same shape: an entry is created, reported as created, and
+stored holding less than the source stated. That shape is invisible to a story, because every story
+here was scoped to one behaviour and each one's acceptance passes.
+
+**FR-031, source escaping.** The genuine Crossref export in the corpus writes `Knowledge Discovery
+&amp; Data Mining` in a container title, because its text passed through an XML pipeline before it
+reached a `.bib` file. It was stored with the entity intact. That is the same defect as an undecoded
+`Kr{\"u}ger`, which FR-018 already rules out, so it belongs in the spec on the same reasoning: it is
+recoverable from the value alone. The requirement's second sentence matters as much as its first,
+and D23 records why.
+
+**FR-032, normalize or preserve.** `langid = {english}` is a language name; the catalogue's language
+field holds a tag of at most ten characters. Storing the name would have failed the entry on length
+for a long enough name, and truncating it would have stored a wrong value silently. Neither is
+acceptable, and the answer already existed in two places in this spec — FR-017's recover-what-you-
+can and FR-025's preserve-what-you-cannot — so this states the general rule those two are instances
+of.
+
+**FR-033, access date.** BibLaTeX's `urldate`. `@online` entries are what a reader reaches for the
+BibLaTeX dialect to describe, and the date of retrieval is most of what distinguishes one from an
+undated web reference. The model has held an access date since before this feature.

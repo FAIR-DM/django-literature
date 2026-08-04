@@ -10,6 +10,7 @@ each file isolates and which of the two real exports is genuine.
 """
 
 import dataclasses
+import io
 from pathlib import Path
 
 import pytest
@@ -76,7 +77,16 @@ def _accounted_for(bib_key: str, csl: dict) -> bool:
         return mapping.csl in csl
     if bib_key in {"year", "month", "date"}:
         return "issued" in csl
+    if bib_key == "urldate":
+        return "accessed" in csl
     return False
+
+
+#: The one corpus file ``bibtexparser`` cannot read at all: its bytes are
+#: Latin-1, so decoding fails before any entry exists to check. Named rather
+#: than inferred, so a change that made a second file unreadable would fail
+#: the sweep instead of quietly shrinking what it covers.
+UNREADABLE_FIXTURES = {"latin1_encoded.bib"}
 
 
 def _parse_or_none(path: Path) -> list | None:
@@ -203,13 +213,24 @@ class TestEntryTypes:
         assert [BibTeXFormat().to_csl_json(raw)["type"] for raw in raws] == ["document", "document"]
 
 
+#: A field whose value the importer normalizes rather than copying through,
+#: with a sample the normalizer accepts and what it makes of it. Every
+#: FIELD_TABLE entry is still exercised by the mapping test — this only
+#: supplies a realistic value for the fields where "some value" is not one.
+_FIELD_SAMPLES: dict[str, tuple[str, str]] = {
+    "langid": ("english", "en"),
+    "language": ("en-GB", "en-GB"),
+}
+
+
 class TestFields:
     """Every classic BibTeX field maps to its documented CSL variable (FR-007)."""
 
     @pytest.mark.parametrize(("bibtex_field", "mapping"), sorted(FIELD_TABLE.items()))
     def test_every_classic_field_maps_to_its_csl_variable(self, bibtex_field, mapping):
-        raw = entry(**{bibtex_field: "some value"})
-        assert BibTeXFormat().to_csl_json(raw)[mapping.csl] == "some value"
+        source, expected = _FIELD_SAMPLES.get(bibtex_field, ("some value", "some value"))
+        raw = entry(**{bibtex_field: source})
+        assert BibTeXFormat().to_csl_json(raw)[mapping.csl] == expected
 
 
 class TestNames:
@@ -852,12 +873,17 @@ class TestCorpusPreservation:
 
     def test_every_field_in_every_corpus_entry_is_mapped_or_preserved(self):
         gaps: list[str] = []
+        unreadable: set[str] = set()
+        checked = 0
         for path in sorted(FIXTURES.glob("*.bib")):
             raws = _parse_or_none(path)
             if raws is None:
-                # A file bibtexparser cannot even read (``latin1_encoded.bib``)
-                # supplies no entry with fields to check here — SC-008's
-                # territory, not SC-006's.
+                # A file bibtexparser cannot even read supplies no entry with
+                # fields to check here — SC-008's territory, not SC-006's.
+                # Which files those are is fixed (UNREADABLE_FIXTURES), so a
+                # regression that stopped others parsing cannot pass this
+                # sweep by leaving it nothing to look at.
+                unreadable.add(path.name)
                 continue
             for raw in raws:
                 try:
@@ -865,7 +891,183 @@ class TestCorpusPreservation:
                 except SkipEntry:
                     continue
                 for bib_key, value in raw.items():
-                    if _is_source_field(bib_key) and value and not _accounted_for(bib_key, csl):
-                        gaps.append(f"{path.name}#{raw.get('ID')}: {bib_key!r}")
+                    if _is_source_field(bib_key) and value:
+                        checked += 1
+                        if not _accounted_for(bib_key, csl):
+                            gaps.append(f"{path.name}#{raw.get('ID')}: {bib_key!r}")
 
+        assert unreadable == UNREADABLE_FIXTURES
+        assert checked > 1000, "the sweep looked at far fewer fields than the corpus holds"
         assert not gaps
+
+
+class TestSourceEscaping:
+    """XML character escaping a real export carries is resolved (D1, FR-018).
+
+    ``.bib`` is not XML, but Crossref's own BibTeX export writes text that
+    passed through an XML pipeline, so ``&amp;`` reaches the file intact. It
+    is the same shape of defect as an undecoded ``Kr{\\"u}ger``: recoverable
+    from the value alone, so recovered rather than stored as written.
+    """
+
+    @pytest.mark.django_db
+    def test_a_real_export_stores_the_character_not_the_entity(self):
+        with fixture("real_crossref_classic.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        item = Item.objects.get(citation_key="Akiba_2019")
+        assert "&amp;" not in item.container_title
+        assert item.container_title == (
+            "Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining"
+        )
+
+    @pytest.mark.parametrize(
+        ("source", "expected"),
+        [
+            ("A &amp; B", "A & B"),
+            ("&lt;i&gt;in vivo&lt;/i&gt;", "<i>in vivo</i>"),
+            ("&quot;quoted&quot;", '"quoted"'),
+            ("&#8212;dash", "—dash"),
+            ("&#x2014;dash", "—dash"),
+        ],
+    )
+    def test_xml_escaping_resolves(self, source, expected):
+        assert BibTeXFormat().to_csl_json(entry(title=source))["title"] == expected
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "Smith & Sons",  # a bare ampersand is not escaping
+            "Rules &not to be broken",  # an HTML5 name, which XML does not define
+            "AT&T &amp",  # no closing semicolon, so not a reference
+            "&#xZZ;",  # not a character reference at all
+        ],
+    )
+    def test_text_that_is_not_xml_escaping_is_left_alone(self, source):
+        """The narrow rule matters: :func:`html.unescape` would rewrite the
+        second and third of these, turning ordinary prose into symbols.
+        """
+        assert BibTeXFormat().to_csl_json(entry(title=source))["title"] == source
+
+
+class TestDialectFieldCoverage:
+    """A BibLaTeX field with a classic counterpart lands in the same CSL
+    variable the classic one does (FR-024, D17, D22).
+
+    Reading both dialects under one name is only worth anything if the
+    BibLaTeX spelling maps: a record whose ``location`` went to bookkeeping
+    rather than to ``publisher-place`` is created, reported as created, and
+    quietly missing its place of publication.
+    """
+
+    @pytest.mark.parametrize(
+        ("bibtex_field", "value", "csl", "expected"),
+        [
+            ("location", "Cambridge", "publisher-place", "Cambridge"),
+            ("annotation", "A note", "annote", "A note"),
+            ("pagetotal", "412", "number-of-pages", "412"),
+            ("shorttitle", "Optuna", "title-short", "Optuna"),
+            ("abstract", "We show that.", "abstract", "We show that."),
+            ("keywords", "optimization, tuning", "keyword", "optimization, tuning"),
+        ],
+    )
+    def test_the_biblatex_spelling_maps(self, bibtex_field, value, csl, expected):
+        assert BibTeXFormat().to_csl_json(entry(**{bibtex_field: value}))[csl] == expected
+
+    def test_the_biblatex_spelling_wins_over_its_classic_pair(self):
+        """``location`` over ``address`` and ``annotation`` over ``annote``,
+        the same precedence ``journaltitle`` already has over ``journal``.
+        """
+        raw = entry(address="Old", location="New", annote="Old note", annotation="New note")
+        csl = BibTeXFormat().to_csl_json(raw)
+        assert csl["publisher-place"] == "New"
+        assert csl["annote"] == "New note"
+
+    @pytest.mark.django_db
+    def test_the_corpus_biblatex_export_stores_its_place_and_language(self):
+        with fixture("constructed_biblatex.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert Item.objects.get(citation_key="collected1995").publisher_place == "Cambridge"
+        assert Item.objects.get(citation_key="lecun2015deep").language == "en"
+
+
+class TestLanguage:
+    """``language``/``langid`` resolve to the BCP 47 tag the field holds, or
+    are preserved (D1, FR-025).
+
+    The catalogue's ``language`` is a tag of at most ten characters, so a
+    babel language name cannot simply be copied into it. A name the table
+    knows becomes its tag; anything else is neither truncated to fit nor
+    allowed to fail the entry.
+    """
+
+    @pytest.mark.parametrize(
+        ("source", "expected"),
+        [("english", "en"), ("British", "en-GB"), ("ngerman", "de"), ("en-GB", "en-GB"), ("pt-BR", "pt-BR")],
+    )
+    def test_a_recognised_language_becomes_its_tag(self, source, expected):
+        assert BibTeXFormat().to_csl_json(entry(langid=source))["language"] == expected
+
+    def test_an_unrecognised_language_is_preserved_rather_than_mapped(self):
+        csl = BibTeXFormat().to_csl_json(entry(langid="Middle High German"))
+        assert "language" not in csl
+        assert csl["custom"]["bibtex"] == {"langid": "Middle High German"}
+
+    @pytest.mark.django_db
+    def test_an_unrecognised_language_does_not_fail_its_entry(self):
+        """The reason this falls through to preservation rather than being
+        stored as written: ``Item.language`` is ten characters, so a longer
+        value would fail ``full_clean`` and take the whole entry with it.
+        """
+        source = "@misc{long_language, title = {A title}, langid = {Middle High German}}"
+        result = BibTeXFormat().import_file(io.StringIO(source))
+
+        assert [e.outcome for e in result] == [Outcome.CREATED]
+        item = Item.objects.get(citation_key="long_language")
+        assert item.language == ""
+        assert item.custom["bibtex"] == {"langid": "Middle High German"}
+
+
+class TestAccessDate:
+    """``urldate`` is the date a source was retrieved, CSL's ``accessed``.
+
+    BibLaTeX's ``@online`` entries are the case the dialect exists for, and
+    an access date is most of what distinguishes one from an undated web
+    reference.
+    """
+
+    @pytest.mark.django_db
+    def test_the_corpus_online_entry_stores_its_access_date(self):
+        with fixture("constructed_biblatex.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        item = Item.objects.get(citation_key="w3c2024standards")
+        assert item.item_dates.get(date_type="accessed").begin == PartialDate("2024-06-01")
+
+    def test_a_urldate_that_will_not_parse_is_preserved_not_discarded(self):
+        csl = BibTeXFormat().to_csl_json(entry(urldate="last Tuesday"))
+        assert "accessed" not in csl
+        assert csl["custom"]["bibtex"] == {"urldate": "last Tuesday"}
+
+
+class TestConsumedRatherThanTabled:
+    """Preservation follows what conversion did, not what the tables promise
+    (FR-025, D22).
+
+    A field a mapping table recognises can still land nowhere. Deciding
+    preservation from the tables alone would call it mapped and drop it.
+    """
+
+    def test_a_month_with_no_year_to_date_is_preserved(self):
+        csl = BibTeXFormat().to_csl_json(entry(month="July"))
+        assert "issued" not in csl
+        assert csl["custom"]["bibtex"] == {"month": "July"}
+
+    def test_a_name_list_that_parses_to_no_names_is_preserved(self):
+        csl = BibTeXFormat().to_csl_json(entry(author="{}"))
+        assert "author" not in csl
+        assert csl["custom"]["bibtex"] == {"author": "{}"}
