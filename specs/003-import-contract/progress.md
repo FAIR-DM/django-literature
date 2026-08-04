@@ -99,3 +99,31 @@ Append-only. Each entry is written at the moment the event happens, not reconstr
 **Next**: US2 (T014-T015) complete. US3 (registry, T016-T018) is next in tasks.md, out of this story's scope.
 
 **Watch**: decisions.md D13 and D14 record the two non-obvious calls in this task — the `item=None` branch and the `contextlib.nullcontext()` swap — plus a restated pointer (not a new finding) to research.md R5's long-open-transaction caveat for a future format's dry run at scale. Raising this in `concerns` for the review gate as requested by the task brief, not fixing it here: it is a caller-side sizing question, not a defect in this mechanism.
+
+## 2026-08-04T08:05:00Z · Review US2 · `tests/test_importers/test_dry_run.py`
+
+**Did**: Verified T014/T015 independently — re-ran the full suite (410 passed), ruff, format and
+`makemigrations --check` from a clean checkout of the story branch, and tamper-checked the mechanism
+by deleting `transaction.set_rollback(True)` (3 of the 7 dry-run tests fail, the right 3). Read the
+diff against the contract: the signature, the stage order, the outer-block-only-on-dry-run rule and
+the `item=None` rule all match `contracts/importers.md` and `data-model.md` as written.
+
+Added `TestDryRunOutsideATestTransaction` (decision D15) — every committed dry-run test runs under
+non-transactional `django_db`, which exercises only Django's savepoint branch. A caller in
+autocommit takes the other branch. Two tests under `django_db(transaction=True)` now cover it: a dry
+run stores nothing, and a real run still commits. Confirmed the first fails when
+`set_rollback(True)` is removed.
+
+**Resolved the baseline discrepancy T015 flagged** (403 vs the 404 recorded at T013): not a lost
+test. The US1 review commit `a489550` dropped the unused `Entry` dataclass with its 3 tests and
+added 2 regression tests for the `EntryError`-from-`parse` fix — net −1, so 404 → 403. Nothing to
+investigate.
+
+**Verified**: full suite → 412 passed. `ruff check` clean, `ruff format --check` → 33 files already
+formatted. `makemigrations --check --dry-run` → no changes.
+
+**Next**: merge US2 into `003-import-contract`, then US3 (registry, T016–T018).
+
+**Watch**: `django_db(transaction=True)` flushes tables rather than rolling back, so those two tests
+are slower than the rest and must not grow into a habit — they exist because this one guarantee
+cannot be proved any other way.

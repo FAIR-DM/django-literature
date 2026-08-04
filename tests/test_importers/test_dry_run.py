@@ -121,3 +121,38 @@ class TestDryRun:
         assert len(result.failed) == 1
         assert len(result.created) == 1
         assert _counts() == before
+
+
+@pytest.mark.django_db(transaction=True)
+class TestDryRunOutsideATestTransaction:
+    """The same guarantee at the transaction level a real caller runs at.
+
+    Every test above runs under non-transactional ``django_db``, so the
+    runner's outer ``transaction.atomic()`` is a savepoint nested in the test's
+    own transaction and ``set_rollback(True)`` takes Django's
+    ``savepoint_rollback`` path. A caller in autocommit hits the other branch:
+    the block is outermost and the rollback is a real ``connection.rollback()``.
+    Nothing else in the suite exercises it.
+    """
+
+    def test_a_dry_run_stores_nothing(self):
+        entries = [
+            {"kind": "good", "id": "a", "type": "book"},
+            {"kind": "good", "id": "b", "type": "book"},
+        ]
+        before = _counts()
+
+        result = import_file(io.StringIO(), make_echo_format(entries), dry_run=True)
+
+        assert len(result.created) == 2
+        assert _counts() == before
+
+    def test_a_real_run_still_commits(self):
+        """The counterpart: without the outer block, created entries persist."""
+        entries = [{"kind": "good", "id": "a", "type": "book"}]
+        items_before = Item.objects.count()
+
+        result = import_file(io.StringIO(), make_echo_format(entries))
+
+        assert len(result.created) == 1
+        assert Item.objects.count() == items_before + 1

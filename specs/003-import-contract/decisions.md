@@ -236,3 +236,23 @@ finding.
 **Revisit if**: a real format's import volume makes the long-open dry-run transaction a practical
 problem — the fix is a caller-side decision (chunking, a row-count cap before offering a dry run),
 not a change to this mechanism.
+
+## D15 — The dry-run guarantee is tested at the transaction level a real caller runs at
+
+Self-resolved, during review of US2.
+
+Every dry-run test T014 wrote runs under non-transactional `django_db`, so the test itself holds a
+transaction open and the runner's outer `transaction.atomic()` is a nested savepoint. Django's
+`Atomic.__exit__` handles a rollback-marked savepoint block by calling `savepoint_rollback`; at the
+outermost level it instead unsets `in_atomic_block` and calls `connection.rollback()`. Those are two
+different branches, and a real caller in autocommit only ever takes the second — the one nothing in
+the suite covered. The mechanism does work there (verified by probe, then kept as a test), but "we
+never checked" and "it works" are not the same claim, and the whole point of the feature is that a
+rehearsal writes nothing.
+
+`TestDryRunOutsideATestTransaction` covers both directions under `django_db(transaction=True)`: a
+dry run leaves the row counts unchanged, and a real run commits. The first was confirmed to fail
+when `transaction.set_rollback(True)` is removed.
+
+**Revisit if**: the flush-per-test cost of `transaction=True` becomes noticeable — the answer is to
+keep these two and refuse more, not to drop them.
