@@ -473,34 +473,94 @@
       "id": "US3",
       "priority": "P3",
       "issue": 32,
-      "worktree": null,
-      "status": "todo",
+      "worktree": "/home/sam/projects/fairdm/dl-us3",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T026",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T027",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T028",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T029",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T030",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (647 passed)",
+              "forge verify --repo dl-us3 (lint/typecheck/test/build passed; conformance red on the repo-wide line-length 120, which the family sweep has queued behind PR #34 and which no story introduced)",
+              "forge tamper-check --base 004-import-references-bibtex (2 flags: story diff additive-only, plus my own deliberate edit to the US1 entry-type examples, D18)",
+              "coverage 98% project / 96% literature/importers/bibtex.py"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },
