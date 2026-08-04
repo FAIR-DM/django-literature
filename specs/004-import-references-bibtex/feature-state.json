@@ -383,34 +383,89 @@
       "id": "US2",
       "priority": "P2",
       "issue": 31,
-      "worktree": null,
-      "status": "todo",
+      "worktree": "/home/sam/projects/fairdm/dl-us2",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T021",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T022",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T023",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T024",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T025",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_importers/test_bibtex.py"
+            ],
+            "commands": [
+              "poetry run pytest -q --no-cov (598 passed)",
+              "forge verify --repo dl-us2 (conformance/lint/typecheck/test/build all passed)",
+              "forge tamper-check --base 004-import-references-bibtex (1 flag, additive-only diff, approved per D12)"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },
