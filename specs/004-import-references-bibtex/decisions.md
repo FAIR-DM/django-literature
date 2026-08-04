@@ -163,3 +163,26 @@ Recorded rather than quietly accepted, because it is a real gap in the acceptanc
 argument for real exports is that they carry what nobody thought to construct, and a constructed file
 cannot do that by definition. Replacing it with a genuine export is worth doing whenever one can be
 supplied.
+
+## D10 — Two pre-existing tests modified, and why it is not a regression being papered over
+
+`forge tamper-check` flags two files, and both flags are correct: `tests/test_importers/test_config.py`
+and `tests/test_importers/test_smoke.py` were written before this feature and were changed by it. The
+default reading of that signal is that an implementation broke a test and edited the test instead of
+the code, so the justification belongs on the record rather than in a commit message alone.
+
+Neither test failed because behaviour regressed. Both asserted, correctly at the time, that the
+package ships no format of its own.
+
+`test_an_unset_setting_yields_the_shipped_defaults` asserted `available_formats() == {}`. Its own
+docstring said the package "ships no format of its own **yet**", and what it tests is the mechanism,
+that an unset setting yields the shipped defaults rather than an error. The assertion now names
+`bibtex`. The test is stronger than before, because there is finally a real default for it to check.
+
+`test_all_lists_exactly_the_documented_surface` compares `__all__` against a hand-maintained map of
+public names to modules, deliberately in both directions. Adding `BibTeXFormat` to `__all__` without
+adding it to that map is exactly what the guard exists to catch, and it caught it. Updating the map
+is the guard working, not the guard being silenced.
+
+The distinction that matters: a test asserting *behaviour this feature changed* would be evidence
+that the feature is wrong. These assert *inventory* the feature is supposed to change.
