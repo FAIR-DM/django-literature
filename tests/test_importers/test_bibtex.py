@@ -12,6 +12,7 @@ each file isolates and which of the two real exports is genuine.
 from pathlib import Path
 
 import pytest
+from partial_date import PartialDate
 
 from literature.importers import Outcome, available_formats, get_format
 from literature.importers.base import BibFormat
@@ -517,3 +518,72 @@ class TestCorpusAcceptance:
         assert result.ok, [e.reason for e in result.failed]
         assert len(result.created) == 6
         assert Item.objects.count() == 6
+
+
+class TestBibLaTeX:
+    """A BibLaTeX export reads the same way a classic one does (FR-022, FR-023).
+
+    ``constructed_biblatex.bib`` is written to follow Zotero's and JabRef's
+    BibLaTeX-exporter conventions (README, D9): ``journaltitle`` over
+    ``journal``, a single ``date`` field, and entry types classic BibTeX has
+    no equivalent for.
+    """
+
+    def test_journaltitle_maps_to_container_title_exactly_as_journal_does(self):
+        raw = entry(journaltitle="Nature")
+        assert BibTeXFormat().to_csl_json(raw)["container-title"] == "Nature"
+
+    @pytest.mark.parametrize(
+        ("date", "date_parts"),
+        [
+            ("2015-05-28", [2015, 5, 28]),
+            ("2024-01", [2024, 1]),
+            ("1970", [1970]),
+        ],
+    )
+    def test_a_single_date_field_stores_at_the_precision_it_states(self, date, date_parts):
+        raw = entry(date=date)
+        assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [date_parts]}
+
+    @pytest.mark.parametrize(
+        ("bibtex_type", "mapping"),
+        sorted((item for item in ENTRY_TYPE_TABLE.items() if item[1].dialect == "biblatex")),
+    )
+    def test_every_biblatex_only_type_maps_to_a_real_csl_type_not_the_fallback(self, bibtex_type, mapping):
+        csl_type = BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"]
+        assert csl_type == mapping.csl
+        assert csl_type != "document"
+
+    @pytest.mark.django_db
+    def test_constructed_biblatex_corpus_imports_with_real_types_container_titles_and_date_precision(self):
+        with fixture("constructed_biblatex.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert len(result.created) == 7
+        assert "document" not in {item.type for item in Item.objects.all()}
+
+        by_key = {item.citation_key: item for item in Item.objects.all()}
+        assert by_key["lecun2015deep"].type == "article-journal"
+        assert by_key["lecun2015deep"].container_title == "Nature"
+        assert by_key["w3c2024standards"].type == "webpage"
+        assert by_key["codd1970relational"].type == "thesis"
+        assert by_key["berners1989information"].type == "report"
+        assert by_key["collected1995"].type == "collection"
+        assert by_key["chapter1995"].type == "chapter"
+
+        assert by_key["lecun2015deep"].item_dates.get(date_type="issued").begin == PartialDate("2015-05-28")
+        assert by_key["w3c2024standards"].item_dates.get(date_type="issued").begin == PartialDate("2024-01")
+        assert by_key["codd1970relational"].item_dates.get(date_type="issued").begin == PartialDate("1970")
+
+    @pytest.mark.django_db
+    def test_a_file_mixing_both_conventions_across_entries_imports_correctly(self):
+        """FR-023 acceptance scenario 4: every entry reads correctly without
+        anyone naming a dialect, whether it writes classic or BibLaTeX field
+        names and entry types.
+        """
+        with fixture("constructed_biblatex.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        assert result.ok, [e.reason for e in result.failed]
+        assert all(e.outcome == Outcome.CREATED for e in result)
