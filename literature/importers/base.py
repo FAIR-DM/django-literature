@@ -149,11 +149,27 @@ class BibFormat(abc.ABC):
         outer_transaction = transaction.atomic(using=using) if dry_run else contextlib.nullcontext()
 
         with outer_transaction:
-            entries = self.import_entries(self.parse(file), dry_run=dry_run)
+            entries = self.import_entries(self._parsed(file), dry_run=dry_run)
             if dry_run:
                 transaction.set_rollback(True, using=using)
 
         return self.get_result(entries, dry_run=dry_run)
+
+    def _parsed(self, file) -> Iterator[Any]:
+        """Hand ``parse`` its file from inside the loop that protects it.
+
+        ``parse`` is documented as returning an iterator, and a generator
+        function does not run a line of its body until it is first iterated —
+        so a generator implementation raises inside ``import_entries``'s
+        ``try`` and is reported. But most third-party bibliography parsers
+        read the whole file up front, and a ``parse`` written around one
+        raises the moment it is *called*. Called directly from
+        ``import_file`` that lands outside every ``try`` in this class and
+        escapes to the caller, against FR-014. Yielding through this
+        generator defers the call to the first ``next()``, so both shapes of
+        ``parse`` report an unreadable file the same way.
+        """
+        yield from self.parse(file)
 
     def import_entries(self, entries: Iterator[Any], *, dry_run: bool) -> list[EntryResult]:
         """Import each raw entry ``parse`` produced, consuming it one at a time.

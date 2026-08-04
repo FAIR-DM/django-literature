@@ -94,6 +94,12 @@ overwrite additional methods, all power to you."* A format that implements only 
 **`parse` yields, it does not return a list.** FR-024 rests on this, and a list return makes the
 requirement unmeetable from outside the format.
 
+**A `parse` that reads the whole file up front still reports rather than raises.** Most third-party
+bibliography parsers hand back everything at once, so a `parse` written around one raises when it is
+*called* rather than when it is first iterated. The default `import_file` defers that call into
+`import_entries`, so FR-014 holds for both shapes — a format author does not have to know which one
+they wrote. One-at-a-time consumption (FR-024) is still only achievable by yielding.
+
 **Signalling that an entry is not a bibliographic record:** `to_csl_json` raises `SkipEntry`, with
 an optional note. The default `import_entry` records `SKIPPED` and moves on. This is how a BibTeX
 `@comment` or an RIS header line is reported as "recognised, deliberately not stored" rather than as

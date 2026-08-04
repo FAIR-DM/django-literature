@@ -521,3 +521,37 @@ on neither. Splitting them into three specs would mean three plans, three sets o
 model/contracts documents describing the same feature at three different snapshots, for changes that
 were decided together and reviewed together. One phase, numbered tasks continuing from where S1–S6
 left off (T024–T031), keeps the history legible as one rework rather than three.
+
+---
+
+## D29 — `import_file` defers the `parse` call so an eager parser is reported, not raised
+
+**2026-08-04, review of the T024–T031 rework.**
+
+The rework moved the workflow onto `BibFormat` and, in doing so, moved the `self.parse(file)` call
+out of the `try` that protects it. In `runner.py` the call sat inside the loop's `try` (`for raw in
+fmt.parse(file):`); after T026 it was evaluated in `import_file` as the argument to
+`import_entries`, which is outside every `try` in the class.
+
+Nothing caught it, because every test format in the suite implements `parse` as a generator, and a
+generator function does not execute a line of its body until first iterated — so its `ParseError`
+was still raised inside `import_entries`. A format that parses the whole file up front raises when
+`parse` is *called*, and that exception escaped `import_file` to the caller. Reproduced with a probe
+before changing anything: FR-014 ("never raises for bad file content") held only for formats that
+happened to be written as generators, which is the shape our test doubles use and not the shape most
+third-party bibliography parsers force on a real one. #22's `parse` around `bibtexparser.load()`
+would have hit it.
+
+`import_file` now calls a small private generator, `_parsed`, that does `yield from self.parse(file)`
+— deferring the call to the first `next()`, which happens inside `import_entries`'s `try`. Both
+shapes of `parse` now report an unreadable file identically. The alternative, changing
+`import_entries` to take the file and call `parse` itself, would have kept the fix in a documented
+method but changed a signature that spec.md, data-model.md, contracts/importers.md and the T025
+tests all name.
+
+This is not a retreat from the maintainer's ruling on override-prevention. FR-014 is a promise the
+contract makes about bad *file content*, which the ruling did not touch; nothing here constrains what
+a subclass may replace.
+
+**Regression test:** `test_a_format_that_parses_the_whole_file_up_front_reports_rather_than_raises`.
+Tamper-checked — restoring the direct `self.parse(file)` call fails that test and only that test.

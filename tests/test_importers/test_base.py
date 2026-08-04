@@ -539,6 +539,34 @@ class TestResilience:
         assert "UTF-8" in result.entries[0].reason
         assert Item.objects.count() == 0
 
+    def test_a_format_that_parses_the_whole_file_up_front_reports_rather_than_raises(self):
+        """FR-014 for a ``parse`` that is not a generator.
+
+        Most third-party bibliography parsers read a whole file in one call, so
+        a ``parse`` written around one raises the moment it is *called* rather
+        than when it is first iterated. Both shapes have to report an
+        unreadable file the same way, or the guarantee holds only for formats
+        that happen to be written as generators.
+        """
+
+        class _EagerFormat(BibFormat):
+            name = "eager"
+            label = "eager"
+
+            def parse(self, file):
+                raise ParseError("file is not valid BibTeX")
+
+            def to_csl_json(self, raw):  # pragma: no cover - never reached
+                return raw
+
+        result = _EagerFormat().import_file(io.StringIO("garbage"))
+
+        assert len(result.entries) == 1
+        assert result.entries[0].outcome == Outcome.FAILED
+        assert result.entries[0].index == 0
+        assert result.entries[0].reason == "file is not valid BibTeX"
+        assert Item.objects.count() == 0
+
     def test_truncated_file_reports_recovered_entries_and_a_failure_for_the_remainder(self):
         """Edge case: a ParseError raised mid-stream, after some entries."""
 
