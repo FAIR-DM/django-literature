@@ -202,3 +202,44 @@ class TestDates:
             raws = list(BibTeXFormat().parse(handle))
         akiba = next(raw for raw in raws if raw["ID"] == "Akiba_2019")
         assert BibTeXFormat().to_csl_json(akiba)["issued"] == {"date-parts": [[2019, 7]]}
+
+
+class TestIdentifiers:
+    """DOI, ISBN, ISSN and URL become typed identifier records (FR-011)."""
+
+    def test_doi_isbn_and_url_from_the_clean_corpus(self):
+        with fixture("clean_multi_type.bib") as handle:
+            raws = {raw["ID"]: raw for raw in BibTeXFormat().parse(handle)}
+
+        shannon = BibTeXFormat().to_csl_json(raws["shannon1948mathematical"])
+        assert shannon["DOI"] == "10.1002/j.1538-7305.1948.tb01338.x"
+
+        knuth = BibTeXFormat().to_csl_json(raws["knuth1984texbook"])
+        assert knuth["ISBN"] == "0-201-13447-0"
+
+        w3c = BibTeXFormat().to_csl_json(raws["w3c2024standards"])
+        assert w3c["URL"] == "https://www.w3.org/standards/"
+
+    def test_issn_from_a_real_export(self):
+        with fixture("real_crossref_classic.bib") as handle:
+            raws = list(BibTeXFormat().parse(handle))
+        lecun = next(raw for raw in raws if raw["ID"] == "LeCun_2015")
+        assert BibTeXFormat().to_csl_json(lecun)["ISSN"] == "1476-4687"
+
+    def test_no_identifier_fields_means_no_identifier_keys(self):
+        csl = BibTeXFormat().to_csl_json(entry())
+        assert not ({"DOI", "ISBN", "ISSN", "URL"} & csl.keys())
+
+    def test_identifier_field_names_are_looked_up_case_insensitively(self):
+        """``real_crossref_classic.bib`` carries uppercase ``ISSN`` and ``DOI``.
+
+        The case-folding is ``bibtexparser``'s own (every field key is
+        lowercased while parsing), so this is really an assertion that
+        nothing here undoes it.
+        """
+        with fixture("real_crossref_classic.bib") as handle:
+            raws = list(BibTeXFormat().parse(handle))
+        lecun = next(raw for raw in raws if raw["ID"] == "LeCun_2015")
+        csl = BibTeXFormat().to_csl_json(lecun)
+        assert csl["DOI"] == "10.1038/nature14539"
+        assert csl["ISSN"] == "1476-4687"

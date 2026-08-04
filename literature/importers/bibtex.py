@@ -96,6 +96,14 @@ FIELD_TABLE: dict[str, _Mapped] = {
     "volume": _Mapped("volume", "classic"),
 }
 
+#: BibTeX identifier field -> top-level CSL identifier key (FR-011).
+IDENTIFIER_FIELD_TABLE: dict[str, _Mapped] = {
+    "doi": _Mapped("DOI", "classic"),
+    "isbn": _Mapped("ISBN", "classic"),
+    "issn": _Mapped("ISSN", "classic"),
+    "url": _Mapped("URL", "classic"),
+}
+
 #: BibTeX name-list field -> CSL name-variable role (FR-008).
 NAME_FIELD_TABLE: dict[str, _Mapped] = {
     "author": _Mapped("author", "classic"),
@@ -287,7 +295,7 @@ class BibTeXFormat(BibFormat):
         """Turn one parsed entry into CSL JSON.
 
         Mapped in the fixed order plan.md lays out: type, fields, names,
-        dates. Identifiers, cleaning and preservation are later stories in
+        dates, identifiers. Cleaning and preservation are later stories in
         this file's history; a field this story does not recognise is simply
         not carried into the result yet.
         """
@@ -311,6 +319,11 @@ class BibTeXFormat(BibFormat):
         issued = _issued_date(raw)
         if issued:
             result["issued"] = issued
+
+        for bib_key, mapping in IDENTIFIER_FIELD_TABLE.items():
+            value = raw.get(bib_key)
+            if value:
+                result[mapping.csl] = value
 
         return result
 
