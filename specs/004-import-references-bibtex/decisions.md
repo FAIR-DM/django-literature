@@ -251,3 +251,23 @@ lint step was clean and the failure only appears under the full hook chain. Fixe
 general lesson is the one the workspace already recorded about verify not matching CI: a story that
 runs the linter directly rather than the repo's configured hook chain is checking less than the
 pipeline will.
+
+## D13 — Where a value US2 cannot rescue is allowed to land
+
+US2 is required to preserve a value it cannot normalize into something the catalogue accepts
+(FR-019), and US4 owns preservation of unmapped fields generally (FR-022, FR-023). The two meet at
+the same slot, CSL `custom`, which raised the question of whether US2 may write there at all before
+US4 exists.
+
+It may, for the narrow case only. A cleaned value that still fails validation is written under its
+own source field name in `custom`, one field at a time, at the point the failure is detected. What
+US2 must not do is build the general sweep — walking every field of an entry and preserving whatever
+had nowhere else to go — because that is US4's mechanism and duplicating it would leave two
+implementations of the same rule to reconcile at convergence.
+
+The alternative, making US2 fail such an entry and letting US4 rescue it later, was rejected. It
+would land a state where a messy export refuses entries it is supposed to accept, and the story
+would be reported complete with its own acceptance criterion unmet.
+
+Unparseable dates are not this case. `ItemDate` already carries `literal` and `raw` for a date that
+cannot be structured (FR-020), so those go to the model's own fallback rather than to `custom`.
