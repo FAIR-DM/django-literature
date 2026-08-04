@@ -1,8 +1,10 @@
 """The import workflow: one call, four fixed stages, one result.
 
-See contracts/importers.md for the full contract. The ``format: str``
-registry lookup is not implemented here — it belongs to US3 (plan.md,
-tasks.md T018).
+See contracts/importers.md for the full contract. ``format`` may be a
+``Format`` subclass or the registered name of one — a name is resolved
+through :func:`~literature.importers.registry.get_format` (FR-018), whose
+``UnknownFormat`` is programmer error and is left to propagate rather than
+becoming a failed entry (FR-019, contracts/importers.md "Exceptions").
 """
 
 import contextlib
@@ -15,6 +17,7 @@ from django.db.utils import IntegrityError
 from literature.converters import from_csl_json
 from literature.importers.base import Format
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
+from literature.importers.registry import get_format
 from literature.importers.results import EntryResult, ImportResult, Outcome
 
 logger = logging.getLogger(__name__)
@@ -22,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def import_file(
     file,
-    format: type[Format],  # noqa: A002 -- contracts/importers.md names it `format`
+    format: type[Format] | str,  # noqa: A002 -- contracts/importers.md names it `format`
     *,
     dry_run: bool = False,
 ) -> ImportResult:
@@ -32,7 +35,11 @@ def import_file(
         file: An open file object, or anything with a ``read()``. Never
             opened as a path — passed straight through to ``format.parse``
             (FR-023).
-        format: A ``Format`` subclass. The runner instantiates it.
+        format: A ``Format`` subclass, or the registered name of one
+            (FR-018). A name is resolved through
+            :func:`~literature.importers.registry.get_format`, which raises
+            ``UnknownFormat`` for a name that is not registered (FR-019).
+            The runner instantiates whichever class it ends up with.
         dry_run: Run every stage and report every outcome, then leave the
             catalogue exactly as it was (FR-015). Same code path as a real
             run, wrapped in one outer ``transaction.atomic()`` that is
@@ -44,9 +51,13 @@ def import_file(
 
     Never raises for bad file content: a file that cannot be parsed at all
     comes back as an :class:`~literature.importers.results.ImportResult`
-    whose single entry failed, with the parser's reason (FR-014).
+    whose single entry failed, with the parser's reason (FR-014). Does
+    raise for programmer error — an unregistered format name reaches the
+    caller as ``UnknownFormat`` rather than becoming a failed entry.
     """
-    fmt = format()
+    format_name = format if isinstance(format, str) else None
+    format_class = get_format(format) if isinstance(format, str) else format
+    fmt = format_class()
     entries: list[EntryResult] = []
     index = 0
 
@@ -116,4 +127,4 @@ def import_file(
         if dry_run:
             transaction.set_rollback(True)
 
-    return ImportResult(entries=entries, dry_run=dry_run)
+    return ImportResult(entries=entries, dry_run=dry_run, format_name=format_name)
