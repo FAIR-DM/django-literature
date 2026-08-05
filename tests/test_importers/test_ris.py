@@ -450,12 +450,10 @@ class TestSeparationTolerance:
     """
 
     _CANONICAL_BOM_ENTRY = (
-        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry whose file carries a byte-order mark\n"
-        b"PY  - 2020\nER  -\n"
+        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry whose file carries a byte-order mark\nPY  - 2020\nER  -\n"
     )
     _CANONICAL_SINGLE_SPACE_ENTRY = (
-        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry using the single-space separator variant\n"
-        b"PY  - 2020\nER  -\n"
+        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry using the single-space separator variant\nPY  - 2020\nER  -\n"
     )
 
     def test_crlf_line_endings_yield_the_same_csl_json_as_the_canonical_form(self):
@@ -486,10 +484,10 @@ class TestSeparationTolerance:
         """No blank line between one pair, two between the next -- both are still recovered
         (FR-010's own "inconsistent... entry separation" case)."""
         raw = (
-            "TY  - JOUR\nAU  - First, A.\nTI  - No blank line follows\nPY  - 2020\nER  -\n"
-            "TY  - JOUR\nAU  - Second, B.\nTI  - One blank line follows\nPY  - 2021\nER  -\n\n\n"
-            "TY  - JOUR\nAU  - Third, C.\nTI  - Two blank lines follow\nPY  - 2022\nER  -\n"
-        ).encode()
+            b"TY  - JOUR\nAU  - First, A.\nTI  - No blank line follows\nPY  - 2020\nER  -\n"
+            b"TY  - JOUR\nAU  - Second, B.\nTI  - One blank line follows\nPY  - 2021\nER  -\n\n\n"
+            b"TY  - JOUR\nAU  - Third, C.\nTI  - Two blank lines follow\nPY  - 2022\nER  -\n"
+        )
         entries = list(RISParser().parse(io.BytesIO(raw)))
         assert [e.values("AU") for e in entries] == [["First, A."], ["Second, B."], ["Third, C."]]
 

@@ -532,7 +532,7 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     ISSN nor ISBN are a later story's concern (US-3 T025) and are left alone here, as they already
     were before this task.
     """
-    result: dict[str, str] = {}
+    result: dict[str, Any] = {}
     preserved: dict[str, str] = {}
 
     do_values = raw.values("DO")
