@@ -20,7 +20,7 @@ from partial_date import PartialDate
 from literature.converters import _generate_dedup_suffix
 from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
-from literature.importers.exceptions import EntryError, ParseError
+from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
 from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
 from literature.models import Item
@@ -435,6 +435,84 @@ class TestContinuationLines:
         assert entries[0].values("PY") == ["2023"]
 
 
+def _first_entry_csl(byte_content: bytes) -> dict:
+    """Parse ``byte_content`` and map its first entry to CSL JSON, in one step."""
+    return RISFormat().to_csl_json(next(RISParser().parse(io.BytesIO(byte_content))))
+
+
+class TestSeparationTolerance:
+    """Files that differ only in separation -- CRLF, a byte-order mark, single-space
+    ``TAG - value`` separators, inconsistent blank lines between entries -- yield the same CSL
+    JSON the two-space LF form does; wrapped continuation lines are read as part of the value
+    they belong to (T022, FR-010, FR-007, acceptance scenarios 4 and 6). ``TestRISParserFraming``
+    and ``TestContinuationLines`` already prove this at the raw-tag level; this proves it holds
+    through the full CSL mapping, which is what "when it is imported" actually exercises.
+    """
+
+    _CANONICAL_BOM_ENTRY = (
+        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry whose file carries a byte-order mark\nPY  - 2020\nER  -\n"
+    )
+    _CANONICAL_SINGLE_SPACE_ENTRY = (
+        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry using the single-space separator variant\nPY  - 2020\nER  -\n"
+    )
+
+    def test_crlf_line_endings_yield_the_same_csl_json_as_the_canonical_form(self):
+        with fixture("constructed/crlf_line_endings.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl == _first_entry_csl(self._CANONICAL_BOM_ENTRY)
+
+    def test_a_byte_order_mark_yields_the_same_csl_json_as_the_canonical_form(self):
+        with fixture("constructed/byte_order_mark.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl == _first_entry_csl(self._CANONICAL_BOM_ENTRY)
+
+    def test_single_space_separator_yields_the_same_csl_json_as_the_canonical_form(self):
+        with fixture("constructed/single_space_separator.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl == _first_entry_csl(self._CANONICAL_SINGLE_SPACE_ENTRY)
+
+    def test_wrapped_continuation_lines_join_into_the_field_they_belong_to(self):
+        with fixture("constructed/wrapped_prose.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl["title"] == "Tropical cyclones and the organization of mangrove forests: a review"
+        assert csl["container-title"] == "Annals of Botany"
+        assert csl["abstract"].startswith("This abstract is written across several lines")
+        # A continuation line correctly joined is not also mistaken for an unknown tag.
+        assert "custom" not in csl
+
+    def test_inconsistent_blank_lines_between_entries_still_yields_all_of_them(self):
+        """No blank line between one pair, two between the next -- both are still recovered
+        (FR-010's own "inconsistent... entry separation" case)."""
+        raw = (
+            b"TY  - JOUR\nAU  - First, A.\nTI  - No blank line follows\nPY  - 2020\nER  -\n"
+            b"TY  - JOUR\nAU  - Second, B.\nTI  - One blank line follows\nPY  - 2021\nER  -\n\n\n"
+            b"TY  - JOUR\nAU  - Third, C.\nTI  - Two blank lines follow\nPY  - 2022\nER  -\n"
+        )
+        entries = list(RISParser().parse(io.BytesIO(raw)))
+        assert [e.values("AU") for e in entries] == [["First, A."], ["Second, B."], ["Third, C."]]
+
+    @pytest.mark.django_db
+    def test_a_crlf_file_imports_as_one_created_entry(self):
+        with fixture("constructed/crlf_line_endings.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result.created) == 1
+        assert result.created[0].item.title == "An entry whose file carries a byte-order mark"
+
+    @pytest.mark.django_db
+    def test_a_byte_order_mark_file_imports_as_one_created_entry(self):
+        with fixture("constructed/byte_order_mark.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result.created) == 1
+        assert result.created[0].item.title == "An entry whose file carries a byte-order mark"
+
+    @pytest.mark.django_db
+    def test_a_single_space_separator_file_imports_as_one_created_entry(self):
+        with fixture("constructed/single_space_separator.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result.created) == 1
+        assert result.created[0].item.title == "An entry using the single-space separator variant"
+
+
 class TestWholeFileOutcomes:
     """The three whole-file outcomes and the header sentinel, through the full import workflow
     (``RISFormat.import_file``, not just ``RISParser`` directly) (T008).
@@ -495,6 +573,83 @@ class TestWholeFileOutcomes:
         for path in every_file:
             with path.open("rb") as handle:
                 RISFormat().import_file(handle)  # must not raise
+
+
+class TestMalformedEntryFailsAlone:
+    """A block of tags with no ``TY`` of its own, seen after the first entry, is its own entry
+    now — no longer dropped — and fails alone with a reason naming what is missing, while every
+    other entry in the file is still stored (T021, FR-009, acceptance scenario 5).
+    """
+
+    def test_the_parser_yields_the_stray_block_as_its_own_entry(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert len(entries) == 2
+        assert entries[1].values("TY") == []
+        assert entries[1].values("AU") == ["Jones, K."]
+        assert entries[1].values("TI") == ["A second block with no TY tag of its own"]
+
+    def test_the_stray_block_carries_the_next_index_and_its_own_start_line(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[1].index == 1
+        assert entries[1].start_line == 7
+
+    def test_to_csl_json_raises_entry_error_naming_the_missing_ty(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        with pytest.raises(EntryError) as excinfo:
+            RISFormat().to_csl_json(entries[1])
+        assert "TY" in str(excinfo.value)
+
+    @pytest.mark.django_db
+    def test_the_good_entry_is_created_and_the_stray_block_is_reported_failed(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 2
+        assert result.entries[0].outcome == Outcome.CREATED
+        assert result.entries[1].outcome == Outcome.FAILED
+        assert "TY" in result.entries[1].reason
+
+    @pytest.mark.django_db
+    def test_the_good_entry_is_actually_stored(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            RISFormat().import_file(handle)
+        assert Item.objects.count() == 1
+        item = Item.objects.get()
+        author = item.item_names.get(role="author").name
+        assert author.family == "Smith"
+
+
+class TestTyOnlySkipped:
+    """An entry carrying ``TY`` and no other bibliographic content is reported as skipped rather
+    than stored as a near-empty item (T021, FR-009, decisions.md D31)."""
+
+    @pytest.mark.django_db
+    def test_the_entry_is_reported_skipped_and_the_import_still_succeeds(self):
+        with fixture("constructed/ty_only.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 1
+        assert result.entries[0].outcome == Outcome.SKIPPED
+        assert result.ok
+
+    @pytest.mark.django_db
+    def test_the_entry_stores_no_item(self):
+        with fixture("constructed/ty_only.ris") as handle:
+            RISFormat().import_file(handle)
+        assert Item.objects.count() == 0
+
+    def test_to_csl_json_raises_skip_entry_for_a_ty_only_entry(self):
+        with pytest.raises(SkipEntry):
+            RISFormat().to_csl_json(entry())
+
+    def test_a_tag_present_with_an_empty_value_is_not_ty_only(self):
+        """A second tag disqualifies the skip even when its value is empty — the check is on
+        which tags the entry carries, not on whether their values are non-empty (D31's drafted
+        check, ``all(tag == "TY" for tag, _ in raw.tags)``, decided here as this task's own
+        non-obvious choice)."""
+        csl = RISFormat().to_csl_json(entry(ab=""))
+        assert csl["type"]
 
 
 class TestRegistration:
@@ -581,16 +736,22 @@ class TestReferenceTypeTable:
 
     @pytest.mark.parametrize(("ris_type", "csl_type"), sorted(REFERENCE_TYPE_TABLE.items()))
     def test_every_listed_type_maps_to_its_csl_equivalent(self, ris_type, csl_type):
-        assert RISFormat().to_csl_json(entry(ty=ris_type))["type"] == csl_type
+        assert RISFormat().to_csl_json(entry(ty=ris_type, ti="x"))["type"] == csl_type
 
     def test_an_unlisted_type_maps_to_the_generic_document(self):
-        assert RISFormat().to_csl_json(entry(ty="ZZZZ"))["type"] == "document"
+        assert RISFormat().to_csl_json(entry(ty="ZZZZ", ti="x"))["type"] == "document"
 
     def test_grnt_and_grant_reach_the_same_csl_type(self):
-        assert RISFormat().to_csl_json(entry(ty="GRNT"))["type"] == RISFormat().to_csl_json(entry(ty="GRANT"))["type"]
+        assert (
+            RISFormat().to_csl_json(entry(ty="GRNT", ti="x"))["type"]
+            == RISFormat().to_csl_json(entry(ty="GRANT", ti="x"))["type"]
+        )
 
     def test_unpd_and_unpb_reach_the_same_csl_type(self):
-        assert RISFormat().to_csl_json(entry(ty="UNPD"))["type"] == RISFormat().to_csl_json(entry(ty="UNPB"))["type"]
+        assert (
+            RISFormat().to_csl_json(entry(ty="UNPD", ti="x"))["type"]
+            == RISFormat().to_csl_json(entry(ty="UNPB", ti="x"))["type"]
+        )
 
 
 class TestCoreFieldMapping:
@@ -630,7 +791,7 @@ class TestCoreFieldMapping:
         assert RISFormat().to_csl_json(entry(cy="Amsterdam"))["publisher-place"] == "Amsterdam"
 
     def test_an_absent_core_tag_leaves_no_key(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"title", "abstract", "volume", "issue"} & csl.keys())
 
 
@@ -723,7 +884,7 @@ class TestContributors:
         assert csl["author"] == [{"literal": "World Wide Web Consortium"}]
 
     def test_no_contributor_tags_means_no_name_variable_keys(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"author", "editor", "collection-editor"} & csl.keys())
 
 
@@ -762,8 +923,46 @@ class TestDates:
         assert "issued" not in csl
 
     def test_no_date_tags_means_no_issued_or_accessed(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"issued", "accessed"} & csl.keys())
+
+
+class TestUnparseableDates:
+    """A date that cannot be resolved to a structured date is kept in the item's existing
+    fallback for unparseable dates rather than discarded, and the entry is not failed (T020,
+    FR-026, acceptance scenario 3)."""
+
+    def test_an_unparseable_py_falls_back_to_literal(self):
+        csl = RISFormat().to_csl_json(entry(py="n.d."))
+        assert csl["issued"] == {"literal": "n.d."}
+
+    def test_an_unparseable_py_with_no_rescuing_y1_falls_back_to_literal(self):
+        csl = RISFormat().to_csl_json(entry(py="circa 1990s"))
+        assert csl["issued"] == {"literal": "circa 1990s"}
+
+    def test_an_unparseable_py_still_lets_a_parseable_y1_rescue_the_date(self):
+        """Pre-existing precedence, unchanged by this task: `Y1` is only consulted when `PY`
+        itself carries no year, and an unparseable `PY` carries none."""
+        csl = RISFormat().to_csl_json(entry(py="n.d.", y1="2020/03/15"))
+        assert csl["issued"] == {"date-parts": [[2020, 3, 15]]}
+
+    def test_an_unparseable_y1_falls_back_to_literal_when_py_is_absent(self):
+        csl = RISFormat().to_csl_json(entry(y1="unknown"))
+        assert csl["issued"] == {"literal": "unknown"}
+
+    def test_an_unparseable_y2_falls_back_to_literal(self):
+        csl = RISFormat().to_csl_json(entry(y2="undated"))
+        assert csl["accessed"] == {"literal": "undated"}
+
+    @pytest.mark.django_db
+    def test_an_unparseable_date_does_not_fail_the_entry(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - n.d.\nID  - smith-nd\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.created
+        item = result.created[0].item
+        issued = item.item_dates.get(date_type="issued")
+        assert issued.literal == "n.d."
+        assert issued.begin is None
 
 
 class TestIdentifiers:
@@ -799,8 +998,77 @@ class TestIdentifiers:
         assert not ({"ISSN", "ISBN"} & csl.keys())
 
     def test_no_identifier_tags_means_no_identifier_keys(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())
+
+
+class TestDOIRecovery:
+    """A ``DO`` written as a resolver URL or carrying a ``doi:`` label recovers to the bare DOI,
+    through the same shared normalizer ``bibtex.py`` uses (T018, FR-025, acceptance scenario 1)."""
+
+    def test_resolver_url_form_recovers_to_the_bare_doi(self):
+        csl = RISFormat().to_csl_json(entry(do="https://doi.org/10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_dx_doi_org_resolver_form_recovers_to_the_bare_doi(self):
+        csl = RISFormat().to_csl_json(entry(do="http://dx.doi.org/10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_doi_label_form_recovers_to_the_bare_doi(self):
+        csl = RISFormat().to_csl_json(entry(do="doi:10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    @pytest.mark.django_db
+    def test_a_resolver_url_doi_does_not_fail_the_entry(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nDO  - https://doi.org/10.1002/ar.25520\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.created[0].item.item_identifiers.get(type="DOI").value == "10.1002/ar.25520"
+
+
+class TestUnrescuableIdentifierPreservation:
+    """A known identifier tag's value that cannot be normalized into something valid is preserved
+    under ``custom["ris"]`` -- nested, never flat -- rather than discarded or stored as a valid
+    identifier (T019, FR-024, FR-027, acceptance scenario 2)."""
+
+    def test_a_doi_that_will_not_normalize_is_preserved_under_custom_ris(self):
+        csl = RISFormat().to_csl_json(entry(do="not a doi at all"))
+        assert "DOI" not in csl
+        assert csl["custom"]["ris"]["DO"] == "not a doi at all"
+
+    def test_a_url_that_will_not_validate_is_preserved_under_custom_ris(self):
+        csl = RISFormat().to_csl_json(entry(ur="not a url at all"))
+        assert "URL" not in csl
+        assert csl["custom"]["ris"]["UR"] == "not a url at all"
+
+    def test_preservation_nests_under_a_single_ris_key_not_flat(self):
+        """The design correction at S3R: a flat `custom["DO"]` write becomes an `ItemIdentifier`
+        row typed by the tag name once `from_csl_json` sees it, which is exactly what preservation
+        must not do."""
+        csl = RISFormat().to_csl_json(entry(do="not a doi at all"))
+        assert set(csl["custom"].keys()) == {"ris"}
+        assert "DO" not in csl["custom"]
+
+    def test_a_valid_doi_is_not_preserved(self):
+        csl = RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))
+        assert "custom" not in csl
+
+    @pytest.mark.django_db
+    def test_an_unrescuable_doi_still_leaves_the_entry_created(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nDO  - not a doi at all\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.created
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="DOI").exists()
+        assert item.custom["ris"]["DO"] == "not a doi at all"
+
+    @pytest.mark.django_db
+    def test_no_itemidentifier_row_is_created_for_a_preserved_value(self):
+        """Article XIII / the plan's preservation paragraph: a flat write would turn this into an
+        `ItemIdentifier` row typed by the tag name and fail on a value over 500 characters."""
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nDO  - not a doi at all\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="DO").exists()
 
 
 class TestCitationKeys:
@@ -957,3 +1225,32 @@ class TestEndToEnd:
 
         item = Item.objects.get(citation_key="889")
         assert item.item_identifiers.get(type="ISSN").value == "1932-8494"
+
+
+class TestBulkAcceptance:
+    """The story's own acceptance run (T023, US-2 acceptance, SC-002): every entry in
+    ``constructed/bulk_several_hundred_entries.ris`` is accounted for exactly once across
+    created, skipped and failed, and no entry is refused for a reason normalization resolves.
+    Asserted on the outcome totals, as SC-002 requires, not on a sample.
+    """
+
+    @pytest.mark.django_db
+    def test_every_entry_is_accounted_for_exactly_once(self):
+        with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 500
+        assert sorted(e.index for e in result) == list(range(500))
+
+    @pytest.mark.django_db
+    def test_no_entry_is_refused_for_a_reason_normalization_resolves(self):
+        with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.failed == []
+        assert len(result.created) == 500
+        assert result.skipped == []
+
+    @pytest.mark.django_db
+    def test_the_created_count_matches_what_is_actually_stored(self):
+        with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert Item.objects.count() == len(result.created) == 500

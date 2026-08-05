@@ -131,6 +131,30 @@ table (T010) and the citation key (T015).*
 - **T021** An entry the parser cannot read fails alone with a reason, and the rest of the file still
   imports. An entry carrying `TY` and no other bibliographic content is reported as skipped.
   **FR-009, FR-027**
+  - *First half done (commit `995e753`). Second half was reported blocked in decisions.md D30 and
+    ruled on by Forge in D31: FR-009 stands, the `SkipEntry` check lands, and eight inherited
+    fixture call sites gain a tag. Remaining work, in this order:*
+  - Write the acceptance test first: `constructed/ty_only.ris` through `RISFormat().import_file`
+    reports its one entry `Outcome.SKIPPED`, stores no `Item`, and the import still succeeds; and
+    `to_csl_json` on a `TY`-only `RISEntry` raises `SkipEntry`. Its own `Test<Subject>` class,
+    alongside `TestMalformedEntryFailsAlone`.
+  - Implement in `RISFormat.to_csl_json`, immediately after the existing no-`TY` `EntryError`
+    check. D30 drafted it as `if all(tag == "TY" for tag, _ in raw.tags): raise SkipEntry`. Decide
+    whether a tag present but empty counts as "no other bibliographic content", assert whichever
+    you decide, and record it in `decisions.md`.
+  - Replace the `to_csl_json` docstring paragraph that says this half is "not implemented here" and
+    "Blocked:" — it is implemented now, and a docstring asserting otherwise is false in shipped
+    code. State the rule and cite FR-009 and D31.
+  - Amend exactly eight inherited call sites, adding one tag each and nothing else. Four in
+    `TestReferenceTypeTable` (`test_every_listed_type_maps_to_its_csl_equivalent`,
+    `test_an_unlisted_type_maps_to_the_generic_document`, `test_grnt_and_grant_reach_the_same_csl_type`,
+    `test_unpd_and_unpb_reach_the_same_csl_type`) take `ti="x"`. Four absence tests
+    (`TestCoreFieldMapping::test_an_absent_core_tag_leaves_no_key`,
+    `TestContributors::test_no_contributor_tags_means_no_name_variable_keys`,
+    `TestDates::test_no_date_tags_means_no_issued_or_accessed`,
+    `TestIdentifiers::test_no_identifier_tags_means_no_identifier_keys`) need a tag *outside* their
+    own assertion set — `pb="A publisher"` satisfies all four, where `ti="x"` would break the first
+    one's own point. No rename, no assertion touched, no ninth call site.
 - **T022** Tolerant separation: CRLF, a byte-order mark, single-space separators and inconsistent
   entry separation all still yield the file's entries. **FR-010**
 - **T023** The large mixed fixture from T003: every entry accounted for exactly once, and no entry

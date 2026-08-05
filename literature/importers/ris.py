@@ -32,7 +32,7 @@ from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.normalizers import IdentifierNormalizer
 from literature.importers.results import EntryResult
-from literature.validators import validate_isbn, validate_issn
+from literature.validators import validate_doi, validate_isbn, validate_issn, validate_url
 
 
 @dataclasses.dataclass(frozen=True)
@@ -128,10 +128,21 @@ class RISParser:
         yield from self._entries(lines)
 
     def _entries(self, lines: list[str]) -> Iterator[RISEntry | str]:
-        """The real framing pass: open at ``TY``, close at ``ER`` or the next ``TY`` (FR-006)."""
+        """The real framing pass: open at ``TY``, close at ``ER`` or the next ``TY`` (FR-006).
+
+        A block of tags with no ``TY`` of its own, seen after the first entry, is yielded as its
+        own :class:`RISEntry` (its ``tags`` carrying no ``"TY"`` pair) rather than dropped
+        (T021, FR-009 — supersedes decisions.md D18). :meth:`RISFormat.to_csl_json` raises
+        :class:`~literature.importers.exceptions.EntryError` for an entry with no ``TY``, which
+        reports it as its own failed entry rather than ending the file: raising directly from this
+        generator would, per ``import_entries``, stop the whole run at the index it failed on and
+        lose every entry after it, which FR-009's "the rest of the file still imports" forbids.
+        """
         header: list[str] = []
         pairs: list[list[str]] = []
+        stray: list[list[str]] = []
         start_line = 0
+        stray_start_line = 0
         header_yielded = False
         index = 0
 
@@ -141,6 +152,8 @@ class RISParser:
             if match is None:
                 if pairs:
                     self._continue_value(pairs, line)
+                elif stray:
+                    self._continue_value(stray, line)
                 elif not header_yielded:
                     header.append(line)
                 continue
@@ -151,6 +164,10 @@ class RISParser:
                 if pairs:
                     yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
                     index += 1
+                elif stray:
+                    yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
+                    index += 1
+                    stray = []
                 elif not header_yielded:
                     text = "\n".join(header).strip()
                     if text:
@@ -165,17 +182,25 @@ class RISParser:
                     yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
                     index += 1
                     pairs = []
+                elif stray:
+                    yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
+                    index += 1
+                    stray = []
                 continue
 
             if pairs:
                 pairs.append([tag, value])
             elif not header_yielded:
                 header.append(line)
-            # else: a tag block after the first entry with no TY -- out of the foundational
-            # phase's scope (US-2, T021); dropped rather than guessed at (decisions.md D18).
+            else:
+                if not stray:
+                    stray_start_line = line_no
+                stray.append([tag, value])
 
         if pairs:
             yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
+        elif stray:
+            yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
 
     def _continue_value(self, pairs: list[list[str]], line: str) -> None:
         """Resolve one untagged line against the tag it follows (FR-007, amended).
@@ -414,10 +439,15 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
     (a producer that means something else by it, or a malformed tag, is not evidence for the
     date this entry actually carries). Without ``PY``, ``Y1`` supplies the issued date instead
     (research.md R5) — at whatever precision it states, since there is no anchor to refine.
+
+    Where neither resolves to a structured date but one carries text, that text is kept in the
+    ``literal`` fallback ``ItemDate`` already has, rather than discarded (T020, FR-026) — ``PY``'s
+    own text wins, since it is the anchor tag and ``Y1`` is only ever consulted in its absence.
     """
     py_values = raw.values("PY")
-    if py_values:
-        py_parts = _ris_date_parts(py_values[0])
+    py_value = py_values[0].strip() if py_values else ""
+    if py_value:
+        py_parts = _ris_date_parts(py_value)
         if py_parts:
             year = py_parts[0]
             da_values = raw.values("DA")
@@ -428,21 +458,34 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
             return {"date-parts": [[year]]}
 
     y1_values = raw.values("Y1")
-    if y1_values:
-        y1_parts = _ris_date_parts(y1_values[0])
+    y1_value = y1_values[0].strip() if y1_values else ""
+    if y1_value:
+        y1_parts = _ris_date_parts(y1_value)
         if y1_parts:
             return {"date-parts": [list(y1_parts)]}
+
+    if py_value:
+        return {"literal": py_value}
+    if y1_value:
+        return {"literal": y1_value}
 
     return None
 
 
 def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
-    """The entry's ``accessed`` date: ``Y2``, and only ``Y2`` (FR-016)."""
+    """The entry's ``accessed`` date: ``Y2``, and only ``Y2`` (FR-016).
+
+    An unparseable ``Y2`` falls back to ``literal`` rather than being discarded (T020, FR-026),
+    the same rule :func:`_issued_date` applies to ``PY``/``Y1``.
+    """
     y2_values = raw.values("Y2")
-    if not y2_values:
+    y2_value = y2_values[0].strip() if y2_values else ""
+    if not y2_value:
         return None
-    y2_parts = _ris_date_parts(y2_values[0])
-    return {"date-parts": [list(y2_parts)]} if y2_parts else None
+    y2_parts = _ris_date_parts(y2_value)
+    if y2_parts:
+        return {"date-parts": [list(y2_parts)]}
+    return {"literal": y2_value}
 
 
 # ---------------------------------------------------------------------------
@@ -477,17 +520,40 @@ def _sn_identifier(value: str) -> tuple[str, str] | None:
     return None
 
 
-def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, str]:
-    """Every identifier this entry carries, mapped to its CSL top-level key."""
-    result: dict[str, str] = {}
+def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
+    """Every identifier this entry carries, mapped to its CSL top-level key.
+
+    A value normalization could not turn into something the catalogue accepts is preserved under
+    ``custom["ris"]`` rather than stored as a valid identifier or discarded (T019, FR-024, FR-027).
+    Nested under that single key, never flat: `from_csl_json` turns every flat `custom` key whose
+    value is a plain string into an `ItemIdentifier` row typed by that key, which is exactly what
+    preservation must not become (plan.md "Preservation goes under a single `custom[\"ris\"]` key").
+    Deliberately narrower than a full unmapped-tag sweep — `SN` shapes that resolve to neither
+    ISSN nor ISBN are a later story's concern (US-3 T025) and are left alone here, as they already
+    were before this task.
+    """
+    result: dict[str, Any] = {}
+    preserved: dict[str, str] = {}
 
     do_values = raw.values("DO")
     if do_values and do_values[0].strip():
-        result["DOI"] = IdentifierNormalizer.normalize_doi(do_values[0].strip())
+        normalized_doi = IdentifierNormalizer.normalize_doi(do_values[0].strip())
+        try:
+            validate_doi(normalized_doi)
+        except ValidationError:
+            preserved["DO"] = normalized_doi
+        else:
+            result["DOI"] = normalized_doi
 
     ur_values = raw.values("UR")
     if ur_values and ur_values[0].strip():
-        result["URL"] = ur_values[0].strip()
+        ur_value = ur_values[0].strip()
+        try:
+            validate_url(ur_value)
+        except ValidationError:
+            preserved["UR"] = ur_value
+        else:
+            result["URL"] = ur_value
 
     sn_values = raw.values("SN")
     if sn_values and sn_values[0].strip():
@@ -498,6 +564,9 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, str]:
             resolved = _sn_identifier(sn_value)
             if resolved:
                 result[resolved[0]] = resolved[1]
+
+    if preserved:
+        result["custom"] = {"ris": preserved}
 
     return result
 
@@ -619,12 +688,29 @@ class RISFormat(BibFormat):
 
         Header material arrives as a plain ``str`` (see :meth:`RISParser.parse`) and is skipped
         outright, the same pattern ``bibtex.py`` uses for a comment or preamble.
+
+        An entry with no ``TY`` tag at all — the stray block :meth:`RISParser._entries` yields for
+        a mid-file tag block that never opened one — fails alone naming what is missing, rather
+        than ending the file (T021, FR-009).
+
+        FR-009's other half — an entry carrying ``TY`` and no other bibliographic content is
+        reported as skipped rather than stored as a near-empty item — raises
+        :class:`~literature.importers.exceptions.SkipEntry` when every tag the entry carries is
+        ``TY`` (T021, FR-009, decisions.md D31). The check is on which tags are present, not on
+        whether their values are non-empty: a second tag with an empty value still disqualifies
+        the skip.
         """
         if isinstance(raw, str):
             raise SkipEntry
 
         ty_values = raw.values("TY")
-        ref_type = ty_values[0].strip() if ty_values else ""
+        if not ty_values:
+            raise EntryError(_("This entry carries no 'TY' (reference type) tag."))
+
+        if all(tag == "TY" for tag, _ in raw.tags):
+            raise SkipEntry
+
+        ref_type = ty_values[0].strip()
 
         result: dict[str, Any] = {
             "type": REFERENCE_TYPE_TABLE.get(ref_type, _FALLBACK_TYPE),
@@ -652,7 +738,11 @@ class RISFormat(BibFormat):
         if accessed:
             result["accessed"] = accessed
 
-        result.update(_identifiers(raw, ref_type))
+        identifiers = _identifiers(raw, ref_type)
+        preserved = identifiers.pop("custom", None)
+        result.update(identifiers)
+        if preserved:
+            result.setdefault("custom", {}).setdefault("ris", {}).update(preserved["ris"])
 
         key = _citation_key(raw, issued, raw.index)
         limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM

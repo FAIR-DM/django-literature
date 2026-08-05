@@ -490,3 +490,179 @@ Next: ADR verdicts across D1–D28 so `check-adrs` is not a wall at S5, then US2
 Watch: the fixture is the first chapter this feature's mapping has been exercised against, so US-3's
 `ED` work (T024) will want a Web of Science chapter of its own — constructed for the same licence
 reason, not vendored.
+
+## 2026-08-05T20:22Z — US2 Implementer dispatched
+
+Skills loaded: `craft-tdd` (receipt `craft-tdd/2026-08-05/eae3b6c7`), `craft-increments` (receipt
+`craft-increments/2026-08-05/d3dce07f`), both via the Skill tool. Baseline `poetry run pytest -q`
+green, 976 passed, immediately before starting.
+
+### T018 — DOI recovery (resolver URL and `doi:` label forms)
+
+Did: added `TestDOIRecovery` to `tests/test_importers/test_ris.py` — the resolver-URL form (both
+`doi.org` and `dx.doi.org`), the `doi:` label form, and one `django_db` test through `import_file`
+confirming a resolver-URL DOI is stored rather than failing the entry. No production change: T014
+(US-1) already routes every `DO` value through `IdentifierNormalizer.normalize_doi` unconditionally,
+which already recovers both forms. The new tests ran green on first execution — diagnosed per
+`craft-tdd` rather than assumed tautological (D29): each asserts a value only the normalizer's own
+regex substitution could produce, exercised through real classes and, for one test, the full storage
+stack.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestDOIRecovery -q` — 4 passed.
+
+Next: T019 (preserve an identifier value that cannot be normalized into a valid one).
+
+### T019 — preserve an unrescuable identifier value under `custom["ris"]`
+
+Did: `_identifiers` now validates a `DO`/`UR` value (`validate_doi`/`validate_url`) after
+normalization before writing it to its CSL top-level key; a value that still fails is preserved
+under `result["custom"]["ris"][tag]` instead, nested under the single key the plan's preservation
+paragraph names rather than flat under the tag name — a flat write would become an `ItemIdentifier`
+row typed by the tag and fail the whole entry on a value over 500 characters (plan.md "The citation
+key" → "Preservation goes under a single `custom["ris"]` key"). `SN` values that resolve to neither
+ISSN nor ISBN shape are left untouched —
+that gap is US-3's T025, not this task's, per US-1's carried watch item. `to_csl_json` merges the
+identifiers dict's popped `custom` key via `setdefault` rather than a blind `result.update`, so a
+later mapping step that also writes to `custom["ris"]` (US-4's unmapped-tag sweep, T030) will merge
+rather than overwrite.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation
+tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery
+-q` — 18 passed, red first (5 failures, all for the right reason: `DOI`/`URL` present when they
+should be preserved, `KeyError: 'custom'`, and one entry failing outright on `ValidationError`
+before the fix). Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 200 passed.
+
+Next: T020 (unparseable dates fall back to the item's existing literal slot).
+
+### T020 — unparseable dates fall back to `ItemDate.literal`
+
+Did: `_issued_date` and `_accessed_date` now fall back to `{"literal": <raw text>}` when a
+date tag carries text that does not resolve to a structured date, instead of silently discarding
+it. `PY`'s raw text wins the fallback over `Y1`'s, matching the anchor-first precedence already
+governing the structured path (`Y1` is only ever consulted when `PY` carries no year at all).
+Pre-existing precedence is unchanged: an unparseable `PY` still lets a parseable `Y1` rescue the
+date, and `DA`'s disagreement rule is untouched. `ItemDate.literal` is the model's own fallback
+(`converters._import_date_variable` already reads `data.get("literal", "")`) — no field, no
+migration (Article XIII).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnparseableDates -q` — red first,
+5 of 6 failing for the right reason (`KeyError: 'issued'`/`'accessed'`, and a `DoesNotExist` on the
+stored `ItemDate`), the precedence-preserving test passing throughout since it needed no change.
+Green after: 6 passed. `poetry run pytest
+tests/test_importers/test_ris.py::TestUnparseableDates tests/test_importers/test_ris.py::TestDates
+tests/test_importers/test_ris.py::TestCitationKeys -q` — 22 passed (`TestCitationKeys` included
+since `_mint_citation_key` reads `issued.get("date-parts")`, which is now sometimes absent).
+Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 206 passed.
+
+Next: T021 (a parser-unreadable entry fails alone; a TY-only entry is skipped).
+
+### T021 — a parser-unreadable entry fails alone; a TY-only entry is skipped (PARTIALLY BLOCKED)
+
+Did (first half, done): `RISParser._entries` no longer drops a mid-file tag block carrying no
+`TY` of its own — it yields the block as its own `RISEntry` (no `"TY"` pair among its tags), with
+its own index and start line, tracked in a parallel `stray` accumulator alongside `pairs` so a
+following `TY` or `ER` closes it the same way a real entry closes. `RISFormat.to_csl_json` raises
+`EntryError` naming the missing tag for such an entry, which `import_entry`'s own per-entry
+try/except reports as a failed outcome at that entry's index without ending the file — raising
+from inside the generator instead would, per `import_entries`, stop the run and lose every entry
+after it, which the acceptance criterion forbids. Supersedes D18 as D18 itself said it would.
+
+Did NOT (second half, blocked — D30): the TY-only-entry-is-skipped half. Implemented
+`if all(tag == "TY" for tag, _ in raw.tags): raise SkipEntry`, ran the full file, and it broke 64
+pre-existing US-1 tests that use `entry()`'s own TY-only default as an isolation fixture for an
+unrelated mapping concern (full list and reasoning in D30). Reverted rather than edit tests I did
+not author, per the protocol's explicit naming of this exact scenario. `ty_only.ris` itself is
+unaffected by the revert — it still imports (as a near-empty created item, US-1's existing
+behaviour, unchanged).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestMalformedEntryFailsAlone -q` —
+red first (5 of 5 failing for the right reason: the parser only yielding 1 entry instead of 2, an
+`IndexError` on the second, `DID NOT RAISE EntryError`), green after — 5 passed. Full file: `poetry
+run pytest tests/test_importers/test_ris.py -q` — 211 passed (had briefly gone to 64 failed with
+the since-reverted `SkipEntry` check in place; confirmed clean at 211 after reverting it and
+removing the test class written against it). `poetry run ruff check literature/importers/ris.py
+tests/test_importers/test_ris.py` — clean.
+
+Next: T022 (tolerant separation — CRLF, BOM, single-space, wrapped continuation, through the full
+CSL mapping rather than just the raw parser).
+
+### T022 — tolerant separation, asserted through the full CSL mapping
+
+Did: added `TestSeparationTolerance` — CRLF, a byte-order mark and the single-space separator each
+compared for CSL-JSON equality against an independently hand-built canonical two-space LF entry
+(not a hardcoded expected dict, so the fixture and the comparison can't silently drift together);
+wrapped continuation lines asserted joined into `title`/`abstract`/`container-title` rather than
+becoming unknown tags; inconsistent blank-line spacing between entries (none, one, two) asserted to
+still yield all three; and three `django_db` tests confirming each of CRLF/BOM/single-space imports
+as one created item with the expected title. No production change — as the brief anticipated ("the
+parser already handles most of this"), every test passed on first run. Diagnosed as legitimate per
+`craft-tdd` rather than assumed tautological: each exercises real byte-level decoding and the full
+mapping stack, comparing against independently constructed input, not a value already known to
+match.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestSeparationTolerance -q` — 8
+passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 219 passed.
+
+Next: T023 (the bulk fixture — every entry accounted for exactly once, SC-002).
+
+### T023 — the story's own acceptance run over the bulk fixture (SC-002)
+
+Did: added `TestBulkAcceptance` over `constructed/bulk_several_hundred_entries.ris` — every one of
+its 500 entries accounted for exactly once (`sorted(indices) == range(500)`), asserted on the
+outcome totals (`failed == []`, `skipped == []`, `len(created) == 500`) rather than a sample, and
+the stored `Item` count cross-checked against the reported created count. The fixture on disk is
+uniformly clean (500 identical-shape `JOUR` entries — its own purpose, per the corpus README, is
+FR-004's whole-file-materialisation claim, not a mixed-malformation exercise), so this run is where
+T018-T022's fixes are exercised together at volume rather than where a new malformation is
+introduced. No production change — all three tests passed on first run, each against real stored
+rows through the actual import pipeline (9.37s over 500 django_db-backed entries), not a
+tautological assertion.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestBulkAcceptance -q` — 3 passed.
+Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 222 passed.
+
+US-2 is now complete except for T021's second half (blocked, D30). Watch: the four concerns US-1
+carried forward are unchanged by this story except the TY-only one, which is now this story's own
+concern rather than a forward pointer — see the completion report.
+
+## 2026-08-05T18:59:16Z · Implementer FIX-1 · T021 (remaining half, D31)
+
+Did: wrote the failing acceptance test first — `TestTyOnlySkipped` in
+`tests/test_importers/test_ris.py`, alongside `TestMalformedEntryFailsAlone` as the brief
+directed: `ty_only.ris` through `RISFormat().import_file` reports `Outcome.SKIPPED`, stores no
+`Item`, and the import still succeeds (`result.ok`); `to_csl_json` on a TY-only `RISEntry` raises
+`SkipEntry`; and one own-authored case for the non-obvious choice below. Then implemented exactly
+D31's drafted check in `RISFormat.to_csl_json`, immediately after the existing no-`TY`
+`EntryError` check: `if all(tag == "TY" for tag, _ in raw.tags): raise SkipEntry`. Replaced the
+docstring paragraph that said this half was "not implemented here" / "Blocked:" with one stating
+the rule and citing FR-009 and D31, per the task's explicit instruction that a docstring asserting
+otherwise is now false in shipped code. Amended exactly the eight inherited call sites T021 names,
+one tag each, nothing else: four in `TestReferenceTypeTable` (parametrized
+`test_every_listed_type_maps_to_its_csl_equivalent`, `test_an_unlisted_type_maps_to_the_generic_document`,
+`test_grnt_and_grant_reach_the_same_csl_type`, `test_unpd_and_unpb_reach_the_same_csl_type`) took
+`ti="x"`; four absence tests (`TestCoreFieldMapping::test_an_absent_core_tag_leaves_no_key`,
+`TestContributors::test_no_contributor_tags_means_no_name_variable_keys`,
+`TestDates::test_no_date_tags_means_no_issued_or_accessed`,
+`TestIdentifiers::test_no_identifier_tags_means_no_identifier_keys`) took `pb="A publisher"`. No
+rename, no assertion touched, no ninth call site. The two multi-type-equivalence assertions
+(`GRNT`/`GRANT`, `UNPD`/`UNPB`) were reflowed across three lines each — ruff's 120-column
+`line-length` (not the brief's 88, which this repo's `pyproject.toml` overrides) would otherwise
+be exceeded by the added tag; `ruff format --diff` confirms the result needs no further change, so
+this is the tag addition's mechanical consequence, not a second edit to the test.
+
+Non-obvious choice → `decisions.md` D32: a tag present with an empty value does not count as
+"TY-only" under D31's drafted check, since the check is on which tags are present rather than on
+whether their values are non-empty. Recorded with a test (`test_a_tag_present_with_an_empty_value_is_not_ty_only`).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestTyOnlySkipped -q` — red first
+(3 of 4 failing for the right reason: `Outcome.CREATED` instead of `SKIPPED`, `Item.objects.count()
+== 1` instead of `0`, `DID NOT RAISE SkipEntry`; the fourth, the empty-value case, already passed
+pre-implementation since it asserts the current code's behaviour holds either way), green after —
+4 passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 226 passed (222
+prior + 4 new; the 64 tests D30 named broke immediately after the `SkipEntry` check landed, before
+the eight call sites were amended, confirming D30/D31's count exactly, then passed once amended).
+`poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+`poetry run mypy literature/importers/ris.py` — clean.
+
+Next: none — T021 was this fix round's only task. Full-suite verify and the completion report
+follow.

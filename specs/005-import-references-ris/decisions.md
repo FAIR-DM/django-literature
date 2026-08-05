@@ -579,3 +579,134 @@ export under CC0 or MIT would do. The fixture is then replaced by the real file 
 loses its substitution note. Also revisit if `ED` support (T024) needs a Web of Science chapter of
 its own: the same reasoning applies, and it needs its own constructed fixture rather than the
 GPL file.
+
+## D29 — T018 (DOI recovery) required no production code, only the missing test
+
+**Ambiguity**: T018's acceptance is that a `DO` written as a resolver URL or carrying a `doi:`
+label recovers to the bare DOI. `_identifiers` already routes every `DO` value through
+`IdentifierNormalizer.normalize_doi` unconditionally, wired in at T014 (US-1's own identifier
+mapping) rather than deferred to this story. `TestIdentifiers` already asserted the resolver-URL
+form (`test_do_is_normalized_through_the_shared_doi_normalizer`); the `doi:` label form and the
+"the entry is not failed" half of the acceptance scenario were not yet asserted anywhere.
+
+**Chosen**: No change to `literature/importers/ris.py`. `TestDOIRecovery` was written first per
+`craft-tdd` and ran green on the first execution — diagnosed rather than assumed tautological: it
+exercises the real `IdentifierNormalizer` regexes (both wrapper forms, including `dx.doi.org`)
+through `to_csl_json`, plus one `django_db` test through `import_file` confirming a resolver-URL DOI
+lands as a stored `ItemIdentifier` rather than failing the entry. The green-on-first-run reflects
+already-correct behaviour, not an empty assertion.
+
+**Why defensible**: `craft-tdd`'s own guidance is to diagnose a first-run green rather than treat it
+as automatically wrong — a tautological assertion, a fixture that already satisfies it, or a wrong
+import are the named causes, and none apply here: the test imports the real classes, builds a raw
+RIS entry, and asserts a value only the normalizer's regex substitution could produce. Locking in
+untested-but-already-correct behaviour with a test is worth doing in this story's own commit, since
+FR-025 is what the acceptance scenario names and it was not previously evidenced for both forms.
+
+**Revisit if**: a future change to `_identifiers` stops routing `DO` through the shared normalizer
+unconditionally — `TestDOIRecovery` would then be the test that catches the regression.
+
+## D30 — T021's TY-only-skip half is blocked; the malformed-entry half supersedes D18
+
+**Ambiguity**: T021 has two acceptance halves. The first — a mid-file tag block with no `TY` of
+its own fails alone, the rest of the file still imports — is unambiguous and implemented: D18 is
+superseded, exactly as D18 itself predicted. The second — an entry carrying `TY` and no other
+bibliographic content is reported as skipped rather than created — collides with the test corpus
+this story inherits rather than with anything ambiguous in the requirement itself.
+
+`entry()`'s own default (`tests/test_importers/test_ris.py`, no kwargs beyond an optional `ty`) is
+`ty="JOUR"` with no other tags — structurally identical to a genuine TY-only entry, because that
+*is* the minimal valid `RISEntry` shape. 64 pre-existing US-1 tests use exactly that shape as an
+isolation fixture for a concern that has nothing to do with skip/create semantics:
+`TestReferenceTypeTable` (60 parametrized cases plus 3 others) isolates the reference-type mapping
+table; `TestCoreFieldMapping::test_an_absent_core_tag_leaves_no_key`,
+`TestContributors::test_no_contributor_tags_means_no_name_variable_keys`,
+`TestDates::test_no_date_tags_means_no_issued_or_accessed` and
+`TestIdentifiers::test_no_identifier_tags_means_no_identifier_keys` each isolate "this mapping
+category is absent" the same way. None asserts an outcome (created/skipped) at all — they assert
+`to_csl_json(...)["type"]` or the absence of unrelated keys — but raising `SkipEntry` for a
+TY-only raw entry makes `to_csl_json` raise instead of returning a dict for every one of them.
+
+There is no code-only way to tell these apart: a real TY-only entry and one of these tests' fixture
+both are, at the `RISEntry` level, one `("TY", ...)` pair and nothing else. Any implementation
+faithful to FR-009's "carrying `TY` and no other bibliographic content" necessarily catches both.
+
+**Chosen**: Implemented the first half only. Attempted the second half (`if all(tag == "TY" for
+tag, _ in raw.tags): raise SkipEntry`), watched it break exactly the 64 tests named above, and
+reverted rather than edit them — the Implementer protocol and this story's own brief name this
+precise scenario ("T021 is the one place where an existing US-1 test may genuinely disagree with
+your task") and are explicit that the call belongs to Forge, not the Implementer. T021 is reported
+`blocked` for this half in the completion report, with these 64 tests named as the concern.
+
+**Why defensible**: Editing 64 tests I did not author, in this story, to make a new assertion pass
+is exactly what the protocol's hard prohibition exists to prevent — a self-authored waiver of the
+one check (tamper-check, an un-owned test changing) that catches an Implementer rationalizing its
+way around a real conflict. The conflict is genuine, not a shortcut avoided: these tests would need
+a second, unrelated tag added to each of their 64 fixtures purely to dodge a behavioural change
+their own authors were not asserting anything about, which is a materially different, larger change
+than "add a skip check."
+
+**Revisit if**: Forge decides in favour of the new spec (skip a TY-only entry). The 64 tests then
+need a minimal second tag each — the smallest addition that keeps their own isolated concern
+intact, for example `entry(ty=ris_type, ti="x")` — and the `SkipEntry` check lands as drafted above.
+If Forge decides in favour of the existing tests instead, FR-009's second clause and this story's
+acceptance scenario 5 need amending to say so, and `ty_only.ris`'s structural test
+(`test_ty_only_file_has_no_other_tag`) stays true without a behavioural counterpart.
+
+## D31 — T021's TY-only skip lands as specified; the eight fixture call sites are amended
+
+**Ambiguity**: D30 reported T021's second half blocked and named the two ways out — amend the
+inherited test fixtures so a `SkipEntry` check can land, or amend FR-009's second clause and this
+story's acceptance scenario 5 to keep the US-1 behaviour. Forge decides between them; that is the
+call the Implementer protocol reserves, and D30 was right to stop rather than take it.
+
+**Chosen**: FR-009 stands unamended. `to_csl_json` raises `SkipEntry` for an entry whose tags are
+`TY` and nothing else, and the inherited fixtures gain a second tag.
+
+**Why defensible**: two things, one about the requirement and one about the cost.
+
+The requirement is the point of the feature. A `TY`-only entry stored as an item is a catalogue
+record that lands, reports as created, and holds nothing the source stated — the exact defect shape
+FS-004's review panel found seven of, and FR-009's second clause is what this feature says about it.
+Sam approved that clause at the spec gate. Amending a signed-off requirement so that a unit
+fixture's shape may stay unchanged inverts which of the two is authoritative.
+
+The cost is eight lines, not sixty-four. D30 counted test *cases*; the edit is per *call site*, and
+`TestReferenceTypeTable`'s sixty parametrized cases share one. Verified before writing this entry,
+by applying the change and running the suite: four call sites in `TestReferenceTypeTable` take
+`ti="x"`, and the four absence tests take `pb="A publisher"` — a tag outside all four of their
+assertion sets, so `test_an_absent_core_tag_leaves_no_key` keeps asserting exactly what it did.
+1008 passed. The patch was then reverted: proving the cost is Forge's to do, delivering it is not.
+
+`tamper-check` will flag `tests/test_importers/test_ris.py`, and this entry is that flag's triage —
+eight fixtures gain a tag their own test asserts nothing about, and no assertion is weakened,
+renamed or removed.
+
+**Revisit if**: a producer is found that exports a bare `TY` block meaning something recoverable.
+Nothing in the three genuine corpus files does.
+
+## D32 — a tag present with an empty value is not "TY-only"
+
+**Ambiguity**: T021's own instruction for landing D31's check: "decide whether a tag present but
+empty counts as 'no other bibliographic content'." An entry like `TY - JOUR` / `AB -` / `ER -`
+carries a second tag, `AB`, whose value is the empty string — is that "TY and nothing else"?
+
+**Chosen**: No. D31's drafted check — `if all(tag == "TY" for tag, _ in raw.tags): raise
+SkipEntry` — is on which tags the entry's `raw.tags` carries, not on whether their values are
+non-empty. A second tag, even an empty one, disqualifies the skip. Implemented as drafted, with no
+added value-emptiness check, and asserted directly:
+`TestTyOnlySkipped::test_a_tag_present_with_an_empty_value_is_not_ty_only` builds
+`entry(ab="")` and asserts `to_csl_json` returns a dict rather than raising.
+
+**Why defensible**: this is the simpler of the two implementations — D31's own drafted check,
+verified experimentally against the full suite before this task began, needs no extension to
+reach it. FR-009's wording, "carrying a reference type and no other bibliographic content", reads
+naturally as being about which fields the source entry declares at all — a producer that writes an
+empty `AB -` line said something, even if what it said was nothing, and RIS's own two-space
+convention gives that a different tag list than an entry that never mentioned `AB`. Checking value
+truthiness instead would need a second predicate (`raw.values(tag)[0].strip()` per non-`TY` tag)
+that FR-009's text does not ask for and D31 did not draft.
+
+**Revisit if**: a genuine corpus file is found that writes an empty tag immediately after `TY` as
+its only other content, and that shape should read as "nothing to build an item from" rather than
+"a producer declared a field it left blank."
