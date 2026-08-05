@@ -74,3 +74,22 @@ being amended.
 
 Design-review cycles used: 1 of 1. Task count 37. `gates.design_review` recorded after the verdict,
 not before.
+
+## 2026-08-05 — Correction: issue #41 closed, severity was inflated
+
+Sam challenged the de-duplication finding and was right. The code trace was correct; the severity was
+adopted from the design-review panel rather than checked.
+
+Reaching the ceiling needs 702 stored items sharing one base key, and a minted key is family name
+*plus* year *plus* first significant title word — so it takes 702 records agreeing on all three, which
+in practice means importing one record 702 times. That is artificial, not remote. The secondary
+effect, one query per suffix candidate, costs a few dozen queries at realistic collision counts.
+
+**#41 closed with its diagnosis preserved in the closing comment**, so it stays searchable without
+sitting in the backlog. The plan's dependency on it is removed and `converters.py` is untouched,
+which is what T039 asserts.
+
+The process lesson, which is not about de-duplication: **a subagent reviewer's severity is a claim to
+verify, not a verdict to adopt.** The trace was evidence; the reachability was mine to test and I did
+not test it. Cost: one filed issue, a section of the plan, and a merge dependency invented for a
+scenario nobody will meet.

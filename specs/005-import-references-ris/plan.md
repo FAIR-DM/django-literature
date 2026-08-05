@@ -186,39 +186,20 @@ every unmapped RIS tag would become an identifier row — and since `ItemIdentif
 500 characters and validated in `save()`, a long Scopus `N1` block or a Web of Science address block
 would raise and **fail the whole entry**, which is exactly what US-4 acceptance scenario 2 forbids.
 
-## The de-duplication ceiling (issue #41)
+## The de-duplication ceiling (issue #41) — closed, not carried
 
 Design review found that `_generate_dedup_suffix` in `converters.py` emits 701 distinct suffixes and
 then repeats forever, while `_resolve_citation_key` consumes it in a loop that only exits on a free
-key. Past 701 items sharing a base key the loop never terminates — no exception, so the contract's
-per-entry savepoint never engages and the call simply never returns.
+key. Past 701 items sharing a base key the loop does not terminate.
 
-BibTeX never reached this because a `.bib` file supplies its own distinct cite keys. **Minting is
-what makes collision the designed normal case**, so this feature is what makes the defect reachable:
-a single research group's export shares an author and a year, and repeated imports compound it.
+**It is closed as not worth fixing, and this feature does not depend on it.** Reaching the ceiling
+needs 702 records agreeing on family name, year *and* first significant title word — in practice the
+same single record imported 702 times, which is artificial rather than merely unlikely. The secondary
+effect, one query per suffix candidate, costs a few dozen queries at realistic collision counts.
 
-Filed as **#41**, and **fixed on its own branch rather than this one — corrected at S3R round 2.**
-
-The first revision fixed it here, on the argument that shipping the feature which makes a hang
-reachable while leaving the hang would be indefensible. The panel rejected that, and it was right.
-SC-009 reads "any change that proved unavoidable is recorded as its own issue **rather than made
-here**", and `converters.py` is literally the code that builds an item from CSL JSON. Amending T039 —
-the task whose only job is to verify SC-009 — so that it granted its own exception is a gate
-certifying itself.
-
-The ordering concern is met just as well by merging #41 first. That keeps the hang closed before this
-feature ships, keeps SC-009 true as written, and needs no amendment to an approved success criterion.
-The reachability argument was also overstated: the minted key is family name, year and first
-significant title word, so 702 collisions need 702 entries agreeing on all three, not merely a shared
-author and year.
-
-**#41 carries the fix specification**, sharpened by the panel: the sequence must be *unbounded and
-never repeat* — an odometer over increasing lengths — rather than merely wider, since a third nested
-loop moves the same hang from the 702nd collision to the 18278th. Its first 701 values stay unchanged,
-because `tests/test_converters.py` pins the documented `b`…`z`, `aa` order. And its test asserts on
-`_generate_dedup_suffix` directly (take 20,000 values, assert all distinct), which fails rather than
-hangs — a hanging red step is worse than a failing one — instead of driving 800 entries through
-`_resolve_citation_key` at roughly 320,000 queries.
+Recorded here because the first revision of this plan had it fixed in-branch and made a separate pull
+request a merge dependency, on a severity that had been adopted from a reviewer rather than checked.
+The diagnosis is preserved on the closed issue if anyone ever meets it.
 
 ## Story boundaries
 

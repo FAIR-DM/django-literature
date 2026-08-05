@@ -188,13 +188,12 @@ as prose in `data-model.md` instead.*
   **folded in from the deleted T037 (S3R round 2)**. Record the outcome against SC-009 in the PR body.
   **FR-002, FR-005, SC-009, FR-034**
 
-*T041 removed at S3R round 2.* It was to fix the citation-key de-duplication ceiling (issue #41) in
-`converters.py` from this branch. `converters.py` is literally "the code that builds an item from CSL
-JSON", so SC-009's "any change that proved unavoidable is recorded as its own issue **rather than
-made here**" forbids it, and amending T039 to grant its own exception is a gate certifying itself.
-The fix lands as its own pull request off `main`, merged before this feature — which closes the hang
-before the feature that makes it reachable ships, and keeps SC-009 true as written rather than
-amending an approved success criterion.
+*T041 removed at S3R round 2, and issue #41 closed as not worth fixing.* It was to fix the
+citation-key de-duplication ceiling in `converters.py` from this branch, which SC-009 forbids —
+amending T039 to grant its own exception is a gate certifying itself. On review of the severity
+rather than the code trace, reaching that ceiling needs 702 records agreeing on family name, year and
+first significant title word, so the issue was closed with its diagnosis preserved. **This feature
+has no dependency on it and `converters.py` is untouched**, which is what T039 asserts.
 
 ## Dependencies
 
