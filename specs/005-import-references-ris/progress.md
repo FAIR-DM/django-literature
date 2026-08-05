@@ -117,3 +117,24 @@ specification, `Closes #41` added to PR #40's description. Task count 38.
 The lesson, distinct from the previous entry's: **a criterion I wrote is not an external constraint.**
 When my own spec text starts forcing an outcome that contradicts a standing instruction from Sam, the
 text is what gives, and amending it is a normal move rather than a last resort.
+
+## 2026-08-05 — Foundational Implementer dispatched (US0)
+
+Skills loaded: `craft-tdd` (receipt `craft-tdd/2026-08-04/c95488d8`), `craft-increments` (receipt
+`craft-increments/2026-08-05/d3dce07f`), both via the Skill tool. Baseline `forge verify` green
+(conformance, lint, typecheck, 326 tests, build) immediately before starting.
+
+### T001 — genuine corpus vendored
+
+Did: added `tests/data/ris/genuine/{endnote,scopus,webofscience}.ris` from
+`asreview/citation-file-formatting` (CC0-1.0, already staged locally from the S3 research pull),
+each the same ten references from a different producer. `SOURCE.md` records origin, licence,
+retrieval date and each file's fingerprint. The repo's own `trailing-whitespace`/`end-of-file-fixer`
+hooks trimmed a trailing space after `ER  -`'s empty value and a final blank line on first commit —
+noted in `SOURCE.md` rather than fought, since neither touches a tag or a value.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 5 passed. `poetry run
+pre-commit run --files tests/test_importers/test_ris.py tests/data/ris/genuine/*` — clean after the
+whitespace fix above.
+
+Next: T003 (constructed malformation fixtures).
