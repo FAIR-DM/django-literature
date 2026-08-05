@@ -412,8 +412,17 @@
         },
         {
           "id": "T025",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestSNProducerEncodings tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "27 passed (new class + adjacent identifier classes); 242 passed full file; ruff clean; mypy clean"
+          }
         },
         {
           "id": "T026",

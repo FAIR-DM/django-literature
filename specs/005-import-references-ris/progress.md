@@ -694,3 +694,36 @@ Watch: the genuine corpus (`genuine/{endnote,scopus,webofscience}.ris`) carries 
 consistent with `TestContributors`'s own existing style, not through a new fixture file.
 
 Next: T025 (`SN` producer encodings).
+
+## 2026-08-05T22:58:00Z · Implementer US-3 · T025
+
+Did: wrote the failing tests first — `TestSNProducerEncodings` in `tests/test_importers/test_ris.py`
+(9 tests): Web of Science's repeated tag (two ISSN-shaped values, one ISSN + one ISBN with the
+second of each kind preserved), Scopus's inline `(ISSN)`/`(ISBN)` annotation stripped and the bare
+8-digit value hyphenated before validation, Scopus's `; `-packed single tag resolving both an ISSN
+and an ISBN from one tag, EndNote's continuation-line second value (already split by the parser
+into a second `raw.values("SN")` entry), a value resolving to neither shape preserved rather than
+dropped, and the annotation confirmed never to leak into the stored value. Then implemented in
+`literature/importers/ris.py`: `_sn_candidates` flattens `SN`'s raw values across all three
+producer shapes into one ordered list, stripping Scopus's annotation (`_SN_ANNOTATION_RE`) and
+splitting its `;`-packed form; `_sn_identifier` reformats a bare 8-character ISSN candidate with a
+hyphen (`_BARE_ISSN_RE`) before calling the existing `validate_issn`/`validate_isbn`. The
+`_identifiers` SN block now resolves every candidate, keeping the first of each kind and routing
+everything else to a new `_add_preserved` helper (also used for `DO`/`UR`), which stores a single
+surplus value as a bare string and two or more as a list — D34.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestSNProducerEncodings
+tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery
+tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation -q` — red first (9 failing:
+6 `KeyError: 'ISSN'`/`'ISBN'`, 3 `KeyError: 'custom'`), green after — 27 passed. Full file:
+`poetry run pytest tests/test_importers/test_ris.py -q` — 242 passed (233 prior + 9 new). `ruff
+check`/`ruff format --check` on both changed files — clean. `poetry run mypy
+literature/importers/ris.py` — clean.
+
+Watch: none of the genuine corpus's own `SN` values happens to need the `; `-packed or dual-kind
+resolution paths at once (Web of Science's genuine dual-ISSN case at `genuine/webofscience.ris`
+line 94-95 does exercise the repeated-same-kind surplus path directly), so those two are tested
+through `entry()` only, consistent with this module's existing style for producer-specific shapes
+the ten-reference corpus does not itself carry (research R10's "Limitation").
+
+Next: T026 (year-less `DA` splicing).
