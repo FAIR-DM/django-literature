@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 
 from literature.importers.exceptions import ParseError
-from literature.importers.ris import RISParser
+from literature.importers.results import Outcome
+from literature.importers.ris import RISFormat, RISParser
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
 
@@ -370,3 +371,65 @@ class TestContinuationLines:
             entries = list(RISParser().parse(handle))
         assert entries[0].values("TI") == ["A new specimen described from several untagged continuation lines"]
         assert entries[0].values("PY") == ["2023"]
+
+
+class TestWholeFileOutcomes:
+    """The three whole-file outcomes and the header sentinel, through the full import workflow
+    (``RISFormat.import_file``, not just ``RISParser`` directly) (T008).
+    """
+
+    def test_empty_file_succeeds_with_an_empty_result(self):
+        with fixture("constructed/empty.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.ok
+        assert list(result) == []
+
+    def test_tag_lines_with_no_ty_anywhere_is_reported_as_a_failed_entry(self):
+        with fixture("constructed/no_ty_anywhere.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 1
+        assert result.entries[0].outcome == Outcome.FAILED
+        assert "TY" in result.entries[0].reason
+
+    def test_a_bibtex_file_under_a_ris_name_is_reported_as_a_failed_entry(self):
+        with fixture("negative/bibtex_under_ris_name.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 1
+        assert result.entries[0].outcome == Outcome.FAILED
+
+    def test_a_wos_native_tagged_file_is_reported_as_a_failed_entry(self):
+        with fixture("negative/wos_native_tagged.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 1
+        assert result.entries[0].outcome == Outcome.FAILED
+
+    def test_undecodable_bytes_are_reported_as_a_failed_entry_naming_the_encoding(self):
+        with fixture("constructed/cp1252_encoded.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 1
+        assert result.entries[0].outcome == Outcome.FAILED
+        assert "utf-8" in result.entries[0].reason
+
+    def test_header_material_is_reported_as_one_skipped_entry(self):
+        with fixture("constructed/header_before_first_entry.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.entries[0].outcome == Outcome.SKIPPED
+
+    def test_header_material_produces_no_item(self):
+        with fixture("constructed/header_before_first_entry.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.entries[0].item is None
+
+    def test_a_file_with_no_header_reports_no_skip_at_all(self):
+        """A file that opens directly with ``TY`` owes no report for header material it never
+        had (decisions.md D17)."""
+        with fixture("constructed/missing_final_er.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.skipped == []
+
+    def test_no_import_ever_raises_on_this_corpus(self):
+        """SC-008: no content in a .ris file, however malformed, produces an unhandled error."""
+        every_file = list((DATA / "constructed").glob("*.ris")) + list((DATA / "negative").glob("*.ris"))
+        for path in every_file:
+            with path.open("rb") as handle:
+                RISFormat().import_file(handle)  # must not raise
