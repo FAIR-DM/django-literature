@@ -320,33 +320,70 @@
       "tasks": [
         {
           "id": "T018",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestDOIRecovery -v"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T019",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery -v"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T020",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnparseableDates tests/test_importers/test_ris.py::TestDates tests/test_importers/test_ris.py::TestCitationKeys -v"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T021",
-          "status": "todo",
-          "attempts": 0
+          "status": "blocked",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestMalformedEntryFailsAlone -v"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T022",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestSeparationTolerance -v"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T023",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestBulkAcceptance -v",
+              "poetry run pytest -q (full suite)"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },
