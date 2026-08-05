@@ -755,3 +755,33 @@ narrower than Web of Science's year-less DA splicing... research.md R5 records a
 (T026)"), so there was no live ambiguity left to resolve here.
 
 Next: T027 (multiple `DO` tags).
+
+## 2026-08-05T23:18:00Z · Implementer US-3 · T027
+
+Did: wrote the failing tests first — `TestMultipleDOTags` in `tests/test_importers/test_ris.py`
+(6 tests): the first `DO` stored as the DOI, the second preserved, order determined by source
+position rather than which tag the parser saw last (swapping the two swaps which is stored), three
+`DO` tags collapsing the two surplus values to a list (reusing D34's shape rule), a surplus value
+written as a resolver URL still normalized before preservation, and the ordinary single-`DO` case
+confirmed unaffected. Then implemented in `literature/importers/ris.py`: the `DO` block in
+`_identifiers` now normalizes every `raw.values("DO")` entry up front, validates only the first,
+and on success stores it as `DOI` while routing the rest through `_add_preserved` (T025's helper);
+on failure, the whole normalized list — first included — goes to `_add_preserved` instead, so an
+invalid first `DO` alongside a genuine surplus one still preserves both rather than losing the
+second.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestMultipleDOTags
+tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery
+tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation -q` — red first (4 of 6 new
+tests failing with `KeyError: 'custom'`; the other 2 already passed pre-implementation, asserting
+the single-DO case is unaffected), green after — 24 passed. Full file: `poetry run pytest
+tests/test_importers/test_ris.py -q` — 254 passed (248 prior + 6 new). `ruff check`/`ruff format
+--check` — clean. `poetry run mypy literature/importers/ris.py` — clean.
+
+Watch: no genuine corpus entry carries two `DO` tags — all thirty genuine records (ten per
+producer) are plain `JOUR` articles with one `DO` each — so this task is exercised entirely
+through `entry()`, consistent with T024's and part of T025's own note about producer-specific
+shapes the ten-reference corpus does not itself carry.
+
+Next: T028 (cross-producer equivalence acceptance run) — see the completion report for a
+significant finding about the genuine corpus that surfaced while starting this task.
