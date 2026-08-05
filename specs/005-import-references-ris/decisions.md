@@ -684,3 +684,29 @@ renamed or removed.
 
 **Revisit if**: a producer is found that exports a bare `TY` block meaning something recoverable.
 Nothing in the three genuine corpus files does.
+
+## D32 — a tag present with an empty value is not "TY-only"
+
+**Ambiguity**: T021's own instruction for landing D31's check: "decide whether a tag present but
+empty counts as 'no other bibliographic content'." An entry like `TY - JOUR` / `AB -` / `ER -`
+carries a second tag, `AB`, whose value is the empty string — is that "TY and nothing else"?
+
+**Chosen**: No. D31's drafted check — `if all(tag == "TY" for tag, _ in raw.tags): raise
+SkipEntry` — is on which tags the entry's `raw.tags` carries, not on whether their values are
+non-empty. A second tag, even an empty one, disqualifies the skip. Implemented as drafted, with no
+added value-emptiness check, and asserted directly:
+`TestTyOnlySkipped::test_a_tag_present_with_an_empty_value_is_not_ty_only` builds
+`entry(ab="")` and asserts `to_csl_json` returns a dict rather than raising.
+
+**Why defensible**: this is the simpler of the two implementations — D31's own drafted check,
+verified experimentally against the full suite before this task began, needs no extension to
+reach it. FR-009's wording, "carrying a reference type and no other bibliographic content", reads
+naturally as being about which fields the source entry declares at all — a producer that writes an
+empty `AB -` line said something, even if what it said was nothing, and RIS's own two-space
+convention gives that a different tag list than an entry that never mentioned `AB`. Checking value
+truthiness instead would need a second predicate (`raw.values(tag)[0].strip()` per non-`TY` tag)
+that FR-009's text does not ask for and D31 did not draft.
+
+**Revisit if**: a genuine corpus file is found that writes an empty tag immediately after `TY` as
+its only other content, and that shape should read as "nothing to build an item from" rather than
+"a producer declared a field it left blank."

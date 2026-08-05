@@ -353,11 +353,13 @@
         },
         {
           "id": "T021",
-          "status": "blocked",
-          "attempts": 1,
+          "status": "done",
+          "attempts": 2,
           "evidence": {
             "commands": [
-              "poetry run pytest tests/test_importers/test_ris.py::TestMalformedEntryFailsAlone -v"
+              "poetry run pytest tests/test_importers/test_ris.py::TestMalformedEntryFailsAlone -v",
+              "poetry run pytest tests/test_importers/test_ris.py::TestTyOnlySkipped -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q"
             ],
             "verified_by_ci": false
           }

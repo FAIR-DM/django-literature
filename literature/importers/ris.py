@@ -694,12 +694,11 @@ class RISFormat(BibFormat):
         than ending the file (T021, FR-009).
 
         FR-009's other half — an entry carrying ``TY`` and no other bibliographic content is
-        reported as skipped rather than stored as a near-empty item — is **not implemented here**.
-        Blocked: `entry()`'s own default (`ty="JOUR"`, no other tags) is the exact shape a genuine
-        TY-only entry has, and 64 pre-existing US-1 tests across `TestReferenceTypeTable`,
-        `TestCoreFieldMapping`, `TestContributors`, `TestDates` and `TestIdentifiers` call
-        `to_csl_json` on that shape to isolate an unrelated mapping concern — raising `SkipEntry`
-        for it breaks all of them. See `tasks.md` T021 and this story's completion report.
+        reported as skipped rather than stored as a near-empty item — raises
+        :class:`~literature.importers.exceptions.SkipEntry` when every tag the entry carries is
+        ``TY`` (T021, FR-009, decisions.md D31). The check is on which tags are present, not on
+        whether their values are non-empty: a second tag with an empty value still disqualifies
+        the skip.
         """
         if isinstance(raw, str):
             raise SkipEntry
@@ -707,6 +706,9 @@ class RISFormat(BibFormat):
         ty_values = raw.values("TY")
         if not ty_values:
             raise EntryError(_("This entry carries no 'TY' (reference type) tag."))
+
+        if all(tag == "TY" for tag, _ in raw.tags):
+            raise SkipEntry
 
         ref_type = ty_values[0].strip()
 

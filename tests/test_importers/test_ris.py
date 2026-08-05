@@ -20,7 +20,7 @@ from partial_date import PartialDate
 from literature.converters import _generate_dedup_suffix
 from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
-from literature.importers.exceptions import EntryError, ParseError
+from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
 from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
 from literature.models import Item
@@ -621,6 +621,37 @@ class TestMalformedEntryFailsAlone:
         assert author.family == "Smith"
 
 
+class TestTyOnlySkipped:
+    """An entry carrying ``TY`` and no other bibliographic content is reported as skipped rather
+    than stored as a near-empty item (T021, FR-009, decisions.md D31)."""
+
+    @pytest.mark.django_db
+    def test_the_entry_is_reported_skipped_and_the_import_still_succeeds(self):
+        with fixture("constructed/ty_only.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 1
+        assert result.entries[0].outcome == Outcome.SKIPPED
+        assert result.ok
+
+    @pytest.mark.django_db
+    def test_the_entry_stores_no_item(self):
+        with fixture("constructed/ty_only.ris") as handle:
+            RISFormat().import_file(handle)
+        assert Item.objects.count() == 0
+
+    def test_to_csl_json_raises_skip_entry_for_a_ty_only_entry(self):
+        with pytest.raises(SkipEntry):
+            RISFormat().to_csl_json(entry())
+
+    def test_a_tag_present_with_an_empty_value_is_not_ty_only(self):
+        """A second tag disqualifies the skip even when its value is empty — the check is on
+        which tags the entry carries, not on whether their values are non-empty (D31's drafted
+        check, ``all(tag == "TY" for tag, _ in raw.tags)``, decided here as this task's own
+        non-obvious choice)."""
+        csl = RISFormat().to_csl_json(entry(ab=""))
+        assert csl["type"]
+
+
 class TestRegistration:
     """The format is reachable without configuration (FR-001, FR-003, FR-033, T009)."""
 
@@ -705,16 +736,22 @@ class TestReferenceTypeTable:
 
     @pytest.mark.parametrize(("ris_type", "csl_type"), sorted(REFERENCE_TYPE_TABLE.items()))
     def test_every_listed_type_maps_to_its_csl_equivalent(self, ris_type, csl_type):
-        assert RISFormat().to_csl_json(entry(ty=ris_type))["type"] == csl_type
+        assert RISFormat().to_csl_json(entry(ty=ris_type, ti="x"))["type"] == csl_type
 
     def test_an_unlisted_type_maps_to_the_generic_document(self):
-        assert RISFormat().to_csl_json(entry(ty="ZZZZ"))["type"] == "document"
+        assert RISFormat().to_csl_json(entry(ty="ZZZZ", ti="x"))["type"] == "document"
 
     def test_grnt_and_grant_reach_the_same_csl_type(self):
-        assert RISFormat().to_csl_json(entry(ty="GRNT"))["type"] == RISFormat().to_csl_json(entry(ty="GRANT"))["type"]
+        assert (
+            RISFormat().to_csl_json(entry(ty="GRNT", ti="x"))["type"]
+            == RISFormat().to_csl_json(entry(ty="GRANT", ti="x"))["type"]
+        )
 
     def test_unpd_and_unpb_reach_the_same_csl_type(self):
-        assert RISFormat().to_csl_json(entry(ty="UNPD"))["type"] == RISFormat().to_csl_json(entry(ty="UNPB"))["type"]
+        assert (
+            RISFormat().to_csl_json(entry(ty="UNPD", ti="x"))["type"]
+            == RISFormat().to_csl_json(entry(ty="UNPB", ti="x"))["type"]
+        )
 
 
 class TestCoreFieldMapping:
@@ -754,7 +791,7 @@ class TestCoreFieldMapping:
         assert RISFormat().to_csl_json(entry(cy="Amsterdam"))["publisher-place"] == "Amsterdam"
 
     def test_an_absent_core_tag_leaves_no_key(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"title", "abstract", "volume", "issue"} & csl.keys())
 
 
@@ -847,7 +884,7 @@ class TestContributors:
         assert csl["author"] == [{"literal": "World Wide Web Consortium"}]
 
     def test_no_contributor_tags_means_no_name_variable_keys(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"author", "editor", "collection-editor"} & csl.keys())
 
 
@@ -886,7 +923,7 @@ class TestDates:
         assert "issued" not in csl
 
     def test_no_date_tags_means_no_issued_or_accessed(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"issued", "accessed"} & csl.keys())
 
 
@@ -961,7 +998,7 @@ class TestIdentifiers:
         assert not ({"ISSN", "ISBN"} & csl.keys())
 
     def test_no_identifier_tags_means_no_identifier_keys(self):
-        csl = RISFormat().to_csl_json(entry())
+        csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())
 
 

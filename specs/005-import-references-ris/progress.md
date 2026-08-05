@@ -624,3 +624,45 @@ Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 222 passe
 US-2 is now complete except for T021's second half (blocked, D30). Watch: the four concerns US-1
 carried forward are unchanged by this story except the TY-only one, which is now this story's own
 concern rather than a forward pointer — see the completion report.
+
+## 2026-08-05T18:59:16Z · Implementer FIX-1 · T021 (remaining half, D31)
+
+Did: wrote the failing acceptance test first — `TestTyOnlySkipped` in
+`tests/test_importers/test_ris.py`, alongside `TestMalformedEntryFailsAlone` as the brief
+directed: `ty_only.ris` through `RISFormat().import_file` reports `Outcome.SKIPPED`, stores no
+`Item`, and the import still succeeds (`result.ok`); `to_csl_json` on a TY-only `RISEntry` raises
+`SkipEntry`; and one own-authored case for the non-obvious choice below. Then implemented exactly
+D31's drafted check in `RISFormat.to_csl_json`, immediately after the existing no-`TY`
+`EntryError` check: `if all(tag == "TY" for tag, _ in raw.tags): raise SkipEntry`. Replaced the
+docstring paragraph that said this half was "not implemented here" / "Blocked:" with one stating
+the rule and citing FR-009 and D31, per the task's explicit instruction that a docstring asserting
+otherwise is now false in shipped code. Amended exactly the eight inherited call sites T021 names,
+one tag each, nothing else: four in `TestReferenceTypeTable` (parametrized
+`test_every_listed_type_maps_to_its_csl_equivalent`, `test_an_unlisted_type_maps_to_the_generic_document`,
+`test_grnt_and_grant_reach_the_same_csl_type`, `test_unpd_and_unpb_reach_the_same_csl_type`) took
+`ti="x"`; four absence tests (`TestCoreFieldMapping::test_an_absent_core_tag_leaves_no_key`,
+`TestContributors::test_no_contributor_tags_means_no_name_variable_keys`,
+`TestDates::test_no_date_tags_means_no_issued_or_accessed`,
+`TestIdentifiers::test_no_identifier_tags_means_no_identifier_keys`) took `pb="A publisher"`. No
+rename, no assertion touched, no ninth call site. The two multi-type-equivalence assertions
+(`GRNT`/`GRANT`, `UNPD`/`UNPB`) were reflowed across three lines each — ruff's 120-column
+`line-length` (not the brief's 88, which this repo's `pyproject.toml` overrides) would otherwise
+be exceeded by the added tag; `ruff format --diff` confirms the result needs no further change, so
+this is the tag addition's mechanical consequence, not a second edit to the test.
+
+Non-obvious choice → `decisions.md` D32: a tag present with an empty value does not count as
+"TY-only" under D31's drafted check, since the check is on which tags are present rather than on
+whether their values are non-empty. Recorded with a test (`test_a_tag_present_with_an_empty_value_is_not_ty_only`).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestTyOnlySkipped -q` — red first
+(3 of 4 failing for the right reason: `Outcome.CREATED` instead of `SKIPPED`, `Item.objects.count()
+== 1` instead of `0`, `DID NOT RAISE SkipEntry`; the fourth, the empty-value case, already passed
+pre-implementation since it asserts the current code's behaviour holds either way), green after —
+4 passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 226 passed (222
+prior + 4 new; the 64 tests D30 named broke immediately after the `SkipEntry` check landed, before
+the eight call sites were amended, confirming D30/D31's count exactly, then passed once amended).
+`poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+`poetry run mypy literature/importers/ris.py` — clean.
+
+Next: none — T021 was this fix round's only task. Full-suite verify and the completion report
+follow.
