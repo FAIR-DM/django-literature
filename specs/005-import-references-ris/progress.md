@@ -426,3 +426,25 @@ literature/importers/ris.py` — clean. `poetry run pre-commit run --files
 literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
 
 Next: T017 (end-to-end over genuine/endnote.ris — the story's own acceptance test).
+
+### T017 — end-to-end acceptance over genuine/endnote.ris
+
+Did: `TestEndToEnd`, one call to `RISFormat().import_file(...)` over the genuine ten-entry EndNote
+export, asserting: all ten created, in source order, each reporting its own file `ID` as the
+citation key (no minting needed — every genuine EndNote entry carries one); all ten stored as
+`article-journal`; the first entry's four authors in file order with the right family/given split;
+every item's issued date at year precision (`PartialDate.YEAR`, matching this file's PY-only
+dates); DOI, URL and ISSN identifiers on the first entry.
+
+All six assertions passed on first run — T010 through T016 already built everything this test
+exercises, so there was no red step to observe here, the same shape T008's own progress entry
+recorded for the foundational phase. Noted rather than fabricated, per craft-tdd.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestEndToEnd -v` — 6 passed.
+`poetry run pytest tests/test_importers/test_ris.py -q` — 187 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean (one ruff-format pass,
+re-verified green after).
+
+**US-1 (T010-T017) complete.** All eight tasks done, one commit each, tree green throughout. Next:
+the story's mandatory full-suite run and completion report.
