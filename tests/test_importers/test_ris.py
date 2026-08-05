@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 
 import pytest
+from partial_date import PartialDate
 
 from literature.converters import _generate_dedup_suffix
 from literature.importers import available_formats, get_format
@@ -845,3 +846,78 @@ class TestReportedHandleIsTheStoredKey:
         ``converters.py`` (whose own suites, unmodified, are this feature's other evidence)."""
         assert "entry_created" in RISFormat.__dict__
         assert RISFormat.entry_created is not BibFormat.entry_created
+
+
+class TestEndToEnd:
+    """One call over ``genuine/endnote.ris``: every entry created, in source order, with the
+    expected types, contributor order, date precision and identifiers (T017, US-1 acceptance,
+    SC-001, SC-007)."""
+
+    @pytest.mark.django_db
+    def test_every_entry_is_created_in_source_order_with_its_own_id_as_the_citation_key(self):
+        with fixture("genuine/endnote.ris") as handle:
+            result = RISFormat().import_file(handle)
+
+        assert result.ok
+        assert len(result.created) == 10
+        assert [e.handle for e in result.created] == [
+            "889",
+            "887",
+            "884",
+            "888",
+            "885",
+            "886",
+            "882",
+            "883",
+            "881",
+            "880",
+        ]
+
+    @pytest.mark.django_db
+    def test_every_item_is_a_journal_article(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+        assert set(Item.objects.values_list("type", flat=True)) == {"article-journal"}
+
+    @pytest.mark.django_db
+    def test_the_first_entrys_authors_keep_source_order(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        item = Item.objects.get(citation_key="889")
+        authors = [item_name.name for item_name in item.item_names.filter(role="author").order_by("order")]
+        assert [(a.family, a.given) for a in authors] == [
+            ("Boisvert", "C."),
+            ("Curtice", "B."),
+            ("Wedel", "M."),
+            ("Wilhite", "R."),
+        ]
+
+    @pytest.mark.django_db
+    def test_every_item_carries_a_year_precision_issued_date(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        for item in Item.objects.all():
+            issued = item.item_dates.get(date_type="issued")
+            assert issued.begin.date.year == 2024
+            assert issued.begin.precision == PartialDate.YEAR
+
+    @pytest.mark.django_db
+    def test_every_item_carries_a_doi_and_a_url_identifier(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        item = Item.objects.get(citation_key="889")
+        assert item.item_identifiers.get(type="DOI").value == "10.1002/ar.25520"
+        assert item.item_identifiers.get(type="URL").value == (
+            "https://www.embase.com/search/results?subaction=viewrecord&id=L2030246463&from=export"
+        )
+
+    @pytest.mark.django_db
+    def test_every_item_carries_an_issn_identifier(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        item = Item.objects.get(citation_key="889")
+        assert item.item_identifiers.get(type="ISSN").value == "1932-8494"
