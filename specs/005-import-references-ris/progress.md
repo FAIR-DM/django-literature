@@ -167,3 +167,18 @@ no entries to frame.
 Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 26 passed. Pre-commit clean.
 
 Next: T005 (extract normalizers.py).
+
+### T005 — extract IdentifierNormalizer
+
+Did: `literature/importers/normalizers.py`, new — `IdentifierNormalizer.normalize_doi` and
+`.normalize_isbn`, moved verbatim from `bibtex.py`'s `_normalize_doi`/`_normalize_isbn`.
+`bibtex.py` re-points `_IDENTIFIER_NORMALIZERS` to the new class and drops the two module-level
+functions and their regexes. `_clean_text`, `_unescape_entities`, `_clean_identifier` untouched —
+they stay put, per plan.md, since they decode a LaTeX/XML layer RIS does not have.
+
+Verified: `poetry run pytest tests/test_importers/test_bibtex.py tests/test_converters.py
+tests/test_importers/test_normalizers.py -q` — 333 passed. `git diff --stat -- \
+tests/test_importers/test_bibtex.py tests/test_converters.py` — empty, confirming both stayed
+unmodified. `poetry run mypy` — clean. `poetry run pre-commit run --files ...` — clean.
+
+Next: T041 (dedup suffix ceiling).
