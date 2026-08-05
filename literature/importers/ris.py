@@ -136,8 +136,8 @@ class RISParser:
 
             if match is None:
                 if pairs:
-                    continue  # untagged-line continuation is T007's job
-                if not header_yielded:
+                    self._continue_value(pairs, line)
+                elif not header_yielded:
                     header.append(line)
                 continue
 
@@ -172,6 +172,18 @@ class RISParser:
 
         if pairs:
             yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
+
+    def _continue_value(self, pairs: list[list[str]], line: str) -> None:
+        """Resolve one untagged line against the tag it follows (FR-007, amended).
+
+        Only called while an entry is open (``pairs`` non-empty), so the most recently added pair
+        always names the tag this line continues.
+        """
+        last_tag = pairs[-1][0]
+        if last_tag in self.REPEATABLE_TAGS:
+            pairs.append([last_tag, line.strip()])
+        else:
+            pairs[-1][1] = f"{pairs[-1][1]} {line.strip()}"
 
 
 class RISFormat(BibFormat):

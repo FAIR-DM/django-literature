@@ -325,3 +325,48 @@ class TestRISParserStreaming:
         # scanned anywhere close to that -- this is what fails if parse() is ever rewritten to
         # build a list before yielding.
         assert len(calls) < 20, f"scanned {len(calls)} lines to yield just the first entry"
+
+
+class TestContinuationLines:
+    """An untagged line resolves per tag: another value, or a joined continuation (FR-007, T007)."""
+
+    def test_a_scalar_tag_continuation_is_joined_with_a_single_space(self):
+        with fixture("constructed/wrapped_prose.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[0].values("TI") == ["Tropical cyclones and the organization of mangrove forests: a review"]
+
+    def test_a_prose_tag_continued_across_several_lines_joins_them_all(self):
+        with fixture("constructed/wrapped_prose.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[0].values("AB") == [
+            "This abstract is written across several lines the way Web of Science wraps long "
+            "prose, indented but not tagged, and must be read as one continuous value joined "
+            "with spaces."
+        ]
+
+    def test_indentation_plays_no_part_in_the_scalar_join(self):
+        """FR-007: indentation must not be used to decide -- only the tag is consulted."""
+        with fixture("constructed/wrapped_prose.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert "   " not in entries[0].values("TI")[0]
+
+    def test_a_repeatable_tags_continuation_lines_each_become_another_value(self):
+        with fixture("constructed/endnote_multivalue_continuation.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[0].values("KW") == ["article", "biostratigraphy", "Colorado", "dinosaur"]
+
+    def test_a_second_repeatable_tag_in_the_same_entry_is_independent(self):
+        with fixture("constructed/endnote_multivalue_continuation.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[0].values("SN") == ["1932-8494", "1932-8486"]
+
+    def test_repeatable_continuation_lines_are_not_joined_into_one_value(self):
+        with fixture("constructed/endnote_multivalue_continuation.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert "biostratigraphy" not in entries[0].values("KW")[0]
+
+    def test_a_tag_before_and_after_the_continued_one_is_unaffected(self):
+        with fixture("constructed/endnote_multivalue_continuation.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[0].values("TI") == ["A new specimen described from several untagged continuation lines"]
+        assert entries[0].values("PY") == ["2023"]
