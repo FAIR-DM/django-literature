@@ -448,3 +448,24 @@ re-verified green after).
 
 **US-1 (T010-T017) complete.** All eight tasks done, one commit each, tree green throughout. Next:
 the story's mandatory full-suite run and completion report.
+
+## 2026-08-05T18:15Z · Forge · US1 accepted
+
+Did: recovered the US1 completion report from the Implementer's session transcript (its completion
+event was consumed by a turn that ran on a fallback model and returned corrupted output), ran the
+S4 acceptance checks independently, merged `005-us1` into the feature branch, recorded D27, flipped
+US1 to `done`.
+
+Verified: `forge check-receipts --role implementer --brief dl-us1-TASK_BRIEF.json` green (2
+receipts, no drift); `forge verify --base 3508590` green on all five steps (conformance, lint,
+typecheck, 973 tests, build); `poetry run pytest -q` 973 passed independently; `forge tamper-check
+--base 3508590` 1 flag on `tests/test_importers/test_ris.py`, approved — additive only, no base
+test name dropped (75 definitions at base, 151 at head, name sets compared); empty diff over the
+five paths SC-009 depends on; ledger edits confined to US1's own eight tasks.
+
+Next: T002 (the chapter-editor licence determination and its spec edit, retained by Forge per D24),
+then the ADR verdicts across D1–D27 so `check-adrs` is not a wall at S5, then US2.
+
+Watch: four US1 concerns are carried as watch items for convergence and review — A4/translator
+unmapped, TY-only entries deferred to T021, unrecognised `SN` shapes deferred to T030, C7's
+article-number tag deliberately unmapped against `SN`'s scalar `number` use.

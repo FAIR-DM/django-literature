@@ -209,7 +209,7 @@
       "id": "US1",
       "priority": "P1",
       "issue": 36,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {

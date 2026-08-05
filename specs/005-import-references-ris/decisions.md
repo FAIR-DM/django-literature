@@ -489,3 +489,47 @@ at the edge fails loudly with a stated reason rather than colliding silently wit
 prevent (`from_csl_json` excludes `citation_key` from `full_clean`, so nothing downstream would
 catch it otherwise). Revisit if a real corpus produces citation keys long enough to approach this
 threshold — nothing in the four supported producers' own tag lengths suggests one will.
+
+## D27 — US1 accepted: the checks actually run, 2026-08-05
+
+Run by the orchestrator against the story's true base `3508590` (the branch tip US1 forked from),
+after the report was recovered from the Implementer's own session — the turn that should have
+processed it ran on a fallback model and returned corrupted output, so the report was read from the
+worker transcript rather than from a completion event.
+
+- **`forge check-receipts --role implementer --brief dl-us1-TASK_BRIEF.json` — green.** Both
+  receipts (`craft-tdd/2026-08-05/eae3b6c7`, `craft-increments/2026-08-05/d3dce07f`) match the
+  briefed values, no drift.
+- **`forge verify` — green on all five steps**: conformance, lint, typecheck, 973 tests, build.
+  Independently re-run: `poetry run pytest -q` — 973 passed, which is the report's 851 baseline
+  plus 122 new.
+- **`forge tamper-check --base 3508590` — 1 flag**, `tests/test_importers/test_ris.py`.
+
+**The flag is approved.** The file existed at base because US0 created it, and US1's diff against
+it removes nothing: the only `-` lines in the whole diff are two import statements, both widened
+rather than replaced (`ParseError` → `EntryError, ParseError`; `RISFormat, RISParser` →
+`REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser`). Every base-file test name and class name
+still exists at head, checked by name-set comparison rather than by reading the diff — 75
+definitions at base, 151 at head, none dropped. A story that adds test classes to the file its
+foundational phase created will flag every time; that is the guardrail working as specified, not a
+finding.
+
+**SC-009 holds, checked rather than accepted.** `git diff` over the five paths the brief prohibited
+— `literature/importers/base.py`, `results.py`, `converters.py`, `tests/test_converters.py`,
+`tests/test_importers/test_bibtex.py` — is empty. The whole story touches five files, two of them
+spec documents.
+
+**The ledger scope prohibition held this time**, which is worth recording because US0's Implementer
+breached it. Top-level `state`, `state_history`, `gates` and `budgets` are byte-identical to base;
+the only edits are the eight US1 task statuses and their evidence blocks. Compared field by field,
+not eyeballed.
+
+**Four concerns carried forward as watch items, none blocking**: A4/translator left unmapped
+(US-3's T024 territory), TY-only entries left to T021's own acceptance criterion, unrecognised `SN`
+shapes left to US-4's T030, and C7's article-number tag deliberately unmapped to avoid colliding
+with `SN`'s report/patent use of the same scalar field. All four name the story that owns the work,
+and the first and last are the shape the S6 reviewer should check at convergence.
+
+**Revisit if**: a story's report arrives without a completion event again. The report was recoverable
+from the worker's transcript, but nothing in the pipeline noticed the event had been consumed by a
+broken turn — the ledger simply stayed at `todo` with eighteen commits sitting in a worktree.
