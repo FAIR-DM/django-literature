@@ -404,3 +404,25 @@ literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
 
 Next: T016 (the reported handle is the stored key — `entry_created` override, dry-run `item is
 None`).
+
+### T016 — report the stored citation key via an entry_created override
+
+Did: `RISFormat.entry_created`, overriding the documented `BibFormat` override point to report
+`item.citation_key` (the key **as stored**, de-duplication suffix included) instead of the
+pre-dedup key `handle_for` returns. `item` is passed to `entry_created` unconditionally by
+`import_entry` — only the *returned* `EntryResult.item` is nulled for a dry run by the base's own
+logic — so a dry run still reports the would-be-stored key while carrying `item is None`. No
+change to `base.py`, `results.py` or `converters.py`.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestReportedHandleIsTheStoredKey
+-v` — 4 passed. Confirmed RED first: the collision test reported `["smith1", "smith1"]` instead of
+`["smith1", "smith1b"]`, and the override-existence assertion failed, before `entry_created`
+existed (the single-entry and dry-run cases already passed against the base's default behaviour,
+since there is no collision to distinguish the two paths without one — as expected, and why the
+collision test is the one that actually exercises this task). `git diff --stat -- \
+literature/importers/base.py literature/importers/results.py literature/converters.py` — empty
+(SC-009). `poetry run pytest tests/test_importers/test_ris.py -q` — 181 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Next: T017 (end-to-end over genuine/endnote.ris — the story's own acceptance test).
