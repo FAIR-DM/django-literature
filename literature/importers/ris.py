@@ -198,9 +198,21 @@ class RISFormat(BibFormat):
     label = _("RIS")
 
     def parse(self, file) -> Iterator[RISEntry | str]:
+        """Yield this file's raw entries, delegating to :class:`RISParser`.
+
+        See :meth:`RISParser.parse` for the framing, decoding and whole-file-outcome rules this
+        defers to.
+        """
         return RISParser().parse(file)
 
     def to_csl_json(self, raw: RISEntry | str) -> dict[str, Any]:
+        """Turn one raw entry into CSL JSON.
+
+        Header material arrives as a plain ``str`` (see :meth:`RISParser.parse`) and is skipped
+        outright, the same pattern ``bibtex.py`` uses for a comment or preamble. A real
+        :class:`RISEntry` has no mapping yet — that is US-1 (issue #36) — so it raises rather
+        than converting; the contract's own exception handling reports it as a failed entry.
+        """
         if isinstance(raw, str):
             raise SkipEntry
         raise NotImplementedError(

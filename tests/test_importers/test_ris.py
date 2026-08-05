@@ -9,11 +9,15 @@ Corpus files live in ``tests/data/ris/``. See ``genuine/SOURCE.md`` for what eac
 carries and ``constructed/`` for the one file per malformation.
 """
 
+import itertools
 import re
 from pathlib import Path
 
 import pytest
 
+from literature.converters import _generate_dedup_suffix
+from literature.importers import available_formats, get_format
+from literature.importers.base import BibFormat
 from literature.importers.exceptions import ParseError
 from literature.importers.results import Outcome
 from literature.importers.ris import RISFormat, RISParser
@@ -433,3 +437,82 @@ class TestWholeFileOutcomes:
         for path in every_file:
             with path.open("rb") as handle:
                 RISFormat().import_file(handle)  # must not raise
+
+
+class TestRegistration:
+    """The format is reachable without configuration (FR-001, FR-003, FR-033, T009)."""
+
+    def test_is_a_bibformat(self):
+        assert issubclass(RISFormat, BibFormat)
+
+    def test_names_itself(self):
+        assert RISFormat.name == "ris"
+        assert RISFormat.label
+
+    def test_reachable_from_the_importers_namespace(self):
+        """Not from ``literature`` itself, which stays empty on purpose (research 003 R3)."""
+        import literature.importers as importers
+
+        assert importers.RISFormat is RISFormat
+
+    def test_shipped_by_default(self):
+        """No configuration required (Article X, FR-003)."""
+        assert "ris" in available_formats()
+
+    def test_bibtex_is_still_shipped_alongside_it(self):
+        """RIS is appended to DEFAULTS, not swapped in for BibTeX (FR-002)."""
+        assert "bibtex" in available_formats()
+
+    def test_resolvable_by_name(self):
+        assert get_format("ris") is RISFormat
+
+    def test_implements_the_stages_a_format_owns(self):
+        assert not RISFormat.__abstractmethods__
+
+    def test_imports_the_empty_file_fixture_when_resolved_by_name(self):
+        with fixture("constructed/empty.ris") as handle:
+            result = get_format("ris")().import_file(handle)
+        assert result.ok
+        assert list(result) == []
+
+
+class TestGenerateDedupSuffix:
+    """Regression for the citation-key de-duplication ceiling (issue #41, T041).
+
+    ``_generate_dedup_suffix`` lives in ``literature/converters.py``, whose own mirror,
+    ``tests/test_converters.py``, is this feature's evidence that T005 was a move and T041 an
+    extension rather than a rewrite -- kept green and byte-for-byte unmodified (decisions.md D16).
+    So this narrow regression lives here instead: RIS's minting is what makes suffix collision the
+    normal case rather than the near-unreachable one BibTeX's own cite keys left it (plan.md "The
+    de-duplication ceiling"), which is the same reasoning that put the fix itself in this feature's
+    pull request. A dedicated ``tests/test_converters_dedup.py`` was tried first and rejected: the
+    repo's own conformance check is file-path-based (forgekit/conformance.py), and a second test
+    file for one source module fails it exactly as Article XIV's mirror rule says it should.
+
+    Tests the generator directly, not by driving hundreds of entries through ``from_csl_json``:
+    that route costs roughly one query per candidate suffix, and at the red step it hangs rather
+    than failing.
+    """
+
+    def test_first_701_values_are_unchanged(self):
+        """``tests/test_converters.py``'s own dedup tests pin the start of this sequence
+        (``test_deduplication_appends_b``, ``test_deduplication_wrap_around``) -- extending it
+        must not reorder what they already assert on.
+        """
+        singles = list("bcdefghijklmnopqrstuvwxyz")
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        pairs = ["".join(combo) for combo in itertools.product(alphabet, repeat=2)]
+        expected = singles + pairs
+        assert len(expected) == 701
+
+        actual = list(itertools.islice(_generate_dedup_suffix("Smith2009"), 701))
+        assert actual == expected
+
+    def test_twenty_thousand_values_are_all_distinct(self):
+        """Past the 701st value the sequence used to repeat forever (issue #41): once every
+        two-letter suffix had been yielded, the outer ``while True`` started the two-letter
+        product over from ``aa`` again, so ``_resolve_citation_key`` never terminated past 701
+        collisions on the same base key.
+        """
+        values = list(itertools.islice(_generate_dedup_suffix("Smith2009"), 20_000))
+        assert len(values) == len(set(values))

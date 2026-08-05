@@ -19,9 +19,10 @@ because a Django app's top-level ``__init__`` is imported before the app
 registry is populated and re-exporting anything that reaches the models would
 raise ``AppRegistryNotReady`` at startup).
 
-Ships with BibTeX (:class:`~literature.importers.bibtex.BibTeXFormat`); RIS
-arrives later. Which formats an installation can read is declared in the
-``LITERATURE`` setting — see :mod:`literature.importers.config`.
+Ships with BibTeX (:class:`~literature.importers.bibtex.BibTeXFormat`) and RIS
+(:class:`~literature.importers.ris.RISFormat`). Which formats an installation
+can read is declared in the ``LITERATURE`` setting — see
+:mod:`literature.importers.config`.
 
 See ``specs/003-import-contract/contracts/importers.md`` for the full contract.
 """
@@ -37,6 +38,7 @@ from literature.importers.exceptions import (
     UnknownFormat,
 )
 from literature.importers.results import EntryResult, ImportResult, Outcome
+from literature.importers.ris import RISEntry, RISFormat, RISParser
 
 __all__ = [
     "BibFormat",
@@ -47,6 +49,9 @@ __all__ = [
     "ImporterError",
     "Outcome",
     "ParseError",
+    "RISEntry",
+    "RISFormat",
+    "RISParser",
     "SkipEntry",
     "UnknownFormat",
     "available_formats",

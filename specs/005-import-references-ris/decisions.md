@@ -234,24 +234,33 @@ name would store a journal abbreviation as a person.
 
 # Foundational-phase decisions (Implementer, 2026-08-05)
 
-## D16 — The #41 regression test lives in its own module, not `tests/test_converters.py`
+## D16 — The #41 regression test lives in `test_ris.py`, not `tests/test_converters.py`
 
 **Ambiguity**: T041 asks the fix to be tested "on the generator directly" — take 20,000 values,
 assert all distinct. `literature/converters.py`'s natural mirror under Article XIV is
 `tests/test_converters.py`, but this story's own prohibition keeps that file green **and
-byte-for-byte unmodified**, since it is the evidence T005 was a move and not a rewrite. Article
-XIV's own mirror rule (one test module per source module, "the per-unit split is expressed with
-classes, not extra files") is exactly what a second file for the same module would violate.
+byte-for-byte unmodified**, since it is the evidence T005 was a move and not a rewrite.
 
-**Chosen**: `tests/test_converters_dedup.py`, a new module holding one class,
-`TestGenerateDedupSuffix`, testing `_generate_dedup_suffix` directly.
+**First chosen, then reverted**: a new module, `tests/test_converters_dedup.py`, holding one
+class testing `_generate_dedup_suffix` directly. `forge verify`'s conformance step rejected it
+mechanically: `forgekit/conformance.py`'s mirror rule is keyed on the test file's **path** against
+the package tree, with no exemption for "the one module you are forbidden to edit" — a second
+file for one source module fails exactly as Article XIV says it should, regardless of why.
+
+**Chosen**: the regression lives as `TestGenerateDedupSuffix` inside `tests/test_ris.py`, which
+already mirrors `literature/importers/ris.py`, a file this story owns outright. Its docstring
+names why it is there: RIS's minting is what turns suffix collision from a near-unreachable case
+into the normal one, which is the same reasoning (plan.md "The de-duplication ceiling") that put
+the fix itself in this feature's pull request rather than a separate one.
 
 **Why defensible**: The hard prohibition on touching `tests/test_converters.py` is explicit and
-un-ambiguous; Article XIV's mirror rule was written for the ordinary case and states no exception
-for "the one file you are forbidden to edit." Between reopening a file the story exists to prove
-untouched and accepting one narrow, clearly-labelled exception to a structural convention, the
-convention gives. The new module's docstring says why it exists rather than leaving the deviation
-unexplained.
+un-ambiguous, but the repo's conformance gate is equally mechanical and equally non-negotiable —
+"a red gate blocks, no LLM override." A second file for `converters.py` satisfies neither
+constraint better than the first attempt; folding the test into a file this story already owns
+satisfies both: nothing forbidden is touched, and the file that does hold the test mirrors real
+source. The abandoned `test_converters_dedup.py` attempt is recorded here rather than silently
+dropped, since reasoning that seemed sound by hand was wrong against the mechanical check that
+actually gates the merge.
 
 ## D17 — The header sentinel is yielded only when header text is non-empty
 
