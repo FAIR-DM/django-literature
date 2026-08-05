@@ -249,3 +249,27 @@ passed. `poetry run pytest -q` (full suite) — 821 passed. `poetry run mypy` �
 pre-commit run --files tests/test_importers/test_ris.py` — clean.
 
 Next: T009 (RISFormat registration and the literature namespace export).
+
+### T009 — RISFormat registration and the literature namespace export
+
+Did: `RISFormat` appended to `DEFAULTS` in `config.py`; `RISFormat`, `RISEntry`, `RISParser`
+exported from `literature.importers` (the latter two are public classes by Python convention, so
+the pre-existing public-surface smoke test requires them exported). Added the docstrings
+`RISFormat.parse`/`to_csl_json` were missing (`test_documentation.py` coverage check). Updated
+two pre-existing tests that track the shipped-defaults surface — `test_config.py`'s
+`test_an_unset_setting_yields_the_shipped_defaults` and `test_smoke.py`'s `PUBLIC_SURFACE` — the
+same way both were updated when BibTeX first landed (their own comments record that precedent);
+neither is `test_converters.py` or the BibTeX suite, so this is in scope.
+
+`forge verify`'s conformance step then rejected the standalone `tests/test_converters_dedup.py`
+from T041 outright — its mirror rule is path-based with no exception for "the file you're
+forbidden to edit." Relocated that regression into `tests/test_ris.py` as
+`TestGenerateDedupSuffix` instead (decisions.md D16, revised).
+
+Verified: `poetry run pytest -q` (full suite) — 851 passed. `git diff --stat -- \
+tests/test_importers/test_bibtex.py tests/test_converters.py` — empty. `poetry run mypy` — clean.
+`poetry run pre-commit run --files ...` — clean. `forge verify --repo .` — conformance, lint,
+typecheck, test, build all green.
+
+**Foundational phase (US0) complete.** All nine assigned tasks (T001, T003, T004, T005, T041,
+T006, T007, T008, T009) done, committed individually, tree green throughout.
