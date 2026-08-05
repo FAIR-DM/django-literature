@@ -725,3 +725,40 @@ class TestDates:
     def test_no_date_tags_means_no_issued_or_accessed(self):
         csl = RISFormat().to_csl_json(entry())
         assert not ({"issued", "accessed"} & csl.keys())
+
+
+class TestIdentifiers:
+    """``DO``/``UR`` become typed identifiers; ``SN`` resolves by shape then reference type
+    (T014, FR-017)."""
+
+    def test_do_becomes_doi(self):
+        assert RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))["DOI"] == "10.1002/ar.25520"
+
+    def test_do_is_normalized_through_the_shared_doi_normalizer(self):
+        """The resolver-URL form ``bibtex.py`` already handles (``IdentifierNormalizer``)."""
+        csl = RISFormat().to_csl_json(entry(do="https://doi.org/10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_ur_becomes_url(self):
+        csl = RISFormat().to_csl_json(entry(ur="https://www.embase.com/search?id=1"))
+        assert csl["URL"] == "https://www.embase.com/search?id=1"
+
+    def test_sn_that_looks_like_an_issn_becomes_issn(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", sn="1932-8494"))["ISSN"] == "1932-8494"
+
+    def test_sn_that_looks_like_an_isbn_becomes_isbn(self):
+        assert RISFormat().to_csl_json(entry(ty="BOOK", sn="978-0-306-40615-7"))["ISBN"] == ("978-0-306-40615-7")
+
+    def test_sn_on_rprt_is_a_report_number_not_an_identifier(self):
+        csl = RISFormat().to_csl_json(entry(ty="RPRT", sn="NIST-8080"))
+        assert csl["number"] == "NIST-8080"
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+
+    def test_sn_on_pat_is_a_patent_number_not_an_identifier(self):
+        csl = RISFormat().to_csl_json(entry(ty="PAT", sn="US1234567"))
+        assert csl["number"] == "US1234567"
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+
+    def test_no_identifier_tags_means_no_identifier_keys(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())

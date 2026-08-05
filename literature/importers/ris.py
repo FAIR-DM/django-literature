@@ -25,10 +25,13 @@ import re
 from collections.abc import Iterator
 from typing import Any, ClassVar
 
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import ParseError, SkipEntry
+from literature.importers.normalizers import IdentifierNormalizer
+from literature.validators import validate_isbn, validate_issn
 
 
 @dataclasses.dataclass(frozen=True)
@@ -441,6 +444,63 @@ def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
     return {"date-parts": [list(y2_parts)]} if y2_parts else None
 
 
+# ---------------------------------------------------------------------------
+# Identifiers (T014, FR-017) — ``DO``/``UR`` are unambiguous; ``SN`` is not disambiguated by the
+# format itself and is resolved by value shape first, reference type second (research.md R6).
+# ---------------------------------------------------------------------------
+
+#: On these types, ``SN`` is a report or patent number, not an identifier at all (research.md R6).
+_REPORT_LIKE_SN_TYPES: frozenset[str] = frozenset({"RPRT", "PAT"})
+
+
+def _sn_identifier(value: str) -> tuple[str, str] | None:
+    """The ``(CSL key, value)`` pair ``SN``'s shape resolves to, or ``None`` if it resolves to
+    neither an ISSN nor an ISBN shape (research.md R6). Shape only — the reference-type
+    tiebreaker for a value that could pass as either is not exercised by this feature's own
+    corpus and is left for a later story rather than guessed at here.
+    """
+    try:
+        validate_issn(value)
+    except ValidationError:
+        pass
+    else:
+        return ("ISSN", value)
+
+    try:
+        validate_isbn(value)
+    except ValidationError:
+        pass
+    else:
+        return ("ISBN", value)
+
+    return None
+
+
+def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, str]:
+    """Every identifier this entry carries, mapped to its CSL top-level key."""
+    result: dict[str, str] = {}
+
+    do_values = raw.values("DO")
+    if do_values and do_values[0].strip():
+        result["DOI"] = IdentifierNormalizer.normalize_doi(do_values[0].strip())
+
+    ur_values = raw.values("UR")
+    if ur_values and ur_values[0].strip():
+        result["URL"] = ur_values[0].strip()
+
+    sn_values = raw.values("SN")
+    if sn_values and sn_values[0].strip():
+        sn_value = sn_values[0].strip()
+        if ref_type in _REPORT_LIKE_SN_TYPES:
+            result["number"] = sn_value
+        else:
+            resolved = _sn_identifier(sn_value)
+            if resolved:
+                result[resolved[0]] = resolved[1]
+
+    return result
+
+
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
 
@@ -497,5 +557,7 @@ class RISFormat(BibFormat):
         accessed = _accessed_date(raw)
         if accessed:
             result["accessed"] = accessed
+
+        result.update(_identifiers(raw, ref_type))
 
         return result
