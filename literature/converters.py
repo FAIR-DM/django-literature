@@ -14,6 +14,7 @@ Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.j
 
 from __future__ import annotations
 
+import itertools
 import logging
 from collections.abc import Iterator
 from typing import Any
@@ -286,20 +287,25 @@ def to_csl_json(item: Any) -> dict[str, Any]:
 
 
 def _generate_dedup_suffix(base: str) -> Iterator[str]:
-    """Generate successive deduplication suffixes: b, c, ..., z, aa, ab, ...
+    """Generate successive deduplication suffixes: b, c, ..., z, aa, ab, ..., zz, aaa, ...
 
-    Yields suffix strings in order starting from 'b'.
+    An odometer over increasing lengths, unbounded and never repeating (issue #41): past the
+    676th two-letter suffix this used to start the two-letter product over from 'aa' again, so
+    ``_resolve_citation_key`` never terminated past 701 items sharing one base key. The first 701
+    values (single letters, then every two-letter pair) are unchanged, since
+    ``tests/test_converters.py`` pins them.
     """
     # Start at 'b' (ord 98), skip 'a' which would be confusingly close to base
     chars = "bcdefghijklmnopqrstuvwxyz"
     # Single-letter suffixes: b, c, ..., z
     yield from chars
-    # Two-letter suffixes: aa, ab, ac, ..., az, ba, ...
+    # Two-letter suffixes, then three, then four, ... — never repeating.
     alphabet = "abcdefghijklmnopqrstuvwxyz"
+    length = 2
     while True:
-        for ch1 in alphabet:
-            for ch2 in alphabet:
-                yield ch1 + ch2
+        for combo in itertools.product(alphabet, repeat=length):
+            yield "".join(combo)
+        length += 1
 
 
 def _resolve_citation_key(data: dict) -> str:

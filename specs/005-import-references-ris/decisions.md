@@ -229,3 +229,26 @@ citation-js omits — because the case is real in a supported producer's output.
 **Why defensible**: It is absent from both official specifications, Zotero drops it explicitly, and
 in the one corpus file where it appears it is PubMed's journal-title abbreviation. Mapping it as a
 name would store a journal abbreviation as a person.
+
+---
+
+# Foundational-phase decisions (Implementer, 2026-08-05)
+
+## D16 — The #41 regression test lives in its own module, not `tests/test_converters.py`
+
+**Ambiguity**: T041 asks the fix to be tested "on the generator directly" — take 20,000 values,
+assert all distinct. `literature/converters.py`'s natural mirror under Article XIV is
+`tests/test_converters.py`, but this story's own prohibition keeps that file green **and
+byte-for-byte unmodified**, since it is the evidence T005 was a move and not a rewrite. Article
+XIV's own mirror rule (one test module per source module, "the per-unit split is expressed with
+classes, not extra files") is exactly what a second file for the same module would violate.
+
+**Chosen**: `tests/test_converters_dedup.py`, a new module holding one class,
+`TestGenerateDedupSuffix`, testing `_generate_dedup_suffix` directly.
+
+**Why defensible**: The hard prohibition on touching `tests/test_converters.py` is explicit and
+un-ambiguous; Article XIV's mirror rule was written for the ordinary case and states no exception
+for "the one file you are forbidden to edit." Between reopening a file the story exists to prove
+untouched and accepting one narrow, clearly-labelled exception to a structural convention, the
+convention gives. The new module's docstring says why it exists rather than leaving the deviation
+unexplained.
