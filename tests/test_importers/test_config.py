@@ -85,10 +85,12 @@ class TestAvailableFormats:
     def test_an_unset_setting_yields_the_shipped_defaults(self):
         """FR-020: the built-in behaviour works with no configuration
         (Article X). BibTeX landed with #22, so the default is no longer the
-        empty mapping this asserted while the package shipped no format."""
+        empty mapping this asserted while the package shipped no format; RIS
+        landed with #23, so bibtex is no longer the only one either."""
         from literature.importers.bibtex import BibTeXFormat
+        from literature.importers.ris import RISFormat
 
-        assert dict(available_formats()) == {"bibtex": BibTeXFormat}
+        assert dict(available_formats()) == {"bibtex": BibTeXFormat, "ris": RISFormat}
 
     def test_available_formats_cannot_be_mutated_by_the_caller(self, settings):
         settings.LITERATURE = {"BIB_FORMATS": [CONFIGURED_PATH]}

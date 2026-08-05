@@ -1,0 +1,513 @@
+{
+  "$schema": "../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "005-import-references-ris",
+  "branch": "005-import-references-ris",
+  "repo": "FAIR-DM/django-literature",
+  "state": "IMPLEMENT",
+  "state_history": [
+    {
+      "state": "INTAKE",
+      "at": "2026-08-05T10:00:00Z"
+    },
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-05T10:30:00Z"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-05T11:00:00Z"
+    },
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-05T11:20:00Z"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-05T12:30:00Z"
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-05T13:10:00Z"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-05T13:26:23Z"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-05T11:20:00Z",
+      "self_resolved": [
+        "D3 reported handle is the stored citation key, not the minted one",
+        "D4 header vs malformed entry separated by position, not shape",
+        "D5 minted key shape left to the plan",
+        "D8 a producer-published sample counts as a genuine export",
+        "D9 single-value model limits preserved, surplus goes to preservation",
+        "D6 spec says entry, not RIS's own word record"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    },
+    "design_review": {
+      "approved_by": "design-panel",
+      "at": "2026-08-05T14:40:00Z",
+      "self_resolved": [
+        "round 1: FR-022 moved from handle_for to an entry_created override (all three lenses, HIGH)",
+        "round 1: T005 narrowed to the two format-neutral normalizers (HIGH)",
+        "round 1: custom['ris'] named as the preservation sink (HIGH)",
+        "round 1: US-2 corrected to depend on US-1",
+        "round 1: empty file is a successful import of nothing, not a parse failure",
+        "round 1: header skip signalled by a yielded sentinel, not SkipEntry from the generator",
+        "round 1: repeatable-tag set moved to RISParser; decode contract added to T006",
+        "round 2: T041 removed - the issue #41 fix lands as its own PR, keeping SC-009 true rather than amending it (HIGH)",
+        "round 2: spec.md Edge Cases header-only clause struck through and forward-tagged to FR-008a",
+        "round 2: T019 preservation sink named; T015 length check widened; T016 dry-run guard added",
+        "round 2: T037 folded into T039; T029 narrowed so US-3 no longer depends on US-4"
+      ]
+    }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "issue": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestSubstitutedChapterFixture -v",
+              "forge verify",
+              "forge tamper-check --base 3508590"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T041",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 36,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestReferenceTypeTable -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestCoreFieldMapping tests/test_importers/test_ris.py::TestT2ContainerOrCollection tests/test_importers/test_ris.py::TestSPLocatorOrPageCount -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestContributors -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestDates -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestIdentifiers -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestCitationKeys -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestReportedHandleIsTheStoredKey -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestEndToEnd -v",
+              "poetry run pytest -q (full suite)"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 37,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestDOIRecovery -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnparseableDates tests/test_importers/test_ris.py::TestDates tests/test_importers/test_ris.py::TestCitationKeys -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 2,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestMalformedEntryFailsAlone -v",
+              "poetry run pytest tests/test_importers/test_ris.py::TestTyOnlySkipped -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestSeparationTolerance -v"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestBulkAcceptance -v",
+              "poetry run pytest -q (full suite)"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 38,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T024",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T025",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T026",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T027",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T028",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T029",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 39,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T030",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T032",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T033",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US5",
+      "priority": "P5",
+      "issue": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T034",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T035",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T036",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T038",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T039",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "design_review_cycles": {
+      "used": 1,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 4000000
+    }
+  },
+  "pr": {
+    "number": 40,
+    "draft": true
+  },
+  "escalations": []
+}

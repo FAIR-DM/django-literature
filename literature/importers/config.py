@@ -22,9 +22,11 @@ from literature.importers.base import BibFormat
 from literature.importers.exceptions import UnknownFormat
 
 #: The formats this package ships, so the built-in behaviour needs no
-#: configuration (Article X, FR-003). BibTeX landed with #22; RIS follows
-#: with #23.
-DEFAULTS: tuple[str, ...] = ("literature.importers.bibtex.BibTeXFormat",)
+#: configuration (Article X, FR-003). BibTeX landed with #22; RIS with #23.
+DEFAULTS: tuple[str, ...] = (
+    "literature.importers.bibtex.BibTeXFormat",
+    "literature.importers.ris.RISFormat",
+)
 
 _cache: MappingProxyType[str, type[BibFormat]] | None = None
 
