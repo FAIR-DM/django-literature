@@ -435,6 +435,86 @@ class TestContinuationLines:
         assert entries[0].values("PY") == ["2023"]
 
 
+def _first_entry_csl(byte_content: bytes) -> dict:
+    """Parse ``byte_content`` and map its first entry to CSL JSON, in one step."""
+    return RISFormat().to_csl_json(next(RISParser().parse(io.BytesIO(byte_content))))
+
+
+class TestSeparationTolerance:
+    """Files that differ only in separation -- CRLF, a byte-order mark, single-space
+    ``TAG - value`` separators, inconsistent blank lines between entries -- yield the same CSL
+    JSON the two-space LF form does; wrapped continuation lines are read as part of the value
+    they belong to (T022, FR-010, FR-007, acceptance scenarios 4 and 6). ``TestRISParserFraming``
+    and ``TestContinuationLines`` already prove this at the raw-tag level; this proves it holds
+    through the full CSL mapping, which is what "when it is imported" actually exercises.
+    """
+
+    _CANONICAL_BOM_ENTRY = (
+        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry whose file carries a byte-order mark\n"
+        b"PY  - 2020\nER  -\n"
+    )
+    _CANONICAL_SINGLE_SPACE_ENTRY = (
+        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry using the single-space separator variant\n"
+        b"PY  - 2020\nER  -\n"
+    )
+
+    def test_crlf_line_endings_yield_the_same_csl_json_as_the_canonical_form(self):
+        with fixture("constructed/crlf_line_endings.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl == _first_entry_csl(self._CANONICAL_BOM_ENTRY)
+
+    def test_a_byte_order_mark_yields_the_same_csl_json_as_the_canonical_form(self):
+        with fixture("constructed/byte_order_mark.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl == _first_entry_csl(self._CANONICAL_BOM_ENTRY)
+
+    def test_single_space_separator_yields_the_same_csl_json_as_the_canonical_form(self):
+        with fixture("constructed/single_space_separator.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl == _first_entry_csl(self._CANONICAL_SINGLE_SPACE_ENTRY)
+
+    def test_wrapped_continuation_lines_join_into_the_field_they_belong_to(self):
+        with fixture("constructed/wrapped_prose.ris") as handle:
+            csl = _first_entry_csl(handle.read())
+        assert csl["title"] == "Tropical cyclones and the organization of mangrove forests: a review"
+        assert csl["container-title"] == "Annals of Botany"
+        assert csl["abstract"].startswith("This abstract is written across several lines")
+        # A continuation line correctly joined is not also mistaken for an unknown tag.
+        assert "custom" not in csl
+
+    def test_inconsistent_blank_lines_between_entries_still_yields_all_of_them(self):
+        """No blank line between one pair, two between the next -- both are still recovered
+        (FR-010's own "inconsistent... entry separation" case)."""
+        raw = (
+            "TY  - JOUR\nAU  - First, A.\nTI  - No blank line follows\nPY  - 2020\nER  -\n"
+            "TY  - JOUR\nAU  - Second, B.\nTI  - One blank line follows\nPY  - 2021\nER  -\n\n\n"
+            "TY  - JOUR\nAU  - Third, C.\nTI  - Two blank lines follow\nPY  - 2022\nER  -\n"
+        ).encode()
+        entries = list(RISParser().parse(io.BytesIO(raw)))
+        assert [e.values("AU") for e in entries] == [["First, A."], ["Second, B."], ["Third, C."]]
+
+    @pytest.mark.django_db
+    def test_a_crlf_file_imports_as_one_created_entry(self):
+        with fixture("constructed/crlf_line_endings.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result.created) == 1
+        assert result.created[0].item.title == "An entry whose file carries a byte-order mark"
+
+    @pytest.mark.django_db
+    def test_a_byte_order_mark_file_imports_as_one_created_entry(self):
+        with fixture("constructed/byte_order_mark.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result.created) == 1
+        assert result.created[0].item.title == "An entry whose file carries a byte-order mark"
+
+    @pytest.mark.django_db
+    def test_a_single_space_separator_file_imports_as_one_created_entry(self):
+        with fixture("constructed/single_space_separator.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result.created) == 1
+        assert result.created[0].item.title == "An entry using the single-space separator variant"
+
+
 class TestWholeFileOutcomes:
     """The three whole-file outcomes and the header sentinel, through the full import workflow
     (``RISFormat.import_file``, not just ``RISParser`` directly) (T008).

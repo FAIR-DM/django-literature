@@ -585,3 +585,22 @@ tests/test_importers/test_ris.py` — clean.
 
 Next: T022 (tolerant separation — CRLF, BOM, single-space, wrapped continuation, through the full
 CSL mapping rather than just the raw parser).
+
+### T022 — tolerant separation, asserted through the full CSL mapping
+
+Did: added `TestSeparationTolerance` — CRLF, a byte-order mark and the single-space separator each
+compared for CSL-JSON equality against an independently hand-built canonical two-space LF entry
+(not a hardcoded expected dict, so the fixture and the comparison can't silently drift together);
+wrapped continuation lines asserted joined into `title`/`abstract`/`container-title` rather than
+becoming unknown tags; inconsistent blank-line spacing between entries (none, one, two) asserted to
+still yield all three; and three `django_db` tests confirming each of CRLF/BOM/single-space imports
+as one created item with the expected title. No production change — as the brief anticipated ("the
+parser already handles most of this"), every test passed on first run. Diagnosed as legitimate per
+`craft-tdd` rather than assumed tautological: each exercises real byte-level decoding and the full
+mapping stack, comparing against independently constructed input, not a value already known to
+match.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestSeparationTolerance -q` — 8
+passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 219 passed.
+
+Next: T023 (the bulk fixture — every entry accounted for exactly once, SC-002).
