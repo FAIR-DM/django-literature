@@ -18,7 +18,7 @@ import pytest
 from literature.converters import _generate_dedup_suffix
 from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
-from literature.importers.exceptions import ParseError
+from literature.importers.exceptions import EntryError, ParseError
 from literature.importers.results import Outcome
 from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
 
@@ -762,3 +762,44 @@ class TestIdentifiers:
     def test_no_identifier_tags_means_no_identifier_keys(self):
         csl = RISFormat().to_csl_json(entry())
         assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())
+
+
+class TestCitationKeys:
+    """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
+    back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""
+
+    def test_id_tag_becomes_the_citation_key_verbatim(self):
+        csl = RISFormat().to_csl_json(entry(id="889"))
+        assert csl["citation-key"] == "889"
+
+    def test_no_id_mints_from_family_year_and_title_word(self):
+        csl = RISFormat().to_csl_json(entry(au="Boisvert, C.", py="2024", ti="Description of a new specimen"))
+        assert csl["citation-key"] == "boisvert2024description"
+
+    def test_a_leading_stopword_is_skipped_for_the_title_word(self):
+        csl = RISFormat().to_csl_json(entry(au="Smith, J.", py="2020", ti="The organization of forests"))
+        assert csl["citation-key"] == "smith2020organization"
+
+    def test_minting_is_deterministic(self):
+        raw = entry(au="Wedel, M.", py="2024", ti="A review of sauropods")
+        assert RISFormat().to_csl_json(raw)["citation-key"] == RISFormat().to_csl_json(raw)["citation-key"]
+
+    def test_an_entry_too_sparse_to_mint_from_falls_back_to_its_index(self):
+        """No author, so family/year/title-word cannot all be built."""
+        csl = RISFormat().to_csl_json(entry(py="2024", ti="A title with no author", index=7))
+        assert csl["citation-key"] == "7"
+
+    def test_handle_for_reports_the_same_key_as_to_csl_json(self):
+        raw = entry(au="Boisvert, C.", py="2024", ti="Description of a new specimen")
+        assert RISFormat().handle_for(raw) == RISFormat().to_csl_json(raw)["citation-key"]
+
+    def test_an_overlong_verbatim_id_fails_the_entry_naming_the_limit(self):
+        raw = entry(id="x" * 300)
+        with pytest.raises(EntryError) as excinfo:
+            RISFormat().to_csl_json(raw)
+        assert "245" in str(excinfo.value)
+
+    def test_an_overlong_minted_key_fails_the_entry_naming_the_limit(self):
+        raw = entry(au=f"{'x' * 300},", py="2024", ti="Title")
+        with pytest.raises(EntryError):
+            RISFormat().to_csl_json(raw)

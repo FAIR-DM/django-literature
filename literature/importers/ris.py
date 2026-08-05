@@ -23,13 +23,13 @@ for why, checked empirically rather than assumed.
 import dataclasses
 import re
 from collections.abc import Iterator
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
-from literature.importers.exceptions import ParseError, SkipEntry
+from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.normalizers import IdentifierNormalizer
 from literature.validators import validate_isbn, validate_issn
 
@@ -501,6 +501,99 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, str]:
     return result
 
 
+# ---------------------------------------------------------------------------
+# Citation keys (T015, FR-019 through FR-023, FR-034) — ``ID`` verbatim where present; otherwise
+# minted deterministically from the entry's own content, since RIS supplies no cite key of its
+# own (unlike BibTeX's ``ID``, which is always present). An entry too sparse to mint from falls
+# back to its own index rather than failing (FR-021).
+# ---------------------------------------------------------------------------
+
+#: Skipped when picking the title's first *significant* word — common articles carry no
+#: bibliographic meaning of their own.
+_TITLE_STOPWORDS: frozenset[str] = frozenset({"a", "an", "the"})
+
+#: A run of letters (any script), which is what "a word" means for this purpose — digits and
+#: punctuation are not carried into the minted key.
+_TITLE_WORD_RE: re.Pattern[str] = re.compile(r"[^\W\d_]+", re.UNICODE)
+
+#: Non-letter/digit characters stripped from a family name before it goes into a minted key, so
+#: punctuation in the source (``O'Brien``) does not leak into the key's shape.
+_KEY_COMPONENT_RE: re.Pattern[str] = re.compile(r"[^\w]+", re.UNICODE)
+
+#: Room reserved, out of ``Item.citation_key``'s ``max_length``, for the de-duplication suffix
+#: ``converters._generate_dedup_suffix`` appends when a minted or verbatim key collides within the
+#: batch (T015, FR-034). Real collisions mint short suffixes (T041's own sequence starts at a
+#: single letter); ten characters is headroom no ordinary run will exhaust.
+_CITATION_KEY_DEDUP_HEADROOM = 10
+
+
+def _citation_key_max_length() -> int:
+    """``Item.citation_key``'s ``max_length``, read from the model rather than duplicated as a
+    constant here, so this stays correct if the column's width ever changes.
+    """
+    from literature.models import Item
+
+    # ``max_length`` is typed ``int | None`` on the stub's generic ``Field``, since not every
+    # field carries one — ``citation_key`` is a ``CharField`` and always does.
+    return cast(int, Item._meta.get_field("citation_key").max_length)
+
+
+def _first_significant_title_word(title: str) -> str | None:
+    """The first word of ``title`` that is not a bare stopword, lowercased. ``None`` if the title
+    carries no word at all (FR-021).
+    """
+    for word in _TITLE_WORD_RE.findall(title):
+        word = str(word)
+        if word.casefold() not in _TITLE_STOPWORDS:
+            return word.lower()
+    return None
+
+
+def _first_author_family(raw: RISEntry) -> str | None:
+    """The first ``AU`` value's family name, stripped of punctuation for a minted key's shape.
+    ``None`` where there is no ``AU`` value, or the first one is institutional/unparsed and
+    carries no ``family`` component to mint from.
+    """
+    au_values = raw.values("AU")
+    if not au_values:
+        return None
+    family = _name_to_csl(au_values[0]).get("family")
+    if not family:
+        return None
+    cleaned = _KEY_COMPONENT_RE.sub("", family)
+    return cleaned or None
+
+
+def _mint_citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int) -> str:
+    """The key minted for an entry with no ``ID`` tag: first author family name, issued year, and
+    the title's first significant word, concatenated (FR-021). An entry missing any one of the
+    three is too sparse to mint from and falls back to its own index instead — deterministic
+    either way, since an entry's index does not change between two imports of the same file
+    (FR-023).
+    """
+    family = _first_author_family(raw)
+    year = None
+    if issued:
+        date_parts = issued.get("date-parts")
+        if date_parts and date_parts[0]:
+            year = date_parts[0][0]
+    ti_values = raw.values("TI")
+    word = _first_significant_title_word(ti_values[0]) if ti_values else None
+
+    if family and year and word:
+        return f"{family.lower()}{year}{word}"
+    return str(index)
+
+
+def _citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int) -> str:
+    """The citation key this entry carries or mints, before any batch de-duplication (FR-019
+    through FR-021)."""
+    id_values = raw.values("ID")
+    if id_values and id_values[0].strip():
+        return id_values[0].strip()
+    return _mint_citation_key(raw, issued, index)
+
+
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
 
@@ -560,4 +653,25 @@ class RISFormat(BibFormat):
 
         result.update(_identifiers(raw, ref_type))
 
+        key = _citation_key(raw, issued, raw.index)
+        limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM
+        if len(key) > limit:
+            raise EntryError(
+                _(
+                    "This entry's citation key is {length} characters, which leaves no room for "
+                    "a de-duplication suffix within the {limit}-character limit."
+                ).format(length=len(key), limit=limit)
+            )
+        result["citation-key"] = key
+
         return result
+
+    def handle_for(self, raw: RISEntry | str) -> str | None:
+        """The citation key this entry will carry — verbatim ``ID``, or minted — before any batch
+        de-duplication (FR-022). :meth:`entry_created` overrides the report for a stored entry to
+        the key **as stored**, suffix included; this is what a failed or skipped entry carries
+        instead, since neither reaches storage.
+        """
+        if isinstance(raw, str):
+            return None
+        return _citation_key(raw, _issued_date(raw), raw.index)
