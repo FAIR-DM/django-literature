@@ -197,3 +197,23 @@ passed. `git diff --stat -- tests/test_converters.py` — empty. `poetry run myp
 clean.
 
 Next: T006 (RISParser grammar and entry framing).
+
+### T006 — RISParser line grammar and entry framing
+
+Did: new `literature/importers/ris.py` — `RISEntry` (tags, index, start_line) and
+`RISParser.parse`, a generator opening at `TY` and closing at `ER` or the next `TY`. Decodes
+`utf-8-sig` itself from a binary-mode file; `UnicodeDecodeError` becomes a translatable
+`ParseError` naming the encoding and byte offset. Three whole-file outcomes distinguished (empty
+→ nothing, tag-lines-no-TY → raise, no-tag-lines → raise). Header material yielded once as a
+plain-string sentinel, only when non-empty (decisions.md D17). A malformed post-entry tag block
+is recognised and silently dropped rather than failed — deferred to T021 (D18). `REPEATABLE_TAGS`
+defined on the parser (D20) but not yet consumed — that's T007. Binary-mode contract documented
+(D19).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 39 passed (all new
+framing/encoding/streaming tests green on first implementation, no red-green cycle needed beyond
+the initial "module doesn't exist" collection error). `poetry run pytest -q` (full suite) — 805
+passed. `poetry run mypy` — clean. `poetry run pre-commit run --files literature/importers/ris.py
+tests/test_importers/test_ris.py` — clean (ruff-format collapsed one multi-line frozenset literal).
+
+Next: T007 (per-tag continuation lines).
