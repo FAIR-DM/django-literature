@@ -84,52 +84,132 @@
         {
           "id": "T001",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T002",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T003",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T004",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T005",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T006",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T007",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T008",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T009",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T041",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest (targeted)",
+              "forge verify",
+              "forge tamper-check --base 0409ced"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },
