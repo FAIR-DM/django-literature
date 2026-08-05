@@ -9,6 +9,7 @@ Corpus files live in ``tests/data/ris/``. See ``genuine/SOURCE.md`` for what eac
 carries and ``constructed/`` for the one file per malformation.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -174,3 +175,40 @@ class TestConstructedCorpus:
     def test_bulk_file_holds_several_hundred_entries(self):
         content = (DATA / "constructed" / "bulk_several_hundred_entries.ris").read_text()
         assert content.count("TY  - ") == 500
+
+
+#: The RIS tag-line grammar (plan.md "The parser" — R2 pins the exact separator, this is the
+#: tolerant form the parser itself will use). Duplicated here rather than imported, since
+#: ``RISParser`` does not exist yet at T004 — T006 is where the real one lands.
+_TAG_LINE_RE = re.compile(r"^[A-Z][A-Z0-9]\s{0,2}-\s?.*$")
+
+NEGATIVE_FIXTURES = {"wos_native_tagged.ris", "bibtex_under_ris_name.ris"}
+
+
+class TestNegativeCorpus:
+    """Files that are not RIS at all, under a ``.ris`` name (T004, research R10)."""
+
+    def test_the_named_fixture_set_is_exactly_what_is_on_disk(self):
+        on_disk = {p.name for p in (DATA / "negative").glob("*.ris")}
+        assert on_disk == NEGATIVE_FIXTURES
+
+    def test_neither_file_is_empty(self):
+        for name in NEGATIVE_FIXTURES:
+            assert (DATA / "negative" / name).read_bytes(), name
+
+    def test_neither_file_contains_a_line_matching_the_ris_tag_grammar(self):
+        """Isolates what makes each one "not RIS": no line the parser's own grammar would read
+        as a tag, so a real ``RISParser`` finds nothing to frame an entry around (T006-T008).
+        """
+        for name in NEGATIVE_FIXTURES:
+            content = (DATA / "negative" / name).read_text(encoding="utf-8", errors="replace")
+            matching = [line for line in content.splitlines() if _TAG_LINE_RE.match(line)]
+            assert matching == [], f"{name} has RIS-tag-shaped lines: {matching!r}"
+
+    def test_wos_native_carries_its_own_two_letter_tags_with_no_dash(self):
+        content = (DATA / "negative" / "wos_native_tagged.ris").read_text()
+        assert "FN Clarivate Analytics Web of Science" in content
+
+    def test_bibtex_file_carries_bibtex_syntax(self):
+        content = (DATA / "negative" / "bibtex_under_ris_name.ris").read_text()
+        assert content.startswith("@article{")
