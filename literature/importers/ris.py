@@ -128,10 +128,21 @@ class RISParser:
         yield from self._entries(lines)
 
     def _entries(self, lines: list[str]) -> Iterator[RISEntry | str]:
-        """The real framing pass: open at ``TY``, close at ``ER`` or the next ``TY`` (FR-006)."""
+        """The real framing pass: open at ``TY``, close at ``ER`` or the next ``TY`` (FR-006).
+
+        A block of tags with no ``TY`` of its own, seen after the first entry, is yielded as its
+        own :class:`RISEntry` (its ``tags`` carrying no ``"TY"`` pair) rather than dropped
+        (T021, FR-009 — supersedes decisions.md D18). :meth:`RISFormat.to_csl_json` raises
+        :class:`~literature.importers.exceptions.EntryError` for an entry with no ``TY``, which
+        reports it as its own failed entry rather than ending the file: raising directly from this
+        generator would, per ``import_entries``, stop the whole run at the index it failed on and
+        lose every entry after it, which FR-009's "the rest of the file still imports" forbids.
+        """
         header: list[str] = []
         pairs: list[list[str]] = []
+        stray: list[list[str]] = []
         start_line = 0
+        stray_start_line = 0
         header_yielded = False
         index = 0
 
@@ -141,6 +152,8 @@ class RISParser:
             if match is None:
                 if pairs:
                     self._continue_value(pairs, line)
+                elif stray:
+                    self._continue_value(stray, line)
                 elif not header_yielded:
                     header.append(line)
                 continue
@@ -151,6 +164,10 @@ class RISParser:
                 if pairs:
                     yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
                     index += 1
+                elif stray:
+                    yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
+                    index += 1
+                    stray = []
                 elif not header_yielded:
                     text = "\n".join(header).strip()
                     if text:
@@ -165,17 +182,25 @@ class RISParser:
                     yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
                     index += 1
                     pairs = []
+                elif stray:
+                    yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
+                    index += 1
+                    stray = []
                 continue
 
             if pairs:
                 pairs.append([tag, value])
             elif not header_yielded:
                 header.append(line)
-            # else: a tag block after the first entry with no TY -- out of the foundational
-            # phase's scope (US-2, T021); dropped rather than guessed at (decisions.md D18).
+            else:
+                if not stray:
+                    stray_start_line = line_no
+                stray.append([tag, value])
 
         if pairs:
             yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
+        elif stray:
+            yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
 
     def _continue_value(self, pairs: list[list[str]], line: str) -> None:
         """Resolve one untagged line against the tag it follows (FR-007, amended).
@@ -663,12 +688,27 @@ class RISFormat(BibFormat):
 
         Header material arrives as a plain ``str`` (see :meth:`RISParser.parse`) and is skipped
         outright, the same pattern ``bibtex.py`` uses for a comment or preamble.
+
+        An entry with no ``TY`` tag at all — the stray block :meth:`RISParser._entries` yields for
+        a mid-file tag block that never opened one — fails alone naming what is missing, rather
+        than ending the file (T021, FR-009).
+
+        FR-009's other half — an entry carrying ``TY`` and no other bibliographic content is
+        reported as skipped rather than stored as a near-empty item — is **not implemented here**.
+        Blocked: `entry()`'s own default (`ty="JOUR"`, no other tags) is the exact shape a genuine
+        TY-only entry has, and 64 pre-existing US-1 tests across `TestReferenceTypeTable`,
+        `TestCoreFieldMapping`, `TestContributors`, `TestDates` and `TestIdentifiers` call
+        `to_csl_json` on that shape to isolate an unrelated mapping concern — raising `SkipEntry`
+        for it breaks all of them. See `tasks.md` T021 and this story's completion report.
         """
         if isinstance(raw, str):
             raise SkipEntry
 
         ty_values = raw.values("TY")
-        ref_type = ty_values[0].strip() if ty_values else ""
+        if not ty_values:
+            raise EntryError(_("This entry carries no 'TY' (reference type) tag."))
+
+        ref_type = ty_values[0].strip()
 
         result: dict[str, Any] = {
             "type": REFERENCE_TYPE_TABLE.get(ref_type, _FALLBACK_TYPE),

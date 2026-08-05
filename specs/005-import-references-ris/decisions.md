@@ -605,3 +605,50 @@ FR-025 is what the acceptance scenario names and it was not previously evidenced
 
 **Revisit if**: a future change to `_identifiers` stops routing `DO` through the shared normalizer
 unconditionally — `TestDOIRecovery` would then be the test that catches the regression.
+
+## D30 — T021's TY-only-skip half is blocked; the malformed-entry half supersedes D18
+
+**Ambiguity**: T021 has two acceptance halves. The first — a mid-file tag block with no `TY` of
+its own fails alone, the rest of the file still imports — is unambiguous and implemented: D18 is
+superseded, exactly as D18 itself predicted. The second — an entry carrying `TY` and no other
+bibliographic content is reported as skipped rather than created — collides with the test corpus
+this story inherits rather than with anything ambiguous in the requirement itself.
+
+`entry()`'s own default (`tests/test_importers/test_ris.py`, no kwargs beyond an optional `ty`) is
+`ty="JOUR"` with no other tags — structurally identical to a genuine TY-only entry, because that
+*is* the minimal valid `RISEntry` shape. 64 pre-existing US-1 tests use exactly that shape as an
+isolation fixture for a concern that has nothing to do with skip/create semantics:
+`TestReferenceTypeTable` (60 parametrized cases plus 3 others) isolates the reference-type mapping
+table; `TestCoreFieldMapping::test_an_absent_core_tag_leaves_no_key`,
+`TestContributors::test_no_contributor_tags_means_no_name_variable_keys`,
+`TestDates::test_no_date_tags_means_no_issued_or_accessed` and
+`TestIdentifiers::test_no_identifier_tags_means_no_identifier_keys` each isolate "this mapping
+category is absent" the same way. None asserts an outcome (created/skipped) at all — they assert
+`to_csl_json(...)["type"]` or the absence of unrelated keys — but raising `SkipEntry` for a
+TY-only raw entry makes `to_csl_json` raise instead of returning a dict for every one of them.
+
+There is no code-only way to tell these apart: a real TY-only entry and one of these tests' fixture
+both are, at the `RISEntry` level, one `("TY", ...)` pair and nothing else. Any implementation
+faithful to FR-009's "carrying `TY` and no other bibliographic content" necessarily catches both.
+
+**Chosen**: Implemented the first half only. Attempted the second half (`if all(tag == "TY" for
+tag, _ in raw.tags): raise SkipEntry`), watched it break exactly the 64 tests named above, and
+reverted rather than edit them — the Implementer protocol and this story's own brief name this
+precise scenario ("T021 is the one place where an existing US-1 test may genuinely disagree with
+your task") and are explicit that the call belongs to Forge, not the Implementer. T021 is reported
+`blocked` for this half in the completion report, with these 64 tests named as the concern.
+
+**Why defensible**: Editing 64 tests I did not author, in this story, to make a new assertion pass
+is exactly what the protocol's hard prohibition exists to prevent — a self-authored waiver of the
+one check (tamper-check, an un-owned test changing) that catches an Implementer rationalizing its
+way around a real conflict. The conflict is genuine, not a shortcut avoided: these tests would need
+a second, unrelated tag added to each of their 64 fixtures purely to dodge a behavioural change
+their own authors were not asserting anything about, which is a materially different, larger change
+than "add a skip check."
+
+**Revisit if**: Forge decides in favour of the new spec (skip a TY-only entry). The 64 tests then
+need a minimal second tag each — the smallest addition that keeps their own isolated concern
+intact, for example `entry(ty=ris_type, ti="x")` — and the `SkipEntry` check lands as drafted above.
+If Forge decides in favour of the existing tests instead, FR-009's second clause and this story's
+acceptance scenario 5 need amending to say so, and `ty_only.ris`'s structural test
+(`test_ty_only_file_has_no_other_tag`) stays true without a behavioural counterpart.

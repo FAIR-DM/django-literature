@@ -555,3 +555,33 @@ since `_mint_citation_key` reads `issued.get("date-parts")`, which is now someti
 Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 206 passed.
 
 Next: T021 (a parser-unreadable entry fails alone; a TY-only entry is skipped).
+
+### T021 — a parser-unreadable entry fails alone; a TY-only entry is skipped (PARTIALLY BLOCKED)
+
+Did (first half, done): `RISParser._entries` no longer drops a mid-file tag block carrying no
+`TY` of its own — it yields the block as its own `RISEntry` (no `"TY"` pair among its tags), with
+its own index and start line, tracked in a parallel `stray` accumulator alongside `pairs` so a
+following `TY` or `ER` closes it the same way a real entry closes. `RISFormat.to_csl_json` raises
+`EntryError` naming the missing tag for such an entry, which `import_entry`'s own per-entry
+try/except reports as a failed outcome at that entry's index without ending the file — raising
+from inside the generator instead would, per `import_entries`, stop the run and lose every entry
+after it, which the acceptance criterion forbids. Supersedes D18 as D18 itself said it would.
+
+Did NOT (second half, blocked — D30): the TY-only-entry-is-skipped half. Implemented
+`if all(tag == "TY" for tag, _ in raw.tags): raise SkipEntry`, ran the full file, and it broke 64
+pre-existing US-1 tests that use `entry()`'s own TY-only default as an isolation fixture for an
+unrelated mapping concern (full list and reasoning in D30). Reverted rather than edit tests I did
+not author, per the protocol's explicit naming of this exact scenario. `ty_only.ris` itself is
+unaffected by the revert — it still imports (as a near-empty created item, US-1's existing
+behaviour, unchanged).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestMalformedEntryFailsAlone -q` —
+red first (5 of 5 failing for the right reason: the parser only yielding 1 entry instead of 2, an
+`IndexError` on the second, `DID NOT RAISE EntryError`), green after — 5 passed. Full file: `poetry
+run pytest tests/test_importers/test_ris.py -q` — 211 passed (had briefly gone to 64 failed with
+the since-reverted `SkipEntry` check in place; confirmed clean at 211 after reverting it and
+removing the test class written against it). `poetry run ruff check literature/importers/ris.py
+tests/test_importers/test_ris.py` — clean.
+
+Next: T022 (tolerant separation — CRLF, BOM, single-space, wrapped continuation, through the full
+CSL mapping rather than just the raw parser).

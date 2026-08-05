@@ -497,6 +497,52 @@ class TestWholeFileOutcomes:
                 RISFormat().import_file(handle)  # must not raise
 
 
+class TestMalformedEntryFailsAlone:
+    """A block of tags with no ``TY`` of its own, seen after the first entry, is its own entry
+    now — no longer dropped — and fails alone with a reason naming what is missing, while every
+    other entry in the file is still stored (T021, FR-009, acceptance scenario 5).
+    """
+
+    def test_the_parser_yields_the_stray_block_as_its_own_entry(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert len(entries) == 2
+        assert entries[1].values("TY") == []
+        assert entries[1].values("AU") == ["Jones, K."]
+        assert entries[1].values("TI") == ["A second block with no TY tag of its own"]
+
+    def test_the_stray_block_carries_the_next_index_and_its_own_start_line(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[1].index == 1
+        assert entries[1].start_line == 7
+
+    def test_to_csl_json_raises_entry_error_naming_the_missing_ty(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        with pytest.raises(EntryError) as excinfo:
+            RISFormat().to_csl_json(entries[1])
+        assert "TY" in str(excinfo.value)
+
+    @pytest.mark.django_db
+    def test_the_good_entry_is_created_and_the_stray_block_is_reported_failed(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 2
+        assert result.entries[0].outcome == Outcome.CREATED
+        assert result.entries[1].outcome == Outcome.FAILED
+        assert "TY" in result.entries[1].reason
+
+    @pytest.mark.django_db
+    def test_the_good_entry_is_actually_stored(self):
+        with fixture("constructed/tag_block_no_ty_after_valid_entry.ris") as handle:
+            RISFormat().import_file(handle)
+        assert Item.objects.count() == 1
+        item = Item.objects.get()
+        author = item.item_names.get(role="author").name
+        assert author.family == "Smith"
+
+
 class TestRegistration:
     """The format is reachable without configuration (FR-001, FR-003, FR-033, T009)."""
 
