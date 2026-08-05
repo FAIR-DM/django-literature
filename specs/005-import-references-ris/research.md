@@ -248,14 +248,21 @@ documentation-built fixture.** The *Verification corpus* section records that ou
 One limitation: every record in the EndNote baseline is `TY - JOUR`, so it evidences nothing about
 the chapter-editor question. Genuine chapter records come from:
 
-- Web of Science chapters with `ED`: `ESHackathon/CiteSource`, `vignettes/benchmark_data` — **licence
-  to be confirmed before vendoring.**
+- Web of Science chapters with `ED`: `ESHackathon/CiteSource`, `vignettes/benchmark_data` — **GPL-3.0,
+  not vendorable** (checked 2026-08-05, T002). `Search1_1.ris` does hold 24 `CHAP` records whose
+  editors are `ED`, which is the confirmation R4 wanted, but the repository carries no separate data
+  licence, so its files are GPL-3.0 like the rest of it.
 - Scopus chapters and the mistyped-`JOUR` case: `tributetotobler/bibliotobler`, `data/scopus.ris` —
-  **licence unconfirmed.**
-- JabRef's importer fixtures, **MIT**, including a genuine Scopus file.
+  **GPL-3.0, not vendorable** (checked 2026-08-05, T002). Its two `CHAP` records carry no editor tag
+  at all, which is consistent with Scopus not exporting one.
+- JabRef's importer fixtures, **MIT** — but they are hand-written parser-stress files
+  (`kmptne`, `Testing Book Title`), not producer output, so they are not genuine under FR-030's own
+  definition, and its Scopus fixture holds no chapter record. Checked 2026-08-05, T002.
 
 Where a licence cannot be confirmed, the file is not vendored: the case it evidences is reproduced as
-a constructed fixture and the *Verification corpus* section says so.
+a constructed fixture and the *Verification corpus* section says so. **That is the outcome here** —
+the chapter-with-editors case is `constructed/chapter_with_editors.ris`, in EndNote's shape
+(decisions.md D28).
 
 Producer fingerprints, for labelling fixtures:
 

@@ -39,5 +39,8 @@ Fingerprint: `AN  - WOS:…`, `WE  - Science Citation Index Expanded`, `J9`/`JI`
 ## Limitation
 
 Every record in the EndNote baseline is `TY - JOUR`, so it evidences nothing about the
-chapter-editor question (research.md R10, R4). That gap is not addressed by this story — it is
-T002's, deferred out of this Implementer's scope.
+chapter-editor question (research.md R10, R4). The same is true of all twenty-five baselines in the
+upstream corpus, and the two corpora that do publish genuine chapter records are GPL-3.0, which this
+MIT-licensed package cannot redistribute. That case therefore rests on
+`../constructed/chapter_with_editors.ris` instead, and spec.md's *Verification corpus* section
+records the substitution (T002, decisions.md D28).

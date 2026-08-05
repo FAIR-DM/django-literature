@@ -21,6 +21,15 @@ at the rule it broke rather than at a file with several problems in it (the same
 | `cp1252_encoded.ris` | Bytes this decoder cannot read as `utf-8-sig` — a parse failure naming the encoding (FR-034, spec Edge Cases). |
 | `long_unmapped_tag_value.ris` | A non-standard tag carrying a value over 500 characters, the `ItemIdentifier.value` cap a flat preservation write would hit (plan.md "Preservation"). |
 | `bulk_several_hundred_entries.ris` | Several hundred entries — the file FR-004's whole-file-materialisation claim is asserted against. |
+| `chapter_with_editors.ris` | A chapter carrying its book's editors in `A2` and the book title in `T2`. Not a malformation: it substitutes for a genuine chapter export, which no vendorable corpus supplies (spec.md *Verification corpus*, T002). |
 
 Every file here is written by hand. None is presented as a genuine export — see `../genuine/` for
 those.
+
+One of them stands in for an export rather than isolating a malformation. `chapter_with_editors.ris`
+exists because every record in all twenty-five CC0 baselines is a journal article, and the two
+corpora that do carry genuine chapter records are GPL-3.0, which this MIT-licensed package cannot
+redistribute. It is written in EndNote's shape — tags in alphabetical order after `TY`, unindented
+`KW` continuation lines, a trailing `ID`, no byte-order mark — because EndNote is the producer whose
+genuine file leaves the gap. Its bibliographic content is its own; nothing was copied out of a
+licensed corpus.

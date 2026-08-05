@@ -533,3 +533,49 @@ and the first and last are the shape the S6 reviewer should check at convergence
 **Revisit if**: a story's report arrives without a completion event again. The report was recoverable
 from the worker's transcript, but nothing in the pipeline noticed the event had been consumed by a
 broken turn — the ledger simply stayed at `todo` with eighteen commits sitting in a worktree.
+
+## D28 — The chapter-with-editors case is substituted: both genuine sources are GPL-3.0
+
+**Ambiguity**: T002 asked for the licences of the two corpora holding genuine chapter records to be
+checked, and the case vendored where the licence permits or reproduced as a constructed fixture
+otherwise. Neither outcome was recorded, and research.md R10 carried both entries as "licence to be
+confirmed".
+
+**Checked 2026-08-05**:
+
+- `ESHackathon/CiteSource` — **GPL-3.0**. Its `vignettes/benchmark_data/Search1_1.ris` holds 24
+  `CHAP` records whose editors are `ED`, which is the confirmation R4 wanted for Web of Science's
+  non-canonical tag. The repository declares no separate data licence, so the fixtures are GPL-3.0
+  along with the R package.
+- `tributetotobler/bibliotobler` — **GPL-3.0**. Its `data/scopus.ris` holds two `CHAP` records, and
+  neither carries an editor tag of any kind, which is consistent with Scopus not exporting one.
+- `JabRef/jabref` — **MIT**, and R10 named it as a fallback. Its RIS fixtures are hand-written
+  parser-stress files (`kmptne`, `Testing Book Title`) rather than producer output, so they are not
+  genuine under FR-030's own definition, and its Scopus fixture carries no chapter record.
+- The vendored CC0 corpus — all twenty-five baselines scanned, every `TY` is `JOUR` or `EJOUR`. The
+  gap is the corpus's, not the EndNote file's alone.
+
+**Chosen**: Neither GPL-3.0 file is vendored, because this package ships under MIT and copyleft
+fixtures would carry their terms into the distribution. The case is reproduced as
+`tests/data/ris/constructed/chapter_with_editors.ris`, in EndNote's shape — alphabetical tags after
+`TY`, unindented `KW` continuation lines, a trailing `ID`, no byte-order mark — because EndNote is
+the producer whose genuine file leaves the gap. `spec.md`'s *Verification corpus* section, the
+constructed corpus README and `genuine/SOURCE.md` all record the substitution, and R10's two
+unconfirmed bullets now carry their determinations.
+
+**Why defensible**: FR-030 anticipated exactly this and says what to do — a constructed file is
+never presented as a genuine export, and the specification records what rests on one. The mapping the
+fixture exercises comes from the format's published reference-type matrix (research R4), not from a
+licensed file, so nothing of the GPL corpora is reproduced here beyond the fact, checkable by anyone,
+that Web of Science writes `ED` and Scopus writes no editor tag. Reading a licensed file to confirm
+which tag a producer emits is not redistribution of it.
+
+**Also settled**: US-1's `A2`-as-editor-on-`CHAP` mapping is now exercised against a chapter for the
+first time. It was previously asserted only through synthesised single entries, since the genuine
+corpus has no chapter in it.
+
+**Revisit if**: a permissively-licensed genuine chapter export turns up — a Zotero or Mendeley
+export under CC0 or MIT would do. The fixture is then replaced by the real file and this section
+loses its substitution note. Also revisit if `ED` support (T024) needs a Web of Science chapter of
+its own: the same reasoning applies, and it needs its own constructed fixture rather than the
+GPL file.

@@ -469,3 +469,24 @@ then the ADR verdicts across D1–D27 so `check-adrs` is not a wall at S5, then 
 Watch: four US1 concerns are carried as watch items for convergence and review — A4/translator
 unmapped, TY-only entries deferred to T021, unrecognised `SN` shapes deferred to T030, C7's
 article-number tag deliberately unmapped against `SN`'s scalar `number` use.
+
+## 2026-08-05T18:35Z · Forge · T002 (retained per D24)
+
+Did: checked the licences of both candidate chapter corpora and the MIT fallback R10 named, found no
+vendorable genuine chapter export, and reproduced the case as
+`tests/data/ris/constructed/chapter_with_editors.ris` in EndNote's shape. Recorded the substitution
+in spec.md's *Verification corpus*, the constructed corpus README and `genuine/SOURCE.md`, replaced
+R10's two unconfirmed licence bullets with their determinations, and wrote D28. US0 is now complete.
+
+Verified: test-first — `TestSubstitutedChapterFixture` written against a fixture that did not exist,
+red on all three assertions plus the named-fixture-set check, then green once the file landed.
+`poetry run pytest tests/test_importers/test_ris.py::TestSubstitutedChapterFixture -q` — 4 passed.
+Licence checks are `gh api repos/<r> --jq .license.spdx_id`: `ESHackathon/CiteSource` GPL-3.0,
+`tributetotobler/bibliotobler` GPL-3.0, `JabRef/jabref` MIT. Chapter records confirmed present in
+both GPL files and absent from all twenty-five CC0 baselines and from JabRef's Scopus fixture.
+
+Next: ADR verdicts across D1–D28 so `check-adrs` is not a wall at S5, then US2.
+
+Watch: the fixture is the first chapter this feature's mapping has been exercised against, so US-3's
+`ED` work (T024) will want a Web of Science chapter of its own — constructed for the same licence
+reason, not vendored.

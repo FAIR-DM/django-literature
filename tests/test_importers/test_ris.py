@@ -119,6 +119,7 @@ CONSTRUCTED_FIXTURES = {
     "cp1252_encoded.ris",
     "long_unmapped_tag_value.ris",
     "bulk_several_hundred_entries.ris",
+    "chapter_with_editors.ris",
 }
 
 
@@ -201,6 +202,41 @@ class TestConstructedCorpus:
         content = (DATA / "constructed" / "long_unmapped_tag_value.ris").read_text()
         z9_line = next(line for line in content.splitlines() if line.startswith("Z9"))
         assert len(z9_line) > 500
+
+
+class TestSubstitutedChapterFixture:
+    """The chapter-with-editors case, which no vendorable genuine export evidences (T002, FR-030).
+
+    Every record in all twenty-five CC0 baselines is a journal article, and the two corpora
+    carrying genuine chapter records are GPL-3.0, which this MIT package cannot redistribute
+    (decisions.md D28). So this one case rests on a documentation-built fixture, and
+    spec.md's *Verification corpus* section records the substitution. The fixture is written in
+    EndNote's shape because EndNote is the producer whose genuine file leaves the gap.
+    """
+
+    def test_the_fixture_is_a_chapter_carrying_editors_and_a_book_title(self):
+        content = (DATA / "constructed" / "chapter_with_editors.ris").read_text()
+        assert content.count("TY  - CHAP") == 1
+        assert content.count("A2  - ") == 2
+        assert "T2  - " in content
+
+    def test_the_fixture_follows_endnote_shape_rather_than_claiming_to_be_an_export(self):
+        """EndNote's fingerprint is alphabetical tags and a trailing ``ID``, with no byte-order
+        mark (research.md R10). The file is constructed, so it is shaped like the producer it
+        substitutes for without being presented as its output."""
+        content = (DATA / "constructed" / "chapter_with_editors.ris").read_bytes()
+        assert not content.startswith(b"\xef\xbb\xbf")
+        assert b"\nID  - " in content
+
+    def test_the_chapter_imports_with_its_editors_and_its_containing_book(self):
+        with fixture("constructed/chapter_with_editors.ris") as handle:
+            entries = list(RISFormat().parse(handle))
+        assert len(entries) == 1
+        csl = RISFormat().to_csl_json(entries[0])
+        assert csl["type"] == "chapter"
+        assert csl["container-title"] == "Handbook of Micropalaeontology"
+        assert [editor["family"] for editor in csl["editor"]] == ["Vandenberghe", "Speijer"]
+        assert [author["family"] for author in csl["author"]] == ["Okada", "Bukry"]
 
     def test_bulk_file_holds_several_hundred_entries(self):
         content = (DATA / "constructed" / "bulk_several_hundred_entries.ris").read_text()
