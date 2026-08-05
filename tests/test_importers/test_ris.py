@@ -20,7 +20,7 @@ from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import ParseError
 from literature.importers.results import Outcome
-from literature.importers.ris import RISFormat, RISParser
+from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
 
@@ -35,6 +35,23 @@ def fixture(relative_path):
     utf-8-sig at the format's own read step").
     """
     return (DATA / relative_path).open("rb")
+
+
+def entry(ty="JOUR", index=0, **single_tags):
+    """Build one :class:`RISEntry` directly, without going through the parser.
+
+    ``single_tags`` names lowercase RIS tags (``ty``, ``au`` become ``TY``, ``AU``); a value that
+    is a list becomes one ``(tag, value)`` pair per element, in order, which is how a repeatable
+    tag (``AU``, ``A2``, ``SN``, ...) carries more than one value (``RISEntry.values``). This
+    mirrors ``tests/test_importers/test_bibtex.py``'s own ``entry()`` builder for the sibling
+    format, adapted for RIS's ordered-tuple entry shape rather than BibTeX's field dict.
+    """
+    tags = [("TY", ty)]
+    for tag, value in single_tags.items():
+        name = tag.upper()
+        values = value if isinstance(value, list) else [value]
+        tags.extend((name, v) for v in values)
+    return RISEntry(tags=tuple(tags), index=index, start_line=1)
 
 
 #: Fingerprints research.md R10 recorded for each genuine producer file,
@@ -516,3 +533,24 @@ class TestGenerateDedupSuffix:
         """
         values = list(itertools.islice(_generate_dedup_suffix("Smith2009"), 20_000))
         assert len(values) == len(set(values))
+
+
+class TestReferenceTypeTable:
+    """RIS reference type -> CSL item type, unknown to ``document`` (T010, FR-011)."""
+
+    @pytest.mark.parametrize(("ris_type", "csl_type"), sorted(REFERENCE_TYPE_TABLE.items()))
+    def test_every_listed_type_maps_to_its_csl_equivalent(self, ris_type, csl_type):
+        assert RISFormat().to_csl_json(entry(ty=ris_type))["type"] == csl_type
+
+    def test_an_unlisted_type_maps_to_the_generic_document(self):
+        assert RISFormat().to_csl_json(entry(ty="ZZZZ"))["type"] == "document"
+
+    def test_grnt_and_grant_reach_the_same_csl_type(self):
+        assert (
+            RISFormat().to_csl_json(entry(ty="GRNT"))["type"] == RISFormat().to_csl_json(entry(ty="GRANT"))["type"]
+        )
+
+    def test_unpd_and_unpb_reach_the_same_csl_type(self):
+        assert (
+            RISFormat().to_csl_json(entry(ty="UNPD"))["type"] == RISFormat().to_csl_json(entry(ty="UNPB"))["type"]
+        )

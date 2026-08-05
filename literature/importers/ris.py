@@ -186,12 +186,84 @@ class RISParser:
             pairs[-1][1] = f"{pairs[-1][1]} {line.strip()}"
 
 
+#: RIS reference type -> CSL item type (T010, FR-011). A type not listed here maps to the generic
+#: ``document`` type rather than failing the entry, the spec's own fallback for an unrecognised
+#: type ("it will be labeled as Generic", research.md R2). Adapted from citation-js's per-type
+#: table (MIT, research.md R3), not Zotero's (AGPL) — read as evidence only, never copied.
+#: ``GRNT``/``GRANT`` and ``UNPD``/``UNPB`` are the same reference type under the two RIS
+#: specification generations' spellings (research.md R2) and are listed side by side so both reach
+#: the same CSL type rather than one falling to the fallback and the other not.
+REFERENCE_TYPE_TABLE: dict[str, str] = {
+    "ABST": "article-journal",
+    "ADVS": "motion_picture",
+    "AGGR": "dataset",
+    "ANCIENT": "classic",
+    "ART": "graphic",
+    "BILL": "bill",
+    "BLOG": "post-weblog",
+    "BOOK": "book",
+    "CASE": "legal_case",
+    "CHAP": "chapter",
+    "CHART": "graphic",
+    "CLSWK": "classic",
+    "COMP": "software",
+    "CONF": "paper-conference",
+    "CPAPER": "paper-conference",
+    "CTLG": "document",
+    "DATA": "dataset",
+    "DBASE": "dataset",
+    "DICT": "entry-dictionary",
+    "EBOOK": "book",
+    "ECHAP": "chapter",
+    "EDBOOK": "book",
+    "EJOUR": "article-journal",
+    "ELEC": "webpage",
+    "ENCYC": "entry-encyclopedia",
+    "FIGURE": "figure",
+    "GEN": "document",
+    "GOVDOC": "legislation",
+    "GRANT": "document",
+    "GRNT": "document",
+    "HEAR": "hearing",
+    "ICOMM": "personal_communication",
+    "INPR": "article-journal",
+    "JFULL": "periodical",
+    "JOUR": "article-journal",
+    "LEGAL": "legislation",
+    "MANSCPT": "manuscript",
+    "MAP": "map",
+    "MGZN": "article-magazine",
+    "MPCT": "motion_picture",
+    "MULTI": "webpage",
+    "MUSIC": "musical_score",
+    "NEWS": "article-newspaper",
+    "PAMP": "pamphlet",
+    "PAT": "patent",
+    "PCOMM": "personal_communication",
+    "RPRT": "report",
+    "SER": "periodical",
+    "SLIDE": "graphic",
+    "SOUND": "song",
+    "STAND": "standard",
+    "STAT": "legislation",
+    "THES": "thesis",
+    "UNBILL": "bill",
+    "UNPB": "manuscript",
+    "UNPD": "manuscript",
+    "VIDEO": "motion_picture",
+}
+
+#: A reference type with no row above becomes ``document`` rather than failing the entry (T010,
+#: FR-011, acceptance scenario 3).
+_FALLBACK_TYPE = "document"
+
+
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
 
-    The foundational-phase skeleton: wired into ``DEFAULTS`` and the ``literature`` namespace,
-    with a working :class:`RISParser` behind it, but no RIS-to-CSL mapping yet (US-1, issue #36).
-    A file with no entries converts cleanly; a real entry's conversion is not yet implemented.
+    The foundational-phase skeleton is a working :class:`RISParser` with no RIS-to-CSL mapping. US-1
+    (issue #36) adds that mapping: reference types, core tags, contributors, dates, identifiers
+    and citation keys.
     """
 
     name = "ris"
@@ -209,13 +281,15 @@ class RISFormat(BibFormat):
         """Turn one raw entry into CSL JSON.
 
         Header material arrives as a plain ``str`` (see :meth:`RISParser.parse`) and is skipped
-        outright, the same pattern ``bibtex.py`` uses for a comment or preamble. A real
-        :class:`RISEntry` has no mapping yet — that is US-1 (issue #36) — so it raises rather
-        than converting; the contract's own exception handling reports it as a failed entry.
+        outright, the same pattern ``bibtex.py`` uses for a comment or preamble.
         """
         if isinstance(raw, str):
             raise SkipEntry
-        raise NotImplementedError(
-            "RIS entry mapping lands with US-1 (issue #36); the foundational phase builds only "
-            "the parser and the class skeleton."
-        )
+
+        ty_values = raw.values("TY")
+        ref_type = ty_values[0].strip() if ty_values else ""
+
+        result: dict[str, Any] = {
+            "type": REFERENCE_TYPE_TABLE.get(ref_type, _FALLBACK_TYPE),
+        }
+        return result
