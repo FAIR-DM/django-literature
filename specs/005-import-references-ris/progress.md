@@ -358,3 +358,22 @@ Watch: Web of Science's year-less `DA` (`SEP 22`, `DEC`) does not parse under `_
 not built here.
 
 Next: T014 (identifiers — DO/UR, SN resolved by shape then reference type).
+
+### T014 — identifiers: DO/UR, SN resolved by shape then reference type
+
+Did: `_identifiers`, mapping `DO` through the shared `IdentifierNormalizer.normalize_doi` (the
+same resolver-URL/`doi:`-label recovery `bibtex.py` already uses) to `DOI`, `UR` verbatim to
+`URL`, and `SN` resolved by `_sn_identifier`: shape first (`validate_issn`/`validate_isbn`, the
+same validators `ItemIdentifier.save()` uses), reference type second — on `RPRT`/`PAT` it is a
+report or patent number and goes to the scalar `number` field, never an identifier row
+(research.md R6). An `SN` that validates as neither shape and isn't on a report-like type is left
+unconsumed for now — its preservation under `custom["ris"]` is US-4 (T030), not built here.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestIdentifiers -v` — 8 passed.
+Confirmed RED first: all 7 identifier assertions failed with `KeyError` before `_identifiers`
+existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 169 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean (one ruff-format pass,
+no net diff).
+
+Next: T015 (citation keys — ID verbatim, minted fallback, max_length guard).
