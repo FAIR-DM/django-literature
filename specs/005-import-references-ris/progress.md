@@ -727,3 +727,31 @@ through `entry()` only, consistent with this module's existing style for produce
 the ten-reference corpus does not itself carry (research R10's "Limitation").
 
 Next: T026 (year-less `DA` splicing).
+
+## 2026-08-05T23:08:00Z · Implementer US-3 · T026
+
+Did: wrote the failing tests first — `TestYearLessDASplicing` in `tests/test_importers/test_ris.py`
+(6 tests, 3 using the genuine `webofscience.ris` values by name in their docstrings): a month-only
+`DA` (`DEC`) splicing to month precision, a month-and-day `DA` (`SEP 22`) splicing to day
+precision, a single-digit day left unpadded (`FEB 1`), a month range (`JUL-DEC`) discarded as
+ambiguous, an unrecognised fragment discarded the same way, and D25's disagreeing-year case
+re-asserted to confirm the two rules coexist. Then implemented in `literature/importers/ris.py`:
+`_MONTH_ABBREVIATIONS` (the twelve three-letter codes) and `_splice_year_less_da(value, year)`,
+which returns the spliced `(year, month[, day])` tuple or `None` for a range or anything else that
+is not cleanly one recognised month optionally followed by a day number. `_issued_date` now tries
+the splice only when `_ris_date_parts(da_value)` returns `None` — i.e. `DA` states no leading
+numeric component at all — leaving D25's numeric-disagreement branch completely untouched.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestYearLessDASplicing
+tests/test_importers/test_ris.py::TestDates tests/test_importers/test_ris.py::TestUnparseableDates
+-q` — red first (3 of 6 new tests failing on wrong precision, e.g. `{'date-parts': [[2016]]} !=
+{'date-parts': [[2016, 12]]}`; the other 3 already passed pre-implementation since they assert the
+discard/D25 behaviour holds either way), green after — 20 passed. Full file: `poetry run pytest
+tests/test_importers/test_ris.py -q` — 248 passed (242 prior + 6 new). `ruff check`/`ruff format
+--check` — clean. `poetry run mypy literature/importers/ris.py` — clean.
+
+No decisions.md entry: the splice rule is exactly what D25 already anticipated ("deliberately
+narrower than Web of Science's year-less DA splicing... research.md R5 records as US-3's own task
+(T026)"), so there was no live ambiguity left to resolve here.
+
+Next: T027 (multiple `DO` tags).
