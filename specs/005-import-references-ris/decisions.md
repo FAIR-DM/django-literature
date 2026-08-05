@@ -710,3 +710,43 @@ that FR-009's text does not ask for and D31 did not draft.
 **Revisit if**: a genuine corpus file is found that writes an empty tag immediately after `TY` as
 its only other content, and that shape should read as "nothing to build an item from" rather than
 "a producer declared a field it left blank."
+
+## D33 — US2 accepted, including FIX-1: the checks actually run, 2026-08-05
+
+Run by the orchestrator against the story's true base `9e0d701` (the branch tip US2 forked from,
+which is T002's chapter-fixture substitution), and separately against `1763fe1` for the FIX-1
+round alone.
+
+- **`forge check-receipts --role implementer --brief dl-us2-fix1-TASK_BRIEF.json` — green.** Both
+  receipts (`craft-tdd/2026-08-05/eae3b6c7`, `craft-increments/2026-08-05/d3dce07f`) match the
+  briefed values.
+- **`forge verify` — green on all five steps**: conformance, lint, typecheck, 1012 tests, build.
+  Independently re-run in the worktree and again on the feature branch after the merge:
+  `poetry run pytest -q` — 1012 passed both times, which is FIX-1's 1008 baseline plus its 4 new
+  tests.
+- **`forge tamper-check --base 1763fe1` — 1 flag**, `tests/test_importers/test_ris.py`.
+
+**The flag is approved, and D31 is its triage written in advance.** Checked rather than accepted:
+the eight amended call sites each gain exactly one keyword argument and nothing else, and the
+name-set comparison holds in both directions — 198 definitions at `1763fe1`, 203 at `09b2aed`,
+none dropped; 159 at `9e0d701`, 203 at head across the whole story, none dropped. The two
+reflowed equivalence assertions compare the same two expressions they compared at base.
+
+**The empty-value case cuts the right way.** `test_a_tag_present_with_an_empty_value_is_not_ty_only`
+passed before the implementation landed, so on its own it evidences nothing about D32's check. It
+earns its place as a regression guard against the other reading, not as proof of this one. The
+three tests that went red for the stated reasons are what evidence T021.
+
+**SC-009 holds, checked rather than accepted.** `git diff 9e0d701..09b2aed` over the five
+prohibited paths — `literature/importers/base.py`, `results.py`, `converters.py`,
+`tests/test_converters.py`, `tests/test_importers/test_bibtex.py` — is empty across the whole
+story, FIX-1 included.
+
+**The ledger scope prohibition held.** FIX-1's `feature-state.json` diff is T021's own status,
+attempts and evidence and nothing else — no top-level `state`, `state_history`, `gates` or
+`budgets` edit, and no other task's block touched.
+
+**One watch item for convergence, not blocking.** The reflow deviation surfaced that this repo's
+`pyproject.toml` sets `line-length = 120`, against the workspace standard of leaving it unset at
+Ruff's default 88. That is a conformance question for the repo, not for this feature, and belongs
+in an `align-standards` run rather than in an import-format PR.

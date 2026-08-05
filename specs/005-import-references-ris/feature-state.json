@@ -315,7 +315,7 @@
       "id": "US2",
       "priority": "P2",
       "issue": 37,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
