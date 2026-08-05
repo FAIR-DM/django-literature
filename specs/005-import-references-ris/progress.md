@@ -233,3 +233,19 @@ pytest -q` (full suite) — 812 passed. `poetry run mypy` — clean. `poetry run
 rewrapped one long assertion).
 
 Next: T008 (whole-file outcomes, header sentinel raising SkipEntry).
+
+### T008 — whole-file outcomes through the full import workflow
+
+Did: nine `TestWholeFileOutcomes` tests calling `RISFormat().import_file(...)` (the full
+workflow, not `RISParser` directly) over the whole-file cases: empty succeeds empty; no-TY and
+no-tag-line fixtures each report one failed entry naming the reason, never raise; header material
+reports one skipped entry with `item is None`; a header-less file reports no skip; a sweep over
+every constructed and negative fixture confirms nothing raises. All passed on first run —
+`RISFormat.to_csl_json`'s `SkipEntry`-for-the-header-sentinel handling was already written in
+T006 alongside `RISParser`, so no red-green cycle was needed here; noted rather than fabricated.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestWholeFileOutcomes -v` — 9
+passed. `poetry run pytest -q` (full suite) — 821 passed. `poetry run mypy` — clean. `poetry run
+pre-commit run --files tests/test_importers/test_ris.py` — clean.
+
+Next: T009 (RISFormat registration and the literature namespace export).
