@@ -225,7 +225,7 @@ The criteria above are judged against files committed to the repository, so the 
 
 Where no genuine export can be obtained for a supported producer, that producer's coverage rests on a fixture built from its published tag documentation, and this section records which producer that applies to. A constructed file is never presented as a genuine export.
 
-**Outcome, settled at S3 (research R10): no producer falls back.** `asreview/citation-file-formatting` publishes the same ten references exported through twenty-five tools under **CC0-1.0**, including genuine EndNote, Web of Science and Scopus files, so all three supported producers are evidenced by real exports. One gap remains inside that: every record in the EndNote baseline is a journal article, so it evidences nothing about the chapter-editor question, and genuine chapter records come from other corpora whose licences are confirmed before vendoring. Where a licence cannot be confirmed, the case is reproduced as a constructed fixture and this section says so.
+~~**Outcome, settled at S3 (research R10): no producer falls back.** `asreview/citation-file-formatting` publishes the same ten references exported through twenty-five tools under **CC0-1.0**, including genuine EndNote, Web of Science and Scopus files, so all three supported producers are evidenced by real exports.~~ *(Corrected 2026-08-05 at T028 — the premise was wrong. See Refinements, and decisions.md D36.)* One gap remains inside that: every record in the EndNote baseline is a journal article, so it evidences nothing about the chapter-editor question, and genuine chapter records come from other corpora whose licences are confirmed before vendoring. Where a licence cannot be confirmed, the case is reproduced as a constructed fixture and this section says so.
 
 **One case is substituted: a chapter carrying its editors.** No producer falls back, but this single case does. Every record in all twenty-five CC0 baselines is a journal article, so none of them evidences it, and the two corpora holding genuine chapter records — `ESHackathon/CiteSource` for Web of Science and `tributetotobler/bibliotobler` for Scopus — are both GPL-3.0, which this MIT-licensed package cannot redistribute. JabRef's importer fixtures are MIT, but they are hand-written parser tests rather than producer output and carry no chapter export either. So the case rests on `tests/data/ris/constructed/chapter_with_editors.ris`, written in EndNote's shape because EndNote is the producer whose genuine file leaves the gap. The mapping it exercises — `A2` as the editor role on a chapter and `T2` as the containing book — is taken from the format's published reference-type matrix rather than from any licensed file.
 
@@ -296,3 +296,45 @@ because that is the thing that would falsify the claim. **A defect fix that chan
 public behaviour** may land here, with its own issue for traceability. #41 is now fixed under T041 in
 this feature's pull request, which also honours the standing rule that a session's work lands as one
 pull request rather than several.
+
+### 2026-08-05 — the verification corpus is not one matched reference set
+
+Research R10 recorded that `asreview/citation-file-formatting` publishes *the same ten references
+exported through twenty-five tools*. It does not, and the *Verification corpus* section above
+inherited the error. T028 is the first task that reads across producer files rather than within one,
+so it is where the premise finally had to hold, and it did not.
+
+What the upstream corpus actually publishes, checked by DOI against every RIS baseline it carries:
+
+- One matched set of ten references, exported through **EndNote, Embase, EPPI-Reviewer, Mendeley,
+  RefWorks and Zotero**. All ten DOIs are identical across those six files. `_baseline_endnote.ris`,
+  already vendored as `genuine/endnote.ris`, is a member of it.
+- **Scopus and Web of Science exports of entirely different reference sets** — zero DOI, author or
+  title overlap with the matched set or with each other. `_baseline_webofscience.ris` is older
+  material again (1904–2022 against 2022–2024).
+- A separate 100-record medical `_baseline.ris` sharing nothing with any of them.
+
+The vendoring at T001 was faithful; the three files are exactly what upstream publishes under those
+names. The claim they were vendored under was not.
+
+**SC-005 is unchanged in what it asserts.** What changes is the evidence it is judged against:
+
+- **Genuine cross-producer equivalence** now runs over `genuine/endnote.ris` and
+  `genuine/mendeley.ris` — two real producers, the same ten references confirmed by DOI, both
+  CC0-1.0 from the same upstream corpus. This is evidence the specification previously claimed and
+  never had, and it carries real divergences to assert explicitly rather than smooth over: EndNote
+  packs two ISSNs into one `SN` where Mendeley emits none, and initial punctuation differs
+  (`Brownstein, C. D.` against `Brownstein, C D`).
+- **Scopus and Web of Science, the two supported producers with no matched genuine export**, are
+  covered for equivalence by `constructed/equivalence_scopus.ris` and
+  `constructed/equivalence_webofscience.ris`. Both hold the same ten references, re-encoded in each
+  producer's tag ordering and encoding conventions — conventions taken from that producer's own
+  genuine file, not from documentation. No identifier is invented: each fixture carries only the
+  fields SC-005 judges, plus the shape markers its producer's genuine export shows.
+- Their **genuine** files, `genuine/scopus.ris` and `genuine/webofscience.ris`, continue to carry
+  every producer-convention test in User Story 3, which is the stronger evidence for those and was
+  never affected by this.
+
+This is the substitution rule at the head of this section applied a second time, and the same
+pattern as the chapter-with-editors case: where a genuine file cannot be obtained for a case, the
+case rests on a constructed fixture and this section names it.

@@ -174,11 +174,25 @@ table (T010) and the citation key (T015).*
   to reach month precision, or discard it rather than storing a wrong date. **FR-015**
 - **T027 [P]** Multiple `DO` tags on one entry: first stored, remainder preserved. **FR-018**
 - **T028** Equivalence, **and the one-name assertion folded in from the deleted T040 (S3R)**: the
-  same ten references from `genuine/{endnote,scopus,webofscience}.ris` all import through the same
-  registered format name, with no argument naming a producer, and produce equivalent catalogue items
-  on item type, contributors and order, dates and precision, and identifiers. Divergences genuinely
-  present in the source data are asserted explicitly rather than smoothed over. **US-3 acceptance,
-  SC-005, FR-029**
+  same ten references from ~~`genuine/{endnote,scopus,webofscience}.ris`~~ **`genuine/endnote.ris`,
+  `genuine/mendeley.ris`, `constructed/equivalence_scopus.ris` and
+  `constructed/equivalence_webofscience.ris`** all import through the same registered format name,
+  with no argument naming a producer, and produce equivalent catalogue items on item type,
+  contributors and order, dates and precision, and identifiers. Divergences genuinely present in the
+  source data are asserted explicitly rather than smoothed over. **US-3 acceptance, SC-005, FR-029**
+
+  *Corpus amended 2026-08-05, mid-task (decisions.md D36, spec.md Refinements).* The three genuine
+  files this task originally named do not hold the same references — research R10's premise was
+  wrong, and T028 is the first task that reads across producer files, so it is where it surfaced.
+  `endnote.ris` and the newly vendored `mendeley.ris` are genuine exports of one matched set,
+  confirmed by DOI; the two constructed files carry that same set in Scopus's and Web of Science's
+  encodings, because upstream publishes no matched genuine export for either. Their genuine files
+  are unaffected and still carry T024–T027.
+
+  Divergences to assert explicitly, all genuine and all between `endnote.ris` and `mendeley.ris`:
+  EndNote packs two ISSNs into a single `SN` where Mendeley emits none, and initial punctuation
+  differs (`Brownstein, C. D.` against `Brownstein, C D`). Between the constructed pair and
+  `endnote.ris`, only the encoding differs by construction, so equivalence there is exact.
 - **T029** A file from an unnamed producer still imports: the tags the specification defines are read
   and the entry lands. **Narrowed at S3R round 2**: the "and the rest preserved" half is asserted
   corpus-wide by T033, inside the story that delivers preservation, so asserting it here made US-3

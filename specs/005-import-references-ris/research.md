@@ -238,12 +238,29 @@ citation-js omits. Adopted, because the case is real in a supported producer's o
 ## R10 — The verification corpus exists, and it is CC0
 
 **`asreview/citation-file-formatting`** (<https://github.com/asreview/citation-file-formatting>)
-publishes **the same ten bibliographic records exported through twenty-five different producers**,
-licensed **CC0-1.0** — public domain, freely vendorable as fixtures. It includes genuine
-`_baseline_endnote.ris`, `_baseline_scopus.ris` and `_baseline_webofscience.ris`.
+publishes RIS exports from twenty-five producers, licensed **CC0-1.0** — public domain, freely
+vendorable as fixtures. It includes genuine `_baseline_endnote.ris`, `_baseline_scopus.ris` and
+`_baseline_webofscience.ris`.
 
 **This satisfies FR-030 for all three supported producers, so no producer falls back to a
 documentation-built fixture.** The *Verification corpus* section records that outcome.
+
+> **Corrected 2026-08-05 at T028 (decisions.md D36).** This entry originally read "**the same ten
+> bibliographic records exported through twenty-five different producers**". That is not what the
+> corpus publishes, and the error propagated into spec.md's *Verification corpus*, into
+> `genuine/SOURCE.md`, and into T028's acceptance text, none of which could detect it because no
+> task before T028 read across two producer files.
+>
+> Checked by DOI against every RIS baseline upstream carries: **one matched set of ten references**
+> is exported through EndNote, Embase, EPPI-Reviewer, Mendeley, RefWorks and Zotero, all ten DOIs
+> identical across those six. **Scopus and Web of Science publish different reference sets** — zero
+> DOI, author or title overlap with the matched set or with each other. A separate 100-record
+> medical `_baseline.ris` shares nothing with any of them.
+>
+> FR-030 is still satisfied: all three supported producers have a genuine export, and every
+> producer-convention finding below rests on the right file. What fails is only the cross-producer
+> **equivalence** claim SC-005 makes, and spec.md's *Verification corpus* now records how that is
+> evidenced instead.
 
 One limitation: every record in the EndNote baseline is `TY - JOUR`, so it evidences nothing about
 the chapter-editor question. Genuine chapter records come from:

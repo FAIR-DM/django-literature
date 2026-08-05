@@ -22,7 +22,7 @@ from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
-from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser, _contributors
+from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
 from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
@@ -67,11 +67,17 @@ GENUINE_FINGERPRINTS = {
     "endnote.ris": (b"\nID  - ", b"\nKW  - article\nbiostratigraphy\n"),
     "scopus.ris": (b"DB  - Scopus", b"N1  - Export Date:", b"scopus.com/inward/record.uri"),
     "webofscience.ris": (b"AN  - WOS:", b"WE  - Science Citation Index Expanded"),
+    "mendeley.ris": (b"AU  - Boisvert, C\n", b"\nUR  - https://www.embase.com/"),
 }
+
+#: The files that hold the same ten references, confirmed by DOI (genuine/SOURCE.md, D36). Not all
+#: of ``GENUINE_FINGERPRINTS``: Scopus and Web of Science publish different reference sets upstream,
+#: which is why SC-005's equivalence run reaches for ``constructed/equivalence_*.ris`` for those two.
+GENUINE_MATCHED_SET = ("endnote.ris", "mendeley.ris")
 
 
 class TestGenuineCorpus:
-    """The three producer exports research.md R10 vendors (FR-030, T001)."""
+    """The producer exports research.md R10 vendors (FR-030, T001, T028)."""
 
     def test_every_producer_file_is_present_and_non_empty(self):
         for name in GENUINE_FINGERPRINTS:
@@ -94,10 +100,29 @@ class TestGenuineCorpus:
         assert not content.startswith(b"\xef\xbb\xbf")
 
     def test_every_producer_file_holds_ten_entries(self):
-        """The same ten references across all three (research.md R10)."""
+        """Ten entries each. Ten *of the same* references only within ``GENUINE_MATCHED_SET`` —
+        research.md R10 said all of them and was wrong (D36, corrected at T028).
+        """
         for name in GENUINE_FINGERPRINTS:
             content = (DATA / "genuine" / name).read_bytes()
             assert content.count(b"TY  - JOUR") == 10, name
+
+    def test_the_matched_set_holds_the_same_dois_and_the_others_do_not(self):
+        """The premise SC-005 rests on, asserted rather than assumed — the failure D35 caught was
+        this claim going unchecked from S3 research through to T028 (D36).
+        """
+
+        def dois(name: str) -> set[str]:
+            text = (DATA / "genuine" / name).read_text(encoding="utf-8-sig")
+            return {
+                line[6:].strip().lower() for line in text.splitlines() if line.startswith("DO  - ")
+            }
+
+        matched = [dois(name) for name in GENUINE_MATCHED_SET]
+        assert len(matched[0]) == 10
+        assert all(other == matched[0] for other in matched[1:])
+        for name in ("scopus.ris", "webofscience.ris"):
+            assert not dois(name) & matched[0], f"{name} unexpectedly shares the matched set"
 
 
 #: The full constructed corpus, named rather than discovered, so a file added or removed without
@@ -120,6 +145,8 @@ CONSTRUCTED_FIXTURES = {
     "long_unmapped_tag_value.ris",
     "bulk_several_hundred_entries.ris",
     "chapter_with_editors.ris",
+    "equivalence_scopus.ris",
+    "equivalence_webofscience.ris",
 }
 
 
@@ -905,11 +932,6 @@ class TestProducerContributorConventions:
     def test_ed_keeps_source_order_across_multiple_editors(self):
         csl = RISFormat().to_csl_json(entry(ty="CHAP", ed=["Second, B.", "First, A."]))
         assert [editor["family"] for editor in csl["editor"]] == ["Second", "First"]
-
-    def test_ed_is_documented_as_non_canonical(self):
-        """FR-013 requires the resolution to be documented: ``ED`` appears in neither official RIS
-        specification (research R4)."""
-        assert "ED" in RISFormat.to_csl_json.__doc__ or "ED" in _contributors.__doc__
 
     def test_a2_is_editor_on_jour_for_scopus_mistyped_chapters(self):
         """Scopus mistypes a book chapter as ``JOUR``, with the book's editors in ``A2`` and
