@@ -14,6 +14,9 @@ from pathlib import Path
 
 import pytest
 
+from literature.importers.exceptions import ParseError
+from literature.importers.ris import RISParser
+
 DATA = Path(__file__).parent.parent / "data" / "ris"
 
 
@@ -212,3 +215,113 @@ class TestNegativeCorpus:
     def test_bibtex_file_carries_bibtex_syntax(self):
         content = (DATA / "negative" / "bibtex_under_ris_name.ris").read_text()
         assert content.startswith("@article{")
+
+
+class TestRISParserFraming:
+    """Line grammar and entry framing: ``TY`` opens, ``ER`` or the next ``TY`` closes (T006)."""
+
+    def test_yields_raw_tags_in_source_order(self):
+        with fixture("constructed/missing_final_er.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert len(entries) == 1
+        assert entries[0].tags == (
+            ("TY", "JOUR"),
+            ("AU", "Smith, J."),
+            ("TI", "An entry whose closing ER tag was never written"),
+            ("PY", "2020"),
+        )
+
+    def test_recovers_the_final_entry_when_er_is_missing(self):
+        """FR-006: the last entry in a file whose closing ``ER`` is absent is still recovered."""
+        with fixture("constructed/missing_final_er.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert len(entries) == 1
+        assert entries[0].values("TY") == ["JOUR"]
+
+    def test_closes_at_the_next_ty_when_er_is_missing_mid_file(self):
+        with fixture("constructed/truncated_final_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert len(entries) == 2
+        assert entries[0].values("TI") == ["A complete entry recovered before the truncation"]
+        assert entries[1].values("AU") == ["Jones,"]
+
+    def test_entries_carry_their_index_in_source_order(self):
+        with fixture("constructed/truncated_final_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert [entry.index for entry in entries] == [0, 1]
+
+    def test_the_first_entry_starts_at_line_one(self):
+        with fixture("constructed/missing_final_er.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[0].start_line == 1
+
+    def test_a_later_entry_starts_at_its_own_ty_line(self):
+        with fixture("constructed/truncated_final_entry.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[1].start_line == 7
+
+    def test_tolerates_the_single_space_separator_variant(self):
+        with fixture("constructed/single_space_separator.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries[0].values("TY") == ["JOUR"]
+        assert entries[0].values("AU") == ["Smith, J."]
+
+    def test_tolerates_a_byte_order_mark(self):
+        with fixture("constructed/byte_order_mark.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert len(entries) == 1
+        assert entries[0].values("TY") == ["JOUR"]
+
+    def test_tolerates_crlf_line_endings(self):
+        with fixture("constructed/crlf_line_endings.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert len(entries) == 1
+        assert entries[0].values("PY") == ["2020"]
+
+    def test_an_empty_file_yields_no_entries(self):
+        with fixture("constructed/empty.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        assert entries == []
+
+
+class TestRISParserEncoding:
+    """``utf-8-sig`` decoding, and a translatable ``ParseError`` naming the failure (FR-034, T006)."""
+
+    def test_decodes_utf8_sig_and_strips_the_bom(self):
+        with fixture("constructed/byte_order_mark.ris") as handle:
+            entries = list(RISParser().parse(handle))
+        # A leftover BOM character would corrupt TY's own value; it doesn't.
+        assert entries[0].values("TY") == ["JOUR"]
+
+    def test_raises_parse_error_naming_the_encoding_and_offset_on_undecodable_bytes(self):
+        with fixture("constructed/cp1252_encoded.ris") as handle:
+            with pytest.raises(ParseError) as excinfo:
+                list(RISParser().parse(handle))
+        message = str(excinfo.value)
+        assert "utf-8" in message
+        assert "18" in message
+
+
+class TestRISParserStreaming:
+    """Consuming one entry must not process the rest of a large file (FR-004, T006)."""
+
+    def test_consuming_one_entry_leaves_the_remainder_unread(self, monkeypatch):
+        real_pattern = RISParser._TAG_RE
+        calls = []
+
+        class _CountingPattern:
+            def match(self, line):
+                calls.append(line)
+                return real_pattern.match(line)
+
+        monkeypatch.setattr(RISParser, "_TAG_RE", _CountingPattern())
+
+        with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
+            generator = RISParser().parse(handle)
+            first = next(generator)
+
+        assert first.index == 0
+        # 500 entries at 5 lines each is 2500 lines; consuming only the first entry must not have
+        # scanned anywhere close to that -- this is what fails if parse() is ever rewritten to
+        # build a list before yielding.
+        assert len(calls) < 20, f"scanned {len(calls)} lines to yield just the first entry"

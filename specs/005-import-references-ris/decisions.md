@@ -252,3 +252,74 @@ for "the one file you are forbidden to edit." Between reopening a file the story
 untouched and accepting one narrow, clearly-labelled exception to a structural convention, the
 convention gives. The new module's docstring says why it exists rather than leaving the deviation
 unexplained.
+
+## D17 — The header sentinel is yielded only when header text is non-empty
+
+**Ambiguity**: FR-008 says everything preceding the first reference-type tag "MUST be reported as
+skipped, whatever its shape." Read literally, a file with nothing at all before its first `TY` —
+the common case for every genuine fixture in this corpus — would still owe a skipped-entry report
+for zero bytes of header.
+
+**Chosen**: `RISParser` yields the header sentinel only when the accumulated header text is
+non-empty after stripping. A file that opens directly with `TY` reports no header entry at all.
+
+**Why defensible**: FR-008's "everything preceding" describes what happens **to** header material
+when it exists; it does not require inventing an outcome for material that was never there. The
+alternative — an extra `skipped` result on every ordinary file — would contradict SC-001's "every
+entry is reported as created" framing by padding every import with a report for nothing, and
+would fail research.md R10's own genuine corpus, none of which carries a header. Revisit if a
+later story finds a producer whose export always carries a zero-content banner line that itself
+needs a distinguishable report.
+
+## D18 — A malformed tag block after the first entry is dropped, not failed, in this phase
+
+**Ambiguity**: FR-009's second half — "a block of tags carrying no reference type MUST be
+reported as failed with a reason naming what is missing" — describes the same shape T003's
+`tag_block_no_ty_after_valid_entry.ris` fixture constructs. This story's brief scopes T008 to the
+three whole-file outcomes and the header sentinel only; the fixture's behavioural exercise (the
+actual `failed` report) is T021's, in US-2, outside this Implementer's task list.
+
+**Chosen**: `RISParser` recognises the shape (tag lines following a closed entry, with no `TY`)
+and silently omits them from what it yields, rather than raising or fabricating a result for them.
+No crash, no invented entry, no invented outcome.
+
+**Why defensible**: SC-008 ("no unhandled error") is satisfied — nothing raises. Reporting these
+tags as `failed` requires the same per-entry accounting T021 is scoped to build; doing it here
+would either duplicate that work or diverge from it. Dropping silently is a documented, narrow gap
+against FR-009, not a fabricated success — the fixture exists precisely so T021 has something to
+turn red against. Revisit at T021: this decision is superseded, not extended, once that task lands.
+
+## D19 — `RISParser.parse` expects a binary-mode file, and decodes itself
+
+**Ambiguity**: `BibFormat.parse`'s contract says only "an open file object, or anything with a
+`read()`" — it does not fix a mode. `BibTeXFormat.parse` assumes text mode (`file.read()` returns
+`str`) and lets `bibtexparser` own decoding. RIS's own requirement — name the attempted encoding
+and the byte offset in a `ParseError` on failure (FR-034) — needs the raw bytes.
+
+**Chosen**: `RISParser.parse` calls `file.read()` expecting `bytes`, decodes `utf-8-sig` itself,
+and raises a translated `ParseError` naming `exc.encoding` and `exc.start` on failure. Documented
+on the method; every RIS fixture in this corpus is opened `"rb"`.
+
+**Why defensible**: Research (research.md R1) settled that decoding happens "at the format's own
+read step," which only works if the format controls the bytes. A caller handing over a text-mode
+file gets a plain `AttributeError` wrapped by `base.py`'s generic exception handling — not a
+crash, if not the most legible message — which is the same tolerance the contract already extends
+to any other malformed input; that gap is not addressed here, and would only bite a caller
+disregarding the documented contract.
+
+## D20 — The repeatable-tag set is the contributor tags plus `KW`, `UR`, `SN`, `N1`
+
+**Ambiguity**: FR-007's amendment names the repeatable set as "the author tags, `KW`, `UR`, `SN`,
+`N1`" without enumerating which tags "the author tags" covers.
+
+**Chosen**: `RISParser.REPEATABLE_TAGS = {"AU", "A1", "A2", "A3", "A4", "ED", "KW", "UR", "SN",
+"N1"}` — every contributor-bearing tag research.md R4 documents (`AU`, `A2`, `A3`, `A4`, plus the
+non-canonical `ED` and the primary spec's `A1` alias), together with the four literal tags D12
+names.
+
+**Why defensible**: R2's finding — "only the author tags and `KW` are documented as repeatable" —
+is about contributor tags as a class, and R4 shows several of them (`ED` especially) repeating in
+genuine files. Since real files essentially never continue a contributor value across an untagged
+line (each name gets its own tag line), this classification is rarely exercised for the
+contributor tags specifically; it costs nothing to be complete about the set and avoids a second,
+narrower list that would need re-justifying if a future fixture did exercise it.
