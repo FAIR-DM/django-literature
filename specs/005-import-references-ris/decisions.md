@@ -750,3 +750,29 @@ attempts and evidence and nothing else — no top-level `state`, `state_history`
 `pyproject.toml` sets `line-length = 120`, against the workspace standard of leaving it unset at
 Ruff's default 88. That is a conformance question for the repo, not for this feature, and belongs
 in an `align-standards` run rather than in an import-format PR.
+
+## D34 — A single preserved value stays a bare string; only two or more become a list
+
+**Ambiguity**: T025 (`SN`'s producer encodings) and T027 (multiple `DO` tags) both need to
+preserve more than one surplus value under one `custom["ris"]` key. The existing preservation
+shape, established by US-1/US-2 for `DO` and `UR`, is a bare string per tag — exactly one
+unrescuable value, never more than one.
+
+**Chosen**: `_add_preserved` stores a bare string when exactly one value needs preserving under a
+tag, and a list only when two or more genuinely do. `preserved["SN"]` is `"1932-8486"` for one
+surplus value and `["1932-6203", "978-1-4028-9462-6"]` for two.
+
+**Why defensible**: `TestUnrescuableIdentifierPreservation::test_a_doi_that_will_not_normalize_is_
+preserved_under_custom_ris` asserts `csl["custom"]["ris"]["DO"] == "not a doi at all"` — a bare
+string — and that test is US-2's, not mine to touch (the Implementer protocol's own prohibition).
+Making every preserved value a list unconditionally would break it for no gain: nothing downstream
+reads `custom["ris"]` programmatically yet (US-4's corpus-wide sweep, T030/T033, is the first
+consumer), so there is no existing reader whose contract this collapsing rule could violate, and
+the shape a human reads back is a single value where the source carried one and a list only where
+it carried several — which is what the source actually said, rather than a uniform wrapper
+imposed for its own consistency.
+
+**Revisit if**: US-4's preservation sweep (T030) needs a uniform shape to iterate over `custom["ris"]`
+generically across every tag rather than per-tag; if so, the collapsing rule may need to become
+"always a list" everywhere at once, as a single change to `_add_preserved` and to the one existing
+test it would then touch.
