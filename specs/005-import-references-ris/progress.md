@@ -93,3 +93,27 @@ The process lesson, which is not about de-duplication: **a subagent reviewer's s
 verify, not a verdict to adopt.** The trace was evidence; the reachability was mine to test and I did
 not test it. Cost: one filed issue, a section of the plan, and a merge dependency invented for a
 scenario nobody will meet.
+
+## 2026-08-05 — Correction to the correction: #41 folds into this pull request
+
+Sam's second challenge: considering the defect was fine, and fixing it is fine — what was not fine
+was giving a two-line fix its own issue and pull-request cycle.
+
+He is right, and the cause was a clause I wrote myself. SC-009's "recorded as its own issue **rather
+than made here**" was authored at S1 to stop the import contract being widened to suit this format,
+which is what makes the roadmap's claim about the second format falsifiable. At S3R it was read as
+"no line of `converters.py` may change", and the review panel reinforced that reading. A loop that
+terminates widens nothing and concedes nothing about the seam.
+
+Splitting it also broke a standing rule of Sam's that predates this feature — a session's work lands
+as one pull request, because splitting by concern multiplies his review, merge and rebase overhead.
+That rule should have won over a criterion I had authored myself hours earlier.
+
+Actions: **SC-009 amended** in place with a Refinements entry separating a widening (still its own
+issue, still out of scope) from a defect fix that changes no public behaviour (may land here, issue
+kept for traceability). **#41 reopened**, T041 restored to Phase 0 with the sharpened fix
+specification, `Closes #41` added to PR #40's description. Task count 38.
+
+The lesson, distinct from the previous entry's: **a criterion I wrote is not an external constraint.**
+When my own spec text starts forcing an outcome that contradicts a standing instruction from Sam, the
+text is what gives, and amending it is a normal move rather than a last resort.

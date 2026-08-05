@@ -186,20 +186,28 @@ every unmapped RIS tag would become an identifier row — and since `ItemIdentif
 500 characters and validated in `save()`, a long Scopus `N1` block or a Web of Science address block
 would raise and **fail the whole entry**, which is exactly what US-4 acceptance scenario 2 forbids.
 
-## The de-duplication ceiling (issue #41) — closed, not carried
+## The de-duplication ceiling (issue #41) — fixed here, in this pull request
 
-Design review found that `_generate_dedup_suffix` in `converters.py` emits 701 distinct suffixes and
-then repeats forever, while `_resolve_citation_key` consumes it in a loop that only exits on a free
-key. Past 701 items sharing a base key the loop does not terminate.
+`_generate_dedup_suffix` in `converters.py` emits 701 distinct suffixes and then repeats forever,
+while `_resolve_citation_key` consumes it in a loop that only exits on a free key. Past 701 items
+sharing a base key the call never returns.
 
-**It is closed as not worth fixing, and this feature does not depend on it.** Reaching the ceiling
-needs 702 records agreeing on family name, year *and* first significant title word — in practice the
-same single record imported 702 times, which is artificial rather than merely unlikely. The secondary
-effect, one query per suffix candidate, costs a few dozen queries at realistic collision counts.
+**Reachability is low and is stated rather than hidden.** A minted key is family name plus year plus
+first significant title word, so 702 collisions need 702 entries agreeing on all three — in practice
+one record imported 702 times. Nobody will meet this. It is fixed because the fix is two lines and
+someone is already in this code, not because it is urgent.
 
-Recorded here because the first revision of this plan had it fixed in-branch and made a separate pull
-request a merge dependency, on a severity that had been adopted from a reviewer rather than checked.
-The diagnosis is preserved on the closed issue if anyone ever meets it.
+**It lands in this feature's pull request.** SC-009 originally said an unavoidable change is recorded
+as its own issue "rather than made here", and at S3R that was read literally enough to split a
+two-line fix into its own branch and merge cycle, with this feature depending on it. That was wrong
+twice: the criterion exists to stop the contract being *widened* to suit this format, and a loop that
+terminates widens nothing; and splitting by concern breaks the standing rule that a session's work
+lands as one pull request. SC-009 has been amended to separate the two cases (see the spec's
+Refinements), the issue stays open for traceability, and #40 closes it.
+
+**The fix specification** is on T041: unbounded and non-repeating rather than merely wider, first 701
+values unchanged so `tests/test_converters.py` stays green, and asserted on the generator directly so
+the test fails fast instead of hanging.
 
 ## Story boundaries
 

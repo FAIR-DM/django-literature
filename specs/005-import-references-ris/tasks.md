@@ -33,6 +33,23 @@ shared state.
   values would silently rewrite genuine content. Re-point `bibtex.py`'s imports. Add
   `tests/test_importers/test_normalizers.py`. **The whole existing BibTeX suite must stay green and
   unmodified** — that is what proves this is a move and not a rewrite. **Article XV**
+- **T041** *(issue #41)* Fix the citation-key de-duplication ceiling in `converters.py`.
+  `_generate_dedup_suffix` emits 701 distinct suffixes and then repeats forever, while
+  `_resolve_citation_key` consumes it in a loop that only exits on a free key, so past 701 items
+  sharing a base key the call never returns. **The fix is a property, not a width**: the sequence must
+  be unbounded and never repeat — an odometer over increasing lengths — since a third nested loop
+  merely moves the same hang to the 18,278th collision. **Its first 701 values stay in the documented
+  `b`…`z`, `aa` order**, which `tests/test_converters.py::test_deduplication_appends_b` and
+  `::test_deduplication_wrap_around` pin; extending the sequence keeps them green, re-ordering it
+  silently renumbers every already-stored de-duplicated key. **Test on the generator directly** — take
+  20,000 values, assert all distinct — which fails fast rather than hanging, and catches the defect at
+  any threshold. Do not drive 800 entries through `from_csl_json`: that costs roughly 320,000 queries
+  and at the red step it hangs rather than fails.
+
+  *Reachability is low and that is recorded rather than hidden — 702 collisions need 702 entries
+  agreeing on family name, year and first significant title word. It lands here because someone is
+  already in this code and the fix is two lines, not because anyone will meet it.* **Issue #41**
+
 - **T006** `RISParser` — the line grammar and entry framing. Tag regex tolerant of the separator
   variants; entry opens at `TY`, closes at `ER` or the next `TY`; yields one entry at a time carrying
   raw tags in source order, index and start line. **Decode `utf-8-sig`, and on `UnicodeDecodeError`
@@ -188,12 +205,11 @@ as prose in `data-model.md` instead.*
   **folded in from the deleted T037 (S3R round 2)**. Record the outcome against SC-009 in the PR body.
   **FR-002, FR-005, SC-009, FR-034**
 
-*T041 removed at S3R round 2, and issue #41 closed as not worth fixing.* It was to fix the
-citation-key de-duplication ceiling in `converters.py` from this branch, which SC-009 forbids —
-amending T039 to grant its own exception is a gate certifying itself. On review of the severity
-rather than the code trace, reaching that ceiling needs 702 records agreeing on family name, year and
-first significant title word, so the issue was closed with its diagnosis preserved. **This feature
-has no dependency on it and `converters.py` is untouched**, which is what T039 asserts.
+*T041's history, since it moved twice.* It was written into Phase 0, removed at S3R round 2 on a
+literal reading of SC-009, and restored on Sam's instruction once SC-009 was amended to say what it
+meant. The criterion exists to stop the contract being widened to suit this format; a loop that
+terminates widens nothing. Splitting it out also broke the standing rule that a session's work lands
+as one pull request. It stays here, and #40 closes #41.
 
 ## Dependencies
 

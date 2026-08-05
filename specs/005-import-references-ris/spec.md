@@ -213,7 +213,7 @@ Databases and reference managers write their own bookkeeping into every export: 
 - **SC-006**: Every tag present in a source entry is either mapped to its CSL equivalent or retrievable from the stored item afterwards. No tag is absent from both.
 - **SC-007**: Contributor order and role survive the import, so an item's first author is the file's first author.
 - **SC-008**: No content in a `.ris` file, however malformed, produces an unhandled error, and every malformed-input case is reported through the import result.
-- **SC-009**: Adding this format required no change to the import workflow, the reported result, or the code that builds an item from CSL JSON, which is what demonstrates the contract was drawn in the right place. Any change that proved unavoidable is recorded as its own issue rather than made here.
+- **SC-009**: Adding this format required no change to the **public behaviour** of the import workflow, the reported result, or the code that builds an item from CSL JSON, which is what demonstrates the contract was drawn in the right place. ~~Any change that proved unavoidable is recorded as its own issue rather than made here.~~ *(Amended 2026-08-05 — see Refinements.)* A change that would **widen or reshape** any of those to suit this format is recorded as its own issue and not made here. A defect fix that changes none of their behaviour is not such a change, may land in this feature's pull request, and is recorded as its own issue so the fix is traceable.
 
 ### Verification corpus
 
@@ -274,3 +274,23 @@ parser is hand-rolled rather than taking a dependency on `rispy`, which fails fo
 requirements outright (R1, and `decisions.md` D11); and Scopus mistypes book chapters as `JOUR`,
 which is not corrected, because inferring the real type from other tags is the guessing FR-031 rules
 out (R9).
+
+### 2026-08-05 — SC-009 amended, on Sam's instruction
+
+SC-009 was written to keep one claim falsifiable: that the import contract delivered under #21 was
+drawn in the right place, proven by a second real format needing nothing added to it. Its final
+sentence over-reached, and at S3 it was read as "no line of `base.py`, `results.py` or
+`converters.py` may change".
+
+Applied that way it split a two-line defect fix — a de-duplication suffix generator that stops
+terminating past 701 collisions (#41) — into its own branch, review and merge cycle, and made this
+feature depend on that merge. A loop that terminates is not a widening of the contract. It changes no
+public behaviour and concedes nothing about where the seam was drawn, so the criterion it was
+supposedly protecting was never at risk.
+
+The amendment separates the two cases the original sentence conflated. **Widening or reshaping** any
+of those modules to suit this format is still recorded as its own issue and kept out of this feature,
+because that is the thing that would falsify the claim. **A defect fix that changes none of their
+public behaviour** may land here, with its own issue for traceability. #41 is now fixed under T041 in
+this feature's pull request, which also honours the standing rule that a session's work lands as one
+pull request rather than several.
