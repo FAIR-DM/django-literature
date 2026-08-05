@@ -454,8 +454,16 @@
         },
         {
           "id": "T028",
-          "status": "todo",
-          "attempts": 0
+          "status": "blocked",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "grep DO tests/data/ris/genuine/endnote.ris tests/data/ris/genuine/scopus.ris tests/data/ris/genuine/webofscience.ris",
+              "git log --oneline --all -- tests/data/ris/genuine/"
+            ],
+            "results": "zero DOI overlap across all three genuine files; see decisions.md D35 for full evidence and reasoning"
+          },
+          "reason": "The vendored genuine/{endnote,scopus,webofscience}.ris files are not the same ten references (zero DOI/author/title overlap), contradicting genuine/SOURCE.md and T028's own acceptance criterion. See decisions.md D35."
         },
         {
           "id": "T029",

@@ -785,3 +785,31 @@ shapes the ten-reference corpus does not itself carry.
 
 Next: T028 (cross-producer equivalence acceptance run) — see the completion report for a
 significant finding about the genuine corpus that surfaced while starting this task.
+
+## 2026-08-05T23:30:00Z · Implementer US-3 · T028 (blocked)
+
+Did NOT implement. Investigated first, since T028 is this story's own acceptance run and its
+brief names three specific genuine files. Cross-checked `genuine/endnote.ris`,
+`genuine/scopus.ris` and `genuine/webofscience.ris` by DOI (the one field genuinely unique per
+publication): zero overlap across all three files' ten DOIs each. Cross-checked by first
+author+year and by title as a second method: same result — three unrelated authors at the same
+position (`Boisvert 2024` / `Wilson 2024` / `Sampson 2010`), three unrelated titles, and
+`webofscience.ris`'s records span 1904–2022 while the other two span only 2022–2024. The three
+genuine files are real per-producer RIS exports — every other test reading them (fingerprints,
+byte-order marks, entry counts, `TestEndToEnd`'s specific values) still holds — but they are not
+"the same ten references exported through three producers" as `genuine/SOURCE.md` and the T001
+vendoring commit (`5e22af7`) both assert. T028's acceptance requires exactly that equivalence, so
+it cannot be honestly implemented against the current corpus.
+
+Did not attempt a workaround: not a constructed substitute under T028's name (the brief names the
+three genuine files specifically, and substituting silently would misrepresent what actually ran),
+and not a re-vendor of the corpus myself (no network access in this role, and replacing files two
+already-merged stories' tests pin exact values against is not a call to make unilaterally
+mid-story). Full reasoning and evidence, and the three ways out ranked by cost, are in
+`decisions.md` D35.
+
+Verified: no code change, so no new test run beyond what T024-T027 already established (254
+passed as of the prior task). `git log --oneline -- tests/data/ris/genuine/` — 2 commits (`T001`
+vendoring, `T002` chapter substitution) confirm the corpus predates this story.
+
+Next: T029 (unnamed producer). T028 stays blocked pending Forge's resolution of D35.
