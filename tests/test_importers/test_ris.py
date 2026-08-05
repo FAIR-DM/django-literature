@@ -803,6 +803,29 @@ class TestIdentifiers:
         assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())
 
 
+class TestDOIRecovery:
+    """A ``DO`` written as a resolver URL or carrying a ``doi:`` label recovers to the bare DOI,
+    through the same shared normalizer ``bibtex.py`` uses (T018, FR-025, acceptance scenario 1)."""
+
+    def test_resolver_url_form_recovers_to_the_bare_doi(self):
+        csl = RISFormat().to_csl_json(entry(do="https://doi.org/10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_dx_doi_org_resolver_form_recovers_to_the_bare_doi(self):
+        csl = RISFormat().to_csl_json(entry(do="http://dx.doi.org/10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_doi_label_form_recovers_to_the_bare_doi(self):
+        csl = RISFormat().to_csl_json(entry(do="doi:10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    @pytest.mark.django_db
+    def test_a_resolver_url_doi_does_not_fail_the_entry(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nDO  - https://doi.org/10.1002/ar.25520\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.created[0].item.item_identifiers.get(type="DOI").value == "10.1002/ar.25520"
+
+
 class TestCitationKeys:
     """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
     back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""

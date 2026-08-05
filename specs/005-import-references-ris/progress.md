@@ -490,3 +490,24 @@ Next: ADR verdicts across D1–D28 so `check-adrs` is not a wall at S5, then US2
 Watch: the fixture is the first chapter this feature's mapping has been exercised against, so US-3's
 `ED` work (T024) will want a Web of Science chapter of its own — constructed for the same licence
 reason, not vendored.
+
+## 2026-08-05T20:22Z — US2 Implementer dispatched
+
+Skills loaded: `craft-tdd` (receipt `craft-tdd/2026-08-05/eae3b6c7`), `craft-increments` (receipt
+`craft-increments/2026-08-05/d3dce07f`), both via the Skill tool. Baseline `poetry run pytest -q`
+green, 976 passed, immediately before starting.
+
+### T018 — DOI recovery (resolver URL and `doi:` label forms)
+
+Did: added `TestDOIRecovery` to `tests/test_importers/test_ris.py` — the resolver-URL form (both
+`doi.org` and `dx.doi.org`), the `doi:` label form, and one `django_db` test through `import_file`
+confirming a resolver-URL DOI is stored rather than failing the entry. No production change: T014
+(US-1) already routes every `DO` value through `IdentifierNormalizer.normalize_doi` unconditionally,
+which already recovers both forms. The new tests ran green on first execution — diagnosed per
+`craft-tdd` rather than assumed tautological (D29): each asserts a value only the normalizer's own
+regex substitution could produce, exercised through real classes and, for one test, the full storage
+stack.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestDOIRecovery -q` — 4 passed.
+
+Next: T019 (preserve an identifier value that cannot be normalized into a valid one).

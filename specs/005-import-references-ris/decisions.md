@@ -579,3 +579,29 @@ export under CC0 or MIT would do. The fixture is then replaced by the real file 
 loses its substitution note. Also revisit if `ED` support (T024) needs a Web of Science chapter of
 its own: the same reasoning applies, and it needs its own constructed fixture rather than the
 GPL file.
+
+## D29 — T018 (DOI recovery) required no production code, only the missing test
+
+**Ambiguity**: T018's acceptance is that a `DO` written as a resolver URL or carrying a `doi:`
+label recovers to the bare DOI. `_identifiers` already routes every `DO` value through
+`IdentifierNormalizer.normalize_doi` unconditionally, wired in at T014 (US-1's own identifier
+mapping) rather than deferred to this story. `TestIdentifiers` already asserted the resolver-URL
+form (`test_do_is_normalized_through_the_shared_doi_normalizer`); the `doi:` label form and the
+"the entry is not failed" half of the acceptance scenario were not yet asserted anywhere.
+
+**Chosen**: No change to `literature/importers/ris.py`. `TestDOIRecovery` was written first per
+`craft-tdd` and ran green on the first execution — diagnosed rather than assumed tautological: it
+exercises the real `IdentifierNormalizer` regexes (both wrapper forms, including `dx.doi.org`)
+through `to_csl_json`, plus one `django_db` test through `import_file` confirming a resolver-URL DOI
+lands as a stored `ItemIdentifier` rather than failing the entry. The green-on-first-run reflects
+already-correct behaviour, not an empty assertion.
+
+**Why defensible**: `craft-tdd`'s own guidance is to diagnose a first-run green rather than treat it
+as automatically wrong — a tautological assertion, a fixture that already satisfies it, or a wrong
+import are the named causes, and none apply here: the test imports the real classes, builds a raw
+RIS entry, and asserts a value only the normalizer's regex substitution could produce. Locking in
+untested-but-already-correct behaviour with a test is worth doing in this story's own commit, since
+FR-025 is what the acceptance scenario names and it was not previously evidenced for both forms.
+
+**Revisit if**: a future change to `_identifiers` stops routing `DO` through the shared normalizer
+unconditionally — `TestDOIRecovery` would then be the test that catches the regression.
