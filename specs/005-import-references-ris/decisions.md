@@ -150,3 +150,82 @@ delivered without a change, that is raised as its own issue (FR-005) and recorde
 the contract it is meant to test would prove nothing, and one forbidden from reporting a genuine
 defect would hide it. Separating the two — no silent change, and a visible finding — is what makes
 the proof mean something.
+
+---
+
+# S3 decisions (research stage, 2026-08-05)
+
+## D11 — The parser is hand-rolled, departing from the BibTeX format's precedent
+
+**Ambiguity**: The BibTeX format depends on `bibtexparser`, which sets a precedent that a format
+takes a parsing library. The obvious equivalent for RIS is `rispy`.
+
+**Chosen**: Hand-roll the parser in `literature/importers/ris.py`. Add no runtime dependency.
+
+**Why defensible**: `rispy` was installed and exercised rather than read about, and it fails four of
+this feature's requirements outright — it silently drops the final entry when the closing `ER` is
+missing (FR-006), silently discards material before the first entry (FR-008) and a tag block with no
+reference type (FR-009), and discards repeated values by default (FR-018). It also returns zero
+records for a file carrying a byte-order mark, which Scopus and Web of Science both emit, and its
+`ParseError` is exported but never raised, so a file that is not RIS returns an empty list with no
+error. None of that is configuration: its recovery strategy is to resynchronise silently, where this
+feature's whole contract is to report what happened to every entry. Fixing it means replacing its
+one parsing method, and preserving raw tags means discarding its tag table, which is the only asset
+left. Against Article VII no justification for the dependency survives, and against Article III its
+friendly field names would add a third naming layer between RIS tags and CSL variables. RIS is a
+line-oriented format — a tag line, a continuation rule, and `ER`. Data is still lifted rather than
+code: `rispy`'s tag and reference-type tables are MIT and serve as a census.
+
+## D12 — FR-007 amended: continuation lines resolve per tag, not per file
+
+**Ambiguity**: The approved FR-007 required an untagged line to be read as part of one value.
+Genuine EndNote exports use that exact syntax to carry *additional* values — eight keywords under one
+`KW`, two ISSNs under one `SN` — while Web of Science uses it for wrapped prose.
+
+**Chosen**: The rule is per tag. Repeatable tags (the author tags, `KW`, `UR`, `SN`, `N1`) take an
+untagged line as another value; scalar and prose tags (`AB`, `TI`, `T2`) join it with a space.
+
+**Why defensible**: The original wording produced actively wrong data on the primary support target,
+which is a fault rather than a preference. Indentation cannot be the discriminator — it is a Web of
+Science habit and EndNote never indents — whereas the tag is known before the line is read, so the
+rule is decidable with no inference about the file's origin. The amendment changes no story, no
+success criterion and no scope, so it is notified rather than re-gated.
+
+## D13 — FR-008 amended and FR-008a added: a file with no reference type anywhere is a failure
+
+**Ambiguity**: Scopus omits `TY` entirely when the person exporting unchecks "Source & document
+type". Under the approved FR-008 the whole file counts as material before the first entry, so it is
+skipped and the run reports a successful import of nothing.
+
+**Chosen**: FR-008 is scoped to files that contain at least one reference-type tag. A file with RIS
+tag lines and no reference type anywhere is a reported parse failure naming the missing tag.
+
+**Why defensible**: A real export from a supported producer yielding an empty catalogue in silence is
+the exact failure the import contract's FR-013 exists to prevent — a caller should never have to
+compare counts to discover something went wrong. The behaviour is confirmed by Scopus support in a
+Zotero forum thread and independently in an asreview discussion, so it is a real case rather than a
+hypothetical one.
+
+## D14 — Scopus's mistyped chapters are not corrected
+
+**Ambiguity**: Scopus exports some book chapters as `TY - JOUR`, with the book's title in `T2`, its
+editors in `A2`, and `M3 - Book Chapter`. The real type is recoverable by inference.
+
+**Chosen**: Store what the source states. Do not infer the type from other tags. `M3` is preserved on
+the item under FR-024, so the evidence survives.
+
+**Why defensible**: FR-031 draws the boundary at reading what the specification defines and
+preserving the rest. Inferring a type from a combination of tags is the guessing that boundary rules
+out, and it would make the catalogue disagree with the file the researcher holds. The consequence is
+that `A2` must resolve to `editor` on `JOUR` as well as on chapter-like types — Zotero's rule, which
+citation-js omits — because the case is real in a supported producer's output.
+
+## D15 — `TA` is not mapped as a contributor
+
+**Ambiguity**: `TA` is listed as "Translated Author" in secondary compilations.
+
+**Chosen**: Treat it as an unmapped tag, preserved under FR-024.
+
+**Why defensible**: It is absent from both official specifications, Zotero drops it explicitly, and
+in the one corpus file where it appears it is PubMed's journal-title abbreviation. Mapping it as a
+name would store a journal abbreviation as a person.

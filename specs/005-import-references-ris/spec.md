@@ -138,8 +138,9 @@ Databases and reference managers write their own bookkeeping into every export: 
 **Entries**
 
 - **FR-006**: The format MUST recover entries delimited by a reference-type tag and an end-of-entry tag, and MUST recover the final entry of a file whose closing end-of-entry tag is absent.
-- **FR-007**: A tag value continued across several lines MUST be read as one value.
-- **FR-008**: Everything preceding the file's first reference-type tag MUST be reported as skipped, whatever its shape.
+- **FR-007**: ~~A tag value continued across several lines MUST be read as one value.~~ *(Amended 2026-08-05 — see Refinements and research R7.)* An untagged line following a tag line MUST be resolved **per tag**, because producers use the same syntax for two different things. For a tag that is repeatable by nature — the author tags, `KW`, `UR`, `SN`, `N1` — an untagged line is **another value**. For a scalar or prose tag — `AB`, `TI`, `T2` — it is a **continuation** of the value and is joined with a single space. The classification MUST be documented. Indentation MUST NOT be used to decide, since the primary support target never indents and another producer does.
+- **FR-008**: In a file that contains at least one reference-type tag, everything preceding the first one MUST be reported as skipped, whatever its shape.
+- **FR-008a**: A file containing RIS tag lines but **no reference-type tag anywhere** MUST be reported as a parse failure naming the missing tag, not as a successful import of nothing. *(Added 2026-08-05 — see Refinements and research R8.)*
 - **FR-009**: After the first entry has been seen, a block of tags carrying no reference type MUST be reported as failed with a reason naming what is missing. An entry carrying a reference type and no other bibliographic content MUST be reported as skipped.
 - **FR-010**: Line endings and entry separation MUST be read tolerantly enough that a file written on another operating system, or by a producer that separates entries inconsistently, still yields its entries.
 
@@ -224,6 +225,8 @@ The criteria above are judged against files committed to the repository, so the 
 
 Where no genuine export can be obtained for a supported producer, that producer's coverage rests on a fixture built from its published tag documentation, and this section records which producer that applies to. A constructed file is never presented as a genuine export.
 
+**Outcome, settled at S3 (research R10): no producer falls back.** `asreview/citation-file-formatting` publishes the same ten references exported through twenty-five tools under **CC0-1.0**, including genuine EndNote, Web of Science and Scopus files, so all three supported producers are evidenced by real exports. One gap remains inside that: every record in the EndNote baseline is a journal article, so it evidences nothing about the chapter-editor question, and genuine chapter records come from other corpora whose licences are confirmed before vendoring. Where a licence cannot be confirmed, the case is reproduced as a constructed fixture and this section says so.
+
 Exported files carry bibliographic metadata only, with anything personal removed. Bibliographic metadata is factual and raises no licensing question.
 
 ## Assumptions
@@ -238,3 +241,36 @@ Exported files carry bibliographic metadata only, with anything personal removed
 - **Citation-key style is not configurable.** Choosing a key style and regenerating existing keys are later features, and nothing here forecloses them.
 - **Export is out of scope.** Writing a `.ris` file from the catalogue is a later feature, though the mapping this feature documents is what an export would run in reverse.
 - **No user interface.** Nothing here assumes a view, a form, or an upload. The front end is roadmap item R6.
+
+## Refinements
+
+### 2026-08-05 — S3 research, after the Spec gate
+
+Research at S3 (`research.md`) tested this specification against genuine exports from all three
+supported producers and against the parsing libraries available. Two requirements were wrong. Both
+amendments correct behaviour **inside** the approved scope — no story is added, removed or
+re-prioritised, and no success criterion changes — so this is recorded here and notified rather than
+re-gated.
+
+- **FR-007 mandated the wrong thing for the primary support target.** It required an untagged
+  continuation line to be read as part of one value. EndNote uses exactly that syntax to carry
+  *additional* values: a genuine record puts eight keywords under one `KW` tag and two ISSNs under
+  one `SN` tag, each on its own unindented line. Read as the original FR-007 required, that becomes
+  one eight-word keyword and one nonsense serial number. Web of Science uses the same syntax for
+  genuinely wrapped prose, and indentation does not separate the two cases: it is a Web of Science
+  habit, and EndNote never indents. The rule is now per tag — repeatable tags take another value,
+  scalar and prose tags join with a space — which is decidable from the tag alone and needs no guess
+  about the file's origin. See research R7.
+- **FR-008 left a legitimate Scopus export importing as nothing.** Scopus omits `TY` entirely when
+  the person exporting unchecks "Source & document type", which Scopus support has acknowledged. The
+  original FR-008 skips everything before the first reference-type tag; with no reference-type tag
+  anywhere, that skipped the whole file and reported a successful import of nothing. A supported
+  producer's real file yielding an empty catalogue in silence is precisely the failure the import
+  contract's own reporting rule exists to prevent. FR-008 is now scoped to files that have a first
+  entry, and **FR-008a** covers the file that has none. See research R8.
+
+Two further findings changed no requirement and are recorded in `research.md` rather than here: the
+parser is hand-rolled rather than taking a dependency on `rispy`, which fails four of these
+requirements outright (R1, and `decisions.md` D11); and Scopus mistypes book chapters as `JOUR`,
+which is not corrected, because inferring the real type from other tags is the guessing FR-031 rules
+out (R9).
