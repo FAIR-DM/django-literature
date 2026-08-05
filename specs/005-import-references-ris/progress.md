@@ -182,3 +182,18 @@ tests/test_importers/test_bibtex.py tests/test_converters.py` — empty, confirm
 unmodified. `poetry run mypy` — clean. `poetry run pre-commit run --files ...` — clean.
 
 Next: T041 (dedup suffix ceiling).
+
+### T041 — de-duplication ceiling fixed (closes #41)
+
+Did: `_generate_dedup_suffix` in `literature/converters.py` now extends past the two-letter
+product into three, four, ... letter suffixes (odometer over increasing lengths) instead of
+cycling the two-letter product forever. First 701 values unchanged. New regression module
+`tests/test_converters_dedup.py` (decisions.md D16 explains why not `tests/test_converters.py`)
+tests the generator directly: 701-value prefix pinned, 20,000 values asserted distinct.
+
+Verified: `poetry run pytest tests/test_converters_dedup.py tests/test_converters.py -q` — 83
+passed. `git diff --stat -- tests/test_converters.py` — empty. `poetry run mypy` — clean.
+`poetry run pre-commit run --files literature/converters.py tests/test_converters_dedup.py` —
+clean.
+
+Next: T006 (RISParser grammar and entry framing).
