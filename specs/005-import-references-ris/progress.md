@@ -293,3 +293,27 @@ literature/importers/ris.py tests/test_importers/test_ris.py` — ruff-format re
 test class (line length); re-run clean after.
 
 Next: T011 (core tag -> CSL variable table, with the T2/SP type-conditional cases).
+
+### T011 — core tag to CSL variable table, T2/SP type-conditional resolution
+
+Did: `FIELD_TABLE` (TI, AB, ST, VL, IS, LA, M3, ET, PB, CY -> their CSL variables), plus
+`_container_or_collection_variable` and `_page_variable` for the two type-conditional cases. `T2`
+resolves to `collection-title` on a type that is already its own container (`_BOOK_LIKE_TYPES` —
+reused from research.md R4's "book-like" A2-resolution set, since it is the same underlying fact:
+no container of its own) and to `container-title` everywhere else, which correctly covers `JOUR`
+without needing it in that set. `SP` resolves to `number-of-pages` on `BOOK`/`EBOOK`/`EDBOOK`/`THES`
+(research.md R11) and to `page` (a locator, which may be a whole range like `549-565`) elsewhere.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestCoreFieldMapping
+tests/test_importers/test_ris.py::TestT2ContainerOrCollection
+tests/test_importers/test_ris.py::TestSPLocatorOrPageCount -v` — 19 passed. Confirmed RED first:
+all 18 new field-mapping assertions failed with `KeyError` before the table and resolvers existed.
+`poetry run pytest tests/test_importers/test_ris.py -q` — 144 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Watch: `_BOOK_LIKE_TYPES` is reused for both T2 resolution and (T012) A2 collection-editor
+resolution — a single source of truth for "this type is already its own container," not two tables
+that could drift apart.
+
+Next: T012 (contributors — repeated tags to contributor records, roles resolved on reference type).
