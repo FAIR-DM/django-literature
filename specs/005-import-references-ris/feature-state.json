@@ -398,8 +398,17 @@
       "tasks": [
         {
           "id": "T024",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestProducerContributorConventions tests/test_importers/test_ris.py::TestContributors -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "16 passed (new class + TestContributors); 233 passed full file; ruff clean; mypy clean"
+          }
         },
         {
           "id": "T025",
