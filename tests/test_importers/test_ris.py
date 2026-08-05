@@ -972,6 +972,44 @@ class TestDates:
         assert not ({"issued", "accessed"} & csl.keys())
 
 
+class TestYearLessDASplicing:
+    """Web of Science's ``DA`` carries no year of its own — a month alone (``DEC``), a month and
+    day (``SEP 22``), or an unusable range (``JUL-DEC``) — and is spliced onto ``PY``'s year where
+    the month is unambiguous, discarded otherwise (T026, FR-015, research R5, acceptance scenario
+    4). Distinct from D25's disagreeing-year case: this ``DA`` states no year to disagree with."""
+
+    def test_a_month_only_da_splices_to_month_precision(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 98."""
+        csl = RISFormat().to_csl_json(entry(py="2016", da="DEC"))
+        assert csl["issued"] == {"date-parts": [[2016, 12]]}
+
+    def test_a_month_and_day_da_splices_to_day_precision(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 43."""
+        csl = RISFormat().to_csl_json(entry(py="2010", da="SEP 22"))
+        assert csl["issued"] == {"date-parts": [[2010, 9, 22]]}
+
+    def test_a_single_digit_day_is_not_padded(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 439."""
+        csl = RISFormat().to_csl_json(entry(py="2019", da="FEB 1"))
+        assert csl["issued"] == {"date-parts": [[2019, 2, 1]]}
+
+    def test_a_month_range_is_ambiguous_and_is_discarded(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 244: a range names two months
+        and cannot refine to one, so ``PY``'s own year precision is kept rather than guessing."""
+        csl = RISFormat().to_csl_json(entry(py="1911", da="JUL-DEC"))
+        assert csl["issued"] == {"date-parts": [[1911]]}
+
+    def test_an_unrecognised_month_fragment_is_discarded(self):
+        csl = RISFormat().to_csl_json(entry(py="2020", da="NOTAMONTH"))
+        assert csl["issued"] == {"date-parts": [[2020]]}
+
+    def test_still_distinguishes_a_disagreeing_full_da_per_d25(self):
+        """A numeric ``DA`` whose year disagrees with ``PY`` is D25's case, not this one — both
+        rules coexist without either overriding the other."""
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2023/06"))
+        assert csl["issued"] == {"date-parts": [[2024]]}
+
+
 class TestUnparseableDates:
     """A date that cannot be resolved to a structured date is kept in the item's existing
     fallback for unparseable dates rather than discarded, and the entry is not failed (T020,

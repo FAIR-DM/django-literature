@@ -449,6 +449,45 @@ def _ris_date_parts(value: str) -> tuple[int, ...] | None:
     return tuple(parts) if parts else None
 
 
+#: RIS's three-letter month abbreviations, for splicing Web of Science's year-less ``DA`` onto
+#: ``PY``'s year (research.md R5, T026).
+_MONTH_ABBREVIATIONS: dict[str, int] = {
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
+}
+
+
+def _splice_year_less_da(value: str, year: int) -> tuple[int, ...] | None:
+    """Web of Science's year-less ``DA`` -- a month alone (``DEC``), a month and day (``SEP 22``)
+    -- spliced onto ``PY``'s ``year`` (research.md R5, T026). A range naming two months
+    (``JUL-DEC``) is ambiguous and cannot refine to one, so it is discarded, as is anything else
+    that is not cleanly one recognised month optionally followed by a day number -- ``None`` in
+    every such case, distinct from D25's disagreeing-year case, which this value states no year
+    to disagree with in the first place.
+    """
+    parts = value.strip().split()
+    if len(parts) not in (1, 2):
+        return None
+    month = _MONTH_ABBREVIATIONS.get(parts[0].upper())
+    if month is None:
+        return None
+    if len(parts) == 1:
+        return (year, month)
+    if parts[1].isdigit():
+        return (year, month, int(parts[1]))
+    return None
+
+
 def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
     """The entry's ``issued`` date, at the precision the source states (FR-015).
 
@@ -456,8 +495,11 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
     precision (month, or month and day) is kept and no component the source did not state is
     padded in. A ``DA`` whose year disagrees is not a refinement of this date and is left alone
     (a producer that means something else by it, or a malformed tag, is not evidence for the
-    date this entry actually carries). Without ``PY``, ``Y1`` supplies the issued date instead
-    (research.md R5) — at whatever precision it states, since there is no anchor to refine.
+    date this entry actually carries — decisions.md D25). Where ``DA`` states no year at all — Web
+    of Science's own shape, ``SEP 22`` or ``DEC`` — it is spliced onto ``PY``'s year instead,
+    unless it is a month range (``JUL-DEC``), which is discarded rather than guessed at (T026,
+    research.md R5). Without ``PY``, ``Y1`` supplies the issued date instead (research.md R5) — at
+    whatever precision it states, since there is no anchor to refine.
 
     Where neither resolves to a structured date but one carries text, that text is kept in the
     ``literal`` fallback ``ItemDate`` already has, rather than discarded (T020, FR-026) — ``PY``'s
@@ -471,9 +513,14 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
             year = py_parts[0]
             da_values = raw.values("DA")
             if da_values:
-                da_parts = _ris_date_parts(da_values[0])
+                da_value = da_values[0].strip()
+                da_parts = _ris_date_parts(da_value)
                 if da_parts and da_parts[0] == year:
                     return {"date-parts": [list(da_parts)]}
+                if da_parts is None:
+                    spliced = _splice_year_less_da(da_value, year)
+                    if spliced:
+                        return {"date-parts": [list(spliced)]}
             return {"date-parts": [[year]]}
 
     y1_values = raw.values("Y1")
