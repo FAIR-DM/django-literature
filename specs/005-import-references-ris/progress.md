@@ -154,3 +154,16 @@ pre-commit run --files ...` clean (end-of-file-fixer trimmed one trailing blank 
 fixture, re-verified the 500-entry count held after).
 
 Next: T004 (negative fixtures).
+
+### T004 — negative fixtures
+
+Did: `tests/data/ris/negative/wos_native_tagged.ris` (rispy's `example_wos.ris`, MIT) and
+`bibtex_under_ris_name.ris` (this repo's own BibTeX fixture content), both saved under a `.ris`
+name — research.md R10's named negative corpus. `SOURCE.md` records origin and licence. A
+structural test asserts neither file contains a line matching the RIS tag grammar (duplicated
+locally, since `RISParser` doesn't exist until T006), so the eventual parser will correctly find
+no entries to frame.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 26 passed. Pre-commit clean.
+
+Next: T005 (extract normalizers.py).
