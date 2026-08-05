@@ -652,3 +652,35 @@ intact, for example `entry(ty=ris_type, ti="x")` — and the `SkipEntry` check l
 If Forge decides in favour of the existing tests instead, FR-009's second clause and this story's
 acceptance scenario 5 need amending to say so, and `ty_only.ris`'s structural test
 (`test_ty_only_file_has_no_other_tag`) stays true without a behavioural counterpart.
+
+## D31 — T021's TY-only skip lands as specified; the eight fixture call sites are amended
+
+**Ambiguity**: D30 reported T021's second half blocked and named the two ways out — amend the
+inherited test fixtures so a `SkipEntry` check can land, or amend FR-009's second clause and this
+story's acceptance scenario 5 to keep the US-1 behaviour. Forge decides between them; that is the
+call the Implementer protocol reserves, and D30 was right to stop rather than take it.
+
+**Chosen**: FR-009 stands unamended. `to_csl_json` raises `SkipEntry` for an entry whose tags are
+`TY` and nothing else, and the inherited fixtures gain a second tag.
+
+**Why defensible**: two things, one about the requirement and one about the cost.
+
+The requirement is the point of the feature. A `TY`-only entry stored as an item is a catalogue
+record that lands, reports as created, and holds nothing the source stated — the exact defect shape
+FS-004's review panel found seven of, and FR-009's second clause is what this feature says about it.
+Sam approved that clause at the spec gate. Amending a signed-off requirement so that a unit
+fixture's shape may stay unchanged inverts which of the two is authoritative.
+
+The cost is eight lines, not sixty-four. D30 counted test *cases*; the edit is per *call site*, and
+`TestReferenceTypeTable`'s sixty parametrized cases share one. Verified before writing this entry,
+by applying the change and running the suite: four call sites in `TestReferenceTypeTable` take
+`ti="x"`, and the four absence tests take `pb="A publisher"` — a tag outside all four of their
+assertion sets, so `test_an_absent_core_tag_leaves_no_key` keeps asserting exactly what it did.
+1008 passed. The patch was then reverted: proving the cost is Forge's to do, delivering it is not.
+
+`tamper-check` will flag `tests/test_importers/test_ris.py`, and this entry is that flag's triage —
+eight fixtures gain a tag their own test asserts nothing about, and no assertion is weakened,
+renamed or removed.
+
+**Revisit if**: a producer is found that exports a bare `TY` block meaning something recoverable.
+Nothing in the three genuine corpus files does.
