@@ -50,6 +50,23 @@
     "merge": {
       "approved_by": null,
       "at": null
+    },
+    "design_review": {
+      "approved_by": "design-panel",
+      "at": "2026-08-05T14:40:00Z",
+      "self_resolved": [
+        "round 1: FR-022 moved from handle_for to an entry_created override (all three lenses, HIGH)",
+        "round 1: T005 narrowed to the two format-neutral normalizers (HIGH)",
+        "round 1: custom['ris'] named as the preservation sink (HIGH)",
+        "round 1: US-2 corrected to depend on US-1",
+        "round 1: empty file is a successful import of nothing, not a parse failure",
+        "round 1: header skip signalled by a yielded sentinel, not SkipEntry from the generator",
+        "round 1: repeatable-tag set moved to RISParser; decode contract added to T006",
+        "round 2: T041 removed - the issue #41 fix lands as its own PR, keeping SC-009 true rather than amending it (HIGH)",
+        "round 2: spec.md Edge Cases header-only clause struck through and forward-tagged to FR-008a",
+        "round 2: T019 preservation sink named; T015 length check widened; T016 dry-run guard added",
+        "round 2: T037 folded into T039; T029 narrowed so US-3 no longer depends on US-4"
+      ]
     }
   },
   "stories": [
@@ -231,11 +248,6 @@
           "id": "T029",
           "status": "todo",
           "attempts": 0
-        },
-        {
-          "id": "T040",
-          "status": "todo",
-          "attempts": 0
         }
       ]
     },
@@ -248,11 +260,6 @@
       "tasks": [
         {
           "id": "T030",
-          "status": "todo",
-          "attempts": 0
-        },
-        {
-          "id": "T031",
           "status": "todo",
           "attempts": 0
         },
@@ -291,11 +298,6 @@
           "attempts": 0
         },
         {
-          "id": "T037",
-          "status": "todo",
-          "attempts": 0
-        },
-        {
           "id": "T038",
           "status": "todo",
           "attempts": 0
@@ -318,7 +320,7 @@
       "max": 2
     },
     "design_review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 1
     },
     "tokens": {

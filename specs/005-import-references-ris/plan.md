@@ -35,13 +35,18 @@ a byte-order mark.
 | `literature/converters.py` | `from_csl_json` — unchanged; `_resolve_citation_key` is why FR-019 exists |
 | `literature/importers/bibtex.py` | **Read for pattern, not rewritten.** Its `_normalize_doi`, `_normalize_isbn` and `_clean_text` solve problems RIS has too |
 
-**Shared normalization.** The DOI and ISBN normalizers and the entity-unescaping helper in
-`bibtex.py` are needed verbatim by RIS. The spec's assumption bars modifying the BibTeX format's
-behaviour, and Article XV bars re-creating them as loose module functions in a new module. They move
-to a new `literature/importers/normalizers.py` as a class, and `bibtex.py` imports them from there —
-a move that changes no BibTeX behaviour and is covered by the existing BibTeX suite. This is the one
-place the plan touches `bibtex.py`, and duplicating the code instead would be the worse answer:
-two copies of a DOI normalizer drift, and the next format makes it three.
+**Shared normalization — narrowed at S3R.** Exactly two helpers in `bibtex.py` are format-neutral and
+genuinely needed by RIS: `_normalize_doi` and `_normalize_isbn`. They move to
+`literature/importers/normalizers.py` as an `IdentifierNormalizer` class, and `bibtex.py` imports
+them from there — a move that changes no BibTeX behaviour and is covered by the existing BibTeX
+suite. This is the one place the plan touches `bibtex.py`.
+
+**`_clean_text`, `_unescape_entities` and `_clean_identifier` stay in `bibtex.py`.** The design review
+caught the original plan moving them too. They are a LaTeX layer: `_clean_text` is
+`_unescape_entities(latex_to_unicode(value))`, and `_clean_identifier` dispatches on BibTeX's own
+field names. RIS carries no LaTeX, so running that decoder over RIS values would silently rewrite
+genuine content — a DOI or URL containing `~`, `_`, `^`, `%` or braces comes out altered, against
+FR-024 and FR-025. RIS does its own whitespace cleaning, because RIS has no escape layer to decode.
 
 ## Constitution Check
 
@@ -59,7 +64,7 @@ two copies of a DOI normalizer drift, and the next format makes it three.
 | XI — Data integrity | Entry atomicity is the contract's, inherited unchanged. No half-built items. | Pass |
 | **XIII — Data-model conventions** *(new in v3.1.0)* | **No model fields are added and no migration is generated.** Preservation uses the mechanism the BibTeX format already writes to. | Not engaged — asserted by a test |
 | **XIV — Test structure** *(new in v3.1.0)* | `tests/test_importers/test_ris.py` mirrors `literature/importers/ris.py`; `test_normalizers.py` mirrors the extracted module. Tests grouped in `Test<Subject>` classes. Shared fixtures in `conftest.py`, corpus files under `tests/data/ris/`. No new model, so no new factory. | Pass |
-| **XV — Cohesion** *(new in v3.1.0)* | **The constraining one.** `bibtex.py` is 15 module-level functions sharing subjects, which this article now rules out. RIS is written to the article: `RISParser`, `RISMapping` and `Normalizers` are classes and `RISFormat` composes them. `bibtex.py`'s existing shape is pre-existing drift, out of scope under the spec's own assumption — noted, not fixed here. | Pass for new code |
+| **XV — Cohesion** *(new in v3.1.0)* | **The constraining one.** `bibtex.py` is 15 module-level functions sharing subjects, which this article now rules out. RIS is written to the article: `RISParser`, `RISMapping` and `IdentifierNormalizer` are classes and `RISFormat` composes them. `bibtex.py`'s existing shape is pre-existing drift, out of scope under the spec's own assumption — noted, not fixed here. | Pass for new code |
 
 **No constitution violation requires justification.** The Complexity Tracking table is empty.
 
@@ -112,12 +117,33 @@ double-space-after-dash variants real producers emit. An entry opens at `TY` and
 the next `TY`, which is what recovers the final entry of a file whose `ER` is missing (FR-006).
 
 Untagged lines resolve **per tag**, per FR-007 as amended: a repeatable tag takes another value, a
-scalar tag joins with a space. The repeatable set is data on `RISMapping`, not a condition buried in
-the parser.
+scalar tag joins with a space. The repeatable set is a class-level frozenset **on `RISParser`**, not
+on `RISMapping` — tag repeatability is a fact about RIS syntax, decidable from the tag alone, and has
+nothing to do with the CSL mapping. Putting it on the mapping would make the parser untestable
+without the mapping tables, for a purely syntactic decision.
 
-Whole-file outcomes the parser decides: material before the first `TY` is one skipped entry (FR-008);
-a file with tag lines and no `TY` anywhere is a parse failure (FR-008a); a file with no recognisable
-tag lines at all is a parse failure naming the encoding or the format (FR-014).
+**Decoding.** Read as `utf-8-sig`. On `UnicodeDecodeError`, raise a `ParseError` whose
+`gettext_lazy` message names the attempted encoding and the byte offset (FR-034, and the spec's
+encoding edge case). Without that, the reported reason is a raw untranslated Python string naming no
+encoding — the failure is contained, but useless to the person holding the file.
+
+**Whole-file outcomes, three distinct cases.** The original plan collapsed these and made an empty
+file a parse failure, which the spec's Edge Cases forbid:
+
+1. An empty or whitespace-only file is a **successful import of nothing** — empty result, catalogue
+   unchanged (spec Edge Cases).
+2. A file with RIS tag lines but no `TY` anywhere is a **parse failure** naming the missing tag
+   (FR-008a).
+3. A file with content but no recognisable tag lines is a **parse failure** naming the encoding or
+   the format (spec Edge Cases, SC-008).
+
+**How the skipped header is signalled.** Header material is **yielded** as a sentinel entry, and
+`to_csl_json` raises `SkipEntry` for it — the pattern `bibtex.py` already uses for `@comment` and
+`@preamble`. It is not raised from the generator: `base.py` catches `SkipEntry` from the iterator
+with a `try` spanning the whole loop, so raising it there would end the file after the header and
+report a single skipped entry for an otherwise good export. The header consequently occupies index 0
+and shifts entry indices, which is intended and is what FR-007 of the import contract means by one
+result per element found.
 
 ### The mapping (`RISMapping`)
 
@@ -139,21 +165,78 @@ MIT-licensed per-type rules, never from Zotero's, which is AGPL (research R3).
 `ID` verbatim where present (FR-020). Otherwise minted from the first author's family name, the
 issued year, and the first significant title word, deterministically (FR-021). An entry with none of
 those falls back to its index. The scheme is documented in `data-model.md` and in the module
-docstring, which is what FR-021 means by documented where a user can read it. The stored key, suffix
-included, is what `handle_for` reports (FR-022).
+docstring, which is what FR-021 means by documented where a user can read it.
+
+**FR-022 is delivered by overriding `entry_created`, not by `handle_for` — corrected at S3R.** The
+original plan had `handle_for` report the stored key, which the inherited workflow makes impossible:
+`import_entry` calls `handle_for` first, and the de-duplication suffix is only chosen two steps
+later, inside `from_csl_json` → `_resolve_citation_key`, at store time. `handle_for` receives only
+the raw entry and cannot know it. So `handle_for` returns the minted or `ID` key — which is what
+failed and skipped entries carry — and `RISFormat` overrides `entry_created`, which does receive the
+stored `Item`, to report `item.citation_key`. `entry_created` is a documented override point on
+`BibFormat` and receives the item on dry runs too, before the base drops it, so both halves of FR-022
+are satisfied with **no change to `base.py`, `results.py` or `converters.py`**, which keeps SC-009
+honest.
+
+**Preservation goes under a single `custom["ris"]` key.** `from_csl_json` treats `custom` two ways
+at once: the whole dict lands on `Item.custom`, and every key whose value is a plain string
+*additionally* becomes an `ItemIdentifier` row typed by that key. `bibtex.py` deliberately nests its
+unmapped sweep under one `custom["bibtex"]` dict to dodge that, and RIS does the same. Written flat,
+every unmapped RIS tag would become an identifier row — and since `ItemIdentifier.value` is capped at
+500 characters and validated in `save()`, a long Scopus `N1` block or a Web of Science address block
+would raise and **fail the whole entry**, which is exactly what US-4 acceptance scenario 2 forbids.
+
+## The de-duplication ceiling (issue #41)
+
+Design review found that `_generate_dedup_suffix` in `converters.py` emits 701 distinct suffixes and
+then repeats forever, while `_resolve_citation_key` consumes it in a loop that only exits on a free
+key. Past 701 items sharing a base key the loop never terminates — no exception, so the contract's
+per-entry savepoint never engages and the call simply never returns.
+
+BibTeX never reached this because a `.bib` file supplies its own distinct cite keys. **Minting is
+what makes collision the designed normal case**, so this feature is what makes the defect reachable:
+a single research group's export shares an author and a year, and repeated imports compound it.
+
+Filed as **#41**, and **fixed on its own branch rather than this one — corrected at S3R round 2.**
+
+The first revision fixed it here, on the argument that shipping the feature which makes a hang
+reachable while leaving the hang would be indefensible. The panel rejected that, and it was right.
+SC-009 reads "any change that proved unavoidable is recorded as its own issue **rather than made
+here**", and `converters.py` is literally the code that builds an item from CSL JSON. Amending T039 —
+the task whose only job is to verify SC-009 — so that it granted its own exception is a gate
+certifying itself.
+
+The ordering concern is met just as well by merging #41 first. That keeps the hang closed before this
+feature ships, keeps SC-009 true as written, and needs no amendment to an approved success criterion.
+The reachability argument was also overstated: the minted key is family name, year and first
+significant title word, so 702 collisions need 702 entries agreeing on all three, not merely a shared
+author and year.
+
+**#41 carries the fix specification**, sharpened by the panel: the sequence must be *unbounded and
+never repeat* — an odometer over increasing lengths — rather than merely wider, since a third nested
+loop moves the same hang from the 702nd collision to the 18278th. Its first 701 values stay unchanged,
+because `tests/test_converters.py` pins the documented `b`…`z`, `aa` order. And its test asserts on
+`_generate_dedup_suffix` directly (take 20,000 values, assert all distinct), which fails rather than
+hangs — a hanging red step is worse than a failing one — instead of driving 800 entries through
+`_resolve_citation_key` at roughly 320,000 queries.
 
 ## Story boundaries
 
 | Story | Issue | Delivers | Depends on |
 |---|---|---|---|
-| **Foundational** | — | `normalizers.py` extraction, `RISParser`, the class skeleton, corpus vendoring | — |
+| **Foundational** | — | `normalizers.py` extraction, the #41 fix, `RISParser`, the class skeleton, corpus vendoring | — |
 | **US-1** | #36 | Reference types, core tag mapping, contributors, dates, identifiers, citation keys, skip and fail outcomes | Foundational |
-| **US-2** | #37 | Normalization and recovery: DOI forms, unparseable dates, malformed identifiers, tolerant separation | Foundational |
+| **US-2** | #37 | Normalization and recovery: DOI forms, unparseable dates, malformed identifiers, tolerant separation | US-1 |
 | **US-3** | #38 | Producer conventions: `ED`, `A2` on `JOUR`, `SN` disambiguation, `DA` splicing, multi-value encodings | US-1 |
 | **US-4** | #39 | Preservation of unmapped tags and surplus values | US-1 |
 
-US-2 is independent of US-1 because it exercises the parser and the normalizers rather than the
-mapping. US-3 and US-4 both need the mapping US-1 delivers.
+**US-2 depends on US-1 — corrected at S3R.** The original plan called it independent on the grounds
+that it exercises the parser and the normalizers rather than the mapping. Every US-2 task in fact
+asserts on a *stored* item, and storing one goes through `from_csl_json`, which raises when the item
+type is missing or unrecognised and again when no citation key is present. Those are T010 and T015,
+both US-1. The spec agrees: US-2's own Independent Test is "asserting the two produce equivalent
+catalogue items". So all three later stories depend on US-1, and only the foundational phase runs
+before it.
 
 ## Complexity Tracking
 

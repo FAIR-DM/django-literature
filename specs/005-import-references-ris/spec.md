@@ -115,7 +115,7 @@ Databases and reference managers write their own bookkeeping into every export: 
 ### Edge Cases
 
 - **A file that is not RIS at all.** A file of prose, or one holding a different bibliography format, produces a reported parse failure rather than an unhandled error or a catalogue of nonsense. A BibTeX file under a `.ris` name is the case to test by name, since it is the mirror of the failure the BibTeX format found in its own parser.
-- **An empty file, or one holding only a header.** A successful import of nothing, with an empty result and an unchanged catalogue.
+- **An empty file** ~~, or one holding only a header~~ *(header-only clause superseded 2026-08-05 by FR-008a — see Refinements)*. A successful import of nothing, with an empty result and an unchanged catalogue.
 - **A truncated file.** The entries recovered before the truncation are reported, and the entry cut off at the end is reported through the result rather than raised.
 - **An entry opened by a reference-type tag but never closed.** Reported through the result. The last entry in a file whose final end-of-entry tag is missing is still recovered rather than discarded, since real exports do this.
 - **A block of tags carrying no reference type, after the first entry has been seen.** It is not an entry, because RIS states the kind of thing first. Reported as failed with a reason naming what is missing, rather than stored as a generic document, which would invent a claim the source never made. The same shape *before* the first reference-type tag is header material and is skipped, since position is what tells the two apart.

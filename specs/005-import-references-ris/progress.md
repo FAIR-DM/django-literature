@@ -41,3 +41,36 @@ exist when the spec was written:
   functions that share subjects (normalization, name parsing, date parsing), which is the shape
   Article XV now rules out. RIS is planned to the article; `bibtex.py` is pre-existing drift and
   stays out of scope under the spec's own assumption that the BibTeX format is not modified.
+
+## 2026-08-05 — S3 PLAN → S3R DESIGN_REVIEW
+
+Research (`research.md`, R1–R11) settled the parser decision and corrected two approved requirements
+against genuine producer exports. `plan.md`, `tasks.md` and the ledger written. `stage-exit --stage
+S3` green.
+
+## 2026-08-05 — S3R: three lenses, one re-plan cycle, PASS
+
+Round one returned four blocking findings, three of which two independent lenses reached separately:
+
+- **FR-022 was unimplementable as designed.** `handle_for` runs before the de-duplication suffix
+  exists. Moved to an `entry_created` override, which is a documented override point and needs no
+  change to `base.py`.
+- **The preservation sink was unnamed.** A flat `custom` write turns every unmapped tag into an
+  `ItemIdentifier` row, and a value over 500 characters then fails the whole entry — the opposite of
+  what US-4 requires. Now nested under `custom["ris"]`, mirroring BibTeX.
+- **`T005` extracted BibTeX's LaTeX decoder into a shared module**, which would have silently
+  rewritten RIS values. Narrowed to the two genuinely format-neutral normalizers.
+- **A latent hang in `converters.py`.** `_generate_dedup_suffix` emits 701 suffixes then repeats
+  forever while `_resolve_citation_key` loops until a free key. BibTeX never reached it because a
+  `.bib` file carries its own keys. Minting makes collision the normal case, so this feature is what
+  makes it reachable. Filed as **#41**.
+
+Round two cleared the security and architecture lenses. One HIGH survived, on the #41 fix: the first
+revision fixed it in this branch and amended T039 — the task that verifies SC-009 — to grant its own
+exception, which is a gate certifying itself. SC-009 says such a change is "recorded as its own issue
+rather than made here". **Resolved by removing T041 and landing #41 as its own pull request**, merged
+before this feature. Same ordering outcome, and the approved success criterion stays true rather than
+being amended.
+
+Design-review cycles used: 1 of 1. Task count 37. `gates.design_review` recorded after the verdict,
+not before.
