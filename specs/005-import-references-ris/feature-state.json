@@ -3,7 +3,7 @@
   "feature": "005-import-references-ris",
   "branch": "005-import-references-ris",
   "repo": "FAIR-DM/django-literature",
-  "state": "DESIGN_REVIEW",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "INTAKE",
@@ -28,6 +28,10 @@
     {
       "state": "DESIGN_REVIEW",
       "at": "2026-08-05T13:10:00Z"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-05T15:30:00Z"
     }
   ],
   "gates": {
@@ -74,7 +78,7 @@
       "id": "US0",
       "priority": "P0",
       "issue": null,
-      "status": "todo",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
@@ -127,7 +131,8 @@
           "status": "todo",
           "attempts": 0
         }
-      ]
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us0"
     },
     {
       "id": "US1",
