@@ -377,3 +377,30 @@ literature/importers/ris.py tests/test_importers/test_ris.py` — clean (one ruf
 no net diff).
 
 Next: T015 (citation keys — ID verbatim, minted fallback, max_length guard).
+
+### T015 — citation keys: ID verbatim, minted fallback, max_length guard
+
+Did: `_citation_key` (verbatim `ID` where present), `_mint_citation_key` (first author's family
+name + issued year + title's first significant word, lowercased and concatenated; falls back to
+the entry's own `index` when any of the three is missing — deterministic either way, since neither
+the source content nor the index changes between two imports of the same file), and the
+`max_length` guard (`_citation_key_max_length`, reading `Item.citation_key`'s own field rather
+than duplicating the number) raising `EntryError` with a `gettext_lazy` reason naming the limit
+when a key would leave no room for a de-duplication suffix. `handle_for` now returns the same
+pre-dedup key `to_csl_json` computes for `citation-key`. Recorded decisions.md D26: the headroom is
+a fixed 10 characters, since T041's own suffix sequence is single letters for the first 26
+collisions and two-letter for the next 675.
+
+Two mypy findings from `Item._meta.get_field(...).max_length`'s stub type (`int | None`) and
+`re.Pattern.findall`'s `Any` element type: fixed with `typing.cast` and an explicit `str(word)`
+rather than `assert` (ruff's `S101` flags `assert` in library code, since it is stripped under
+`-O`).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestCitationKeys -v` — 8 passed.
+Confirmed RED first: all 8 assertions failed (`KeyError` or "DID NOT RAISE") before this task's
+code existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 177 passed. `poetry run
+mypy literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Next: T016 (the reported handle is the stored key — `entry_created` override, dry-run `item is
+None`).
