@@ -637,3 +637,52 @@ class TestSPLocatorOrPageCount:
 
     def test_sp_is_the_page_count_on_thes(self):
         assert RISFormat().to_csl_json(entry(ty="THES", sp="150"))["number-of-pages"] == "150"
+
+
+class TestContributors:
+    """Contributor tags become contributor records in source order, roles resolved on the
+    reference type (T012, FR-013, FR-014)."""
+
+    def test_authors_keep_source_order(self):
+        csl = RISFormat().to_csl_json(entry(au=["Boisvert, C.", "Curtice, B.", "Wedel, M."]))
+        assert csl["author"] == [
+            {"family": "Boisvert", "given": "C."},
+            {"family": "Curtice", "given": "B."},
+            {"family": "Wedel", "given": "M."},
+        ]
+
+    def test_a2_is_editor_on_a_chapter_like_type(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", a2="Editor, Enid"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "collection-editor" not in csl
+
+    def test_a2_is_collection_editor_on_a_book_like_type(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", a2="Editor, Enid"))
+        assert csl["collection-editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "editor" not in csl
+
+    def test_a3_inverts_to_editor_on_book(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", a3="Editor, Enid"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+
+    def test_a3_is_collection_editor_on_chap(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", a3="Editor, Enid"))
+        assert csl["collection-editor"] == [{"family": "Editor", "given": "Enid"}]
+
+    def test_au_is_editor_on_edbook(self):
+        csl = RISFormat().to_csl_json(entry(ty="EDBOOK", au="Editor, Enid"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "author" not in csl
+
+    def test_au_is_author_on_jour(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", au="Smith, J."))
+        assert csl["author"] == [{"family": "Smith", "given": "J."}]
+
+    def test_an_institutional_name_is_stored_as_a_literal(self):
+        """No comma to split on: an unparsed or institutional name (FR-014)."""
+        csl = RISFormat().to_csl_json(entry(au="World Wide Web Consortium"))
+        assert csl["author"] == [{"literal": "World Wide Web Consortium"}]
+
+    def test_no_contributor_tags_means_no_name_variable_keys(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"author", "editor", "collection-editor"} & csl.keys())

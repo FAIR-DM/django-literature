@@ -298,6 +298,85 @@ def _page_variable(ref_type: str) -> str:
     return "number-of-pages" if ref_type in _PAGE_COUNT_TYPES else "page"
 
 
+# ---------------------------------------------------------------------------
+# Contributors (T012, FR-013, FR-014) — role resolved on the reference type, per research.md R4's
+# encoding of the 2011 specification's per-type matrix.
+# ---------------------------------------------------------------------------
+
+#: Reference types with a genuine container (a chapter's book, a paper's proceedings): ``A2`` names
+#: that container's editor.
+_CHAPTER_LIKE_A2_EDITOR_TYPES: frozenset[str] = frozenset(
+    {"CHAP", "ECHAP", "CONF", "CPAPER", "ENCYC", "DICT", "SER", "EBOOK", "MUSIC", "ANCIENT", "BLOG"}
+)
+
+#: On ``BOOK``, ``A3`` is the editor (research.md R4 — the one type where ``A2``/``A3`` invert).
+_A3_EDITOR_TYPES: frozenset[str] = frozenset({"BOOK"})
+
+#: Elsewhere, where ``A3`` has a documented role, it is the collection editor.
+_A3_COLLECTION_EDITOR_TYPES: frozenset[str] = frozenset(
+    {"CHAP", "CONF", "SER", "EBOOK", "ADVS", "MUSIC", "SLIDE", "SOUND", "VIDEO"}
+)
+
+#: On an edited book, the author tag names the editor instead (research.md R4).
+_AU_EDITOR_TYPES: frozenset[str] = frozenset({"EDBOOK"})
+
+
+def _name_to_csl(name: str) -> dict[str, Any]:
+    """One RIS name string to a CSL name-variable object.
+
+    The primary specification's own author format is ``Family, Given``. A name with no comma is
+    institutional or otherwise unparsed and is stored as a ``literal`` rather than split (FR-014) —
+    forcing it into ``family``/``given`` would invent a split the source never stated. Where a
+    second comma-separated part follows the given name, it is a suffix (``Family, Given, Jr.``).
+    """
+    stripped = name.strip()
+    if not stripped:
+        return {}
+    if "," not in stripped:
+        return {"literal": stripped}
+
+    family, _sep, rest = stripped.partition(",")
+    family = family.strip()
+    if not family:
+        return {"literal": stripped}
+
+    result: dict[str, Any] = {"family": family}
+    given_parts = [part.strip() for part in rest.split(",")]
+    if given_parts[0]:
+        result["given"] = given_parts[0]
+    if len(given_parts) > 1 and given_parts[1]:
+        result["suffix"] = given_parts[1]
+    return result
+
+
+def _add_contributors(roles: dict[str, list[dict[str, Any]]], role: str, names: list[str]) -> None:
+    """Parse each of ``names`` and append it to ``role``'s list, in order."""
+    for name in names:
+        parsed = _name_to_csl(name)
+        if parsed:
+            roles.setdefault(role, []).append(parsed)
+
+
+def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]]]:
+    """Every contributor tag this entry carries, resolved to its CSL role in source order."""
+    roles: dict[str, list[dict[str, Any]]] = {}
+
+    au_role = "editor" if ref_type in _AU_EDITOR_TYPES else "author"
+    _add_contributors(roles, au_role, raw.values("AU"))
+
+    if ref_type in _CHAPTER_LIKE_A2_EDITOR_TYPES:
+        _add_contributors(roles, "editor", raw.values("A2"))
+    elif ref_type in _BOOK_LIKE_TYPES:
+        _add_contributors(roles, "collection-editor", raw.values("A2"))
+
+    if ref_type in _A3_EDITOR_TYPES:
+        _add_contributors(roles, "editor", raw.values("A3"))
+    elif ref_type in _A3_COLLECTION_EDITOR_TYPES:
+        _add_contributors(roles, "collection-editor", raw.values("A3"))
+
+    return roles
+
+
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
 
@@ -345,5 +424,7 @@ class RISFormat(BibFormat):
         sp_values = raw.values("SP")
         if sp_values and sp_values[0].strip():
             result[_page_variable(ref_type)] = sp_values[0].strip()
+
+        result.update(_contributors(raw, ref_type))
 
         return result
