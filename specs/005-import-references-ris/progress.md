@@ -511,3 +511,25 @@ stack.
 Verified: `poetry run pytest tests/test_importers/test_ris.py::TestDOIRecovery -q` — 4 passed.
 
 Next: T019 (preserve an identifier value that cannot be normalized into a valid one).
+
+### T019 — preserve an unrescuable identifier value under `custom["ris"]`
+
+Did: `_identifiers` now validates a `DO`/`UR` value (`validate_doi`/`validate_url`) after
+normalization before writing it to its CSL top-level key; a value that still fails is preserved
+under `result["custom"]["ris"][tag]` instead, nested under the single key the plan's preservation
+paragraph names rather than flat under the tag name — a flat write would become an `ItemIdentifier`
+row typed by the tag and fail the whole entry on a value over 500 characters (plan.md "The citation
+key" → "Preservation goes under a single `custom["ris"]` key"). `SN` values that resolve to neither
+ISSN nor ISBN shape are left untouched —
+that gap is US-3's T025, not this task's, per US-1's carried watch item. `to_csl_json` merges the
+identifiers dict's popped `custom` key via `setdefault` rather than a blind `result.update`, so a
+later mapping step that also writes to `custom["ris"]` (US-4's unmapped-tag sweep, T030) will merge
+rather than overwrite.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation
+tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery
+-q` — 18 passed, red first (5 failures, all for the right reason: `DOI`/`URL` present when they
+should be preserved, `KeyError: 'custom'`, and one entry failing outright on `ValidationError`
+before the fix). Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 200 passed.
+
+Next: T020 (unparseable dates fall back to the item's existing literal slot).

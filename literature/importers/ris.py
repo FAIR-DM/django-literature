@@ -32,7 +32,7 @@ from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.normalizers import IdentifierNormalizer
 from literature.importers.results import EntryResult
-from literature.validators import validate_isbn, validate_issn
+from literature.validators import validate_doi, validate_isbn, validate_issn, validate_url
 
 
 @dataclasses.dataclass(frozen=True)
@@ -477,17 +477,40 @@ def _sn_identifier(value: str) -> tuple[str, str] | None:
     return None
 
 
-def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, str]:
-    """Every identifier this entry carries, mapped to its CSL top-level key."""
+def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
+    """Every identifier this entry carries, mapped to its CSL top-level key.
+
+    A value normalization could not turn into something the catalogue accepts is preserved under
+    ``custom["ris"]`` rather than stored as a valid identifier or discarded (T019, FR-024, FR-027).
+    Nested under that single key, never flat: `from_csl_json` turns every flat `custom` key whose
+    value is a plain string into an `ItemIdentifier` row typed by that key, which is exactly what
+    preservation must not become (plan.md "Preservation goes under a single `custom[\"ris\"]` key").
+    Deliberately narrower than a full unmapped-tag sweep — `SN` shapes that resolve to neither
+    ISSN nor ISBN are a later story's concern (US-3 T025) and are left alone here, as they already
+    were before this task.
+    """
     result: dict[str, str] = {}
+    preserved: dict[str, str] = {}
 
     do_values = raw.values("DO")
     if do_values and do_values[0].strip():
-        result["DOI"] = IdentifierNormalizer.normalize_doi(do_values[0].strip())
+        normalized_doi = IdentifierNormalizer.normalize_doi(do_values[0].strip())
+        try:
+            validate_doi(normalized_doi)
+        except ValidationError:
+            preserved["DO"] = normalized_doi
+        else:
+            result["DOI"] = normalized_doi
 
     ur_values = raw.values("UR")
     if ur_values and ur_values[0].strip():
-        result["URL"] = ur_values[0].strip()
+        ur_value = ur_values[0].strip()
+        try:
+            validate_url(ur_value)
+        except ValidationError:
+            preserved["UR"] = ur_value
+        else:
+            result["URL"] = ur_value
 
     sn_values = raw.values("SN")
     if sn_values and sn_values[0].strip():
@@ -498,6 +521,9 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, str]:
             resolved = _sn_identifier(sn_value)
             if resolved:
                 result[resolved[0]] = resolved[1]
+
+    if preserved:
+        result["custom"] = {"ris": preserved}
 
     return result
 
@@ -652,7 +678,11 @@ class RISFormat(BibFormat):
         if accessed:
             result["accessed"] = accessed
 
-        result.update(_identifiers(raw, ref_type))
+        identifiers = _identifiers(raw, ref_type)
+        preserved = identifiers.pop("custom", None)
+        result.update(identifiers)
+        if preserved:
+            result.setdefault("custom", {}).setdefault("ris", {}).update(preserved["ris"])
 
         key = _citation_key(raw, issued, raw.index)
         limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM

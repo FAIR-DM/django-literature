@@ -826,6 +826,52 @@ class TestDOIRecovery:
         assert result.created[0].item.item_identifiers.get(type="DOI").value == "10.1002/ar.25520"
 
 
+class TestUnrescuableIdentifierPreservation:
+    """A known identifier tag's value that cannot be normalized into something valid is preserved
+    under ``custom["ris"]`` -- nested, never flat -- rather than discarded or stored as a valid
+    identifier (T019, FR-024, FR-027, acceptance scenario 2)."""
+
+    def test_a_doi_that_will_not_normalize_is_preserved_under_custom_ris(self):
+        csl = RISFormat().to_csl_json(entry(do="not a doi at all"))
+        assert "DOI" not in csl
+        assert csl["custom"]["ris"]["DO"] == "not a doi at all"
+
+    def test_a_url_that_will_not_validate_is_preserved_under_custom_ris(self):
+        csl = RISFormat().to_csl_json(entry(ur="not a url at all"))
+        assert "URL" not in csl
+        assert csl["custom"]["ris"]["UR"] == "not a url at all"
+
+    def test_preservation_nests_under_a_single_ris_key_not_flat(self):
+        """The design correction at S3R: a flat `custom["DO"]` write becomes an `ItemIdentifier`
+        row typed by the tag name once `from_csl_json` sees it, which is exactly what preservation
+        must not do."""
+        csl = RISFormat().to_csl_json(entry(do="not a doi at all"))
+        assert set(csl["custom"].keys()) == {"ris"}
+        assert "DO" not in csl["custom"]
+
+    def test_a_valid_doi_is_not_preserved(self):
+        csl = RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))
+        assert "custom" not in csl
+
+    @pytest.mark.django_db
+    def test_an_unrescuable_doi_still_leaves_the_entry_created(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nDO  - not a doi at all\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.created
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="DOI").exists()
+        assert item.custom["ris"]["DO"] == "not a doi at all"
+
+    @pytest.mark.django_db
+    def test_no_itemidentifier_row_is_created_for_a_preserved_value(self):
+        """Article XIII / the plan's preservation paragraph: a flat write would turn this into an
+        `ItemIdentifier` row typed by the tag name and fail on a value over 500 characters."""
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nDO  - not a doi at all\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="DO").exists()
+
+
 class TestCitationKeys:
     """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
     back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""
