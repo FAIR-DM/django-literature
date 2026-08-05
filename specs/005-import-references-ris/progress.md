@@ -666,3 +666,31 @@ the eight call sites were amended, confirming D30/D31's count exactly, then pass
 
 Next: none — T021 was this fix round's only task. Full-suite verify and the completion report
 follow.
+
+## 2026-08-05T22:41:00Z · Implementer US-3 · T024
+
+Did: wrote the failing tests first — `TestProducerContributorConventions` in
+`tests/test_importers/test_ris.py`: `ED` resolving to `editor` on a `CHAP` entry (and keeping
+source order across two `ED` values), `A2` resolving to `editor` on `JOUR` (Scopus's mistyped
+chapters), `A4` resolving to `translator` on `BOOK` and `CHAP`, and `A4` staying unmapped on
+`JOUR`, which research R4's table gives no role for. A sixth test asserts the module documents
+`ED` as non-canonical. Then implemented minimally in `literature/importers/ris.py`: `_contributors`
+gained an unconditional `_add_contributors(roles, "editor", raw.values("ED"))` (Web of Science
+never emits `A2` for editors, only `ED`, so no reference-type gate is needed); `"JOUR"` was added
+to `_CHAPTER_LIKE_A2_EDITOR_TYPES`; a new `_A4_TRANSLATOR_TYPES` frozenset (research R4's own
+table) gates a new `_add_contributors(roles, "translator", raw.values("A4"))` call.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestProducerContributorConventions
+tests/test_importers/test_ris.py::TestContributors -q` — red first (6 failing on `KeyError:
+'editor'`/`'translator'` and the missing-doc-mention assertion), green after — 16 passed. Full
+file: `poetry run pytest tests/test_importers/test_ris.py -q` — 233 passed (up from the 1012-total
+baseline's 227 in this file). `poetry run ruff check literature/importers/ris.py
+tests/test_importers/test_ris.py` and `ruff format --check` — clean. `poetry run mypy
+literature/importers/ris.py` — clean.
+
+Watch: the genuine corpus (`genuine/{endnote,scopus,webofscience}.ris`) carries no `ED`, `A2` or
+`A4` tag at all — every record in all three files is a plain `JOUR` article (research R10's own
+"Limitation" note) — so this task is tested entirely through the `entry()` synthetic builder,
+consistent with `TestContributors`'s own existing style, not through a new fixture file.
+
+Next: T025 (`SN` producer encodings).
