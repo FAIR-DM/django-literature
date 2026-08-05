@@ -317,3 +317,23 @@ resolution — a single source of truth for "this type is already its own contai
 that could drift apart.
 
 Next: T012 (contributors — repeated tags to contributor records, roles resolved on reference type).
+
+### T012 — contributors, roles resolved on reference type
+
+Did: `_name_to_csl` (RIS's own `Family, Given[, Suffix]` author format; no comma means
+institutional/unparsed and goes to `literal` unsplit, FR-014), `_contributors` resolving `AU`/`A2`/
+`A3` to their CSL role from the reference type (research.md R4): `AU` is `author` except on
+`EDBOOK` where it is `editor`; `A2` is `editor` on the chapter-like set, `collection-editor` on
+`_BOOK_LIKE_TYPES` (T011's same set — one source of truth for "this type has no container of its
+own"); `A3` is `editor` only on `BOOK` (the one type where `A2`/`A3` invert) and `collection-editor`
+on its own documented set. Contributors keep source order within each role (`list.append` in tag
+order). `ED` (Web of Science's non-canonical editor tag) and `A2` resolving to `editor` on `JOUR`
+are research.md R4/R9 findings explicitly assigned to T024 (US-3) — not built here.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestContributors -v` — 9 passed.
+Confirmed RED first: all 8 role/order assertions failed with `KeyError` before `_contributors`
+existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 153 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Next: T013 (dates — PY anchors, DA refines precision, Y1 falls back, Y2 is the access date).
