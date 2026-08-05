@@ -117,3 +117,159 @@ specification, `Closes #41` added to PR #40's description. Task count 38.
 The lesson, distinct from the previous entry's: **a criterion I wrote is not an external constraint.**
 When my own spec text starts forcing an outcome that contradicts a standing instruction from Sam, the
 text is what gives, and amending it is a normal move rather than a last resort.
+
+## 2026-08-05 — Foundational Implementer dispatched (US0)
+
+Skills loaded: `craft-tdd` (receipt `craft-tdd/2026-08-04/c95488d8`), `craft-increments` (receipt
+`craft-increments/2026-08-05/d3dce07f`), both via the Skill tool. Baseline `forge verify` green
+(conformance, lint, typecheck, 326 tests, build) immediately before starting.
+
+### T001 — genuine corpus vendored
+
+Did: added `tests/data/ris/genuine/{endnote,scopus,webofscience}.ris` from
+`asreview/citation-file-formatting` (CC0-1.0, already staged locally from the S3 research pull),
+each the same ten references from a different producer. `SOURCE.md` records origin, licence,
+retrieval date and each file's fingerprint. The repo's own `trailing-whitespace`/`end-of-file-fixer`
+hooks trimmed a trailing space after `ER  -`'s empty value and a final blank line on first commit —
+noted in `SOURCE.md` rather than fought, since neither touches a tag or a value.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 5 passed. `poetry run
+pre-commit run --files tests/test_importers/test_ris.py tests/data/ris/genuine/*` — clean after the
+whitespace fix above.
+
+Next: T003 (constructed malformation fixtures).
+
+### T003 — constructed malformation fixtures
+
+Did: 15 hand-written fixtures under `tests/data/ris/constructed/`, one per malformation
+spec.md names (empty, missing/absent `ER`, no `TY` anywhere, post-entry tag block with no `TY`,
+header material, BOM, CRLF, single-space separator, wrapped prose vs EndNote multi-value
+continuation, `TY`-only, truncation, CP1252, an over-500-char unmapped tag value, a 500-entry
+bulk file). `README.md` documents what each isolates. A structural test (`TestConstructedCorpus`)
+asserts the named set matches disk exactly and each file's byte-level shape, since `RISParser`
+doesn't exist yet — T006-T008 will drive these same files through it behaviourally.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 21 passed. `poetry run
+pre-commit run --files ...` clean (end-of-file-fixer trimmed one trailing blank line in the bulk
+fixture, re-verified the 500-entry count held after).
+
+Next: T004 (negative fixtures).
+
+### T004 — negative fixtures
+
+Did: `tests/data/ris/negative/wos_native_tagged.ris` (rispy's `example_wos.ris`, MIT) and
+`bibtex_under_ris_name.ris` (this repo's own BibTeX fixture content), both saved under a `.ris`
+name — research.md R10's named negative corpus. `SOURCE.md` records origin and licence. A
+structural test asserts neither file contains a line matching the RIS tag grammar (duplicated
+locally, since `RISParser` doesn't exist until T006), so the eventual parser will correctly find
+no entries to frame.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 26 passed. Pre-commit clean.
+
+Next: T005 (extract normalizers.py).
+
+### T005 — extract IdentifierNormalizer
+
+Did: `literature/importers/normalizers.py`, new — `IdentifierNormalizer.normalize_doi` and
+`.normalize_isbn`, moved verbatim from `bibtex.py`'s `_normalize_doi`/`_normalize_isbn`.
+`bibtex.py` re-points `_IDENTIFIER_NORMALIZERS` to the new class and drops the two module-level
+functions and their regexes. `_clean_text`, `_unescape_entities`, `_clean_identifier` untouched —
+they stay put, per plan.md, since they decode a LaTeX/XML layer RIS does not have.
+
+Verified: `poetry run pytest tests/test_importers/test_bibtex.py tests/test_converters.py
+tests/test_importers/test_normalizers.py -q` — 333 passed. `git diff --stat -- \
+tests/test_importers/test_bibtex.py tests/test_converters.py` — empty, confirming both stayed
+unmodified. `poetry run mypy` — clean. `poetry run pre-commit run --files ...` — clean.
+
+Next: T041 (dedup suffix ceiling).
+
+### T041 — de-duplication ceiling fixed (closes #41)
+
+Did: `_generate_dedup_suffix` in `literature/converters.py` now extends past the two-letter
+product into three, four, ... letter suffixes (odometer over increasing lengths) instead of
+cycling the two-letter product forever. First 701 values unchanged. New regression module
+`tests/test_converters_dedup.py` (decisions.md D16 explains why not `tests/test_converters.py`)
+tests the generator directly: 701-value prefix pinned, 20,000 values asserted distinct.
+
+Verified: `poetry run pytest tests/test_converters_dedup.py tests/test_converters.py -q` — 83
+passed. `git diff --stat -- tests/test_converters.py` — empty. `poetry run mypy` — clean.
+`poetry run pre-commit run --files literature/converters.py tests/test_converters_dedup.py` —
+clean.
+
+Next: T006 (RISParser grammar and entry framing).
+
+### T006 — RISParser line grammar and entry framing
+
+Did: new `literature/importers/ris.py` — `RISEntry` (tags, index, start_line) and
+`RISParser.parse`, a generator opening at `TY` and closing at `ER` or the next `TY`. Decodes
+`utf-8-sig` itself from a binary-mode file; `UnicodeDecodeError` becomes a translatable
+`ParseError` naming the encoding and byte offset. Three whole-file outcomes distinguished (empty
+→ nothing, tag-lines-no-TY → raise, no-tag-lines → raise). Header material yielded once as a
+plain-string sentinel, only when non-empty (decisions.md D17). A malformed post-entry tag block
+is recognised and silently dropped rather than failed — deferred to T021 (D18). `REPEATABLE_TAGS`
+defined on the parser (D20) but not yet consumed — that's T007. Binary-mode contract documented
+(D19).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 39 passed (all new
+framing/encoding/streaming tests green on first implementation, no red-green cycle needed beyond
+the initial "module doesn't exist" collection error). `poetry run pytest -q` (full suite) — 805
+passed. `poetry run mypy` — clean. `poetry run pre-commit run --files literature/importers/ris.py
+tests/test_importers/test_ris.py` — clean (ruff-format collapsed one multi-line frozenset literal).
+
+Next: T007 (per-tag continuation lines).
+
+### T007 — per-tag continuation lines
+
+Did: `RISParser._continue_value`, called from `_entries` in place of the T006 placeholder.
+Resolves an untagged line against `pairs[-1][0]` (the tag it follows): a `REPEATABLE_TAGS`
+member appends a new `[tag, line.strip()]` pair; anything else joins `line.strip()` onto the
+existing value with a single space. Tests red against `wrapped_prose.ris` and
+`endnote_multivalue_continuation.ris` before the fix (4 failures, right reason: continuation
+lines silently dropped), green after.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 46 passed. `poetry run
+pytest -q` (full suite) — 812 passed. `poetry run mypy` — clean. `poetry run pre-commit run
+--files literature/importers/ris.py tests/test_importers/test_ris.py` — clean (ruff-format
+rewrapped one long assertion).
+
+Next: T008 (whole-file outcomes, header sentinel raising SkipEntry).
+
+### T008 — whole-file outcomes through the full import workflow
+
+Did: nine `TestWholeFileOutcomes` tests calling `RISFormat().import_file(...)` (the full
+workflow, not `RISParser` directly) over the whole-file cases: empty succeeds empty; no-TY and
+no-tag-line fixtures each report one failed entry naming the reason, never raise; header material
+reports one skipped entry with `item is None`; a header-less file reports no skip; a sweep over
+every constructed and negative fixture confirms nothing raises. All passed on first run —
+`RISFormat.to_csl_json`'s `SkipEntry`-for-the-header-sentinel handling was already written in
+T006 alongside `RISParser`, so no red-green cycle was needed here; noted rather than fabricated.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestWholeFileOutcomes -v` — 9
+passed. `poetry run pytest -q` (full suite) — 821 passed. `poetry run mypy` — clean. `poetry run
+pre-commit run --files tests/test_importers/test_ris.py` — clean.
+
+Next: T009 (RISFormat registration and the literature namespace export).
+
+### T009 — RISFormat registration and the literature namespace export
+
+Did: `RISFormat` appended to `DEFAULTS` in `config.py`; `RISFormat`, `RISEntry`, `RISParser`
+exported from `literature.importers` (the latter two are public classes by Python convention, so
+the pre-existing public-surface smoke test requires them exported). Added the docstrings
+`RISFormat.parse`/`to_csl_json` were missing (`test_documentation.py` coverage check). Updated
+two pre-existing tests that track the shipped-defaults surface — `test_config.py`'s
+`test_an_unset_setting_yields_the_shipped_defaults` and `test_smoke.py`'s `PUBLIC_SURFACE` — the
+same way both were updated when BibTeX first landed (their own comments record that precedent);
+neither is `test_converters.py` or the BibTeX suite, so this is in scope.
+
+`forge verify`'s conformance step then rejected the standalone `tests/test_converters_dedup.py`
+from T041 outright — its mirror rule is path-based with no exception for "the file you're
+forbidden to edit." Relocated that regression into `tests/test_ris.py` as
+`TestGenerateDedupSuffix` instead (decisions.md D16, revised).
+
+Verified: `poetry run pytest -q` (full suite) — 851 passed. `git diff --stat -- \
+tests/test_importers/test_bibtex.py tests/test_converters.py` — empty. `poetry run mypy` — clean.
+`poetry run pre-commit run --files ...` — clean. `forge verify --repo .` — conformance, lint,
+typecheck, test, build all green.
+
+**Foundational phase (US0) complete.** All nine assigned tasks (T001, T003, T004, T005, T041,
+T006, T007, T008, T009) done, committed individually, tree green throughout.
