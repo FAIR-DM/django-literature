@@ -467,8 +467,17 @@
         },
         {
           "id": "T029",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnnamedProducer -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "3 passed (no production change needed); 257 passed full file; ruff clean; mypy clean"
+          }
         }
       ]
     },

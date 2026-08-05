@@ -813,3 +813,26 @@ passed as of the prior task). `git log --oneline -- tests/data/ris/genuine/` —
 vendoring, `T002` chapter substitution) confirm the corpus predates this story.
 
 Next: T029 (unnamed producer). T028 stays blocked pending Forge's resolution of D35.
+
+## 2026-08-05T23:40:00Z · Implementer US-3 · T029
+
+Did: wrote `TestUnnamedProducer` in `tests/test_importers/test_ris.py` (3 tests, all
+`django_db`-backed end-to-end imports): a file shaped like Ovid, CINAHL or RefWorks (research R5's
+own named list of ``Y1``-emitting tools this feature does not support) — using ``TY``, ``AU``,
+``TI``, ``Y1`` (no ``PY``), ``SN``, ``DO``, nothing producer-specific — is created as an item, its
+spec-defined tags land on the expected CSL variables (type, title, DOI, ISSN), and the issued date
+comes from the generic ``Y1`` fallback rather than any tag none of the three supported producers
+themselves emit either.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnnamedProducer -q` — all 3
+passed on first run, with **no production change**. This is expected and correct for this task,
+not a red flag: T029's own acceptance, narrowed at design review to "tags the spec defines are
+read, entry lands," is a property the generic core-tag/`Y1`-fallback mapping already had from
+US-1 — the task's job is to prove it end-to-end for a file shaped like a fourth producer, which no
+prior test did (the existing `TestDates::test_y1_supplies_issued_when_py_is_absent` asserts only
+the isolated `to_csl_json` mapping, never a full `import_file` call creating a real `Item`). Full
+file: `poetry run pytest tests/test_importers/test_ris.py -q` — 257 passed (254 prior + 3 new).
+`ruff check`/`ruff format --check` — clean. `poetry run mypy literature/importers/ris.py` — clean.
+
+Next: none — T029 was this story's last independently-completable task. Full-suite verify and the
+completion report follow. T028 remains blocked pending Forge's resolution of D35.
