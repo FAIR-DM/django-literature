@@ -377,6 +377,70 @@ def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]
     return roles
 
 
+# ---------------------------------------------------------------------------
+# Dates (T013, FR-015, FR-016) — ``PY`` anchors, ``DA`` refines precision, ``Y1`` is a fallback
+# alias for ``PY``, ``Y2`` is the access date. research.md R5: none of this feature's three
+# supported producers emits ``Y1``, but Ovid, CINAHL, RefWorks and others do.
+# ---------------------------------------------------------------------------
+
+
+def _ris_date_parts(value: str) -> tuple[int, ...] | None:
+    """The year, or year/month, or year/month/day ``value`` states, at whatever precision it
+    carries. RIS date fields (``PY``, ``DA``, ``Y1``, ``Y2``) share one shape: up to three
+    slash-separated numeric components, optionally followed by more that this parser does not
+    need. ``None`` for a value that states no leading numeric component at all.
+    """
+    parts: list[int] = []
+    for segment in value.strip().split("/"):
+        segment = segment.strip()
+        if not segment.isdigit():
+            break
+        parts.append(int(segment))
+        if len(parts) == 3:
+            break
+    return tuple(parts) if parts else None
+
+
+def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
+    """The entry's ``issued`` date, at the precision the source states (FR-015).
+
+    ``PY`` anchors the year. Where ``DA`` also parses and agrees with ``PY``'s year, its extra
+    precision (month, or month and day) is kept and no component the source did not state is
+    padded in. A ``DA`` whose year disagrees is not a refinement of this date and is left alone
+    (a producer that means something else by it, or a malformed tag, is not evidence for the
+    date this entry actually carries). Without ``PY``, ``Y1`` supplies the issued date instead
+    (research.md R5) — at whatever precision it states, since there is no anchor to refine.
+    """
+    py_values = raw.values("PY")
+    if py_values:
+        py_parts = _ris_date_parts(py_values[0])
+        if py_parts:
+            year = py_parts[0]
+            da_values = raw.values("DA")
+            if da_values:
+                da_parts = _ris_date_parts(da_values[0])
+                if da_parts and da_parts[0] == year:
+                    return {"date-parts": [list(da_parts)]}
+            return {"date-parts": [[year]]}
+
+    y1_values = raw.values("Y1")
+    if y1_values:
+        y1_parts = _ris_date_parts(y1_values[0])
+        if y1_parts:
+            return {"date-parts": [list(y1_parts)]}
+
+    return None
+
+
+def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
+    """The entry's ``accessed`` date: ``Y2``, and only ``Y2`` (FR-016)."""
+    y2_values = raw.values("Y2")
+    if not y2_values:
+        return None
+    y2_parts = _ris_date_parts(y2_values[0])
+    return {"date-parts": [list(y2_parts)]} if y2_parts else None
+
+
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
 
@@ -426,5 +490,12 @@ class RISFormat(BibFormat):
             result[_page_variable(ref_type)] = sp_values[0].strip()
 
         result.update(_contributors(raw, ref_type))
+
+        issued = _issued_date(raw)
+        if issued:
+            result["issued"] = issued
+        accessed = _accessed_date(raw)
+        if accessed:
+            result["accessed"] = accessed
 
         return result

@@ -447,3 +447,24 @@ branch evidences the true time, so it is flagged here rather than replaced with 
 **Revisit if**: a task ever again carries evidence naming commands that its dispatch brief cannot
 account for. The cheap mechanical form of this check is that every `done` task's evidence should
 trace to a brief that listed it.
+
+## D25 — `DA` that disagrees with `PY`'s year is not a refinement
+
+**Ambiguity**: FR-015/research.md R5 say `DA` "refines" `PY`'s precision when it parses, but do not
+say what happens when `DA` parses to a *different* year than `PY` states. Both are documented as
+possibly present together, and nothing in the primary specification or the research forces one to
+win.
+
+**Chosen**: `_issued_date` only lets `DA` refine the date when its parsed year equals `PY`'s. A
+`DA` with a disagreeing year is left alone entirely — the date stays at `PY`'s year precision,
+`DA`'s value is not consulted for month or day either.
+
+**Why defensible**: `DA`'s only documented job in this feature is refining `PY`'s own year to month
+or day precision (R5); a `DA` naming a different year is not refining anything, it is disagreeing,
+and trusting its month/day components while discarding its year would silently splice two
+unrelated dates together. Falling back to `PY`'s own precision is the same "prefer what is stated
+over guessing" rule the format applies everywhere else. This is deliberately narrower than Web of
+Science's year-less `DA` splicing (`SEP 22` anchored to `PY`'s year), which research.md R5 records
+as US-3's own task (T026) — that case has no year to disagree with in the first place. Revisit if a
+genuine corpus file turns up where `PY` and a full `DA` legitimately disagree (a correction to one
+field and not the other) and disagreement should instead prefer `DA`.

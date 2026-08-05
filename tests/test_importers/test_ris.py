@@ -686,3 +686,42 @@ class TestContributors:
     def test_no_contributor_tags_means_no_name_variable_keys(self):
         csl = RISFormat().to_csl_json(entry())
         assert not ({"author", "editor", "collection-editor"} & csl.keys())
+
+
+class TestDates:
+    """``PY`` anchors, ``DA`` refines precision, ``Y1`` falls back, ``Y2`` is the access date
+    (T013, FR-015, FR-016)."""
+
+    def test_py_alone_gives_year_precision(self):
+        assert RISFormat().to_csl_json(entry(py="2024"))["issued"] == {"date-parts": [[2024]]}
+
+    def test_da_refines_to_month_precision(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2024/06"))
+        assert csl["issued"] == {"date-parts": [[2024, 6]]}
+
+    def test_da_refines_to_day_precision_with_no_padding(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2024/06/24"))
+        assert csl["issued"] == {"date-parts": [[2024, 6, 24]]}
+
+    def test_da_with_a_disagreeing_year_is_not_used(self):
+        """A ``DA`` that does not agree with ``PY``'s year is not a refinement of it; ``PY``'s own
+        year precision is kept rather than trusting an inconsistent tag."""
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2023/06"))
+        assert csl["issued"] == {"date-parts": [[2024]]}
+
+    def test_y1_supplies_issued_when_py_is_absent(self):
+        csl = RISFormat().to_csl_json(entry(y1="2020/03/15"))
+        assert csl["issued"] == {"date-parts": [[2020, 3, 15]]}
+
+    def test_py_takes_precedence_over_y1(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", y1="1999"))
+        assert csl["issued"] == {"date-parts": [[2024]]}
+
+    def test_y2_is_the_access_date(self):
+        csl = RISFormat().to_csl_json(entry(y2="2023/01/10"))
+        assert csl["accessed"] == {"date-parts": [[2023, 1, 10]]}
+        assert "issued" not in csl
+
+    def test_no_date_tags_means_no_issued_or_accessed(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"issued", "accessed"} & csl.keys())
