@@ -360,3 +360,26 @@ when here the intent is explicitly "keep this current." `tests/test_converters.p
 suite are a different case entirely: nothing in them anticipates this feature, and the brief's
 prohibition names them specifically and separately from the general rule. Revisit if a future
 story finds either updated file drifting from its own stated purpose.
+
+## D22 · US0 accepted at Forge review: both tamper flags approved, one test-first deviation recorded
+
+**Context**: `forge tamper-check --base 005-import-references-ris` raised two flags,
+`tests/test_importers/test_config.py` and `tests/test_importers/test_smoke.py`. Flags pause for
+triage, they do not auto-block. Independent re-verification of the returned work: `forge verify`
+green on all five steps (conformance, lint, typecheck, 851 tests, build), `forge check-receipts
+--role implementer` green on both craft skills.
+
+**Chosen**: both flags approved, per D21's reasoning, which I checked against the diffs rather
+than taking on report. Neither modification weakens an assertion — `test_config.py` widens the
+shipped-defaults set to include `ris`, `test_smoke.py` adds three names to `PUBLIC_SURFACE`. Both
+tighten. The BibTeX suite and `tests/test_converters.py`, the two the brief names specifically,
+are untouched in the diff.
+
+**Also recorded, and not a flag the tooling raises**: T008 added `TestWholeFileOutcomes` against
+`RISFormat.to_csl_json`'s header-sentinel `SkipEntry` handling, which T006 had already written.
+T006's commit adds no test referencing `to_csl_json` or `SkipEntry`, so that branch existed
+untested between the two commits — code before test, contrary to Article I. The Implementer
+disclosed it in its own progress note rather than fabricating a red step, which is the right
+instinct and the reason it is recorded here rather than treated as a guardrail trip. The
+behaviour is under test now. The correction goes into the US-1 brief: a class written in one task
+carries its tests in that task, even when a later task will exercise it end to end.
