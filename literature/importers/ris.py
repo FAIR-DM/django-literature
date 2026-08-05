@@ -515,19 +515,49 @@ def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
 #: On these types, ``SN`` is a report or patent number, not an identifier at all (research.md R6).
 _REPORT_LIKE_SN_TYPES: frozenset[str] = frozenset({"RPRT", "PAT"})
 
+#: Scopus's inline hint, stripped before shape resolution -- it names which identifier the value
+#: is, but is not part of the value itself (research.md R6, T025: ``SN - 20411723 (ISSN)``).
+_SN_ANNOTATION_RE = re.compile(r"^(?P<value>.*?)\s*\((?:ISSN|ISBN)\)\s*$", re.IGNORECASE)
+
+#: Scopus strips the hyphen from an 8-character ISSN before annotating it (research.md R6:
+#: ``SN - 20411723 (ISSN)``). ``validate_issn`` requires the hyphen, so a bare candidate of this
+#: shape is reformatted before validation rather than rejected for punctuation the source omitted.
+_BARE_ISSN_RE = re.compile(r"^\d{7}[\dXx]$")
+
+
+def _sn_candidates(raw_values: list[str]) -> list[str]:
+    """Every individual value this entry's ``SN`` tag(s) carry, across Web of Science's repeated
+    tag, Scopus's ``; ``-packed single tag, and EndNote's continuation-line values (which
+    ``RISParser`` has already split into separate entries in ``raw_values`` by the time this runs,
+    per its ``REPEATABLE_TAGS`` rule) -- with Scopus's inline ``(ISSN)``/``(ISBN)`` annotation
+    stripped, since it is a hint about the value rather than part of it (research.md R6, T025).
+    """
+    candidates = []
+    for raw_value in raw_values:
+        for chunk in raw_value.split(";"):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            match = _SN_ANNOTATION_RE.match(chunk)
+            candidates.append(match.group("value").strip() if match else chunk)
+    return candidates
+
 
 def _sn_identifier(value: str) -> tuple[str, str] | None:
-    """The ``(CSL key, value)`` pair ``SN``'s shape resolves to, or ``None`` if it resolves to
+    """The ``(CSL key, value)`` pair ``value``'s shape resolves to, or ``None`` if it resolves to
     neither an ISSN nor an ISBN shape (research.md R6). Shape only — the reference-type
     tiebreaker for a value that could pass as either is not exercised by this feature's own
     corpus and is left for a later story rather than guessed at here.
     """
+    issn_candidate = value
+    if _BARE_ISSN_RE.match(value):
+        issn_candidate = f"{value[:4]}-{value[4:]}"
     try:
-        validate_issn(value)
+        validate_issn(issn_candidate)
     except ValidationError:
         pass
     else:
-        return ("ISSN", value)
+        return ("ISSN", issn_candidate)
 
     try:
         validate_isbn(value)
@@ -539,6 +569,16 @@ def _sn_identifier(value: str) -> tuple[str, str] | None:
     return None
 
 
+def _add_preserved(preserved: dict[str, str | list[str]], tag: str, values: list[str]) -> None:
+    """Record ``values`` (already resolved to be surplus or unrescuable) under ``tag`` in
+    ``preserved``: a bare string for a single value, so the common one-value case stays exactly
+    the shape :class:`TestUnrescuableIdentifierPreservation` already asserts, and a list only when
+    ``tag`` genuinely carries more than one surplus value (T025, T027)."""
+    if not values:
+        return
+    preserved[tag] = values[0] if len(values) == 1 else values
+
+
 def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     """Every identifier this entry carries, mapped to its CSL top-level key.
 
@@ -547,12 +587,15 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     Nested under that single key, never flat: `from_csl_json` turns every flat `custom` key whose
     value is a plain string into an `ItemIdentifier` row typed by that key, which is exactly what
     preservation must not become (plan.md "Preservation goes under a single `custom[\"ris\"]` key").
-    Deliberately narrower than a full unmapped-tag sweep — `SN` shapes that resolve to neither
-    ISSN nor ISBN are a later story's concern (US-3 T025) and are left alone here, as they already
-    were before this task.
+
+    ``SN``'s three producer encodings — Web of Science repeating the tag, Scopus annotating
+    inline and packing several values behind ``; ``, EndNote continuing on an untagged line — are
+    flattened by :func:`_sn_candidates` into one ordered list of individual values; the first
+    value of each kind (ISSN, ISBN) is stored, and every other value — a second value of a kind
+    already stored, or one that resolves to neither shape — is preserved (T025, research R6).
     """
     result: dict[str, Any] = {}
-    preserved: dict[str, str] = {}
+    preserved: dict[str, str | list[str]] = {}
 
     do_values = raw.values("DO")
     if do_values and do_values[0].strip():
@@ -560,7 +603,7 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
         try:
             validate_doi(normalized_doi)
         except ValidationError:
-            preserved["DO"] = normalized_doi
+            _add_preserved(preserved, "DO", [normalized_doi])
         else:
             result["DOI"] = normalized_doi
 
@@ -570,19 +613,25 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
         try:
             validate_url(ur_value)
         except ValidationError:
-            preserved["UR"] = ur_value
+            _add_preserved(preserved, "UR", [ur_value])
         else:
             result["URL"] = ur_value
 
-    sn_values = raw.values("SN")
-    if sn_values and sn_values[0].strip():
-        sn_value = sn_values[0].strip()
+    sn_raw_values = raw.values("SN")
+    if sn_raw_values and any(v.strip() for v in sn_raw_values):
+        candidates = _sn_candidates(sn_raw_values)
+        surplus: list[str] = []
         if ref_type in _REPORT_LIKE_SN_TYPES:
-            result["number"] = sn_value
+            result["number"] = candidates[0]
+            surplus.extend(candidates[1:])
         else:
-            resolved = _sn_identifier(sn_value)
-            if resolved:
-                result[resolved[0]] = resolved[1]
+            for candidate in candidates:
+                resolved = _sn_identifier(candidate)
+                if resolved and resolved[0] not in result:
+                    result[resolved[0]] = resolved[1]
+                else:
+                    surplus.append(candidate)
+        _add_preserved(preserved, "SN", surplus)
 
     if preserved:
         result["custom"] = {"ris": preserved}

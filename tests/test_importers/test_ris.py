@@ -1047,6 +1047,70 @@ class TestIdentifiers:
         assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())
 
 
+class TestSNProducerEncodings:
+    """The three producer encodings of ``SN`` — Web of Science repeating the tag, Scopus
+    annotating inline and packing several values behind ``; ``, EndNote continuing on an
+    unindented line — all resolve the first value to an identifier and preserve the rest under
+    ``custom["ris"]`` (T025, FR-017, FR-018, FR-024, research R6, acceptance scenario 3)."""
+
+    def test_a_repeated_sn_tag_stores_the_first_issn_and_preserves_the_second(self):
+        """Web of Science: two ``SN`` tags, both ISSN-shaped (a genuine chapter record's series
+        and print/electronic ISSNs, research R6)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn=["1060-1503", "1470-1553"]))
+        assert csl["ISSN"] == "1060-1503"
+        assert csl["custom"]["ris"]["SN"] == "1470-1553"
+
+    def test_a_repeated_sn_tag_stores_one_issn_and_one_isbn(self):
+        """Web of Science's own case: two series ISSNs and two ISBNs on one chapter, in no marked
+        order — the first of each kind is stored, the rest preserved."""
+        csl = RISFormat().to_csl_json(
+            entry(ty="CHAP", sn=["1932-6203", "978-0-306-40615-7", "1932-6203", "978-1-4028-9462-6"])
+        )
+        assert csl["ISSN"] == "1932-6203"
+        assert csl["ISBN"] == "978-0-306-40615-7"
+        assert csl["custom"]["ris"]["SN"] == ["1932-6203", "978-1-4028-9462-6"]
+
+    def test_scopus_inline_issn_annotation_is_stripped_and_hyphenated(self):
+        """Scopus strips the hyphen and annotates inline: ``SN - 20411723 (ISSN)`` (research R6,
+        the genuine value in ``genuine/scopus.ris``)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="20411723 (ISSN)"))
+        assert csl["ISSN"] == "2041-1723"
+        assert "custom" not in csl
+
+    def test_scopus_inline_isbn_annotation_is_stripped(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", sn="9780306406157 (ISBN)"))
+        assert csl["ISBN"] == "9780306406157"
+
+    def test_the_annotation_never_ends_up_inside_the_stored_value(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="20411723 (ISSN)"))
+        assert "ISSN" not in csl["ISSN"]
+        assert "(" not in csl["ISSN"]
+
+    def test_scopus_packs_several_values_behind_a_semicolon(self):
+        """Research R6: Scopus packs multiple values into one tag separated by ``; ``."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="2041-1723 (ISSN); 9780306406157 (ISBN)"))
+        assert csl["ISSN"] == "2041-1723"
+        assert csl["ISBN"] == "9780306406157"
+        assert "custom" not in csl
+
+    def test_endnote_continuation_line_becomes_a_second_sn_value(self):
+        """EndNote's own convention (research R7): an unindented continuation line under a
+        repeatable tag is another value, parsed by ``RISParser`` into a second ``raw.values("SN")``
+        entry before this mapping ever sees it (the genuine shape in ``genuine/endnote.ris``)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn=["1932-8494", "1932-8486"]))
+        assert csl["ISSN"] == "1932-8494"
+        assert csl["custom"]["ris"]["SN"] == "1932-8486"
+
+    def test_a_value_that_resolves_to_neither_shape_is_preserved_not_stored(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="not an identifier at all"))
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+        assert csl["custom"]["ris"]["SN"] == "not an identifier at all"
+
+    def test_sn_preservation_nests_under_the_single_ris_key(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn=["1060-1503", "1470-1553"]))
+        assert set(csl["custom"].keys()) == {"ris"}
+
+
 class TestDOIRecovery:
     """A ``DO`` written as a resolver URL or carrying a ``doi:`` label recovers to the bare DOI,
     through the same shared normalizer ``bibtex.py`` uses (T018, FR-025, acceptance scenario 1)."""
