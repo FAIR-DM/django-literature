@@ -333,9 +333,11 @@ def _page_variable(ref_type: str) -> str:
 # ---------------------------------------------------------------------------
 
 #: Reference types with a genuine container (a chapter's book, a paper's proceedings): ``A2`` names
-#: that container's editor.
+#: that container's editor. ``JOUR`` is included for Scopus's mistyped book chapters (research.md
+#: R9): a genuine Scopus record carries the book's editors in ``A2`` under ``TY - JOUR``, with
+#: ``M3 - Book Chapter`` the more reliable type signal Scopus does not act on itself.
 _CHAPTER_LIKE_A2_EDITOR_TYPES: frozenset[str] = frozenset(
-    {"CHAP", "ECHAP", "CONF", "CPAPER", "ENCYC", "DICT", "SER", "EBOOK", "MUSIC", "ANCIENT", "BLOG"}
+    {"CHAP", "ECHAP", "CONF", "CPAPER", "ENCYC", "DICT", "SER", "EBOOK", "MUSIC", "ANCIENT", "BLOG", "JOUR"}
 )
 
 #: On ``BOOK``, ``A3`` is the editor (research.md R4 — the one type where ``A2``/``A3`` invert).
@@ -348,6 +350,12 @@ _A3_COLLECTION_EDITOR_TYPES: frozenset[str] = frozenset(
 
 #: On an edited book, the author tag names the editor instead (research.md R4).
 _AU_EDITOR_TYPES: frozenset[str] = frozenset({"EDBOOK"})
+
+#: Reference types where ``A4`` has a documented role at all: translator (research.md R4's table).
+#: Elsewhere ``A4`` is left unmapped rather than guessed at.
+_A4_TRANSLATOR_TYPES: frozenset[str] = frozenset(
+    {"BOOK", "CHAP", "ANCIENT", "CLSWK", "CTLG", "DICT", "EDBOOK", "ENCYC", "PAMP"}
+)
 
 
 def _name_to_csl(name: str) -> dict[str, Any]:
@@ -387,11 +395,19 @@ def _add_contributors(roles: dict[str, list[dict[str, Any]]], role: str, names: 
 
 
 def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]]]:
-    """Every contributor tag this entry carries, resolved to its CSL role in source order."""
+    """Every contributor tag this entry carries, resolved to its CSL role in source order.
+
+    ``ED`` is Web of Science's own editor tag, in neither official RIS specification and used in
+    place of ``A2`` rather than alongside it (research.md R4: a genuine WoS ``CHAP`` record carries
+    three ``ED`` tags and zero ``A2``), so it resolves to ``editor`` unconditionally rather than by
+    reference type.
+    """
     roles: dict[str, list[dict[str, Any]]] = {}
 
     au_role = "editor" if ref_type in _AU_EDITOR_TYPES else "author"
     _add_contributors(roles, au_role, raw.values("AU"))
+
+    _add_contributors(roles, "editor", raw.values("ED"))
 
     if ref_type in _CHAPTER_LIKE_A2_EDITOR_TYPES:
         _add_contributors(roles, "editor", raw.values("A2"))
@@ -402,6 +418,9 @@ def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]
         _add_contributors(roles, "editor", raw.values("A3"))
     elif ref_type in _A3_COLLECTION_EDITOR_TYPES:
         _add_contributors(roles, "collection-editor", raw.values("A3"))
+
+    if ref_type in _A4_TRANSLATOR_TYPES:
+        _add_contributors(roles, "translator", raw.values("A4"))
 
     return roles
 

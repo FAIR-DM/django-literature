@@ -22,7 +22,7 @@ from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
-from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
+from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser, _contributors
 from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
@@ -886,6 +886,51 @@ class TestContributors:
     def test_no_contributor_tags_means_no_name_variable_keys(self):
         csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"author", "editor", "collection-editor"} & csl.keys())
+
+
+class TestProducerContributorConventions:
+    """``ED`` (Web of Science's non-canonical editor tag), ``A2`` resolving to ``editor`` on
+    ``JOUR`` (Scopus's mistyped chapters), and ``A4`` as ``translator`` (T024, FR-013, research
+    R4 and R9, acceptance scenario 2)."""
+
+    def test_ed_is_editor_on_a_chapter(self):
+        """Web of Science uses ``ED`` exclusively for a chapter's editors, never ``A2`` (research
+        R4: a genuine WoS ``CHAP`` record carries three ``ED`` tags and zero ``A2``)."""
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", ed=["Vandenberghe, J.", "Speijer, R."]))
+        assert csl["editor"] == [
+            {"family": "Vandenberghe", "given": "J."},
+            {"family": "Speijer", "given": "R."},
+        ]
+
+    def test_ed_keeps_source_order_across_multiple_editors(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", ed=["Second, B.", "First, A."]))
+        assert [editor["family"] for editor in csl["editor"]] == ["Second", "First"]
+
+    def test_ed_is_documented_as_non_canonical(self):
+        """FR-013 requires the resolution to be documented: ``ED`` appears in neither official RIS
+        specification (research R4)."""
+        assert "ED" in RISFormat.to_csl_json.__doc__ or "ED" in _contributors.__doc__
+
+    def test_a2_is_editor_on_jour_for_scopus_mistyped_chapters(self):
+        """Scopus mistypes a book chapter as ``JOUR``, with the book's editors in ``A2`` and
+        ``M3 - Book Chapter`` (research R9)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", a2="Editor, Enid", m3="Book Chapter"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "collection-editor" not in csl
+
+    def test_a4_is_translator_on_book(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", a4="Translator, Tam"))
+        assert csl["translator"] == [{"family": "Translator", "given": "Tam"}]
+
+    def test_a4_is_translator_on_chap(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", a4="Translator, Tam"))
+        assert csl["translator"] == [{"family": "Translator", "given": "Tam"}]
+
+    def test_a4_is_unmapped_on_a_type_outside_the_documented_set(self):
+        """``A4`` has no documented role on ``JOUR`` (research R4's table), so it is left alone
+        rather than guessed at here."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", a4="Translator, Tam"))
+        assert "translator" not in csl
 
 
 class TestDates:
