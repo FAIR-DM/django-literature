@@ -217,3 +217,19 @@ passed. `poetry run mypy` — clean. `poetry run pre-commit run --files literatu
 tests/test_importers/test_ris.py` — clean (ruff-format collapsed one multi-line frozenset literal).
 
 Next: T007 (per-tag continuation lines).
+
+### T007 — per-tag continuation lines
+
+Did: `RISParser._continue_value`, called from `_entries` in place of the T006 placeholder.
+Resolves an untagged line against `pairs[-1][0]` (the tag it follows): a `REPEATABLE_TAGS`
+member appends a new `[tag, line.strip()]` pair; anything else joins `line.strip()` onto the
+existing value with a single space. Tests red against `wrapped_prose.ris` and
+`endnote_multivalue_continuation.ris` before the fix (4 failures, right reason: continuation
+lines silently dropped), green after.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 46 passed. `poetry run
+pytest -q` (full suite) — 812 passed. `poetry run mypy` — clean. `poetry run pre-commit run
+--files literature/importers/ris.py tests/test_importers/test_ris.py` — clean (ruff-format
+rewrapped one long assertion).
+
+Next: T008 (whole-file outcomes, header sentinel raising SkipEntry).
