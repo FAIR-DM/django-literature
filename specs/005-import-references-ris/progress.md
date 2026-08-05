@@ -138,3 +138,19 @@ pre-commit run --files tests/test_importers/test_ris.py tests/data/ris/genuine/*
 whitespace fix above.
 
 Next: T003 (constructed malformation fixtures).
+
+### T003 — constructed malformation fixtures
+
+Did: 15 hand-written fixtures under `tests/data/ris/constructed/`, one per malformation
+spec.md names (empty, missing/absent `ER`, no `TY` anywhere, post-entry tag block with no `TY`,
+header material, BOM, CRLF, single-space separator, wrapped prose vs EndNote multi-value
+continuation, `TY`-only, truncation, CP1252, an over-500-char unmapped tag value, a 500-entry
+bulk file). `README.md` documents what each isolates. A structural test (`TestConstructedCorpus`)
+asserts the named set matches disk exactly and each file's byte-level shape, since `RISParser`
+doesn't exist yet — T006-T008 will drive these same files through it behaviourally.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py -q` — 21 passed. `poetry run
+pre-commit run --files ...` clean (end-of-file-fixer trimmed one trailing blank line in the bulk
+fixture, re-verified the 500-entry count held after).
+
+Next: T004 (negative fixtures).
