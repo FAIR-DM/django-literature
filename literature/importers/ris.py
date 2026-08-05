@@ -414,10 +414,15 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
     (a producer that means something else by it, or a malformed tag, is not evidence for the
     date this entry actually carries). Without ``PY``, ``Y1`` supplies the issued date instead
     (research.md R5) — at whatever precision it states, since there is no anchor to refine.
+
+    Where neither resolves to a structured date but one carries text, that text is kept in the
+    ``literal`` fallback ``ItemDate`` already has, rather than discarded (T020, FR-026) — ``PY``'s
+    own text wins, since it is the anchor tag and ``Y1`` is only ever consulted in its absence.
     """
     py_values = raw.values("PY")
-    if py_values:
-        py_parts = _ris_date_parts(py_values[0])
+    py_value = py_values[0].strip() if py_values else ""
+    if py_value:
+        py_parts = _ris_date_parts(py_value)
         if py_parts:
             year = py_parts[0]
             da_values = raw.values("DA")
@@ -428,21 +433,34 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
             return {"date-parts": [[year]]}
 
     y1_values = raw.values("Y1")
-    if y1_values:
-        y1_parts = _ris_date_parts(y1_values[0])
+    y1_value = y1_values[0].strip() if y1_values else ""
+    if y1_value:
+        y1_parts = _ris_date_parts(y1_value)
         if y1_parts:
             return {"date-parts": [list(y1_parts)]}
+
+    if py_value:
+        return {"literal": py_value}
+    if y1_value:
+        return {"literal": y1_value}
 
     return None
 
 
 def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
-    """The entry's ``accessed`` date: ``Y2``, and only ``Y2`` (FR-016)."""
+    """The entry's ``accessed`` date: ``Y2``, and only ``Y2`` (FR-016).
+
+    An unparseable ``Y2`` falls back to ``literal`` rather than being discarded (T020, FR-026),
+    the same rule :func:`_issued_date` applies to ``PY``/``Y1``.
+    """
     y2_values = raw.values("Y2")
-    if not y2_values:
+    y2_value = y2_values[0].strip() if y2_values else ""
+    if not y2_value:
         return None
-    y2_parts = _ris_date_parts(y2_values[0])
-    return {"date-parts": [list(y2_parts)]} if y2_parts else None
+    y2_parts = _ris_date_parts(y2_value)
+    if y2_parts:
+        return {"date-parts": [list(y2_parts)]}
+    return {"literal": y2_value}
 
 
 # ---------------------------------------------------------------------------

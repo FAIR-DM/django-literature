@@ -533,3 +533,25 @@ should be preserved, `KeyError: 'custom'`, and one entry failing outright on `Va
 before the fix). Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 200 passed.
 
 Next: T020 (unparseable dates fall back to the item's existing literal slot).
+
+### T020 — unparseable dates fall back to `ItemDate.literal`
+
+Did: `_issued_date` and `_accessed_date` now fall back to `{"literal": <raw text>}` when a
+date tag carries text that does not resolve to a structured date, instead of silently discarding
+it. `PY`'s raw text wins the fallback over `Y1`'s, matching the anchor-first precedence already
+governing the structured path (`Y1` is only ever consulted when `PY` carries no year at all).
+Pre-existing precedence is unchanged: an unparseable `PY` still lets a parseable `Y1` rescue the
+date, and `DA`'s disagreement rule is untouched. `ItemDate.literal` is the model's own fallback
+(`converters._import_date_variable` already reads `data.get("literal", "")`) — no field, no
+migration (Article XIII).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnparseableDates -q` — red first,
+5 of 6 failing for the right reason (`KeyError: 'issued'`/`'accessed'`, and a `DoesNotExist` on the
+stored `ItemDate`), the precedence-preserving test passing throughout since it needed no change.
+Green after: 6 passed. `poetry run pytest
+tests/test_importers/test_ris.py::TestUnparseableDates tests/test_importers/test_ris.py::TestDates
+tests/test_importers/test_ris.py::TestCitationKeys -q` — 22 passed (`TestCitationKeys` included
+since `_mint_citation_key` reads `issued.get("date-parts")`, which is now sometimes absent).
+Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 206 passed.
+
+Next: T021 (a parser-unreadable entry fails alone; a TY-only entry is skipped).

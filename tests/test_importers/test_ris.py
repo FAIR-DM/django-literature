@@ -766,6 +766,44 @@ class TestDates:
         assert not ({"issued", "accessed"} & csl.keys())
 
 
+class TestUnparseableDates:
+    """A date that cannot be resolved to a structured date is kept in the item's existing
+    fallback for unparseable dates rather than discarded, and the entry is not failed (T020,
+    FR-026, acceptance scenario 3)."""
+
+    def test_an_unparseable_py_falls_back_to_literal(self):
+        csl = RISFormat().to_csl_json(entry(py="n.d."))
+        assert csl["issued"] == {"literal": "n.d."}
+
+    def test_an_unparseable_py_with_no_rescuing_y1_falls_back_to_literal(self):
+        csl = RISFormat().to_csl_json(entry(py="circa 1990s"))
+        assert csl["issued"] == {"literal": "circa 1990s"}
+
+    def test_an_unparseable_py_still_lets_a_parseable_y1_rescue_the_date(self):
+        """Pre-existing precedence, unchanged by this task: `Y1` is only consulted when `PY`
+        itself carries no year, and an unparseable `PY` carries none."""
+        csl = RISFormat().to_csl_json(entry(py="n.d.", y1="2020/03/15"))
+        assert csl["issued"] == {"date-parts": [[2020, 3, 15]]}
+
+    def test_an_unparseable_y1_falls_back_to_literal_when_py_is_absent(self):
+        csl = RISFormat().to_csl_json(entry(y1="unknown"))
+        assert csl["issued"] == {"literal": "unknown"}
+
+    def test_an_unparseable_y2_falls_back_to_literal(self):
+        csl = RISFormat().to_csl_json(entry(y2="undated"))
+        assert csl["accessed"] == {"literal": "undated"}
+
+    @pytest.mark.django_db
+    def test_an_unparseable_date_does_not_fail_the_entry(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - n.d.\nID  - smith-nd\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.created
+        item = result.created[0].item
+        issued = item.item_dates.get(date_type="issued")
+        assert issued.literal == "n.d."
+        assert issued.begin is None
+
+
 class TestIdentifiers:
     """``DO``/``UR`` become typed identifiers; ``SN`` resolves by shape then reference type
     (T014, FR-017)."""
