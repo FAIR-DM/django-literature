@@ -9,6 +9,7 @@ Corpus files live in ``tests/data/ris/``. See ``genuine/SOURCE.md`` for what eac
 carries and ``constructed/`` for the one file per malformation.
 """
 
+import io
 import itertools
 import re
 from pathlib import Path
@@ -21,6 +22,7 @@ from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError
 from literature.importers.results import Outcome
 from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
+from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
 
@@ -803,3 +805,43 @@ class TestCitationKeys:
         raw = entry(au=f"{'x' * 300},", py="2024", ti="Title")
         with pytest.raises(EntryError):
             RISFormat().to_csl_json(raw)
+
+
+def _ris_bytes(*entries):
+    """A minimal ``.ris`` file body, one entry per positional string, ready for
+    ``RISFormat().import_file``."""
+    return io.BytesIO("\n".join(entries).encode())
+
+
+class TestReportedHandleIsTheStoredKey:
+    """``entry_created`` reports the citation key as stored, suffix included, and a dry run still
+    reports it while carrying no item (T016, FR-022, FR-002, SC-009)."""
+
+    _ONE_ENTRY = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nID  - smith1\nER  -\n"
+
+    @pytest.mark.django_db
+    def test_a_created_entry_reports_its_stored_citation_key(self):
+        result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY))
+        assert result.created[0].handle == "smith1"
+        assert result.created[0].item.citation_key == "smith1"
+
+    @pytest.mark.django_db
+    def test_a_colliding_key_is_reported_with_its_de_duplication_suffix(self):
+        """Two entries in the same file minting the same key (T041's own de-duplication)."""
+        result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY, self._ONE_ENTRY))
+        assert [e.handle for e in result.created] == ["smith1", "smith1b"]
+        assert {item.citation_key for item in Item.objects.all()} == {"smith1", "smith1b"}
+
+    @pytest.mark.django_db
+    def test_a_dry_run_still_reports_the_key_while_carrying_no_item(self):
+        result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY), dry_run=True)
+        assert result.created[0].handle == "smith1"
+        assert result.created[0].item is None
+        assert not Item.objects.exists()
+
+    def test_delivered_by_overriding_entry_created(self):
+        """SC-009: FR-022 is delivered by ``RISFormat`` overriding the documented
+        ``entry_created`` override point, never by widening ``base.py``, ``results.py`` or
+        ``converters.py`` (whose own suites, unmodified, are this feature's other evidence)."""
+        assert "entry_created" in RISFormat.__dict__
+        assert RISFormat.entry_created is not BibFormat.entry_created

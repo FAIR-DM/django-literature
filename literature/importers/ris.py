@@ -31,6 +31,7 @@ from django.utils.translation import gettext_lazy as _
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.normalizers import IdentifierNormalizer
+from literature.importers.results import EntryResult
 from literature.validators import validate_isbn, validate_issn
 
 
@@ -675,3 +676,17 @@ class RISFormat(BibFormat):
         if isinstance(raw, str):
             return None
         return _citation_key(raw, _issued_date(raw), raw.index)
+
+    def entry_created(self, *, index: int, handle: str | None, item: Any, dry_run: bool) -> EntryResult:
+        """Report the citation key **as stored**, suffix included, rather than the pre-dedup key
+        ``handle_for`` returned (T016, FR-022).
+
+        `handle_for` runs before `from_csl_json` resolves the batch's de-duplication, so it cannot
+        know a suffix the store step is about to append; `entry_created` is the documented
+        ``BibFormat`` override point that receives the stored ``item`` instead, on a dry run too
+        — the base drops the *report's* item for a dry run, since its rows do not survive the
+        rollback, but ``item`` itself is passed to this method regardless, which is what lets a
+        dry run still report the key it would have stored. No change to ``base.py``,
+        ``results.py`` or ``converters.py`` is needed for this (SC-009).
+        """
+        return super().entry_created(index=index, handle=item.citation_key, item=item, dry_run=dry_run)
