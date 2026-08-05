@@ -546,11 +546,7 @@ class TestReferenceTypeTable:
         assert RISFormat().to_csl_json(entry(ty="ZZZZ"))["type"] == "document"
 
     def test_grnt_and_grant_reach_the_same_csl_type(self):
-        assert (
-            RISFormat().to_csl_json(entry(ty="GRNT"))["type"] == RISFormat().to_csl_json(entry(ty="GRANT"))["type"]
-        )
+        assert RISFormat().to_csl_json(entry(ty="GRNT"))["type"] == RISFormat().to_csl_json(entry(ty="GRANT"))["type"]
 
     def test_unpd_and_unpb_reach_the_same_csl_type(self):
-        assert (
-            RISFormat().to_csl_json(entry(ty="UNPD"))["type"] == RISFormat().to_csl_json(entry(ty="UNPB"))["type"]
-        )
+        assert RISFormat().to_csl_json(entry(ty="UNPD"))["type"] == RISFormat().to_csl_json(entry(ty="UNPB"))["type"]
