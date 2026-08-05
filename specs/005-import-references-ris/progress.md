@@ -273,3 +273,23 @@ typecheck, test, build all green.
 
 **Foundational phase (US0) complete.** All nine assigned tasks (T001, T003, T004, T005, T041,
 T006, T007, T008, T009) done, committed individually, tree green throughout.
+
+### T010 — RIS reference-type table
+
+Did: `REFERENCE_TYPE_TABLE`, a RIS reference type -> CSL item type dict of 55 codes, adapted from
+citation-js's per-type table (MIT, research.md R3) rather than Zotero's (AGPL). Unmapped types fall
+to `_FALLBACK_TYPE = "document"`. `GRNT`/`GRANT` (research R2's two specification generations) and
+`UNPD`/`UNPB` are both listed explicitly so the spelling-variant equivalence is a documented mapping
+rather than an accident of both being unrecognised. `RISFormat.to_csl_json` now reads `TY` and
+looks the type up; nothing else in the result dict yet (citation key, contributors, dates,
+identifiers land in T011-T016).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestReferenceTypeTable -v` — 60
+passed (parametrized over every table entry, the unlisted-type fallback, and the two spelling-
+variant pairs). Confirmed RED first: importing `REFERENCE_TYPE_TABLE` failed with `ImportError`
+before the table existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 125 passed.
+`poetry run mypy literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — ruff-format reformatted the new
+test class (line length); re-run clean after.
+
+Next: T011 (core tag -> CSL variable table, with the T2/SP type-conditional cases).
