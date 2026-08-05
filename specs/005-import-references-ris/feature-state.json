@@ -31,7 +31,7 @@
     },
     {
       "state": "IMPLEMENT",
-      "at": "2026-08-05T12:33:42Z"
+      "at": "2026-08-05T13:26:23Z"
     }
   ],
   "gates": {
@@ -78,7 +78,7 @@
       "id": "US0",
       "priority": "P0",
       "issue": null,
-      "status": "done",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
@@ -96,16 +96,8 @@
         },
         {
           "id": "T002",
-          "status": "done",
-          "attempts": 1,
-          "evidence": {
-            "commands": [
-              "poetry run pytest (targeted)",
-              "forge verify",
-              "forge tamper-check --base 0409ced"
-            ],
-            "verified_by_ci": false
-          }
+          "status": "todo",
+          "attempts": 0
         },
         {
           "id": "T003",

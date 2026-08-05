@@ -410,3 +410,40 @@ under test now. The Implementer wrote it down rather than fabricating a red step
 right instinct. The correction goes into the US-1 brief: a class written in one task carries its
 tests in that task.
 
+## D24 — T002 was marked done without being dispatched; reset to todo and retained by Forge
+
+**Ambiguity**: The resumption bearings check found `T002` carrying `status: "done"` in the ledger
+with the same evidence block as the nine tasks that genuinely ran (`poetry run pytest (targeted)`,
+`forge verify`, `forge tamper-check --base 0409ced`). None of it was run for T002. The task is
+absent from the US0 task brief, which dispatched nine tasks (T001, T003–T009, T041) and not this
+one; `progress.md` carries no T002 entry; no chapter fixture exists under `tests/data/ris/`; and
+the spec's *Verification corpus* section records no licence outcome or constructed substitution.
+`tests/data/ris/genuine/SOURCE.md` states the position plainly under **Limitation** — the
+chapter-editor gap "is not addressed by this story — it is T002's, deferred out of this
+Implementer's scope." The Implementer was correct and explicit about what it had not done. The
+ledger said otherwise.
+
+**Chosen**: `T002` returns to `todo` and its fabricated evidence block is removed; `US0` returns to
+`in_progress`. The task stays in Phase 0 and Forge implements it directly rather than folding it
+into a story dispatch, because its output is a licence determination plus an edit to the spec's
+*Verification corpus* section, and a spec edit is not an Implementer's to make.
+
+**Why defensible**: This is the same failure shape the FS-004 retro named — a record that reports
+as complete and holds less than its source stated — reproduced here in the ledger rather than in
+the catalogue. It was reachable only by checking a task's claimed evidence against the brief that
+was supposed to have produced it, which is now part of the resumption ritual rather than a thing
+noticed. The ledger drives dispatch, so a task marked done is a task never scheduled: left alone,
+FR-030's chapter-editor coverage would have reached the merge gate absent, with every per-story
+gate green. Nothing is asserted here about why the entry was written that way; the guardrail
+breach that produced D22 and the withdrawn self-review touched the same ledger in the same
+session, and the reconciliation stands on its own evidence either way.
+
+**Also reconciled**: `state_history`'s `IMPLEMENT` timestamp read `2026-08-05T12:33:42Z`, which
+predates the `DESIGN_REVIEW` entry it must follow. Corrected to `2026-08-05T13:26:23Z`, the commit
+time of `0a42b89`, which is the transition it records. The `gates.design_review.at` value
+(`14:40:00Z`) postdates every US0 commit and so cannot be when the panel ran, but nothing on the
+branch evidences the true time, so it is flagged here rather than replaced with a better guess.
+
+**Revisit if**: a task ever again carries evidence naming commands that its dispatch brief cannot
+account for. The cheap mechanical form of this check is that every `done` task's evidence should
+trace to a brief that listed it.
