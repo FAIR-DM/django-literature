@@ -1341,6 +1341,56 @@ class TestReportedHandleIsTheStoredKey:
         assert RISFormat.entry_created is not BibFormat.entry_created
 
 
+class TestUnnamedProducer:
+    """A file from a producer this feature does not name still imports: the tags the primary RIS
+    specification defines are read, and the entry lands as an item, with no argument or check
+    naming which tool wrote the file (T029, FR-031, acceptance scenario 5).
+
+    Narrowed at design review: only this half is asserted here. The 'and everything else is
+    preserved' half is T033's, corpus-wide, inside US-4 (plan.md 'Phase 3' note on T029).
+
+    Uses ``Y1`` rather than ``PY`` for the issued date -- research.md R5 records this as the
+    signature of Ovid, CINAHL, RefWorks, Rayyan and Google Scholar, none of which this feature
+    names, and none of which the three supported producers themselves emit -- so a file shaped
+    this way genuinely exercises the no-producer-detection path rather than happening to match one
+    of the three the format is tested against everywhere else.
+    """
+
+    _UNNAMED_PRODUCER_FILE = (
+        "TY  - JOUR\n"
+        "AU  - Ovid, R.\n"
+        "TI  - A generic bibliographic record\n"
+        "Y1  - 2018/05\n"
+        "SN  - 1234-5678\n"
+        "DO  - 10.1000/xyz123\n"
+        "ER  -\n"
+    )
+
+    @pytest.mark.django_db
+    def test_the_entry_is_created(self):
+        result = RISFormat().import_file(_ris_bytes(self._UNNAMED_PRODUCER_FILE))
+        assert result.ok
+        assert len(result.created) == 1
+
+    @pytest.mark.django_db
+    def test_the_spec_defined_tags_are_read(self):
+        RISFormat().import_file(_ris_bytes(self._UNNAMED_PRODUCER_FILE))
+        item = Item.objects.get()
+        assert item.type == "article-journal"
+        assert item.title == "A generic bibliographic record"
+        assert item.item_identifiers.get(type="DOI").value == "10.1000/xyz123"
+        assert item.item_identifiers.get(type="ISSN").value == "1234-5678"
+
+    @pytest.mark.django_db
+    def test_y1_supplies_the_issued_date_with_no_py_present(self):
+        """Confirms the generic ``Y1`` fallback path (T013, research R5) is what carries this
+        file, not a producer-specific tag none of the three named producers emits."""
+        RISFormat().import_file(_ris_bytes(self._UNNAMED_PRODUCER_FILE))
+        item = Item.objects.get()
+        issued = item.item_dates.get(date_type="issued")
+        assert (issued.begin.date.year, issued.begin.date.month) == (2018, 5)
+
+
 class TestEndToEnd:
     """One call over ``genuine/endnote.ris``: every entry created, in source order, with the
     expected types, contributor order, date precision and identifiers (T017, US-1 acceptance,
