@@ -640,19 +640,25 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     flattened by :func:`_sn_candidates` into one ordered list of individual values; the first
     value of each kind (ISSN, ISBN) is stored, and every other value — a second value of a kind
     already stored, or one that resolves to neither shape — is preserved (T025, research R6).
+
+    An entry carrying more than one ``DO`` tag — a genuine Web of Science chapter record's own
+    and its containing book's — stores the first, by source position, as the DOI, and preserves
+    every other one, each normalized the same way as the first (T027, FR-018).
     """
     result: dict[str, Any] = {}
     preserved: dict[str, str | list[str]] = {}
 
     do_values = raw.values("DO")
     if do_values and do_values[0].strip():
-        normalized_doi = IdentifierNormalizer.normalize_doi(do_values[0].strip())
+        normalized_dois = [IdentifierNormalizer.normalize_doi(v.strip()) for v in do_values if v.strip()]
+        first_doi, *surplus_dois = normalized_dois
         try:
-            validate_doi(normalized_doi)
+            validate_doi(first_doi)
         except ValidationError:
-            _add_preserved(preserved, "DO", [normalized_doi])
+            _add_preserved(preserved, "DO", normalized_dois)
         else:
-            result["DOI"] = normalized_doi
+            result["DOI"] = first_doi
+            _add_preserved(preserved, "DO", surplus_dois)
 
     ur_values = raw.values("UR")
     if ur_values and ur_values[0].strip():

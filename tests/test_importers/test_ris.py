@@ -1218,6 +1218,48 @@ class TestUnrescuableIdentifierPreservation:
         assert not item.item_identifiers.filter(type="DO").exists()
 
 
+class TestMultipleDOTags:
+    """An entry carrying more than one ``DO`` tag stores the first as the DOI identifier and
+    preserves the remainder, deterministically by source position rather than whichever tag the
+    parser happened to see last (T027, FR-018). A genuine Web of Science chapter record carries
+    two -- the chapter's and the book's (research R6) -- though the ten-reference genuine corpus,
+    all plain ``JOUR`` articles, carries only one ``DO`` per entry, so this is exercised through
+    ``entry()``."""
+
+    def test_the_first_do_is_stored_as_the_doi(self):
+        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"]))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_the_second_do_is_preserved(self):
+        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"]))
+        assert csl["custom"]["ris"]["DO"] == "10.1038/s41467-024-46843-2"
+
+    def test_order_is_by_source_position_not_by_which_is_seen_last(self):
+        """Swapping which DOI comes first in the source swaps which one is stored."""
+        csl = RISFormat().to_csl_json(entry(do=["10.1038/s41467-024-46843-2", "10.1002/ar.25520"]))
+        assert csl["DOI"] == "10.1038/s41467-024-46843-2"
+        assert csl["custom"]["ris"]["DO"] == "10.1002/ar.25520"
+
+    def test_three_do_tags_preserve_the_two_surplus_as_a_list(self):
+        csl = RISFormat().to_csl_json(
+            entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2", "10.1186/s12862-024-02210-9"])
+        )
+        assert csl["DOI"] == "10.1002/ar.25520"
+        assert csl["custom"]["ris"]["DO"] == ["10.1038/s41467-024-46843-2", "10.1186/s12862-024-02210-9"]
+
+    def test_surplus_values_are_normalized_the_same_way_as_the_first(self):
+        """A surplus DOI written as a resolver URL still recovers through the shared normalizer
+        before preservation (T018's own normalizer, applied uniformly)."""
+        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "https://doi.org/10.1038/s41467-024-46843-2"]))
+        assert csl["custom"]["ris"]["DO"] == "10.1038/s41467-024-46843-2"
+
+    def test_a_single_do_tag_is_unaffected(self):
+        """No regression on the ordinary one-DO case (T014)."""
+        csl = RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+        assert "custom" not in csl
+
+
 class TestCitationKeys:
     """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
     back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""
