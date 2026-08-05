@@ -9,18 +9,21 @@ Corpus files live in ``tests/data/ris/``. See ``genuine/SOURCE.md`` for what eac
 carries and ``constructed/`` for the one file per malformation.
 """
 
+import io
 import itertools
 import re
 from pathlib import Path
 
 import pytest
+from partial_date import PartialDate
 
 from literature.converters import _generate_dedup_suffix
 from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
-from literature.importers.exceptions import ParseError
+from literature.importers.exceptions import EntryError, ParseError
 from literature.importers.results import Outcome
-from literature.importers.ris import RISFormat, RISParser
+from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
+from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
 
@@ -35,6 +38,25 @@ def fixture(relative_path):
     utf-8-sig at the format's own read step").
     """
     return (DATA / relative_path).open("rb")
+
+
+def entry(ty="JOUR", index=0, **single_tags):
+    """Build one :class:`RISEntry` directly, without going through the parser.
+
+    ``single_tags`` names lowercase RIS tags (``ty``, ``au`` become ``TY``, ``AU``); a value that
+    is a list becomes one ``(tag, value)`` pair per element, in order, which is how a repeatable
+    tag (``AU``, ``A2``, ``SN``, ...) carries more than one value (``RISEntry.values``). This
+    mirrors ``tests/test_importers/test_bibtex.py``'s own ``entry()`` builder for the sibling
+    format, adapted for RIS's ordered-tuple entry shape rather than BibTeX's field dict.
+    """
+    tags = [("TY", ty)]
+    for tag, value in single_tags.items():
+        # A leading underscore lets a caller name a tag that collides with a Python keyword
+        # (``_is`` for RIS's ``IS``), the same way ``is_`` would for a trailing collision.
+        name = tag.lstrip("_").upper()
+        values = value if isinstance(value, list) else [value]
+        tags.extend((name, v) for v in values)
+    return RISEntry(tags=tuple(tags), index=index, start_line=1)
 
 
 #: Fingerprints research.md R10 recorded for each genuine producer file,
@@ -516,3 +538,386 @@ class TestGenerateDedupSuffix:
         """
         values = list(itertools.islice(_generate_dedup_suffix("Smith2009"), 20_000))
         assert len(values) == len(set(values))
+
+
+class TestReferenceTypeTable:
+    """RIS reference type -> CSL item type, unknown to ``document`` (T010, FR-011)."""
+
+    @pytest.mark.parametrize(("ris_type", "csl_type"), sorted(REFERENCE_TYPE_TABLE.items()))
+    def test_every_listed_type_maps_to_its_csl_equivalent(self, ris_type, csl_type):
+        assert RISFormat().to_csl_json(entry(ty=ris_type))["type"] == csl_type
+
+    def test_an_unlisted_type_maps_to_the_generic_document(self):
+        assert RISFormat().to_csl_json(entry(ty="ZZZZ"))["type"] == "document"
+
+    def test_grnt_and_grant_reach_the_same_csl_type(self):
+        assert RISFormat().to_csl_json(entry(ty="GRNT"))["type"] == RISFormat().to_csl_json(entry(ty="GRANT"))["type"]
+
+    def test_unpd_and_unpb_reach_the_same_csl_type(self):
+        assert RISFormat().to_csl_json(entry(ty="UNPD"))["type"] == RISFormat().to_csl_json(entry(ty="UNPB"))["type"]
+
+
+class TestCoreFieldMapping:
+    """Core RIS tag -> CSL variable, with the type-conditional cases (T011, FR-012)."""
+
+    def test_title_lands_on_title(self):
+        csl = RISFormat().to_csl_json(entry(ti="A new specimen of Haplocanthosaurus"))
+        assert csl["title"] == "A new specimen of Haplocanthosaurus"
+
+    def test_abstract_lands_on_abstract(self):
+        csl = RISFormat().to_csl_json(entry(ab="A specimen is described."))
+        assert csl["abstract"] == "A specimen is described."
+
+    def test_short_title_lands_on_title_short(self):
+        csl = RISFormat().to_csl_json(entry(st="A new specimen"))
+        assert csl["title-short"] == "A new specimen"
+
+    def test_volume_lands_on_volume(self):
+        assert RISFormat().to_csl_json(entry(vl="24"))["volume"] == "24"
+
+    def test_issue_lands_on_issue(self):
+        assert RISFormat().to_csl_json(entry(_is="1"))["issue"] == "1"
+
+    def test_language_lands_on_language(self):
+        assert RISFormat().to_csl_json(entry(la="English"))["language"] == "English"
+
+    def test_type_of_work_lands_on_genre(self):
+        assert RISFormat().to_csl_json(entry(m3="Erratum"))["genre"] == "Erratum"
+
+    def test_edition_lands_on_edition(self):
+        assert RISFormat().to_csl_json(entry(et="3rd"))["edition"] == "3rd"
+
+    def test_publisher_lands_on_publisher(self):
+        assert RISFormat().to_csl_json(entry(pb="Elsevier"))["publisher"] == "Elsevier"
+
+    def test_city_lands_on_publisher_place(self):
+        assert RISFormat().to_csl_json(entry(cy="Amsterdam"))["publisher-place"] == "Amsterdam"
+
+    def test_an_absent_core_tag_leaves_no_key(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"title", "abstract", "volume", "issue"} & csl.keys())
+
+
+class TestT2ContainerOrCollection:
+    """``T2`` is a container title on article-like types and a collection title on book-like ones
+    (T011, FR-012)."""
+
+    def test_t2_is_container_title_on_jour(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", t2="Anatomical Record"))["container-title"] == (
+            "Anatomical Record"
+        )
+
+    def test_t2_is_container_title_on_chap(self):
+        """A chapter's ``T2`` genuinely names its containing book."""
+        assert RISFormat().to_csl_json(entry(ty="CHAP", t2="Handbook of Paleontology"))["container-title"] == (
+            "Handbook of Paleontology"
+        )
+
+    def test_t2_is_collection_title_on_book(self):
+        """A whole book has no container of its own; a ``T2`` it carries names the series."""
+        assert RISFormat().to_csl_json(entry(ty="BOOK", t2="Topics in Geology"))["collection-title"] == (
+            "Topics in Geology"
+        )
+
+    def test_t2_is_collection_title_on_rprt(self):
+        assert RISFormat().to_csl_json(entry(ty="RPRT", t2="Technical Report Series"))["collection-title"] == (
+            "Technical Report Series"
+        )
+
+
+class TestSPLocatorOrPageCount:
+    """``SP`` is a locator on types that have pages, a page count on types that do not (T011,
+    FR-012, research.md R11)."""
+
+    def test_sp_is_the_page_locator_on_jour(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", sp="20"))["page"] == "20"
+
+    def test_sp_can_carry_a_whole_range_on_jour(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", sp="549-565"))["page"] == "549-565"
+
+    def test_sp_is_the_page_count_on_book(self):
+        assert RISFormat().to_csl_json(entry(ty="BOOK", sp="312"))["number-of-pages"] == "312"
+
+    def test_sp_is_the_page_count_on_thes(self):
+        assert RISFormat().to_csl_json(entry(ty="THES", sp="150"))["number-of-pages"] == "150"
+
+
+class TestContributors:
+    """Contributor tags become contributor records in source order, roles resolved on the
+    reference type (T012, FR-013, FR-014)."""
+
+    def test_authors_keep_source_order(self):
+        csl = RISFormat().to_csl_json(entry(au=["Boisvert, C.", "Curtice, B.", "Wedel, M."]))
+        assert csl["author"] == [
+            {"family": "Boisvert", "given": "C."},
+            {"family": "Curtice", "given": "B."},
+            {"family": "Wedel", "given": "M."},
+        ]
+
+    def test_a2_is_editor_on_a_chapter_like_type(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", a2="Editor, Enid"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "collection-editor" not in csl
+
+    def test_a2_is_collection_editor_on_a_book_like_type(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", a2="Editor, Enid"))
+        assert csl["collection-editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "editor" not in csl
+
+    def test_a3_inverts_to_editor_on_book(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", a3="Editor, Enid"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+
+    def test_a3_is_collection_editor_on_chap(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", a3="Editor, Enid"))
+        assert csl["collection-editor"] == [{"family": "Editor", "given": "Enid"}]
+
+    def test_au_is_editor_on_edbook(self):
+        csl = RISFormat().to_csl_json(entry(ty="EDBOOK", au="Editor, Enid"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "author" not in csl
+
+    def test_au_is_author_on_jour(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", au="Smith, J."))
+        assert csl["author"] == [{"family": "Smith", "given": "J."}]
+
+    def test_an_institutional_name_is_stored_as_a_literal(self):
+        """No comma to split on: an unparsed or institutional name (FR-014)."""
+        csl = RISFormat().to_csl_json(entry(au="World Wide Web Consortium"))
+        assert csl["author"] == [{"literal": "World Wide Web Consortium"}]
+
+    def test_no_contributor_tags_means_no_name_variable_keys(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"author", "editor", "collection-editor"} & csl.keys())
+
+
+class TestDates:
+    """``PY`` anchors, ``DA`` refines precision, ``Y1`` falls back, ``Y2`` is the access date
+    (T013, FR-015, FR-016)."""
+
+    def test_py_alone_gives_year_precision(self):
+        assert RISFormat().to_csl_json(entry(py="2024"))["issued"] == {"date-parts": [[2024]]}
+
+    def test_da_refines_to_month_precision(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2024/06"))
+        assert csl["issued"] == {"date-parts": [[2024, 6]]}
+
+    def test_da_refines_to_day_precision_with_no_padding(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2024/06/24"))
+        assert csl["issued"] == {"date-parts": [[2024, 6, 24]]}
+
+    def test_da_with_a_disagreeing_year_is_not_used(self):
+        """A ``DA`` that does not agree with ``PY``'s year is not a refinement of it; ``PY``'s own
+        year precision is kept rather than trusting an inconsistent tag."""
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2023/06"))
+        assert csl["issued"] == {"date-parts": [[2024]]}
+
+    def test_y1_supplies_issued_when_py_is_absent(self):
+        csl = RISFormat().to_csl_json(entry(y1="2020/03/15"))
+        assert csl["issued"] == {"date-parts": [[2020, 3, 15]]}
+
+    def test_py_takes_precedence_over_y1(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", y1="1999"))
+        assert csl["issued"] == {"date-parts": [[2024]]}
+
+    def test_y2_is_the_access_date(self):
+        csl = RISFormat().to_csl_json(entry(y2="2023/01/10"))
+        assert csl["accessed"] == {"date-parts": [[2023, 1, 10]]}
+        assert "issued" not in csl
+
+    def test_no_date_tags_means_no_issued_or_accessed(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"issued", "accessed"} & csl.keys())
+
+
+class TestIdentifiers:
+    """``DO``/``UR`` become typed identifiers; ``SN`` resolves by shape then reference type
+    (T014, FR-017)."""
+
+    def test_do_becomes_doi(self):
+        assert RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))["DOI"] == "10.1002/ar.25520"
+
+    def test_do_is_normalized_through_the_shared_doi_normalizer(self):
+        """The resolver-URL form ``bibtex.py`` already handles (``IdentifierNormalizer``)."""
+        csl = RISFormat().to_csl_json(entry(do="https://doi.org/10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_ur_becomes_url(self):
+        csl = RISFormat().to_csl_json(entry(ur="https://www.embase.com/search?id=1"))
+        assert csl["URL"] == "https://www.embase.com/search?id=1"
+
+    def test_sn_that_looks_like_an_issn_becomes_issn(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", sn="1932-8494"))["ISSN"] == "1932-8494"
+
+    def test_sn_that_looks_like_an_isbn_becomes_isbn(self):
+        assert RISFormat().to_csl_json(entry(ty="BOOK", sn="978-0-306-40615-7"))["ISBN"] == ("978-0-306-40615-7")
+
+    def test_sn_on_rprt_is_a_report_number_not_an_identifier(self):
+        csl = RISFormat().to_csl_json(entry(ty="RPRT", sn="NIST-8080"))
+        assert csl["number"] == "NIST-8080"
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+
+    def test_sn_on_pat_is_a_patent_number_not_an_identifier(self):
+        csl = RISFormat().to_csl_json(entry(ty="PAT", sn="US1234567"))
+        assert csl["number"] == "US1234567"
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+
+    def test_no_identifier_tags_means_no_identifier_keys(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())
+
+
+class TestCitationKeys:
+    """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
+    back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""
+
+    def test_id_tag_becomes_the_citation_key_verbatim(self):
+        csl = RISFormat().to_csl_json(entry(id="889"))
+        assert csl["citation-key"] == "889"
+
+    def test_no_id_mints_from_family_year_and_title_word(self):
+        csl = RISFormat().to_csl_json(entry(au="Boisvert, C.", py="2024", ti="Description of a new specimen"))
+        assert csl["citation-key"] == "boisvert2024description"
+
+    def test_a_leading_stopword_is_skipped_for_the_title_word(self):
+        csl = RISFormat().to_csl_json(entry(au="Smith, J.", py="2020", ti="The organization of forests"))
+        assert csl["citation-key"] == "smith2020organization"
+
+    def test_minting_is_deterministic(self):
+        raw = entry(au="Wedel, M.", py="2024", ti="A review of sauropods")
+        assert RISFormat().to_csl_json(raw)["citation-key"] == RISFormat().to_csl_json(raw)["citation-key"]
+
+    def test_an_entry_too_sparse_to_mint_from_falls_back_to_its_index(self):
+        """No author, so family/year/title-word cannot all be built."""
+        csl = RISFormat().to_csl_json(entry(py="2024", ti="A title with no author", index=7))
+        assert csl["citation-key"] == "7"
+
+    def test_handle_for_reports_the_same_key_as_to_csl_json(self):
+        raw = entry(au="Boisvert, C.", py="2024", ti="Description of a new specimen")
+        assert RISFormat().handle_for(raw) == RISFormat().to_csl_json(raw)["citation-key"]
+
+    def test_an_overlong_verbatim_id_fails_the_entry_naming_the_limit(self):
+        raw = entry(id="x" * 300)
+        with pytest.raises(EntryError) as excinfo:
+            RISFormat().to_csl_json(raw)
+        assert "245" in str(excinfo.value)
+
+    def test_an_overlong_minted_key_fails_the_entry_naming_the_limit(self):
+        raw = entry(au=f"{'x' * 300},", py="2024", ti="Title")
+        with pytest.raises(EntryError):
+            RISFormat().to_csl_json(raw)
+
+
+def _ris_bytes(*entries):
+    """A minimal ``.ris`` file body, one entry per positional string, ready for
+    ``RISFormat().import_file``."""
+    return io.BytesIO("\n".join(entries).encode())
+
+
+class TestReportedHandleIsTheStoredKey:
+    """``entry_created`` reports the citation key as stored, suffix included, and a dry run still
+    reports it while carrying no item (T016, FR-022, FR-002, SC-009)."""
+
+    _ONE_ENTRY = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nID  - smith1\nER  -\n"
+
+    @pytest.mark.django_db
+    def test_a_created_entry_reports_its_stored_citation_key(self):
+        result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY))
+        assert result.created[0].handle == "smith1"
+        assert result.created[0].item.citation_key == "smith1"
+
+    @pytest.mark.django_db
+    def test_a_colliding_key_is_reported_with_its_de_duplication_suffix(self):
+        """Two entries in the same file minting the same key (T041's own de-duplication)."""
+        result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY, self._ONE_ENTRY))
+        assert [e.handle for e in result.created] == ["smith1", "smith1b"]
+        assert {item.citation_key for item in Item.objects.all()} == {"smith1", "smith1b"}
+
+    @pytest.mark.django_db
+    def test_a_dry_run_still_reports_the_key_while_carrying_no_item(self):
+        result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY), dry_run=True)
+        assert result.created[0].handle == "smith1"
+        assert result.created[0].item is None
+        assert not Item.objects.exists()
+
+    def test_delivered_by_overriding_entry_created(self):
+        """SC-009: FR-022 is delivered by ``RISFormat`` overriding the documented
+        ``entry_created`` override point, never by widening ``base.py``, ``results.py`` or
+        ``converters.py`` (whose own suites, unmodified, are this feature's other evidence)."""
+        assert "entry_created" in RISFormat.__dict__
+        assert RISFormat.entry_created is not BibFormat.entry_created
+
+
+class TestEndToEnd:
+    """One call over ``genuine/endnote.ris``: every entry created, in source order, with the
+    expected types, contributor order, date precision and identifiers (T017, US-1 acceptance,
+    SC-001, SC-007)."""
+
+    @pytest.mark.django_db
+    def test_every_entry_is_created_in_source_order_with_its_own_id_as_the_citation_key(self):
+        with fixture("genuine/endnote.ris") as handle:
+            result = RISFormat().import_file(handle)
+
+        assert result.ok
+        assert len(result.created) == 10
+        assert [e.handle for e in result.created] == [
+            "889",
+            "887",
+            "884",
+            "888",
+            "885",
+            "886",
+            "882",
+            "883",
+            "881",
+            "880",
+        ]
+
+    @pytest.mark.django_db
+    def test_every_item_is_a_journal_article(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+        assert set(Item.objects.values_list("type", flat=True)) == {"article-journal"}
+
+    @pytest.mark.django_db
+    def test_the_first_entrys_authors_keep_source_order(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        item = Item.objects.get(citation_key="889")
+        authors = [item_name.name for item_name in item.item_names.filter(role="author").order_by("order")]
+        assert [(a.family, a.given) for a in authors] == [
+            ("Boisvert", "C."),
+            ("Curtice", "B."),
+            ("Wedel", "M."),
+            ("Wilhite", "R."),
+        ]
+
+    @pytest.mark.django_db
+    def test_every_item_carries_a_year_precision_issued_date(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        for item in Item.objects.all():
+            issued = item.item_dates.get(date_type="issued")
+            assert issued.begin.date.year == 2024
+            assert issued.begin.precision == PartialDate.YEAR
+
+    @pytest.mark.django_db
+    def test_every_item_carries_a_doi_and_a_url_identifier(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        item = Item.objects.get(citation_key="889")
+        assert item.item_identifiers.get(type="DOI").value == "10.1002/ar.25520"
+        assert item.item_identifiers.get(type="URL").value == (
+            "https://www.embase.com/search/results?subaction=viewrecord&id=L2030246463&from=export"
+        )
+
+    @pytest.mark.django_db
+    def test_every_item_carries_an_issn_identifier(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+
+        item = Item.objects.get(citation_key="889")
+        assert item.item_identifiers.get(type="ISSN").value == "1932-8494"

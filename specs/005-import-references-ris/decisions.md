@@ -447,3 +447,45 @@ branch evidences the true time, so it is flagged here rather than replaced with 
 **Revisit if**: a task ever again carries evidence naming commands that its dispatch brief cannot
 account for. The cheap mechanical form of this check is that every `done` task's evidence should
 trace to a brief that listed it.
+
+## D25 — `DA` that disagrees with `PY`'s year is not a refinement
+
+**Ambiguity**: FR-015/research.md R5 say `DA` "refines" `PY`'s precision when it parses, but do not
+say what happens when `DA` parses to a *different* year than `PY` states. Both are documented as
+possibly present together, and nothing in the primary specification or the research forces one to
+win.
+
+**Chosen**: `_issued_date` only lets `DA` refine the date when its parsed year equals `PY`'s. A
+`DA` with a disagreeing year is left alone entirely — the date stays at `PY`'s year precision,
+`DA`'s value is not consulted for month or day either.
+
+**Why defensible**: `DA`'s only documented job in this feature is refining `PY`'s own year to month
+or day precision (R5); a `DA` naming a different year is not refining anything, it is disagreeing,
+and trusting its month/day components while discarding its year would silently splice two
+unrelated dates together. Falling back to `PY`'s own precision is the same "prefer what is stated
+over guessing" rule the format applies everywhere else. This is deliberately narrower than Web of
+Science's year-less `DA` splicing (`SEP 22` anchored to `PY`'s year), which research.md R5 records
+as US-3's own task (T026) — that case has no year to disagree with in the first place. Revisit if a
+genuine corpus file turns up where `PY` and a full `DA` legitimately disagree (a correction to one
+field and not the other) and disagreement should instead prefer `DA`.
+
+## D26 — Citation-key length headroom is a fixed 10 characters
+
+**Ambiguity**: FR-034's widened clause requires a minted-or-verbatim key to be checked against
+`Item.citation_key`'s `max_length` "with headroom left for a de-duplication suffix," but does not
+say how much. T041's own fix makes the suffix sequence unbounded in length for pathological
+collision counts, so no headroom is provably always enough.
+
+**Chosen**: A fixed 10-character headroom (`_CITATION_KEY_DEDUP_HEADROOM`). A key longer than
+`max_length - 10` fails the entry with a `gettext_lazy` reason naming the limit, before storage is
+attempted.
+
+**Why defensible**: `_generate_dedup_suffix`'s own sequence is single letters through the 26th
+collision, two letters through the 701st (tasks.md T041) — ten characters covers a four-letter
+suffix, i.e. tens of thousands of same-key collisions within one batch, which plan.md's own
+"nobody will meet this" framing for the ceiling issue (#41) applies here too. A key that is exactly
+at the edge fails loudly with a stated reason rather than colliding silently with
+`Item.citation_key`'s actual column width at save time, which is what FR-034's clause exists to
+prevent (`from_csl_json` excludes `citation_key` from `full_clean`, so nothing downstream would
+catch it otherwise). Revisit if a real corpus produces citation keys long enough to approach this
+threshold — nothing in the four supported producers' own tag lengths suggests one will.

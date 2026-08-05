@@ -273,3 +273,178 @@ typecheck, test, build all green.
 
 **Foundational phase (US0) complete.** All nine assigned tasks (T001, T003, T004, T005, T041,
 T006, T007, T008, T009) done, committed individually, tree green throughout.
+
+### T010 — RIS reference-type table
+
+Did: `REFERENCE_TYPE_TABLE`, a RIS reference type -> CSL item type dict of 55 codes, adapted from
+citation-js's per-type table (MIT, research.md R3) rather than Zotero's (AGPL). Unmapped types fall
+to `_FALLBACK_TYPE = "document"`. `GRNT`/`GRANT` (research R2's two specification generations) and
+`UNPD`/`UNPB` are both listed explicitly so the spelling-variant equivalence is a documented mapping
+rather than an accident of both being unrecognised. `RISFormat.to_csl_json` now reads `TY` and
+looks the type up; nothing else in the result dict yet (citation key, contributors, dates,
+identifiers land in T011-T016).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestReferenceTypeTable -v` — 60
+passed (parametrized over every table entry, the unlisted-type fallback, and the two spelling-
+variant pairs). Confirmed RED first: importing `REFERENCE_TYPE_TABLE` failed with `ImportError`
+before the table existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 125 passed.
+`poetry run mypy literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — ruff-format reformatted the new
+test class (line length); re-run clean after.
+
+Next: T011 (core tag -> CSL variable table, with the T2/SP type-conditional cases).
+
+### T011 — core tag to CSL variable table, T2/SP type-conditional resolution
+
+Did: `FIELD_TABLE` (TI, AB, ST, VL, IS, LA, M3, ET, PB, CY -> their CSL variables), plus
+`_container_or_collection_variable` and `_page_variable` for the two type-conditional cases. `T2`
+resolves to `collection-title` on a type that is already its own container (`_BOOK_LIKE_TYPES` —
+reused from research.md R4's "book-like" A2-resolution set, since it is the same underlying fact:
+no container of its own) and to `container-title` everywhere else, which correctly covers `JOUR`
+without needing it in that set. `SP` resolves to `number-of-pages` on `BOOK`/`EBOOK`/`EDBOOK`/`THES`
+(research.md R11) and to `page` (a locator, which may be a whole range like `549-565`) elsewhere.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestCoreFieldMapping
+tests/test_importers/test_ris.py::TestT2ContainerOrCollection
+tests/test_importers/test_ris.py::TestSPLocatorOrPageCount -v` — 19 passed. Confirmed RED first:
+all 18 new field-mapping assertions failed with `KeyError` before the table and resolvers existed.
+`poetry run pytest tests/test_importers/test_ris.py -q` — 144 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Watch: `_BOOK_LIKE_TYPES` is reused for both T2 resolution and (T012) A2 collection-editor
+resolution — a single source of truth for "this type is already its own container," not two tables
+that could drift apart.
+
+Next: T012 (contributors — repeated tags to contributor records, roles resolved on reference type).
+
+### T012 — contributors, roles resolved on reference type
+
+Did: `_name_to_csl` (RIS's own `Family, Given[, Suffix]` author format; no comma means
+institutional/unparsed and goes to `literal` unsplit, FR-014), `_contributors` resolving `AU`/`A2`/
+`A3` to their CSL role from the reference type (research.md R4): `AU` is `author` except on
+`EDBOOK` where it is `editor`; `A2` is `editor` on the chapter-like set, `collection-editor` on
+`_BOOK_LIKE_TYPES` (T011's same set — one source of truth for "this type has no container of its
+own"); `A3` is `editor` only on `BOOK` (the one type where `A2`/`A3` invert) and `collection-editor`
+on its own documented set. Contributors keep source order within each role (`list.append` in tag
+order). `ED` (Web of Science's non-canonical editor tag) and `A2` resolving to `editor` on `JOUR`
+are research.md R4/R9 findings explicitly assigned to T024 (US-3) — not built here.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestContributors -v` — 9 passed.
+Confirmed RED first: all 8 role/order assertions failed with `KeyError` before `_contributors`
+existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 153 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Next: T013 (dates — PY anchors, DA refines precision, Y1 falls back, Y2 is the access date).
+
+### T013 — dates: PY anchors, DA refines precision, Y1 fallback, Y2 access date
+
+Did: `_ris_date_parts` (shared slash-separated parser for `PY`/`DA`/`Y1`/`Y2`'s common shape),
+`_issued_date` (`PY` anchors the year; a same-year `DA` refines to month or day precision with no
+padding; `Y1` supplies `issued` when `PY` is absent) and `_accessed_date` (`Y2`, unconditionally).
+Recorded decisions.md D25: a `DA` whose parsed year disagrees with `PY`'s is not treated as a
+refinement at all, since trusting its month/day while discarding its year would splice two
+unrelated dates together — `PY`'s own precision is kept instead.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestDates -v` — 8 passed. Confirmed
+RED first: all 7 date assertions failed with `KeyError` before `_issued_date`/`_accessed_date`
+existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 161 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Watch: Web of Science's year-less `DA` (`SEP 22`, `DEC`) does not parse under `_ris_date_parts`
+(no leading digit) and so is silently ignored rather than spliced — that splicing is T026 (US-3),
+not built here.
+
+Next: T014 (identifiers — DO/UR, SN resolved by shape then reference type).
+
+### T014 — identifiers: DO/UR, SN resolved by shape then reference type
+
+Did: `_identifiers`, mapping `DO` through the shared `IdentifierNormalizer.normalize_doi` (the
+same resolver-URL/`doi:`-label recovery `bibtex.py` already uses) to `DOI`, `UR` verbatim to
+`URL`, and `SN` resolved by `_sn_identifier`: shape first (`validate_issn`/`validate_isbn`, the
+same validators `ItemIdentifier.save()` uses), reference type second — on `RPRT`/`PAT` it is a
+report or patent number and goes to the scalar `number` field, never an identifier row
+(research.md R6). An `SN` that validates as neither shape and isn't on a report-like type is left
+unconsumed for now — its preservation under `custom["ris"]` is US-4 (T030), not built here.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestIdentifiers -v` — 8 passed.
+Confirmed RED first: all 7 identifier assertions failed with `KeyError` before `_identifiers`
+existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 169 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean (one ruff-format pass,
+no net diff).
+
+Next: T015 (citation keys — ID verbatim, minted fallback, max_length guard).
+
+### T015 — citation keys: ID verbatim, minted fallback, max_length guard
+
+Did: `_citation_key` (verbatim `ID` where present), `_mint_citation_key` (first author's family
+name + issued year + title's first significant word, lowercased and concatenated; falls back to
+the entry's own `index` when any of the three is missing — deterministic either way, since neither
+the source content nor the index changes between two imports of the same file), and the
+`max_length` guard (`_citation_key_max_length`, reading `Item.citation_key`'s own field rather
+than duplicating the number) raising `EntryError` with a `gettext_lazy` reason naming the limit
+when a key would leave no room for a de-duplication suffix. `handle_for` now returns the same
+pre-dedup key `to_csl_json` computes for `citation-key`. Recorded decisions.md D26: the headroom is
+a fixed 10 characters, since T041's own suffix sequence is single letters for the first 26
+collisions and two-letter for the next 675.
+
+Two mypy findings from `Item._meta.get_field(...).max_length`'s stub type (`int | None`) and
+`re.Pattern.findall`'s `Any` element type: fixed with `typing.cast` and an explicit `str(word)`
+rather than `assert` (ruff's `S101` flags `assert` in library code, since it is stripped under
+`-O`).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestCitationKeys -v` — 8 passed.
+Confirmed RED first: all 8 assertions failed (`KeyError` or "DID NOT RAISE") before this task's
+code existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 177 passed. `poetry run
+mypy literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Next: T016 (the reported handle is the stored key — `entry_created` override, dry-run `item is
+None`).
+
+### T016 — report the stored citation key via an entry_created override
+
+Did: `RISFormat.entry_created`, overriding the documented `BibFormat` override point to report
+`item.citation_key` (the key **as stored**, de-duplication suffix included) instead of the
+pre-dedup key `handle_for` returns. `item` is passed to `entry_created` unconditionally by
+`import_entry` — only the *returned* `EntryResult.item` is nulled for a dry run by the base's own
+logic — so a dry run still reports the would-be-stored key while carrying `item is None`. No
+change to `base.py`, `results.py` or `converters.py`.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestReportedHandleIsTheStoredKey
+-v` — 4 passed. Confirmed RED first: the collision test reported `["smith1", "smith1"]` instead of
+`["smith1", "smith1b"]`, and the override-existence assertion failed, before `entry_created`
+existed (the single-entry and dry-run cases already passed against the base's default behaviour,
+since there is no collision to distinguish the two paths without one — as expected, and why the
+collision test is the one that actually exercises this task). `git diff --stat -- \
+literature/importers/base.py literature/importers/results.py literature/converters.py` — empty
+(SC-009). `poetry run pytest tests/test_importers/test_ris.py -q` — 181 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Next: T017 (end-to-end over genuine/endnote.ris — the story's own acceptance test).
+
+### T017 — end-to-end acceptance over genuine/endnote.ris
+
+Did: `TestEndToEnd`, one call to `RISFormat().import_file(...)` over the genuine ten-entry EndNote
+export, asserting: all ten created, in source order, each reporting its own file `ID` as the
+citation key (no minting needed — every genuine EndNote entry carries one); all ten stored as
+`article-journal`; the first entry's four authors in file order with the right family/given split;
+every item's issued date at year precision (`PartialDate.YEAR`, matching this file's PY-only
+dates); DOI, URL and ISSN identifiers on the first entry.
+
+All six assertions passed on first run — T010 through T016 already built everything this test
+exercises, so there was no red step to observe here, the same shape T008's own progress entry
+recorded for the foundational phase. Noted rather than fabricated, per craft-tdd.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestEndToEnd -v` — 6 passed.
+`poetry run pytest tests/test_importers/test_ris.py -q` — 187 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean (one ruff-format pass,
+re-verified green after).
+
+**US-1 (T010-T017) complete.** All eight tasks done, one commit each, tree green throughout. Next:
+the story's mandatory full-suite run and completion report.
