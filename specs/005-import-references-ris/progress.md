@@ -337,3 +337,24 @@ literature/importers/ris.py` — clean. `poetry run pre-commit run --files
 literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
 
 Next: T013 (dates — PY anchors, DA refines precision, Y1 falls back, Y2 is the access date).
+
+### T013 — dates: PY anchors, DA refines precision, Y1 fallback, Y2 access date
+
+Did: `_ris_date_parts` (shared slash-separated parser for `PY`/`DA`/`Y1`/`Y2`'s common shape),
+`_issued_date` (`PY` anchors the year; a same-year `DA` refines to month or day precision with no
+padding; `Y1` supplies `issued` when `PY` is absent) and `_accessed_date` (`Y2`, unconditionally).
+Recorded decisions.md D25: a `DA` whose parsed year disagrees with `PY`'s is not treated as a
+refinement at all, since trusting its month/day while discarding its year would splice two
+unrelated dates together — `PY`'s own precision is kept instead.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestDates -v` — 8 passed. Confirmed
+RED first: all 7 date assertions failed with `KeyError` before `_issued_date`/`_accessed_date`
+existed. `poetry run pytest tests/test_importers/test_ris.py -q` — 161 passed. `poetry run mypy
+literature/importers/ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Watch: Web of Science's year-less `DA` (`SEP 22`, `DEC`) does not parse under `_ris_date_parts`
+(no leading digit) and so is silently ignored rather than spliced — that splicing is T026 (US-3),
+not built here.
+
+Next: T014 (identifiers — DO/UR, SN resolved by shape then reference type).
