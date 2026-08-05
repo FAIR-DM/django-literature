@@ -604,3 +604,23 @@ Verified: `poetry run pytest tests/test_importers/test_ris.py::TestSeparationTol
 passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 219 passed.
 
 Next: T023 (the bulk fixture — every entry accounted for exactly once, SC-002).
+
+### T023 — the story's own acceptance run over the bulk fixture (SC-002)
+
+Did: added `TestBulkAcceptance` over `constructed/bulk_several_hundred_entries.ris` — every one of
+its 500 entries accounted for exactly once (`sorted(indices) == range(500)`), asserted on the
+outcome totals (`failed == []`, `skipped == []`, `len(created) == 500`) rather than a sample, and
+the stored `Item` count cross-checked against the reported created count. The fixture on disk is
+uniformly clean (500 identical-shape `JOUR` entries — its own purpose, per the corpus README, is
+FR-004's whole-file-materialisation claim, not a mixed-malformation exercise), so this run is where
+T018-T022's fixes are exercised together at volume rather than where a new malformation is
+introduced. No production change — all three tests passed on first run, each against real stored
+rows through the actual import pipeline (9.37s over 500 django_db-backed entries), not a
+tautological assertion.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestBulkAcceptance -q` — 3 passed.
+Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 222 passed.
+
+US-2 is now complete except for T021's second half (blocked, D30). Watch: the four concerns US-1
+carried forward are unchanged by this story except the TY-only one, which is now this story's own
+concern rather than a forward pointer — see the completion report.

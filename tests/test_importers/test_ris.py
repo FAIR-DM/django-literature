@@ -1190,3 +1190,32 @@ class TestEndToEnd:
 
         item = Item.objects.get(citation_key="889")
         assert item.item_identifiers.get(type="ISSN").value == "1932-8494"
+
+
+class TestBulkAcceptance:
+    """The story's own acceptance run (T023, US-2 acceptance, SC-002): every entry in
+    ``constructed/bulk_several_hundred_entries.ris`` is accounted for exactly once across
+    created, skipped and failed, and no entry is refused for a reason normalization resolves.
+    Asserted on the outcome totals, as SC-002 requires, not on a sample.
+    """
+
+    @pytest.mark.django_db
+    def test_every_entry_is_accounted_for_exactly_once(self):
+        with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert len(result) == 500
+        assert sorted(e.index for e in result) == list(range(500))
+
+    @pytest.mark.django_db
+    def test_no_entry_is_refused_for_a_reason_normalization_resolves(self):
+        with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.failed == []
+        assert len(result.created) == 500
+        assert result.skipped == []
+
+    @pytest.mark.django_db
+    def test_the_created_count_matches_what_is_actually_stored(self):
+        with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert Item.objects.count() == len(result.created) == 500
