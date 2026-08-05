@@ -43,6 +43,7 @@ from django.utils.translation import gettext_lazy as _
 
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import ParseError, SkipEntry
+from literature.importers.normalizers import IdentifierNormalizer
 from literature.validators import validate_identifier
 
 # ---------------------------------------------------------------------------
@@ -245,51 +246,12 @@ def _clean_text(value: str) -> str:
     return _unescape_entities(str(latex_to_unicode(value)))
 
 
-#: A DOI written with its resolver URL prefix (FR-017's named case).
-_DOI_URL_RE = re.compile(r"^https?://(?:dx\.)?doi\.org/", re.IGNORECASE)
-
-#: A DOI carrying a plain ``doi:`` label rather than a bare identifier.
-_DOI_LABEL_RE = re.compile(r"^doi:\s*", re.IGNORECASE)
-
-
-def _normalize_doi(value: str) -> str:
-    """Strip a resolver URL prefix or a ``doi:`` label, leaving the bare DOI.
-
-    A value carrying neither is returned unchanged — normalization only
-    removes what it recognises, and cleaning that cannot recover a value
-    leaves it for preservation rather than guessing at it (D1).
-    """
-    text = value.strip()
-    # Both wrappers, in either order and in combination: a `doi:` label in
-    # front of a resolver URL is what a hand-maintained file and some export
-    # pipelines produce, and stripping only one leaves a URL where a bare
-    # DOI belongs (D26). Bounded rather than `while True`, since each pass
-    # must remove something for the next to run.
-    for _pass in range(4):
-        stripped = _DOI_LABEL_RE.sub("", _DOI_URL_RE.sub("", text)).strip()
-        if stripped == text:
-            break
-        text = stripped
-    return text
-
-
-#: An ISBN carrying a redundant ``isbn:`` / ``isbn-13:`` label, the same
-#: shape of malformation the DOI case is named for (FR-017), applied to the
-#: other identifier field T023 names by field.
-_ISBN_LABEL_RE = re.compile(r"^isbn(?:-1[03])?:?\s*", re.IGNORECASE)
-
-
-def _normalize_isbn(value: str) -> str:
-    """Strip a redundant ``isbn:`` label. Hyphens and spaces are the
-    validator's own job (``validate_isbn`` strips them before checking).
-    """
-    return _ISBN_LABEL_RE.sub("", value.strip()).strip()
-
-
-#: Field-specific normalization beyond the generic LaTeX decode (T023).
+#: Field-specific normalization beyond the generic LaTeX decode (T023). ``normalize_doi`` and
+#: ``normalize_isbn`` moved to ``IdentifierNormalizer`` (spec 005 T005): they are format-neutral
+#: and RIS needs them too, unlike the LaTeX-decoding helpers around them, which stay here.
 _IDENTIFIER_NORMALIZERS: dict[str, Any] = {
-    "doi": _normalize_doi,
-    "isbn": _normalize_isbn,
+    "doi": IdentifierNormalizer.normalize_doi,
+    "isbn": IdentifierNormalizer.normalize_isbn,
 }
 
 
