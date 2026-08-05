@@ -257,6 +257,46 @@ REFERENCE_TYPE_TABLE: dict[str, str] = {
 #: FR-011, acceptance scenario 3).
 _FALLBACK_TYPE = "document"
 
+#: Core RIS tag -> CSL variable (T011, FR-012), for tags whose CSL variable does not depend on the
+#: entry's reference type. ``T2`` and ``SP`` are type-conditional and are resolved separately
+#: (:func:`_container_or_collection_variable`, :func:`_page_variable`).
+FIELD_TABLE: dict[str, str] = {
+    "TI": "title",
+    "AB": "abstract",
+    "ST": "title-short",
+    "VL": "volume",
+    "IS": "issue",
+    "LA": "language",
+    "M3": "genre",
+    "ET": "edition",
+    "PB": "publisher",
+    "CY": "publisher-place",
+}
+
+#: Reference types that are already their own container — a whole book, a report, a standalone
+#: work — so a ``T2`` one of them carries names the series it belongs to rather than a containing
+#: work (research.md R4's "book-like" set for ``A2``'s collection-editor resolution, reused here:
+#: the same fact about a type — that it has no container of its own — decides both). Everything
+#: else has a genuine container (a journal, a book for one of its chapters), so its ``T2`` is a
+#: container title.
+_BOOK_LIKE_TYPES: frozenset[str] = frozenset(
+    {"BOOK", "EDBOOK", "RPRT", "ELEC", "MAP", "CLSWK", "COMP", "MULTI", "UNPB"}
+)
+
+#: Reference types where ``SP`` states a page *count* rather than a locator, because the type is a
+#: whole work rather than something with a location inside a container (research.md R11).
+_PAGE_COUNT_TYPES: frozenset[str] = frozenset({"BOOK", "EBOOK", "EDBOOK", "THES"})
+
+
+def _container_or_collection_variable(ref_type: str) -> str:
+    """The CSL variable ``T2`` maps to for ``ref_type`` (T011, FR-012)."""
+    return "collection-title" if ref_type in _BOOK_LIKE_TYPES else "container-title"
+
+
+def _page_variable(ref_type: str) -> str:
+    """The CSL variable ``SP`` maps to for ``ref_type`` (T011, FR-012, research.md R11)."""
+    return "number-of-pages" if ref_type in _PAGE_COUNT_TYPES else "page"
+
 
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
@@ -292,4 +332,18 @@ class RISFormat(BibFormat):
         result: dict[str, Any] = {
             "type": REFERENCE_TYPE_TABLE.get(ref_type, _FALLBACK_TYPE),
         }
+
+        for tag, csl_key in FIELD_TABLE.items():
+            values = raw.values(tag)
+            if values and values[0].strip():
+                result[csl_key] = values[0].strip()
+
+        t2_values = raw.values("T2")
+        if t2_values and t2_values[0].strip():
+            result[_container_or_collection_variable(ref_type)] = t2_values[0].strip()
+
+        sp_values = raw.values("SP")
+        if sp_values and sp_values[0].strip():
+            result[_page_variable(ref_type)] = sp_values[0].strip()
+
         return result

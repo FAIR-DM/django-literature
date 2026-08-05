@@ -48,7 +48,9 @@ def entry(ty="JOUR", index=0, **single_tags):
     """
     tags = [("TY", ty)]
     for tag, value in single_tags.items():
-        name = tag.upper()
+        # A leading underscore lets a caller name a tag that collides with a Python keyword
+        # (``_is`` for RIS's ``IS``), the same way ``is_`` would for a trailing collision.
+        name = tag.lstrip("_").upper()
         values = value if isinstance(value, list) else [value]
         tags.extend((name, v) for v in values)
     return RISEntry(tags=tuple(tags), index=index, start_line=1)
@@ -550,3 +552,88 @@ class TestReferenceTypeTable:
 
     def test_unpd_and_unpb_reach_the_same_csl_type(self):
         assert RISFormat().to_csl_json(entry(ty="UNPD"))["type"] == RISFormat().to_csl_json(entry(ty="UNPB"))["type"]
+
+
+class TestCoreFieldMapping:
+    """Core RIS tag -> CSL variable, with the type-conditional cases (T011, FR-012)."""
+
+    def test_title_lands_on_title(self):
+        csl = RISFormat().to_csl_json(entry(ti="A new specimen of Haplocanthosaurus"))
+        assert csl["title"] == "A new specimen of Haplocanthosaurus"
+
+    def test_abstract_lands_on_abstract(self):
+        csl = RISFormat().to_csl_json(entry(ab="A specimen is described."))
+        assert csl["abstract"] == "A specimen is described."
+
+    def test_short_title_lands_on_title_short(self):
+        csl = RISFormat().to_csl_json(entry(st="A new specimen"))
+        assert csl["title-short"] == "A new specimen"
+
+    def test_volume_lands_on_volume(self):
+        assert RISFormat().to_csl_json(entry(vl="24"))["volume"] == "24"
+
+    def test_issue_lands_on_issue(self):
+        assert RISFormat().to_csl_json(entry(_is="1"))["issue"] == "1"
+
+    def test_language_lands_on_language(self):
+        assert RISFormat().to_csl_json(entry(la="English"))["language"] == "English"
+
+    def test_type_of_work_lands_on_genre(self):
+        assert RISFormat().to_csl_json(entry(m3="Erratum"))["genre"] == "Erratum"
+
+    def test_edition_lands_on_edition(self):
+        assert RISFormat().to_csl_json(entry(et="3rd"))["edition"] == "3rd"
+
+    def test_publisher_lands_on_publisher(self):
+        assert RISFormat().to_csl_json(entry(pb="Elsevier"))["publisher"] == "Elsevier"
+
+    def test_city_lands_on_publisher_place(self):
+        assert RISFormat().to_csl_json(entry(cy="Amsterdam"))["publisher-place"] == "Amsterdam"
+
+    def test_an_absent_core_tag_leaves_no_key(self):
+        csl = RISFormat().to_csl_json(entry())
+        assert not ({"title", "abstract", "volume", "issue"} & csl.keys())
+
+
+class TestT2ContainerOrCollection:
+    """``T2`` is a container title on article-like types and a collection title on book-like ones
+    (T011, FR-012)."""
+
+    def test_t2_is_container_title_on_jour(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", t2="Anatomical Record"))["container-title"] == (
+            "Anatomical Record"
+        )
+
+    def test_t2_is_container_title_on_chap(self):
+        """A chapter's ``T2`` genuinely names its containing book."""
+        assert RISFormat().to_csl_json(entry(ty="CHAP", t2="Handbook of Paleontology"))["container-title"] == (
+            "Handbook of Paleontology"
+        )
+
+    def test_t2_is_collection_title_on_book(self):
+        """A whole book has no container of its own; a ``T2`` it carries names the series."""
+        assert RISFormat().to_csl_json(entry(ty="BOOK", t2="Topics in Geology"))["collection-title"] == (
+            "Topics in Geology"
+        )
+
+    def test_t2_is_collection_title_on_rprt(self):
+        assert RISFormat().to_csl_json(entry(ty="RPRT", t2="Technical Report Series"))["collection-title"] == (
+            "Technical Report Series"
+        )
+
+
+class TestSPLocatorOrPageCount:
+    """``SP`` is a locator on types that have pages, a page count on types that do not (T011,
+    FR-012, research.md R11)."""
+
+    def test_sp_is_the_page_locator_on_jour(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", sp="20"))["page"] == "20"
+
+    def test_sp_can_carry_a_whole_range_on_jour(self):
+        assert RISFormat().to_csl_json(entry(ty="JOUR", sp="549-565"))["page"] == "549-565"
+
+    def test_sp_is_the_page_count_on_book(self):
+        assert RISFormat().to_csl_json(entry(ty="BOOK", sp="312"))["number-of-pages"] == "312"
+
+    def test_sp_is_the_page_count_on_thes(self):
+        assert RISFormat().to_csl_json(entry(ty="THES", sp="150"))["number-of-pages"] == "150"
