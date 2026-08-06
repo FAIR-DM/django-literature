@@ -9,9 +9,12 @@ Tests cover contract from contracts/csl-json.md:
 - round trip: a fully populated item survives model -> CSL JSON -> model unchanged
 """
 
+import itertools
 import json
 import logging
 import os
+import queue
+import threading
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -36,6 +39,26 @@ def _item_scalar_field_names() -> list[str]:
     """
     skip = {"id", "pk", "citation_key", "type", "categories", "custom", "created", "modified"}
     return [f.name for f in Item._meta.get_fields() if hasattr(f, "attname") and f.name not in skip]
+
+
+def _run_with_timeout(func, /, *args, timeout, **kwargs):
+    """Run ``func`` on a background thread and report whether it returned in time.
+
+    Used to probe a suspected infinite loop without ever blocking the test
+    process itself: the calling thread waits at most ``timeout`` seconds,
+    regardless of whether the worker thread ever finishes.
+    """
+    outcome: queue.Queue = queue.Queue(maxsize=1)
+
+    def _worker():
+        outcome.put(func(*args, **kwargs))
+
+    worker = threading.Thread(target=_worker, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        return False, None
+    return True, outcome.get()
 
 
 @pytest.mark.django_db
@@ -387,6 +410,61 @@ class TestFromCslJson:
             }
         )
         assert item.categories == ["earth-science", "geophysics"]
+
+
+class TestDedupSuffixCeiling:
+    """Regression coverage for #41 — the dedup suffix sequence must never repeat.
+
+    ``_generate_dedup_suffix`` used to yield 25 single-letter suffixes followed
+    by an infinite repeat of the same 676 two-letter ones (701 distinct values
+    total). ``_resolve_citation_key``'s ``while True`` loop then never finds a
+    free key once that many collisions exist, and hangs forever issuing
+    ``exists()`` queries. Building 702 real colliding ``Item`` rows to prove
+    that would be slow and not obviously terminating on its own, so the second
+    test fakes the "already taken" universe via a monkeypatched
+    ``Item.objects.filter`` instead of real inserts, and bounds the call with
+    a background-thread timeout so a still-broken implementation fails fast
+    rather than hanging the test run.
+    """
+
+    def test_generator_never_repeats_past_old_701_suffix_ceiling(self):
+        """The suffix generator must not repeat a value within the first 750."""
+        from literature.converters import _generate_dedup_suffix
+
+        suffixes = list(itertools.islice(_generate_dedup_suffix("Smith2009"), 750))
+
+        assert len(suffixes) == len(set(suffixes)), (
+            "suffix generator produced a duplicate before reaching 750 distinct values"
+        )
+
+    @pytest.mark.django_db
+    def test_resolve_citation_key_terminates_once_old_ceiling_is_exhausted(self, monkeypatch):
+        """_resolve_citation_key must return once every old-sequence suffix is taken."""
+        from literature.converters import _generate_dedup_suffix, _resolve_citation_key
+
+        base = "Smith2009"
+        # Every value the old generator ever produced (25 single-letter plus
+        # 676 two-letter suffixes) is already "taken", without paying for 701
+        # real database inserts.
+        taken = {base} | {f"{base}{suffix}" for suffix in itertools.islice(_generate_dedup_suffix(base), 701)}
+
+        class _FakeQuerySet:
+            def __init__(self, key: str) -> None:
+                self._key = key
+
+            def exists(self) -> bool:
+                return self._key in taken
+
+        monkeypatch.setattr(Item.objects, "filter", lambda **kwargs: _FakeQuerySet(kwargs["citation_key"]))
+
+        finished, resolved_key = _run_with_timeout(_resolve_citation_key, {"citation-key": base}, timeout=2.0)
+
+        assert finished, (
+            "_resolve_citation_key did not return within 2s once every suffix "
+            "from the old finite sequence was already taken — it is looping "
+            "forever instead of producing a new one"
+        )
+        assert resolved_key not in taken
 
 
 @pytest.mark.django_db
