@@ -14,6 +14,7 @@ Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.j
 
 from __future__ import annotations
 
+import itertools
 import logging
 from collections.abc import Iterator
 from typing import Any
@@ -286,20 +287,24 @@ def to_csl_json(item: Any) -> dict[str, Any]:
 
 
 def _generate_dedup_suffix(base: str) -> Iterator[str]:
-    """Generate successive deduplication suffixes: b, c, ..., z, aa, ab, ...
+    """Generate an unbounded, non-repeating sequence of deduplication suffixes.
 
-    Yields suffix strings in order starting from 'b'.
+    Yields b, c, ..., z, then aa, ab, ..., zz, then aaa, aab, ... and so on,
+    widening the suffix by one letter each time the current width is
+    exhausted. The sequence never repeats, however many collisions occur.
     """
-    # Start at 'b' (ord 98), skip 'a' which would be confusingly close to base
-    chars = "bcdefghijklmnopqrstuvwxyz"
-    # Single-letter suffixes: b, c, ..., z
-    yield from chars
-    # Two-letter suffixes: aa, ab, ac, ..., az, ba, ...
     alphabet = "abcdefghijklmnopqrstuvwxyz"
+    width = 1
     while True:
-        for ch1 in alphabet:
-            for ch2 in alphabet:
-                yield ch1 + ch2
+        for combo in itertools.product(alphabet, repeat=width):
+            suffix = "".join(combo)
+            if width == 1 and suffix == "a":
+                # Skip 'a' at width 1 only — it would be confusingly close to
+                # the unsuffixed base. Wider widths start at 'aa'/'aaa'/...
+                # unambiguously, so there is nothing to skip there.
+                continue
+            yield suffix
+        width += 1
 
 
 def _resolve_citation_key(data: dict) -> str:
