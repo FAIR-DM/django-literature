@@ -1157,3 +1157,66 @@ entries.
 Verified: `poetry run pre-commit run --files README.md` — clean.
 
 Next: T038 (security assertions).
+
+## 2026-08-10T14:20:00Z · Implementer US-5 · T038
+
+Loaded craft-security first, per the brief, and used its threat-model step: mapped the one trust
+boundary this module has (file content) and asked what "code execution, filesystem access, network
+access, or an unhandled error" would actually look like for a hand-rolled text parser with no
+request, template, shell or outbound call anywhere on its path — rather than writing generic
+security-sounding tests. Added `TestUntrustedInput` to `test_ris.py`, five tests, each stated in
+the class docstring against what it actually establishes and does not:
+
+- `test_the_module_reaches_nothing_outside_itself` — static: `ris.py`'s own source names no
+  execution/network primitive. Mirrors `test_bibtex.py`'s test of the same name and the same
+  forbidden-symbol list (dropped `open(` from that list after the first run false-failed on
+  `_mapping_document`'s own docstring, which names the regeneration one-liner — `bibtex.py` carries
+  the identical string, which is why its own list excludes it too).
+- `test_to_csl_json_opens_no_file` / `test_to_csl_json_makes_no_network_connection` — dynamic:
+  `builtins.open` / `socket.socket.connect` patched to raise, hostile path- and URL-shaped content
+  run through real conversion. Sanity-checked both have teeth before trusting them: temporarily
+  inserted a real `open(__file__)` and a real `socket.connect(...)` into `to_csl_json` (not
+  committed), confirmed each test caught it with the expected `AssertionError`, reverted and
+  diffed clean against the pre-change file.
+- `test_gadget_values_are_stored_as_inert_text` — format-string/template-injection and SQL-shaped
+  values survive conversion as the literal string, checked against the stored value itself, with
+  `os.system`/`subprocess.run`/`subprocess.Popen` patched to raise as a second witness.
+- `test_hostile_field_values_terminate` — six parametrized values targeting this module's own
+  regexes (`_SN_ANNOTATION_RE`'s open-paren backtracking, the bare-ISSN digit run, the citation-key
+  family-name and title-word regexes), mirroring `test_bibtex.py`'s test of the same name against
+  BibTeX's patterns instead.
+- `test_every_corpus_file_fails_cleanly_or_not_at_all` — parametrized per file (not one loop) over
+  every constructed and negative fixture, adding the assertion that every failure carries a reason,
+  which the pre-existing whole-corpus test (`TestWholeFileOutcomes`) does not check.
+
+Two new constructed fixtures back the last two tests, for cases the existing corpus does not hold:
+`control_characters_in_values.ris` (a null byte and other C0 control characters inside otherwise
+well-formed values) and `injection_looking_values.ris` (SQL-, script-, format-string- and
+shell-metacharacter-shaped values). Both are hand-written, recorded in `constructed/README.md`
+per the brief's instruction on constructing a needed case, and swept automatically by every
+directory-globbing test in the file — which is also why `CONSTRUCTED_FIXTURES` in
+`TestConstructedCorpus` (a hand-written inventory set, not test logic) needed the two names added;
+without it the pre-existing `test_the_named_fixture_set_is_exactly_what_is_on_disk` correctly
+failed, naming exactly the two new files.
+
+One finding worth recording rather than silently working around: `str.splitlines()`, which
+`RISParser.parse` uses to split the file, treats `\v` (0x0B) and `\f` (0x0C) as line boundaries —
+not only `\n`/`\r`. A value carrying either is silently split and rejoined through the ordinary
+continuation-line mechanism, which replaces the control character with a plain space rather than
+raising or preserving it verbatim. Confirmed by direct observation (`_TAG_RE`/`_continue_value`
+against the fixture, not assumed), and it is why `control_characters_in_values.ris` uses `\x00`,
+`\x07`, `\x1b` and `\x08` rather than `\v`/`\f` for the "preserved verbatim" claim — those two are
+still exercised by the fixture, just correctly not asserted as byte-identical. No behaviour change:
+this is within FR-035's guarantee (no crash, nothing executed) and not a defect this task's scope
+covers; noting it here rather than filing it, since it is a Python stdlib fact about `splitlines`
+rather than a bug in this module.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUntrustedInput -q` — 32 passed.
+Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 320 passed (288 prior + 32
+new). `poetry run mypy literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+`poetry run pre-commit run --files tests/test_importers/test_ris.py
+tests/data/ris/constructed/control_characters_in_values.ris
+tests/data/ris/constructed/injection_looking_values.ris tests/data/ris/constructed/README.md` —
+clean, fixture bytes confirmed unmodified by the trailing-whitespace/end-of-file-fixer hooks.
+
+Next: full suite, then `pre-commit run --all-files`, then the completion report.
