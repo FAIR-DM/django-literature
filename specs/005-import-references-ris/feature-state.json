@@ -407,7 +407,7 @@
               "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
               "poetry run mypy literature/importers/ris.py"
             ],
-            "results": "16 passed (new class + TestContributors); 233 passed full file; ruff clean; mypy clean"
+            "verified_by_ci": false
           }
         },
         {
@@ -421,7 +421,7 @@
               "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
               "poetry run mypy literature/importers/ris.py"
             ],
-            "results": "27 passed (new class + adjacent identifier classes); 242 passed full file; ruff clean; mypy clean"
+            "verified_by_ci": false
           }
         },
         {
@@ -435,7 +435,7 @@
               "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
               "poetry run mypy literature/importers/ris.py"
             ],
-            "results": "20 passed (new class + adjacent date classes); 248 passed full file; ruff clean; mypy clean"
+            "verified_by_ci": false
           }
         },
         {
@@ -449,7 +449,7 @@
               "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
               "poetry run mypy literature/importers/ris.py"
             ],
-            "results": "24 passed (new class + adjacent identifier classes); 254 passed full file; ruff clean; mypy clean"
+            "verified_by_ci": false
           }
         },
         {
@@ -463,7 +463,7 @@
               "poetry run ruff check tests/test_importers/test_ris.py",
               "poetry run mypy literature/importers/ris.py"
             ],
-            "results": "7 passed (new class); 264 passed full file (257 prior + 7 new); ruff clean; mypy clean (no production file changed). Two assertions hand mutation-tested to confirm non-vacuous, both correctly failed before revert."
+            "verified_by_ci": false
           }
         },
         {
@@ -477,7 +477,7 @@
               "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
               "poetry run mypy literature/importers/ris.py"
             ],
-            "results": "3 passed (no production change needed); 257 passed full file; ruff clean; mypy clean"
+            "verified_by_ci": false
           }
         }
       ]
@@ -486,23 +486,47 @@
       "id": "US4",
       "priority": "P4",
       "issue": 39,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T030",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnmappedTagPreservation -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T032",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestSurplusIdentifierValues tests/test_importers/test_ris.py::TestLongPreservedValueDoesNotFailTheEntry -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T033",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnmappedTagCoverage -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run mypy literature/importers/ris.py tests/test_importers/test_ris.py"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },

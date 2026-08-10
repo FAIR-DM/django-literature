@@ -1050,3 +1050,21 @@ genuine directory and parametrizes T033's sweep from it, and one added test asse
 map's keys equal the directory's contents, so the hand-written half cannot fall behind unnoticed.
 The fingerprint map stays hand-written on purpose: a fingerprint is a provenance claim about one
 specific export and cannot be derived. Suite 1071.
+
+## Ledger schema gate — US-3's evidence blocks were invalid
+
+Ran `check_ledger_schema` while advancing US-4 and it came back FAIL with six errors, all six
+pre-existing: every US-3 task carried an `evidence.results` string, and the task schema sets
+`additionalProperties: false` over `tests`, `commands` and `verified_by_ci`. So US-3 was accepted
+and merged against a schema-invalid ledger — the FS-012 failure the gate was written to stop —
+because I verified that acceptance with `forge verify` and the test suite and never ran the ledger
+check itself. `forge verify` does not cover it, `forge stage-exit` does, and stage-exit runs at
+stage boundaries rather than at each story merge.
+
+Fixed: `results` dropped from all six US-3 tasks, `verified_by_ci: false` added to match the shape
+US-1 and US-2 use. Nothing is lost — each task's result prose is already in this file, in more
+detail than the ledger string held. US-4's three tasks were written with `commands` and
+`verified_by_ci` from the start. Ledger now validates.
+
+Carried into the loop rather than left as a one-off fix: the ledger check runs at every story
+acceptance from here, not only at stage exits.
