@@ -626,6 +626,31 @@ def _add_preserved(preserved: dict[str, str | list[str]], tag: str, values: list
     preserved[tag] = values[0] if len(values) == 1 else values
 
 
+#: Every tag this module resolves to a CSL variable, a contributor role, a date or an identifier
+#: -- the production record of what "mapped" means, consulted by the unmapped sweep below and by
+#: the corpus-wide test that proves nothing else escapes it (T030, T033).
+_CONSUMED_TAGS: frozenset[str] = frozenset(FIELD_TABLE) | frozenset(
+    {"TY", "ID", "T2", "SP", "AU", "ED", "A2", "A3", "A4", "PY", "DA", "Y1", "Y2", "DO", "UR", "SN"}
+)
+
+
+def _unmapped(raw: RISEntry) -> dict[str, str | list[str]]:
+    """Every tag this entry carries that maps to no CSL variable, contributor role, date or
+    identifier, preserved under its own key so nothing an entry states is silently dropped (T030,
+    FR-024, FR-028). ``C7`` -- Scopus's article-number tag -- is a deliberate instance of this
+    rather than a special case (decisions.md D38): it reaches the item through this sweep like
+    any other unmapped tag, never through a dedicated mapping and never dropped.
+    """
+    preserved: dict[str, str | list[str]] = {}
+    seen: set[str] = set()
+    for tag, _value in raw.tags:
+        if tag in _CONSUMED_TAGS or tag in seen:
+            continue
+        seen.add(tag)
+        _add_preserved(preserved, tag, raw.values(tag))
+    return preserved
+
+
 def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     """Every identifier this entry carries, mapped to its CSL top-level key.
 
@@ -644,6 +669,10 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     An entry carrying more than one ``DO`` tag — a genuine Web of Science chapter record's own
     and its containing book's — stores the first, by source position, as the DOI, and preserves
     every other one, each normalized the same way as the first (T027, FR-018).
+
+    An entry carrying more than one ``UR`` tag — every genuine EndNote and Mendeley record does,
+    a search-result link followed by a duplicate DOI-resolver link — stores the first, by source
+    position, as the URL, and preserves every other one the same way (T032, FR-018).
     """
     result: dict[str, Any] = {}
     preserved: dict[str, str | list[str]] = {}
@@ -663,12 +692,14 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     ur_values = raw.values("UR")
     if ur_values and ur_values[0].strip():
         ur_value = ur_values[0].strip()
+        surplus_urs = [v.strip() for v in ur_values[1:] if v.strip()]
         try:
             validate_url(ur_value)
         except ValidationError:
-            _add_preserved(preserved, "UR", [ur_value])
+            _add_preserved(preserved, "UR", [ur_value, *surplus_urs])
         else:
             result["URL"] = ur_value
+            _add_preserved(preserved, "UR", surplus_urs)
 
     sn_raw_values = raw.values("SN")
     if sn_raw_values and any(v.strip() for v in sn_raw_values):
@@ -864,6 +895,10 @@ class RISFormat(BibFormat):
         result.update(identifiers)
         if preserved:
             result.setdefault("custom", {}).setdefault("ris", {}).update(preserved["ris"])
+
+        unmapped = _unmapped(raw)
+        if unmapped:
+            result.setdefault("custom", {}).setdefault("ris", {}).update(unmapped)
 
         key = _citation_key(raw, issued, raw.index)
         limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM

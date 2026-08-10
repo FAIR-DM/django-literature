@@ -912,3 +912,67 @@ fail for the right reason is not what keeps it there.
 
 **ADR:** declined — applies an existing S3R ruling to a case that slipped past it, not a new
 decision.
+
+## D38 — `C7` (Scopus's article-number tag) stays unmapped; it reaches the item through T030's sweep
+
+**Ambiguity**: US-1 deliberately left `C7` unmapped rather than resolving it to CSL's scalar
+`number` field, because `number` is already `_identifiers`'s home for `SN` on `RPRT`/`PAT`
+reference types, and a second, unrelated scalar claim on the same field would collide whenever
+both a report/patent-typed `SN` and a `C7` co-occur. That was recorded as an open question for
+US-3 (decisions.md line 529, before this entry), and US-3 did not rule on it. T030 must, since its
+sweep is the first place `C7` could be silently dropped or silently preserved without a stated
+reason.
+
+**Chosen**: `C7` stays unmapped. It is not given a dedicated resolution in `_identifiers` or
+anywhere else; it reaches the stored item through the same generic unmapped-tag sweep
+(`_unmapped`, T030) that catches every other tag with no CSL equivalent — retrievable at
+`custom["ris"]["C7"]`, nested under the single `custom["ris"]` key like any other preserved tag.
+
+**Why defensible**: the collision `_identifiers` would otherwise cause is real, not hypothetical —
+`genuine/scopus.ris` and `genuine/webofscience.ris` both carry `C7` on `JOUR` entries, and `SN` on
+a `RPRT`/`PAT`-typed entry already claims `number` (research R6). CSL has no second numeric
+locator variable to give `C7` instead: `number` is CSL's own general-purpose numeric field
+(report, patent, resolution, bill number — the exact sense Scopus's article number itself is,
+which is precisely why the collision matters and cannot be dodged by finding a "more correct" CSL
+key). The cheap answer plan.md names — preservation under `custom["ris"]` — costs nothing, loses
+nothing (T033's corpus-wide sweep proves it is retrievable), and does not force a scalar field to
+arbitrate between two tags that both legitimately want it whenever both appear on one entry.
+Leaving `C7` to the generic sweep also means no special case is carried in `_identifiers` at all:
+one general rule (T030's sweep) accounts for `C7` the same way it accounts for `N1`, `DB`, `AD`
+and everything else nothing else claims.
+
+**Revisit if**: a later story adds a CSL variable this catalogue does not yet expose that is
+scoped narrowly enough to hold an article number without colliding with a report or patent number
+— at which point `C7` could move from the sweep to a dedicated resolution, the same way `SN`'s
+shape-based resolution was added on top of what would otherwise be its own sweep entry.
+
+## D39 — A second `UR` value was being silently dropped, not merely unpreserved; fixed under T032
+
+**Ambiguity**: none in the requirement — FR-018 is explicit: "a tag appearing more than once in
+one entry, where the catalogue holds only one of what it carries, MUST resolve deterministically:
+the first value is stored and the remainder preserved." `_identifiers`'s `DO` and `SN` blocks
+already do this. Its `UR` block did not: `if ur_values and ur_values[0].strip():` reads only index
+`0` of `raw.values("UR")` and never looks at the rest — not "the surplus is discarded", nothing
+in the function's control flow reaches a second value at all.
+
+**Why this is T032's, not a pre-existing test contradicting it**: no test asserted the second value
+is dropped — there was no test covering multi-value `UR` in any shape. The Implementer protocol's
+"a test I did not author contradicts my task, so stop" does not apply where the gap is an absence
+of coverage, not a coded expectation. And the gap is not hypothetical: every genuine EndNote and
+Mendeley record in the corpus carries exactly two `UR` tags — a search-result link and a duplicate
+DOI-resolver link (`genuine/endnote.ris`'s own first entry, and confirmed by tag count: 20 `UR`
+lines across 10 entries in each of `endnote.ris` and `mendeley.ris`). Twenty real records were
+losing a value on every import before this fix, silently, which is precisely what FR-024/FR-028
+exist to prevent.
+
+**Chosen**: `_identifiers`'s `UR` block now mirrors `DO`'s shape exactly — the first value is
+validated; on success it is stored as `URL` and every later value is preserved via
+`_add_preserved`; on failure, every value including the first is preserved, since none was stored.
+No change to which value is *chosen* as the URL (still the first, by source position, matching
+existing behaviour and `TestEndToEnd`'s and `TestEquivalenceAcrossProducers`'s assertions, both
+left unmodified and still green) — only the previously-unreachable remainder is now retrievable at
+`custom["ris"]["UR"]`.
+
+**Revisit if**: a future format needs to distinguish *which kind* of surplus URL it preserved (a
+duplicate resolver link versus a genuinely different one) — today they are preserved
+indistinguishably, the same way `DO`'s and `SN`'s surplus values already are.

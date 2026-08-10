@@ -919,3 +919,134 @@ US-3 merged into `005-import-references-ris` as `a11809f`.
 **Review budget:** `budgets.review_cycles.max` lowered from 2 to 1 (Sam, 2026-08-10, token
 saving). One S6 pass over the finished feature diff, at most one round of fixes from it, then S7
 regardless.
+
+## 2026-08-10T00:00:00Z · Implementer US-4 · T030
+
+Did: wrote the failing tests first — `TestUnmappedTagPreservation` in
+`tests/test_importers/test_ris.py` (8 tests): a single unmapped tag retrievable under
+`custom["ris"]`, nested under the single key and never flat, several unmapped tags each landing
+under their own key, a repeated unmapped tag collapsing to a list only at two-or-more values (D34's
+shape rule), a mapped tag never also swept, `C7` specifically preserved rather than mapped to
+`number`, no `ItemIdentifier` row created for a preserved tag, and the entry reported as created
+with no extra outcome or per-tag channel. Then implemented in `literature/importers/ris.py`:
+`_CONSUMED_TAGS`, the exhaustive set of tags this module already resolves (`FIELD_TABLE`'s keys
+plus `TY`, `ID`, `T2`, `SP`, the four contributor tags, the four date tags, and `DO`/`UR`/`SN`),
+and `_unmapped()`, which walks `raw.tags` once, skips anything in `_CONSUMED_TAGS` or already seen,
+and routes the rest through `_add_preserved` (T025's helper, reused rather than duplicated) so the
+one-value/list-of-two-or-more shape stays consistent everywhere preservation happens. Wired into
+`to_csl_json` right after the identifier-preservation merge, into the same
+`custom["ris"]` dict.
+
+Ruled on `C7` (US-3's carried-forward open question, decisions.md line 529): stays unmapped,
+reaches the item through this same generic sweep rather than a dedicated resolution — recorded as
+decisions.md D38, with the collision it avoids (`SN`'s report/patent use of CSL's scalar `number`)
+confirmed against both `genuine/scopus.ris` and `genuine/webofscience.ris`, which both carry `C7`
+on `JOUR` entries.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnmappedTagPreservation -q` —
+red first (6 of 8 failing with `KeyError: 'custom'`, matching the shape the change adds; the other
+2 already passed pre-implementation, asserting no regression on a mapped tag / single-DO-style
+cases), green after. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 272
+passed (264 prior + 8 new). `poetry run mypy literature/importers/ris.py` — clean.
+
+Watch: the sweep is generic by construction, so it also now preserves several tags no earlier
+story named — `KW`, `EP`, `AN`, `C2`, `C3`, `FU`, `FX`, `J2`, `J9`, `JI`, `PA`, `PI`, `PU`, `WE`
+among them, seen while cross-checking the four genuine files' tag sets for this task. None of
+these get a dedicated CSL mapping here — that would be new scope beyond "nothing is thrown away" —
+they simply now land in `custom["ris"]` instead of being silently absent, which is exactly what
+T033 checks corpus-wide.
+
+Next: T032 (surplus single-slot values, including the 500-character trap).
+
+## 2026-08-10T00:20:00Z · Implementer US-4 · T032
+
+Did: wrote the failing tests first — `TestSurplusIdentifierValues` (5 tests) and
+`TestLongPreservedValueDoesNotFailTheEntry` (3 tests) in `tests/test_importers/test_ris.py`. While
+writing them, found that `_identifiers`'s `UR` block read only `raw.values("UR")[0]` and never
+looked at a second value at all — not preserved, not discarded on purpose, simply unreachable —
+and that every genuine EndNote and Mendeley record in the corpus carries exactly two `UR` tags (a
+search-result link, a duplicate DOI-resolver link), so this was live data loss on 20 real records
+every import, not a hypothetical. Recorded as decisions.md D39. Then fixed `_identifiers`'s `UR`
+block in `literature/importers/ris.py` to mirror `DO`'s existing shape: first value validated and
+stored as `URL` on success with the remainder preserved, or every value preserved together on
+failure. `TestLongPreservedValueDoesNotFailTheEntry`'s three tests were already green before this
+change — T030's generic sweep already routes `constructed/long_unmapped_tag_value.ris`'s `Z9` tag
+through `_add_preserved`, so the 500-character trap this task's other half names was already
+closed; this task's own contribution there is the test that proves it, run against the fixture
+`constructed/README.md` names for exactly this case.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestSurplusIdentifierValues
+tests/test_importers/test_ris.py::TestLongPreservedValueDoesNotFailTheEntry -q` — red first (4 of
+8 new tests failing: 3 with `KeyError: 'custom'` for the never-preserved second `UR` value, 1 with
+an assertion mismatch for the invalid-first-plus-surplus case; the other 4 were already green,
+matching the note above), green after. Full file: `poetry run pytest
+tests/test_importers/test_ris.py -q` — 280 passed (272 prior + 8 new). `poetry run mypy
+literature/importers/ris.py` — clean.
+
+Next: T033 (corpus-wide sweep: every tag in every genuine file mapped or retrievable).
+
+## 2026-08-10T00:35:00Z · Implementer US-4 · T033
+
+Did: added `TestUnmappedTagCoverage` to `tests/test_importers/test_ris.py`, parametrized over the
+four genuine files. For each, parses fresh with `RISParser()` to get the real tag set per entry —
+derived from the file's own bytes at run time, never a hand-maintained list — imports the same file,
+and for every parsed entry checks its tags against the union of `_CONSUMED_TAGS` (imported from
+`literature.importers.ris`, the mapping code's own record of what it resolves — not a second list
+duplicated in the test) and the keys under the matching stored item's `custom["ris"]`. Matched entry
+to item by `EntryResult.index`, which the parser assigns in source order and never reuses.
+
+This proves T030's sweep and T032's fix rather than adding new production behaviour, so it went
+green on first run against the real implementation — not a red/green cycle in the usual sense, since
+there was no new code path for a failing test to target. Sanity-checked the test has teeth before
+trusting that: temporarily excluded `N1` from `_unmapped`'s sweep (a one-line, reverted-before-commit
+change) and reran — 3 of 4 parametrized cases failed with the exact tag named in the assertion
+message (`endnote.ris`, `scopus.ris`, `webofscience.ris`, each of which genuinely carries `N1`;
+`mendeley.ris` doesn't and correctly stayed green). Reverted with `git checkout --
+literature/importers/ris.py` and confirmed clean before re-running for real.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnmappedTagCoverage -q` — 4
+passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 284 passed (280 prior +
+4 new). `poetry run mypy literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Excludes nothing (stated in the test's own docstring per the brief's instruction): every genuine
+file's every entry imports as created, so every tag in every file has a stored item to check
+retrievability against.
+
+Next: full-suite run, `pre-commit run --all-files`, then the completion report.
+
+## US-4 accepted — 2026-08-10
+
+Verified independently before merge. `forge check-receipts` green on both required skills.
+`forge verify` green on all five steps (conformance, lint, typecheck, test, build). Full suite
+re-run in the worktree: 1070 passed, against the 1050 baseline US-3 left. SC-009's five prohibited
+paths byte-for-byte unchanged (`importers/base.py`, `importers/results.py`, `converters.py`,
+`tests/test_converters.py`, `tests/test_importers/test_bibtex.py`). No model field and no migration
+(Article XIII): the diff touches `literature/importers/ris.py`, `test_ris.py`, `decisions.md` and
+this file, nothing else. One `tamper-check` flag on `test_ris.py`, triaged clean — the only deleted
+line is the module's own import statement, re-added one token longer to bring in `_CONSUMED_TAGS`;
+208 test definitions at base, 225 at head, and no base test name is absent from head.
+
+Both deviations checked against the corpus rather than taken on the report's word:
+
+- D39's premise holds exactly as stated. `endnote.ris` and `mendeley.ris` carry 20 `UR` lines
+  across 10 entries each, `scopus.ris` carries 10 across 10, `webofscience.ris` none. So the
+  pre-fix `ur_values[0]` read was losing a value on 20 real records and on no constructed one.
+- D38's collision is real. Both `scopus.ris` and `webofscience.ris` carry `C7` on `JOUR` entries,
+  and `SN` already claims CSL `number` on `RPRT`/`PAT`.
+
+Also confirmed `_CONSUMED_TAGS` earns its name, since T033 reads "mapped" from it and a tag listed
+there but never actually read would be declared mapped while being dropped — the FS-004 defect
+shape wearing the proof's own clothes. Each of the sixteen literal tags resolves somewhere in
+`ris.py` (`Y1` at line 526, `Y2` at 547, `A4` at 423, and so on); none is a bare declaration.
+`A1` and `N1` are in `REPEATABLE_TAGS` but deliberately not in `_CONSUMED_TAGS`, so they fall to
+the sweep, which is correct.
+
+Two hardenings applied at acceptance, both closing the same vacuity one level above where T033
+closed it. T033 derives each file's tags at run time, as the brief required, but its list *of
+files* was four hand-written paths, and `GENUINE_FINGERPRINTS` is likewise hand-written. Either
+would let a fixture added later sit outside the corpus-wide checks while every test stayed green —
+the failure T033 exists to prevent, displaced from tags to files. `GENUINE_FILES` now globs the
+genuine directory and parametrizes T033's sweep from it, and one added test asserts the fingerprint
+map's keys equal the directory's contents, so the hand-written half cannot fall behind unnoticed.
+The fingerprint map stays hand-written on purpose: a fingerprint is a provenance claim about one
+specific export and cannot be derived. Suite 1071.

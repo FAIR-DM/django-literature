@@ -22,10 +22,15 @@ from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
-from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
+from literature.importers.ris import _CONSUMED_TAGS, REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
 from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
+
+#: Every genuine producer export in the corpus, discovered from the directory rather than listed,
+#: so a fixture added later is swept by the corpus-wide tests instead of quietly sitting outside
+#: them. Sorted for a stable parametrize id order.
+GENUINE_FILES = sorted(f"genuine/{path.name}" for path in (DATA / "genuine").glob("*.ris"))
 
 
 def fixture(relative_path):
@@ -83,6 +88,13 @@ class TestGenuineCorpus:
         for name in GENUINE_FINGERPRINTS:
             content = (DATA / "genuine" / name).read_bytes()
             assert content, f"{name} is empty"
+
+    def test_the_fingerprint_map_names_every_file_on_disk(self):
+        """``GENUINE_FINGERPRINTS`` has to be hand-written — a fingerprint is a claim about one
+        specific export's provenance. This asserts the hand-written half has not fallen behind the
+        directory, so a fixture added later cannot sit outside every provenance check in silence.
+        """
+        assert set(GENUINE_FINGERPRINTS) == {path.name for path in (DATA / "genuine").glob("*.ris")}
 
     def test_every_producer_file_carries_its_fingerprint(self):
         for name, fingerprints in GENUINE_FINGERPRINTS.items():
@@ -1280,6 +1292,146 @@ class TestMultipleDOTags:
         assert "custom" not in csl
 
 
+class TestUnmappedTagPreservation:
+    """A tag with no CSL equivalent is preserved under the single ``custom["ris"]`` key, nested
+    exactly as ``bibtex.py`` nests under ``custom["bibtex"]``, never as a flat ``custom`` key
+    (T030, FR-024, FR-028, Article XIII). No new outcome, no per-tag reporting channel, and no
+    model field or migration: an entry carrying only unmapped tags beyond the ones that give it a
+    type and a citation key is reported as created exactly like any other.
+
+    ``C7`` -- Scopus's article-number tag -- is a deliberate instance of this rather than a
+    special case: mapping it to CSL's scalar ``number`` would collide with ``SN``'s report/patent
+    use of that same field (see ``_identifiers``), so it stays unmapped and reaches the catalogue
+    through this same sweep (decisions.md D38).
+    """
+
+    def test_an_unmapped_tag_is_retrievable_under_custom_ris(self):
+        csl = RISFormat().to_csl_json(entry(n1="Export Date: 2024-01-01"))
+        assert csl["custom"]["ris"]["N1"] == "Export Date: 2024-01-01"
+
+    def test_preservation_nests_under_the_single_ris_key_not_flat(self):
+        csl = RISFormat().to_csl_json(entry(n1="Export Date: 2024-01-01"))
+        assert set(csl["custom"].keys()) == {"ris"}
+        assert "N1" not in csl["custom"]
+
+    def test_several_unmapped_tags_each_land_under_their_own_key(self):
+        csl = RISFormat().to_csl_json(entry(db="Scopus", ad="An address", c7="e12345"))
+        assert csl["custom"]["ris"]["DB"] == "Scopus"
+        assert csl["custom"]["ris"]["AD"] == "An address"
+        assert csl["custom"]["ris"]["C7"] == "e12345"
+
+    def test_a_repeated_unmapped_tag_becomes_a_list_of_two_or_more_values(self):
+        """D34's shape rule applies here too: a bare string for one value, a list only when the
+        tag genuinely carries more than one -- Web of Science's repeated ``N1``."""
+        csl = RISFormat().to_csl_json(entry(n1=["L2030246463", "2024-06-24"]))
+        assert csl["custom"]["ris"]["N1"] == ["L2030246463", "2024-06-24"]
+
+    def test_a_mapped_tag_is_never_swept_as_unmapped(self):
+        """No regression: a tag this module already resolves to a CSL variable does not also land
+        under ``custom["ris"]`` -- the sweep only picks up what nothing else claimed."""
+        csl = RISFormat().to_csl_json(entry(ti="A title"))
+        assert "custom" not in csl
+
+    def test_c7_is_preserved_rather_than_mapped_to_number(self):
+        """The C7 ruling (decisions.md D38): left unmapped, reaches the item through this sweep,
+        never silently dropped."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", c7="e12345"))
+        assert "number" not in csl
+        assert csl["custom"]["ris"]["C7"] == "e12345"
+
+    @pytest.mark.django_db
+    def test_no_itemidentifier_row_is_created_for_a_preserved_unmapped_tag(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nN1  - A note\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="N1").exists()
+        assert item.custom["ris"]["N1"] == "A note"
+
+    @pytest.mark.django_db
+    def test_the_entry_is_reported_as_created_exactly_as_any_other(self):
+        """No extra outcome value and no per-tag reporting channel (FR-028): the result carries
+        exactly one entry result, ``created``, the same shape any entry gets."""
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nN1  - A note\nDB  - Scopus\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.ok
+        assert len(result) == 1
+        assert len(result.created) == 1
+        assert result.created[0].outcome == Outcome.CREATED
+
+
+class TestSurplusIdentifierValues:
+    """A single-slot identifier field that receives more values than it can hold preserves the
+    surplus rather than the model being widened to fit it, and the entry is not failed (T032,
+    FR-018, FR-024). ``DO`` and ``SN`` already do this (``TestMultipleDOTags``,
+    ``TestSNProducerEncodings``); this covers ``UR``, whose second value was silently dropped
+    before this task -- ``_identifiers`` read only ``raw.values("UR")[0]`` -- even though every
+    genuine EndNote and Mendeley record in the corpus carries exactly two ``UR`` tags (a search
+    result link and a duplicate DOI-resolver link, confirmed against ``genuine/endnote.ris``'s own
+    first entry).
+    """
+
+    def test_a_second_ur_value_is_preserved(self):
+        csl = RISFormat().to_csl_json(
+            entry(ur=["https://www.embase.com/search?id=1", "https://dx.doi.org/10.1002/ar.25520"])
+        )
+        assert csl["URL"] == "https://www.embase.com/search?id=1"
+        assert csl["custom"]["ris"]["UR"] == "https://dx.doi.org/10.1002/ar.25520"
+
+    def test_a_third_ur_value_makes_the_surplus_a_list(self):
+        csl = RISFormat().to_csl_json(entry(ur=["https://a.example", "https://b.example", "https://c.example"]))
+        assert csl["URL"] == "https://a.example"
+        assert csl["custom"]["ris"]["UR"] == ["https://b.example", "https://c.example"]
+
+    def test_an_invalid_first_ur_with_a_surplus_preserves_both(self):
+        csl = RISFormat().to_csl_json(entry(ur=["not a url at all", "https://b.example"]))
+        assert "URL" not in csl
+        assert csl["custom"]["ris"]["UR"] == ["not a url at all", "https://b.example"]
+
+    def test_a_single_ur_tag_is_unaffected(self):
+        """No regression on the ordinary one-``UR`` case (T014)."""
+        csl = RISFormat().to_csl_json(entry(ur="https://www.embase.com/search?id=1"))
+        assert csl["URL"] == "https://www.embase.com/search?id=1"
+        assert "custom" not in csl
+
+    @pytest.mark.django_db
+    def test_genuine_endnotes_second_ur_value_is_now_preserved(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+        item = Item.objects.get(citation_key="889")
+        assert item.item_identifiers.get(type="URL").value == (
+            "https://www.embase.com/search/results?subaction=viewrecord&id=L2030246463&from=export"
+        )
+        assert item.custom["ris"]["UR"] == "http://dx.doi.org/10.1002/ar.25520"
+
+
+class TestLongPreservedValueDoesNotFailTheEntry:
+    """A preserved value longer than 500 characters -- the ``ItemIdentifier.value`` cap a flat
+    write would hit -- still leaves the entry created, because a correctly nested preservation
+    under ``custom["ris"]`` never reaches that cap at all (T032, S3R, plan.md 'Preservation goes
+    under a single custom["ris"] key')."""
+
+    @pytest.mark.django_db
+    def test_the_entry_is_created_despite_a_preserved_value_over_500_characters(self):
+        with fixture("constructed/long_unmapped_tag_value.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.ok
+        assert len(result.created) == 1
+
+    @pytest.mark.django_db
+    def test_no_itemidentifier_row_is_created_for_the_long_value(self):
+        with fixture("constructed/long_unmapped_tag_value.ris") as handle:
+            result = RISFormat().import_file(handle)
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="Z9").exists()
+
+    @pytest.mark.django_db
+    def test_the_full_value_is_retrievable_uncapped(self):
+        with fixture("constructed/long_unmapped_tag_value.ris") as handle:
+            result = RISFormat().import_file(handle)
+        item = result.created[0].item
+        assert len(item.custom["ris"]["Z9"]) > 500
+
+
 class TestCitationKeys:
     """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
     back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""
@@ -1646,3 +1798,42 @@ class TestBulkAcceptance:
         with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
             result = RISFormat().import_file(handle)
         assert Item.objects.count() == len(result.created) == 500
+
+
+class TestUnmappedTagCoverage:
+    """Corpus-wide sweep (T033, US-4 acceptance, SC-006): for every tag appearing anywhere in a
+    genuine file, that tag is either mapped to a CSL variable or retrievable afterwards from the
+    stored item. No tag is absent from both.
+
+    The tag list itself is derived from each file at run time — ``RISParser`` parsed fresh, right
+    here, over the actual fixture bytes — rather than hand-maintained, so a new fixture or a tag
+    added to an existing one is swept automatically rather than passing vacuously because nobody
+    updated a list (the exact defect shape this criterion exists to catch). "Mapped" is read from
+    ``_CONSUMED_TAGS``, the production module's own record of what it resolves, not a second list
+    duplicated here — the two sources this test compares are the file's own bytes and the mapping
+    code's own record of itself, never a copy of either.
+
+    Excludes nothing: every genuine file's every entry imports as created (``TestGenuineCorpus``,
+    ``TestEquivalenceAcrossProducers``), so every tag in every file has a stored item to check
+    retrievability against, with no entry to carve out as an exception.
+    """
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize("relative_path", GENUINE_FILES)
+    def test_every_tag_is_mapped_or_retrievable(self, relative_path):
+        with fixture(relative_path) as handle:
+            raw_entries = [e for e in RISParser().parse(handle) if isinstance(e, RISEntry)]
+
+        with fixture(relative_path) as handle:
+            result = RISFormat().import_file(handle)
+        assert result.ok, relative_path
+        assert len(result.created) == len(raw_entries), relative_path
+
+        items_by_index = {created.index: created.item for created in result.created}
+
+        for raw in raw_entries:
+            item = items_by_index[raw.index]
+            preserved_keys = set((item.custom or {}).get("ris", {}).keys())
+            tags = {tag for tag, _value in raw.tags}
+            unaccounted = tags - _CONSUMED_TAGS - preserved_keys
+            assert not unaccounted, (relative_path, raw.index, sorted(unaccounted))
