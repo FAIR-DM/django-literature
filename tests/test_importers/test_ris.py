@@ -27,6 +27,11 @@ from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
 
+#: Every genuine producer export in the corpus, discovered from the directory rather than listed,
+#: so a fixture added later is swept by the corpus-wide tests instead of quietly sitting outside
+#: them. Sorted for a stable parametrize id order.
+GENUINE_FILES = sorted(f"genuine/{path.name}" for path in (DATA / "genuine").glob("*.ris"))
+
 
 def fixture(relative_path):
     """Open a corpus file for reading, in binary mode.
@@ -83,6 +88,13 @@ class TestGenuineCorpus:
         for name in GENUINE_FINGERPRINTS:
             content = (DATA / "genuine" / name).read_bytes()
             assert content, f"{name} is empty"
+
+    def test_the_fingerprint_map_names_every_file_on_disk(self):
+        """``GENUINE_FINGERPRINTS`` has to be hand-written — a fingerprint is a claim about one
+        specific export's provenance. This asserts the hand-written half has not fallen behind the
+        directory, so a fixture added later cannot sit outside every provenance check in silence.
+        """
+        assert set(GENUINE_FINGERPRINTS) == {path.name for path in (DATA / "genuine").glob("*.ris")}
 
     def test_every_producer_file_carries_its_fingerprint(self):
         for name, fingerprints in GENUINE_FINGERPRINTS.items():
@@ -1807,10 +1819,7 @@ class TestUnmappedTagCoverage:
     """
 
     @pytest.mark.django_db
-    @pytest.mark.parametrize(
-        "relative_path",
-        ["genuine/endnote.ris", "genuine/mendeley.ris", "genuine/scopus.ris", "genuine/webofscience.ris"],
-    )
+    @pytest.mark.parametrize("relative_path", GENUINE_FILES)
     def test_every_tag_is_mapped_or_retrievable(self, relative_path):
         with fixture(relative_path) as handle:
             raw_entries = [e for e in RISParser().parse(handle) if isinstance(e, RISEntry)]

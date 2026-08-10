@@ -1013,3 +1013,40 @@ file's every entry imports as created, so every tag in every file has a stored i
 retrievability against.
 
 Next: full-suite run, `pre-commit run --all-files`, then the completion report.
+
+## US-4 accepted — 2026-08-10
+
+Verified independently before merge. `forge check-receipts` green on both required skills.
+`forge verify` green on all five steps (conformance, lint, typecheck, test, build). Full suite
+re-run in the worktree: 1070 passed, against the 1050 baseline US-3 left. SC-009's five prohibited
+paths byte-for-byte unchanged (`importers/base.py`, `importers/results.py`, `converters.py`,
+`tests/test_converters.py`, `tests/test_importers/test_bibtex.py`). No model field and no migration
+(Article XIII): the diff touches `literature/importers/ris.py`, `test_ris.py`, `decisions.md` and
+this file, nothing else. One `tamper-check` flag on `test_ris.py`, triaged clean — the only deleted
+line is the module's own import statement, re-added one token longer to bring in `_CONSUMED_TAGS`;
+208 test definitions at base, 225 at head, and no base test name is absent from head.
+
+Both deviations checked against the corpus rather than taken on the report's word:
+
+- D39's premise holds exactly as stated. `endnote.ris` and `mendeley.ris` carry 20 `UR` lines
+  across 10 entries each, `scopus.ris` carries 10 across 10, `webofscience.ris` none. So the
+  pre-fix `ur_values[0]` read was losing a value on 20 real records and on no constructed one.
+- D38's collision is real. Both `scopus.ris` and `webofscience.ris` carry `C7` on `JOUR` entries,
+  and `SN` already claims CSL `number` on `RPRT`/`PAT`.
+
+Also confirmed `_CONSUMED_TAGS` earns its name, since T033 reads "mapped" from it and a tag listed
+there but never actually read would be declared mapped while being dropped — the FS-004 defect
+shape wearing the proof's own clothes. Each of the sixteen literal tags resolves somewhere in
+`ris.py` (`Y1` at line 526, `Y2` at 547, `A4` at 423, and so on); none is a bare declaration.
+`A1` and `N1` are in `REPEATABLE_TAGS` but deliberately not in `_CONSUMED_TAGS`, so they fall to
+the sweep, which is correct.
+
+Two hardenings applied at acceptance, both closing the same vacuity one level above where T033
+closed it. T033 derives each file's tags at run time, as the brief required, but its list *of
+files* was four hand-written paths, and `GENUINE_FINGERPRINTS` is likewise hand-written. Either
+would let a fixture added later sit outside the corpus-wide checks while every test stayed green —
+the failure T033 exists to prevent, displaced from tags to files. `GENUINE_FILES` now globs the
+genuine directory and parametrizes T033's sweep from it, and one added test asserts the fingerprint
+map's keys equal the directory's contents, so the hand-written half cannot fall behind unnoticed.
+The fingerprint map stays hand-written on purpose: a fingerprint is a provenance claim about one
+specific export and cannot be derived. Suite 1071.
