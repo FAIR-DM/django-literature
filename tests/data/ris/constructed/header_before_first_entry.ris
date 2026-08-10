@@ -1,0 +1,9 @@
+Provider: Some Aggregator
+Database: Some Bibliographic Database
+Content: text/plain; charset="UTF-8"
+
+TY  - JOUR
+AU  - Smith, J.
+TI  - The first real entry, after a banner the exporter wrote
+PY  - 2020
+ER  -

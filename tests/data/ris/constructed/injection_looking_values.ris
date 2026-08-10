@@ -1,0 +1,7 @@
+TY  - JOUR
+AU  - Smith, J.
+TI  - '; DROP TABLE literature_item; --
+AB  - <script>alert(document.cookie)</script> and {0.__class__.__init__.__globals__}
+N1  - $(rm -rf /) and `id` and ../../../../etc/passwd and file:///etc/passwd
+PY  - 2020
+ER  -

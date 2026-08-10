@@ -146,6 +146,9 @@ PUBLIC_SURFACE = {
     "EntryResult": "literature.importers.results",
     "ImportResult": "literature.importers.results",
     "BibTeXFormat": "literature.importers.bibtex",
+    "RISFormat": "literature.importers.ris",
+    "RISEntry": "literature.importers.ris",
+    "RISParser": "literature.importers.ris",
 }
 
 
