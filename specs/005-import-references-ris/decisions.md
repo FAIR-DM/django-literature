@@ -750,3 +750,165 @@ attempts and evidence and nothing else — no top-level `state`, `state_history`
 `pyproject.toml` sets `line-length = 120`, against the workspace standard of leaving it unset at
 Ruff's default 88. That is a conformance question for the repo, not for this feature, and belongs
 in an `align-standards` run rather than in an import-format PR.
+
+## D34 — A single preserved value stays a bare string; only two or more become a list
+
+**Ambiguity**: T025 (`SN`'s producer encodings) and T027 (multiple `DO` tags) both need to
+preserve more than one surplus value under one `custom["ris"]` key. The existing preservation
+shape, established by US-1/US-2 for `DO` and `UR`, is a bare string per tag — exactly one
+unrescuable value, never more than one.
+
+**Chosen**: `_add_preserved` stores a bare string when exactly one value needs preserving under a
+tag, and a list only when two or more genuinely do. `preserved["SN"]` is `"1932-8486"` for one
+surplus value and `["1932-6203", "978-1-4028-9462-6"]` for two.
+
+**Why defensible**: `TestUnrescuableIdentifierPreservation::test_a_doi_that_will_not_normalize_is_
+preserved_under_custom_ris` asserts `csl["custom"]["ris"]["DO"] == "not a doi at all"` — a bare
+string — and that test is US-2's, not mine to touch (the Implementer protocol's own prohibition).
+Making every preserved value a list unconditionally would break it for no gain: nothing downstream
+reads `custom["ris"]` programmatically yet (US-4's corpus-wide sweep, T030/T033, is the first
+consumer), so there is no existing reader whose contract this collapsing rule could violate, and
+the shape a human reads back is a single value where the source carried one and a list only where
+it carried several — which is what the source actually said, rather than a uniform wrapper
+imposed for its own consistency.
+
+**Revisit if**: US-4's preservation sweep (T030) needs a uniform shape to iterate over `custom["ris"]`
+generically across every tag rather than per-tag; if so, the collapsing rule may need to become
+"always a list" everywhere at once, as a single change to `_add_preserved` and to the one existing
+test it would then touch.
+
+## D35 — T028 is blocked: the vendored genuine corpus is not "the same ten references"
+
+**Ambiguity**: none in the requirement itself — T028's acceptance is unambiguous ("the same ten
+references from `genuine/{endnote,scopus,webofscience}.ris` ... produce equivalent catalogue
+items"). The collision is between that requirement and the corpus this story inherits from T001
+(`5e22af7`, "vendor genuine RIS corpus"), whose own commit message and `genuine/SOURCE.md` both
+assert "the same ten bibliographic references, exported through three different producers." They
+are not.
+
+Checked by DOI, the one field genuinely unique per publication — zero overlap across all three
+files:
+
+```
+endnote.ris:      10.1002/ar.25520, 10.1186/s12862-024-02210-9, 10.1186/s12862-024-02216-3, ...
+scopus.ris:        10.1038/s41467-024-46843-2, 10.1002/ar.25209, 10.1038/s41598-022-15535-6, ...
+webofscience.ris:  10.1371/journal.pone.0012292, 10.2475/ajs.s4-17.102.423, ...
+```
+
+No DOI in any one file appears in either of the other two. Cross-checked by first author and year
+(`Boisvert 2024`, `Wilson 2024`, `Sampson 2010` — three unrelated people) and by title (three
+unrelated papers per position) — same result. `webofscience.ris`'s ten records are additionally
+much older on average (1904–2022) than `endnote.ris`'s and `scopus.ris`'s (2022–2024 only), which
+is not what "the same references, different export" would produce either. The three files are
+genuine RIS exports — `TestGenuineCorpus`'s fingerprint and byte-order-mark assertions, and every
+other US-1/US-2 test reading real per-file content, all still hold — but they are three different
+producers' exports of three different, unrelated reference sets, not one set exported three ways.
+
+**Chosen**: T028 is reported `blocked`, not implemented. I did not attempt to fabricate a passing
+equivalence test — comparing `endnote.ris` record 1 against `scopus.ris` record 1 and calling a
+divergent item type, author list and date the "genuine divergences" T028's acceptance text
+anticipates would misrepresent what is actually a data problem as a finding about the format. I
+also did not re-vendor the corpus myself: I have no network access in this role (the prohibition
+against vendoring corpus files exists for a different reason — GPL licensing, D28 — but the same
+practical limit applies here regardless), and replacing "genuine" files that US-1/US-2's own tests
+already pin specific values against (exact citation keys, DOIs, ISSNs, entry counts in
+`TestEndToEnd`, `TestGenuineCorpus`'s fingerprints) is a decision with consequences for two
+already-merged stories, not a call an Implementer should make unilaterally mid-story.
+
+**Why defensible**: the Implementer protocol's own rule — "if a pre-existing test or a corpus
+looks obviously wrong, that is Forge's to reconcile, not the Implementer's to silently work
+around" — applies here even though what is wrong is a fixture rather than a test. A blocked report
+naming a real, checkable discrepancy is the protocol's preferred outcome over a green report that
+proves nothing, per Sam's own 2026-08-04 instruction that a stopped run beats one that continues on
+a broken premise.
+
+**Revisit once resolved.** Three ways out, in rough order of cost: (1) re-vendor all three files
+from `asreview/citation-file-formatting`'s actual matched baseline set (the repo publishes 25
+producer exports of what should be one shared reference list; whichever earlier vendoring pass
+grabbed these three evidently drew from different demo sets, and the fix is presumably to fetch the
+correct, matched trio); (2) if no matched trio exists for exactly these three producers in that
+corpus, find a different CC0 source that does, per FR-030's genuine-file rule; (3) failing both,
+document in `spec.md`'s *Verification corpus* section that no genuine matched-set trio could be
+obtained and substitute a constructed one for the equivalence run specifically, the same pattern
+D28 already established for the chapter-with-editors case — though this would need Sam's sign-off,
+since it changes what SC-005 is actually judged against, not just one task's fixture. Whichever
+path is chosen, `genuine/SOURCE.md`'s claim needs correcting either way, and US-1/US-2's tests
+pinned to the current files' specific values (`TestEndToEnd`, `TestGenuineCorpus`,
+`TestReportedHandleIsTheStoredKey`, and others reading `genuine/endnote.ris` by name) will need
+re-verifying against whatever replaces them, since none of those was written to assert cross-file
+equivalence and none is *wrong* today — they are just resting on a foundation only this task's
+acceptance criterion actually exercises.
+
+## D36 — T028's corpus: genuine equivalence where it exists, constructed where it does not
+
+**Ambiguity**: D35 reported T028 blocked and was right to. The three files T028 names do not hold
+the same references. Verified independently before ruling: zero DOI overlap across
+`genuine/{endnote,scopus,webofscience}.ris`, reproduced by fetching all eighteen RIS baselines
+`asreview/citation-file-formatting` publishes and comparing every pair by DOI and by normalised
+title.
+
+That check also settled which of D35's three exits is available, and none of them was quite right.
+
+**What upstream actually publishes.** One matched set of ten references, exported through **EndNote,
+Embase, EPPI-Reviewer, Mendeley, RefWorks and Zotero** — all ten DOIs identical across those six
+files. **Scopus and Web of Science publish different reference sets**, sharing nothing with the
+matched set or with each other. A separate 100-record medical `_baseline.ris` shares nothing with
+any of them. Repo licence confirmed CC0-1.0 at the same time.
+
+So D35's exit (1), re-vendor a matched trio, is impossible for these three producers rather than
+merely unattempted — and the vendoring at T001 was faithful. What was wrong is research.md R10, and
+`5e22af7`'s commit message repeated R10's claim rather than making its own.
+
+**Chosen**: SC-005 stands unchanged in what it asserts. Its evidence is rebuilt in two halves.
+
+- **Genuine cross-producer equivalence** over `genuine/endnote.ris` and a newly vendored
+  `genuine/mendeley.ris` — two real producers, the same ten references confirmed by DOI, both CC0
+  from the same corpus. This is evidence the specification claimed at S3 and never actually had.
+  It carries real divergences for T028 to assert explicitly: EndNote packs two ISSNs into one `SN`
+  where Mendeley emits none, and initial punctuation differs (`Brownstein, C. D.` against
+  `Brownstein, C D`).
+- **Scopus and Web of Science**, the two supported producers with no matched genuine export, covered
+  by `constructed/equivalence_scopus.ris` and `constructed/equivalence_webofscience.ris`. Both were
+  derived mechanically from `genuine/endnote.ris`'s ten records, carrying only the fields SC-005
+  judges, re-encoded in each producer's conventions **taken from that producer's own genuine file**
+  rather than from documentation. No identifier is invented: neither fixture carries a Scopus record
+  URI or a `WOS:` accession number, because those would have to be fabricated rather than re-encoded.
+
+**Why defensible**: this is D28's substitution rule applied a second time, and the rule is the
+specification's own — where a genuine file cannot be obtained for a case, the case rests on a
+constructed fixture and *Verification corpus* names it. Two things make it stronger than a bare
+substitution. The genuine half now exists where before there was none, so the change raises the
+evidence SC-005 rests on rather than lowering it. And the constructed half is deliberately narrow:
+it proves that Scopus's and Web of Science's **encodings** do not change the result, which is the
+only thing a constructed file can honestly prove, while their **genuine** files keep carrying every
+producer-convention test in T024–T027, which is the stronger evidence and was never in question.
+
+The alternative — amending SC-005 to name only producers with matched genuine exports — was
+rejected. It would drop the two producers this feature exists for from the one criterion that tests
+producer-agnosticism, to accommodate a corpus limitation, and SC-005 is Sam-approved.
+
+**Corrected in the same change**: research.md R10 (the source of the error), spec.md *Verification
+corpus* and its Refinements entry, `genuine/SOURCE.md`, `constructed/README.md`, and T028's own
+acceptance text. Nothing already merged breaks — US-1 and US-2 pin values from `genuine/endnote.ris`
+and the negative corpus, and this change only adds files.
+
+**ADR:** declined — a corpus correction, not a design decision. What is durable here is recorded
+where a reader looks for it: `genuine/SOURCE.md`'s table of which files share references.
+
+## D37 — `test_ed_is_documented_as_non_canonical` deleted
+
+**Ambiguity**: T024 added a test asserting `"ED" in RISFormat.to_csl_json.__doc__ or "ED" in
+_contributors.__doc__`, and it is the only reason `_contributors`, a private helper, is imported
+into the test module at all.
+
+**Chosen**: deleted, with the import narrowed back.
+
+**Why defensible**: S3R deleted T040 for exactly this shape — "a source-introspection assertion that
+breaks on any refactor and passes vacuously if a fingerprint is spelled differently". This one is
+weaker still: it passes on any docstring containing the two letters `ED`, including one saying `ED`
+is unsupported. FR-013's documentation obligation is met by `_contributors`'s docstring, which
+states the resolution and cites research R4, and that docstring is unchanged. A test that cannot
+fail for the right reason is not what keeps it there.
+
+**ADR:** declined — applies an existing S3R ruling to a case that slipped past it, not a new
+decision.

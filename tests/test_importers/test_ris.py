@@ -67,11 +67,17 @@ GENUINE_FINGERPRINTS = {
     "endnote.ris": (b"\nID  - ", b"\nKW  - article\nbiostratigraphy\n"),
     "scopus.ris": (b"DB  - Scopus", b"N1  - Export Date:", b"scopus.com/inward/record.uri"),
     "webofscience.ris": (b"AN  - WOS:", b"WE  - Science Citation Index Expanded"),
+    "mendeley.ris": (b"AU  - Boisvert, C\n", b"\nUR  - https://www.embase.com/"),
 }
+
+#: The files that hold the same ten references, confirmed by DOI (genuine/SOURCE.md, D36). Not all
+#: of ``GENUINE_FINGERPRINTS``: Scopus and Web of Science publish different reference sets upstream,
+#: which is why SC-005's equivalence run reaches for ``constructed/equivalence_*.ris`` for those two.
+GENUINE_MATCHED_SET = ("endnote.ris", "mendeley.ris")
 
 
 class TestGenuineCorpus:
-    """The three producer exports research.md R10 vendors (FR-030, T001)."""
+    """The producer exports research.md R10 vendors (FR-030, T001, T028)."""
 
     def test_every_producer_file_is_present_and_non_empty(self):
         for name in GENUINE_FINGERPRINTS:
@@ -94,10 +100,27 @@ class TestGenuineCorpus:
         assert not content.startswith(b"\xef\xbb\xbf")
 
     def test_every_producer_file_holds_ten_entries(self):
-        """The same ten references across all three (research.md R10)."""
+        """Ten entries each. Ten *of the same* references only within ``GENUINE_MATCHED_SET`` —
+        research.md R10 said all of them and was wrong (D36, corrected at T028).
+        """
         for name in GENUINE_FINGERPRINTS:
             content = (DATA / "genuine" / name).read_bytes()
             assert content.count(b"TY  - JOUR") == 10, name
+
+    def test_the_matched_set_holds_the_same_dois_and_the_others_do_not(self):
+        """The premise SC-005 rests on, asserted rather than assumed — the failure D35 caught was
+        this claim going unchecked from S3 research through to T028 (D36).
+        """
+
+        def dois(name: str) -> set[str]:
+            text = (DATA / "genuine" / name).read_text(encoding="utf-8-sig")
+            return {line[6:].strip().lower() for line in text.splitlines() if line.startswith("DO  - ")}
+
+        matched = [dois(name) for name in GENUINE_MATCHED_SET]
+        assert len(matched[0]) == 10
+        assert all(other == matched[0] for other in matched[1:])
+        for name in ("scopus.ris", "webofscience.ris"):
+            assert not dois(name) & matched[0], f"{name} unexpectedly shares the matched set"
 
 
 #: The full constructed corpus, named rather than discovered, so a file added or removed without
@@ -120,6 +143,8 @@ CONSTRUCTED_FIXTURES = {
     "long_unmapped_tag_value.ris",
     "bulk_several_hundred_entries.ris",
     "chapter_with_editors.ris",
+    "equivalence_scopus.ris",
+    "equivalence_webofscience.ris",
 }
 
 
@@ -888,6 +913,46 @@ class TestContributors:
         assert not ({"author", "editor", "collection-editor"} & csl.keys())
 
 
+class TestProducerContributorConventions:
+    """``ED`` (Web of Science's non-canonical editor tag), ``A2`` resolving to ``editor`` on
+    ``JOUR`` (Scopus's mistyped chapters), and ``A4`` as ``translator`` (T024, FR-013, research
+    R4 and R9, acceptance scenario 2)."""
+
+    def test_ed_is_editor_on_a_chapter(self):
+        """Web of Science uses ``ED`` exclusively for a chapter's editors, never ``A2`` (research
+        R4: a genuine WoS ``CHAP`` record carries three ``ED`` tags and zero ``A2``)."""
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", ed=["Vandenberghe, J.", "Speijer, R."]))
+        assert csl["editor"] == [
+            {"family": "Vandenberghe", "given": "J."},
+            {"family": "Speijer", "given": "R."},
+        ]
+
+    def test_ed_keeps_source_order_across_multiple_editors(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", ed=["Second, B.", "First, A."]))
+        assert [editor["family"] for editor in csl["editor"]] == ["Second", "First"]
+
+    def test_a2_is_editor_on_jour_for_scopus_mistyped_chapters(self):
+        """Scopus mistypes a book chapter as ``JOUR``, with the book's editors in ``A2`` and
+        ``M3 - Book Chapter`` (research R9)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", a2="Editor, Enid", m3="Book Chapter"))
+        assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
+        assert "collection-editor" not in csl
+
+    def test_a4_is_translator_on_book(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", a4="Translator, Tam"))
+        assert csl["translator"] == [{"family": "Translator", "given": "Tam"}]
+
+    def test_a4_is_translator_on_chap(self):
+        csl = RISFormat().to_csl_json(entry(ty="CHAP", a4="Translator, Tam"))
+        assert csl["translator"] == [{"family": "Translator", "given": "Tam"}]
+
+    def test_a4_is_unmapped_on_a_type_outside_the_documented_set(self):
+        """``A4`` has no documented role on ``JOUR`` (research R4's table), so it is left alone
+        rather than guessed at here."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", a4="Translator, Tam"))
+        assert "translator" not in csl
+
+
 class TestDates:
     """``PY`` anchors, ``DA`` refines precision, ``Y1`` falls back, ``Y2`` is the access date
     (T013, FR-015, FR-016)."""
@@ -925,6 +990,44 @@ class TestDates:
     def test_no_date_tags_means_no_issued_or_accessed(self):
         csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"issued", "accessed"} & csl.keys())
+
+
+class TestYearLessDASplicing:
+    """Web of Science's ``DA`` carries no year of its own — a month alone (``DEC``), a month and
+    day (``SEP 22``), or an unusable range (``JUL-DEC``) — and is spliced onto ``PY``'s year where
+    the month is unambiguous, discarded otherwise (T026, FR-015, research R5, acceptance scenario
+    4). Distinct from D25's disagreeing-year case: this ``DA`` states no year to disagree with."""
+
+    def test_a_month_only_da_splices_to_month_precision(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 98."""
+        csl = RISFormat().to_csl_json(entry(py="2016", da="DEC"))
+        assert csl["issued"] == {"date-parts": [[2016, 12]]}
+
+    def test_a_month_and_day_da_splices_to_day_precision(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 43."""
+        csl = RISFormat().to_csl_json(entry(py="2010", da="SEP 22"))
+        assert csl["issued"] == {"date-parts": [[2010, 9, 22]]}
+
+    def test_a_single_digit_day_is_not_padded(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 439."""
+        csl = RISFormat().to_csl_json(entry(py="2019", da="FEB 1"))
+        assert csl["issued"] == {"date-parts": [[2019, 2, 1]]}
+
+    def test_a_month_range_is_ambiguous_and_is_discarded(self):
+        """The genuine value at ``genuine/webofscience.ris`` line 244: a range names two months
+        and cannot refine to one, so ``PY``'s own year precision is kept rather than guessing."""
+        csl = RISFormat().to_csl_json(entry(py="1911", da="JUL-DEC"))
+        assert csl["issued"] == {"date-parts": [[1911]]}
+
+    def test_an_unrecognised_month_fragment_is_discarded(self):
+        csl = RISFormat().to_csl_json(entry(py="2020", da="NOTAMONTH"))
+        assert csl["issued"] == {"date-parts": [[2020]]}
+
+    def test_still_distinguishes_a_disagreeing_full_da_per_d25(self):
+        """A numeric ``DA`` whose year disagrees with ``PY`` is D25's case, not this one — both
+        rules coexist without either overriding the other."""
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2023/06"))
+        assert csl["issued"] == {"date-parts": [[2024]]}
 
 
 class TestUnparseableDates:
@@ -1002,6 +1105,70 @@ class TestIdentifiers:
         assert not ({"DOI", "URL", "ISSN", "ISBN", "number"} & csl.keys())
 
 
+class TestSNProducerEncodings:
+    """The three producer encodings of ``SN`` — Web of Science repeating the tag, Scopus
+    annotating inline and packing several values behind ``; ``, EndNote continuing on an
+    unindented line — all resolve the first value to an identifier and preserve the rest under
+    ``custom["ris"]`` (T025, FR-017, FR-018, FR-024, research R6, acceptance scenario 3)."""
+
+    def test_a_repeated_sn_tag_stores_the_first_issn_and_preserves_the_second(self):
+        """Web of Science: two ``SN`` tags, both ISSN-shaped (a genuine chapter record's series
+        and print/electronic ISSNs, research R6)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn=["1060-1503", "1470-1553"]))
+        assert csl["ISSN"] == "1060-1503"
+        assert csl["custom"]["ris"]["SN"] == "1470-1553"
+
+    def test_a_repeated_sn_tag_stores_one_issn_and_one_isbn(self):
+        """Web of Science's own case: two series ISSNs and two ISBNs on one chapter, in no marked
+        order — the first of each kind is stored, the rest preserved."""
+        csl = RISFormat().to_csl_json(
+            entry(ty="CHAP", sn=["1932-6203", "978-0-306-40615-7", "1932-6203", "978-1-4028-9462-6"])
+        )
+        assert csl["ISSN"] == "1932-6203"
+        assert csl["ISBN"] == "978-0-306-40615-7"
+        assert csl["custom"]["ris"]["SN"] == ["1932-6203", "978-1-4028-9462-6"]
+
+    def test_scopus_inline_issn_annotation_is_stripped_and_hyphenated(self):
+        """Scopus strips the hyphen and annotates inline: ``SN - 20411723 (ISSN)`` (research R6,
+        the genuine value in ``genuine/scopus.ris``)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="20411723 (ISSN)"))
+        assert csl["ISSN"] == "2041-1723"
+        assert "custom" not in csl
+
+    def test_scopus_inline_isbn_annotation_is_stripped(self):
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", sn="9780306406157 (ISBN)"))
+        assert csl["ISBN"] == "9780306406157"
+
+    def test_the_annotation_never_ends_up_inside_the_stored_value(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="20411723 (ISSN)"))
+        assert "ISSN" not in csl["ISSN"]
+        assert "(" not in csl["ISSN"]
+
+    def test_scopus_packs_several_values_behind_a_semicolon(self):
+        """Research R6: Scopus packs multiple values into one tag separated by ``; ``."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="2041-1723 (ISSN); 9780306406157 (ISBN)"))
+        assert csl["ISSN"] == "2041-1723"
+        assert csl["ISBN"] == "9780306406157"
+        assert "custom" not in csl
+
+    def test_endnote_continuation_line_becomes_a_second_sn_value(self):
+        """EndNote's own convention (research R7): an unindented continuation line under a
+        repeatable tag is another value, parsed by ``RISParser`` into a second ``raw.values("SN")``
+        entry before this mapping ever sees it (the genuine shape in ``genuine/endnote.ris``)."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn=["1932-8494", "1932-8486"]))
+        assert csl["ISSN"] == "1932-8494"
+        assert csl["custom"]["ris"]["SN"] == "1932-8486"
+
+    def test_a_value_that_resolves_to_neither_shape_is_preserved_not_stored(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="not an identifier at all"))
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+        assert csl["custom"]["ris"]["SN"] == "not an identifier at all"
+
+    def test_sn_preservation_nests_under_the_single_ris_key(self):
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn=["1060-1503", "1470-1553"]))
+        assert set(csl["custom"].keys()) == {"ris"}
+
+
 class TestDOIRecovery:
     """A ``DO`` written as a resolver URL or carrying a ``doi:`` label recovers to the bare DOI,
     through the same shared normalizer ``bibtex.py`` uses (T018, FR-025, acceptance scenario 1)."""
@@ -1069,6 +1236,48 @@ class TestUnrescuableIdentifierPreservation:
         result = RISFormat().import_file(_ris_bytes(raw))
         item = result.created[0].item
         assert not item.item_identifiers.filter(type="DO").exists()
+
+
+class TestMultipleDOTags:
+    """An entry carrying more than one ``DO`` tag stores the first as the DOI identifier and
+    preserves the remainder, deterministically by source position rather than whichever tag the
+    parser happened to see last (T027, FR-018). A genuine Web of Science chapter record carries
+    two -- the chapter's and the book's (research R6) -- though the ten-reference genuine corpus,
+    all plain ``JOUR`` articles, carries only one ``DO`` per entry, so this is exercised through
+    ``entry()``."""
+
+    def test_the_first_do_is_stored_as_the_doi(self):
+        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"]))
+        assert csl["DOI"] == "10.1002/ar.25520"
+
+    def test_the_second_do_is_preserved(self):
+        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"]))
+        assert csl["custom"]["ris"]["DO"] == "10.1038/s41467-024-46843-2"
+
+    def test_order_is_by_source_position_not_by_which_is_seen_last(self):
+        """Swapping which DOI comes first in the source swaps which one is stored."""
+        csl = RISFormat().to_csl_json(entry(do=["10.1038/s41467-024-46843-2", "10.1002/ar.25520"]))
+        assert csl["DOI"] == "10.1038/s41467-024-46843-2"
+        assert csl["custom"]["ris"]["DO"] == "10.1002/ar.25520"
+
+    def test_three_do_tags_preserve_the_two_surplus_as_a_list(self):
+        csl = RISFormat().to_csl_json(
+            entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2", "10.1186/s12862-024-02210-9"])
+        )
+        assert csl["DOI"] == "10.1002/ar.25520"
+        assert csl["custom"]["ris"]["DO"] == ["10.1038/s41467-024-46843-2", "10.1186/s12862-024-02210-9"]
+
+    def test_surplus_values_are_normalized_the_same_way_as_the_first(self):
+        """A surplus DOI written as a resolver URL still recovers through the shared normalizer
+        before preservation (T018's own normalizer, applied uniformly)."""
+        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "https://doi.org/10.1038/s41467-024-46843-2"]))
+        assert csl["custom"]["ris"]["DO"] == "10.1038/s41467-024-46843-2"
+
+    def test_a_single_do_tag_is_unaffected(self):
+        """No regression on the ordinary one-DO case (T014)."""
+        csl = RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))
+        assert csl["DOI"] == "10.1002/ar.25520"
+        assert "custom" not in csl
 
 
 class TestCitationKeys:
@@ -1150,6 +1359,189 @@ class TestReportedHandleIsTheStoredKey:
         ``converters.py`` (whose own suites, unmodified, are this feature's other evidence)."""
         assert "entry_created" in RISFormat.__dict__
         assert RISFormat.entry_created is not BibFormat.entry_created
+
+
+class TestUnnamedProducer:
+    """A file from a producer this feature does not name still imports: the tags the primary RIS
+    specification defines are read, and the entry lands as an item, with no argument or check
+    naming which tool wrote the file (T029, FR-031, acceptance scenario 5).
+
+    Narrowed at design review: only this half is asserted here. The 'and everything else is
+    preserved' half is T033's, corpus-wide, inside US-4 (plan.md 'Phase 3' note on T029).
+
+    Uses ``Y1`` rather than ``PY`` for the issued date -- research.md R5 records this as the
+    signature of Ovid, CINAHL, RefWorks, Rayyan and Google Scholar, none of which this feature
+    names, and none of which the three supported producers themselves emit -- so a file shaped
+    this way genuinely exercises the no-producer-detection path rather than happening to match one
+    of the three the format is tested against everywhere else.
+    """
+
+    _UNNAMED_PRODUCER_FILE = (
+        "TY  - JOUR\n"
+        "AU  - Ovid, R.\n"
+        "TI  - A generic bibliographic record\n"
+        "Y1  - 2018/05\n"
+        "SN  - 1234-5678\n"
+        "DO  - 10.1000/xyz123\n"
+        "ER  -\n"
+    )
+
+    @pytest.mark.django_db
+    def test_the_entry_is_created(self):
+        result = RISFormat().import_file(_ris_bytes(self._UNNAMED_PRODUCER_FILE))
+        assert result.ok
+        assert len(result.created) == 1
+
+    @pytest.mark.django_db
+    def test_the_spec_defined_tags_are_read(self):
+        RISFormat().import_file(_ris_bytes(self._UNNAMED_PRODUCER_FILE))
+        item = Item.objects.get()
+        assert item.type == "article-journal"
+        assert item.title == "A generic bibliographic record"
+        assert item.item_identifiers.get(type="DOI").value == "10.1000/xyz123"
+        assert item.item_identifiers.get(type="ISSN").value == "1234-5678"
+
+    @pytest.mark.django_db
+    def test_y1_supplies_the_issued_date_with_no_py_present(self):
+        """Confirms the generic ``Y1`` fallback path (T013, research R5) is what carries this
+        file, not a producer-specific tag none of the three named producers emits."""
+        RISFormat().import_file(_ris_bytes(self._UNNAMED_PRODUCER_FILE))
+        item = Item.objects.get()
+        issued = item.item_dates.get(date_type="issued")
+        assert (issued.begin.date.year, issued.begin.date.month) == (2018, 5)
+
+
+class TestEquivalenceAcrossProducers:
+    """The matched ten references import equivalently through one registered format name, with
+    no producer argument, from every file that holds them: two genuine exports plus the two
+    constructed re-encodings that stand in for the two supported producers with no matched
+    genuine export (T028, D36, US-3 acceptance, SC-005, FR-029).
+
+    Equivalence is judged only on what the acceptance criterion names -- entry type, contributors
+    and their order, dates and their precision, and identifiers -- never on title or the minted
+    citation key, which the corpus does not claim to hold equivalent (``genuine/mendeley.ris``'s
+    own fingerprint differs there by construction of the two files being separate exports).
+
+    The genuine divergences between ``endnote.ris`` and ``mendeley.ris`` (D36) are asserted
+    explicitly, each its own test, rather than folded into a lenient comparison: EndNote's ``SN``
+    resolves an ISSN identifier that Mendeley's absent ``SN`` never supplies, and EndNote
+    punctuates initials with periods where Mendeley emits them bare. The two constructed files are
+    derived mechanically from ``endnote.ris`` and differ only in encoding, so equivalence against
+    it is exact for them (D36) -- no divergence test is written for that pair because there is
+    none to name.
+    """
+
+    _FILES = {
+        "endnote": "genuine/endnote.ris",
+        "mendeley": "genuine/mendeley.ris",
+        "scopus": "constructed/equivalence_scopus.ris",
+        "webofscience": "constructed/equivalence_webofscience.ris",
+    }
+
+    def _import_all(self):
+        """Import every corpus file through ``get_format("ris")``, the one registered name, with
+        no argument naming a producer anywhere -- the assertion folded in from the deleted T040.
+        Returns ``{producer: {doi: Item}}`` so later assertions can compare like-for-like by DOI
+        rather than by position or citation key, which the corpus does not claim to hold equal.
+        """
+        by_producer = {}
+        for producer, relative_path in self._FILES.items():
+            with fixture(relative_path) as handle:
+                result = get_format("ris")().import_file(handle)
+            assert result.ok, producer
+            assert len(result.created) == 10, producer
+            by_producer[producer] = {
+                created.item.item_identifiers.get(type="DOI").value: created.item for created in result.created
+            }
+        return by_producer
+
+    @pytest.mark.django_db
+    def test_all_four_files_produce_the_same_ten_dois_with_no_producer_argument(self):
+        by_producer = self._import_all()
+        doi_sets = [set(items) for items in by_producer.values()]
+        assert len(doi_sets[0]) == 10
+        assert all(dois == doi_sets[0] for dois in doi_sets[1:]), by_producer.keys()
+
+    @pytest.mark.django_db
+    def test_entry_type_is_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            types = {producer: items[doi].type for producer, items in by_producer.items()}
+            assert len(set(types.values())) == 1, (doi, types)
+
+    @pytest.mark.django_db
+    def test_contributor_family_names_and_order_are_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            families = {
+                producer: [
+                    item_name.name.family for item_name in items[doi].item_names.filter(role="author").order_by("order")
+                ]
+                for producer, items in by_producer.items()
+            }
+            assert len({tuple(f) for f in families.values()}) == 1, (doi, families)
+
+    @pytest.mark.django_db
+    def test_issued_dates_and_their_precision_are_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            dates = {}
+            for producer, items in by_producer.items():
+                issued = items[doi].item_dates.get(date_type="issued")
+                dates[producer] = (issued.begin.date.year, issued.begin.precision)
+            assert len(set(dates.values())) == 1, (doi, dates)
+
+    @pytest.mark.django_db
+    def test_doi_identifiers_are_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            for producer, items in by_producer.items():
+                assert items[doi].item_identifiers.get(type="DOI").value == doi, producer
+
+    @pytest.mark.django_db
+    def test_issn_identifier_diverges_endnote_scopus_and_webofscience_carry_one_mendeley_none(self):
+        """The first genuine divergence D36 names: EndNote's ``SN`` resolves an ISSN identifier
+        for every one of the ten entries, and the two constructed files -- mechanical re-encodings
+        of EndNote's own ``SN`` values -- carry the identical value. Mendeley emits no ``SN`` tag
+        anywhere in the file (``genuine/mendeley.ris``), so it resolves none. Asserted explicitly
+        rather than compared away by omitting the field."""
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            issn = {
+                producer: by_producer[producer][doi].item_identifiers.get(type="ISSN").value
+                for producer in ("endnote", "scopus", "webofscience")
+            }
+            assert len(set(issn.values())) == 1, (doi, issn)
+            assert not by_producer["mendeley"][doi].item_identifiers.filter(type="ISSN").exists(), doi
+
+    @pytest.mark.django_db
+    def test_initials_punctuation_diverges_between_endnote_and_mendeley(self):
+        """The second genuine divergence D36 names: EndNote punctuates initials with periods (and
+        a separating space), and the two constructed files, re-encoded from EndNote's own values,
+        carry the identical punctuation. Mendeley emits initials bare. Two concrete examples,
+        both cited in ``genuine/SOURCE.md``: Brownstein's two entries, where only the punctuation
+        differs, and Jalil's, where Mendeley's ``N.-E.`` is not merely EndNote's ``N. E.`` with
+        the punctuation stripped but a differently placed hyphen -- a genuinely different
+        rendering of the same initials, not a single mechanical transform."""
+        by_producer = self._import_all()
+
+        def given_names(producer, doi):
+            return [
+                item_name.name.given
+                for item_name in by_producer[producer][doi].item_names.filter(role="author").order_by("order")
+            ]
+
+        brownstein_doi = "10.1186/s12862-024-02210-9"
+        assert given_names("endnote", brownstein_doi) == ["C. D."]
+        assert given_names("mendeley", brownstein_doi) == ["C D"]
+        assert given_names("scopus", brownstein_doi) == ["C. D."]
+        assert given_names("webofscience", brownstein_doi) == ["C. D."]
+
+        jalil_doi = "10.1038/s41598-024-53447-9"
+        assert given_names("endnote", jalil_doi)[-1] == "N. E."
+        assert given_names("mendeley", jalil_doi)[-1] == "N.-E."
+        assert given_names("scopus", jalil_doi)[-1] == "N. E."
+        assert given_names("webofscience", jalil_doi)[-1] == "N. E."
 
 
 class TestEndToEnd:

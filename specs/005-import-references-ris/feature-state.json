@@ -393,38 +393,92 @@
       "id": "US3",
       "priority": "P3",
       "issue": 38,
-      "status": "todo",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
           "id": "T024",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestProducerContributorConventions tests/test_importers/test_ris.py::TestContributors -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "16 passed (new class + TestContributors); 233 passed full file; ruff clean; mypy clean"
+          }
         },
         {
           "id": "T025",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestSNProducerEncodings tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "27 passed (new class + adjacent identifier classes); 242 passed full file; ruff clean; mypy clean"
+          }
         },
         {
           "id": "T026",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestYearLessDASplicing tests/test_importers/test_ris.py::TestDates tests/test_importers/test_ris.py::TestUnparseableDates -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "20 passed (new class + adjacent date classes); 248 passed full file; ruff clean; mypy clean"
+          }
         },
         {
           "id": "T027",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestMultipleDOTags tests/test_importers/test_ris.py::TestIdentifiers tests/test_importers/test_ris.py::TestDOIRecovery tests/test_importers/test_ris.py::TestUnrescuableIdentifierPreservation -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "24 passed (new class + adjacent identifier classes); 254 passed full file; ruff clean; mypy clean"
+          }
         },
         {
           "id": "T028",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 2,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestEquivalenceAcrossProducers -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "7 passed (new class); 264 passed full file (257 prior + 7 new); ruff clean; mypy clean (no production file changed). Two assertions hand mutation-tested to confirm non-vacuous, both correctly failed before revert."
+          }
         },
         {
           "id": "T029",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py::TestUnnamedProducer -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check literature/importers/ris.py tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
+            ],
+            "results": "3 passed (no production change needed); 257 passed full file; ruff clean; mypy clean"
+          }
         }
       ]
     },

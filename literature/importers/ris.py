@@ -333,9 +333,11 @@ def _page_variable(ref_type: str) -> str:
 # ---------------------------------------------------------------------------
 
 #: Reference types with a genuine container (a chapter's book, a paper's proceedings): ``A2`` names
-#: that container's editor.
+#: that container's editor. ``JOUR`` is included for Scopus's mistyped book chapters (research.md
+#: R9): a genuine Scopus record carries the book's editors in ``A2`` under ``TY - JOUR``, with
+#: ``M3 - Book Chapter`` the more reliable type signal Scopus does not act on itself.
 _CHAPTER_LIKE_A2_EDITOR_TYPES: frozenset[str] = frozenset(
-    {"CHAP", "ECHAP", "CONF", "CPAPER", "ENCYC", "DICT", "SER", "EBOOK", "MUSIC", "ANCIENT", "BLOG"}
+    {"CHAP", "ECHAP", "CONF", "CPAPER", "ENCYC", "DICT", "SER", "EBOOK", "MUSIC", "ANCIENT", "BLOG", "JOUR"}
 )
 
 #: On ``BOOK``, ``A3`` is the editor (research.md R4 — the one type where ``A2``/``A3`` invert).
@@ -348,6 +350,12 @@ _A3_COLLECTION_EDITOR_TYPES: frozenset[str] = frozenset(
 
 #: On an edited book, the author tag names the editor instead (research.md R4).
 _AU_EDITOR_TYPES: frozenset[str] = frozenset({"EDBOOK"})
+
+#: Reference types where ``A4`` has a documented role at all: translator (research.md R4's table).
+#: Elsewhere ``A4`` is left unmapped rather than guessed at.
+_A4_TRANSLATOR_TYPES: frozenset[str] = frozenset(
+    {"BOOK", "CHAP", "ANCIENT", "CLSWK", "CTLG", "DICT", "EDBOOK", "ENCYC", "PAMP"}
+)
 
 
 def _name_to_csl(name: str) -> dict[str, Any]:
@@ -387,11 +395,19 @@ def _add_contributors(roles: dict[str, list[dict[str, Any]]], role: str, names: 
 
 
 def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]]]:
-    """Every contributor tag this entry carries, resolved to its CSL role in source order."""
+    """Every contributor tag this entry carries, resolved to its CSL role in source order.
+
+    ``ED`` is Web of Science's own editor tag, in neither official RIS specification and used in
+    place of ``A2`` rather than alongside it (research.md R4: a genuine WoS ``CHAP`` record carries
+    three ``ED`` tags and zero ``A2``), so it resolves to ``editor`` unconditionally rather than by
+    reference type.
+    """
     roles: dict[str, list[dict[str, Any]]] = {}
 
     au_role = "editor" if ref_type in _AU_EDITOR_TYPES else "author"
     _add_contributors(roles, au_role, raw.values("AU"))
+
+    _add_contributors(roles, "editor", raw.values("ED"))
 
     if ref_type in _CHAPTER_LIKE_A2_EDITOR_TYPES:
         _add_contributors(roles, "editor", raw.values("A2"))
@@ -402,6 +418,9 @@ def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]
         _add_contributors(roles, "editor", raw.values("A3"))
     elif ref_type in _A3_COLLECTION_EDITOR_TYPES:
         _add_contributors(roles, "collection-editor", raw.values("A3"))
+
+    if ref_type in _A4_TRANSLATOR_TYPES:
+        _add_contributors(roles, "translator", raw.values("A4"))
 
     return roles
 
@@ -430,6 +449,45 @@ def _ris_date_parts(value: str) -> tuple[int, ...] | None:
     return tuple(parts) if parts else None
 
 
+#: RIS's three-letter month abbreviations, for splicing Web of Science's year-less ``DA`` onto
+#: ``PY``'s year (research.md R5, T026).
+_MONTH_ABBREVIATIONS: dict[str, int] = {
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
+}
+
+
+def _splice_year_less_da(value: str, year: int) -> tuple[int, ...] | None:
+    """Web of Science's year-less ``DA`` -- a month alone (``DEC``), a month and day (``SEP 22``)
+    -- spliced onto ``PY``'s ``year`` (research.md R5, T026). A range naming two months
+    (``JUL-DEC``) is ambiguous and cannot refine to one, so it is discarded, as is anything else
+    that is not cleanly one recognised month optionally followed by a day number -- ``None`` in
+    every such case, distinct from D25's disagreeing-year case, which this value states no year
+    to disagree with in the first place.
+    """
+    parts = value.strip().split()
+    if len(parts) not in (1, 2):
+        return None
+    month = _MONTH_ABBREVIATIONS.get(parts[0].upper())
+    if month is None:
+        return None
+    if len(parts) == 1:
+        return (year, month)
+    if parts[1].isdigit():
+        return (year, month, int(parts[1]))
+    return None
+
+
 def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
     """The entry's ``issued`` date, at the precision the source states (FR-015).
 
@@ -437,8 +495,11 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
     precision (month, or month and day) is kept and no component the source did not state is
     padded in. A ``DA`` whose year disagrees is not a refinement of this date and is left alone
     (a producer that means something else by it, or a malformed tag, is not evidence for the
-    date this entry actually carries). Without ``PY``, ``Y1`` supplies the issued date instead
-    (research.md R5) — at whatever precision it states, since there is no anchor to refine.
+    date this entry actually carries — decisions.md D25). Where ``DA`` states no year at all — Web
+    of Science's own shape, ``SEP 22`` or ``DEC`` — it is spliced onto ``PY``'s year instead,
+    unless it is a month range (``JUL-DEC``), which is discarded rather than guessed at (T026,
+    research.md R5). Without ``PY``, ``Y1`` supplies the issued date instead (research.md R5) — at
+    whatever precision it states, since there is no anchor to refine.
 
     Where neither resolves to a structured date but one carries text, that text is kept in the
     ``literal`` fallback ``ItemDate`` already has, rather than discarded (T020, FR-026) — ``PY``'s
@@ -452,9 +513,14 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
             year = py_parts[0]
             da_values = raw.values("DA")
             if da_values:
-                da_parts = _ris_date_parts(da_values[0])
+                da_value = da_values[0].strip()
+                da_parts = _ris_date_parts(da_value)
                 if da_parts and da_parts[0] == year:
                     return {"date-parts": [list(da_parts)]}
+                if da_parts is None:
+                    spliced = _splice_year_less_da(da_value, year)
+                    if spliced:
+                        return {"date-parts": [list(spliced)]}
             return {"date-parts": [[year]]}
 
     y1_values = raw.values("Y1")
@@ -496,19 +562,49 @@ def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
 #: On these types, ``SN`` is a report or patent number, not an identifier at all (research.md R6).
 _REPORT_LIKE_SN_TYPES: frozenset[str] = frozenset({"RPRT", "PAT"})
 
+#: Scopus's inline hint, stripped before shape resolution -- it names which identifier the value
+#: is, but is not part of the value itself (research.md R6, T025: ``SN - 20411723 (ISSN)``).
+_SN_ANNOTATION_RE = re.compile(r"^(?P<value>.*?)\s*\((?:ISSN|ISBN)\)\s*$", re.IGNORECASE)
+
+#: Scopus strips the hyphen from an 8-character ISSN before annotating it (research.md R6:
+#: ``SN - 20411723 (ISSN)``). ``validate_issn`` requires the hyphen, so a bare candidate of this
+#: shape is reformatted before validation rather than rejected for punctuation the source omitted.
+_BARE_ISSN_RE = re.compile(r"^\d{7}[\dXx]$")
+
+
+def _sn_candidates(raw_values: list[str]) -> list[str]:
+    """Every individual value this entry's ``SN`` tag(s) carry, across Web of Science's repeated
+    tag, Scopus's ``; ``-packed single tag, and EndNote's continuation-line values (which
+    ``RISParser`` has already split into separate entries in ``raw_values`` by the time this runs,
+    per its ``REPEATABLE_TAGS`` rule) -- with Scopus's inline ``(ISSN)``/``(ISBN)`` annotation
+    stripped, since it is a hint about the value rather than part of it (research.md R6, T025).
+    """
+    candidates = []
+    for raw_value in raw_values:
+        for chunk in raw_value.split(";"):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            match = _SN_ANNOTATION_RE.match(chunk)
+            candidates.append(match.group("value").strip() if match else chunk)
+    return candidates
+
 
 def _sn_identifier(value: str) -> tuple[str, str] | None:
-    """The ``(CSL key, value)`` pair ``SN``'s shape resolves to, or ``None`` if it resolves to
+    """The ``(CSL key, value)`` pair ``value``'s shape resolves to, or ``None`` if it resolves to
     neither an ISSN nor an ISBN shape (research.md R6). Shape only — the reference-type
     tiebreaker for a value that could pass as either is not exercised by this feature's own
     corpus and is left for a later story rather than guessed at here.
     """
+    issn_candidate = value
+    if _BARE_ISSN_RE.match(value):
+        issn_candidate = f"{value[:4]}-{value[4:]}"
     try:
-        validate_issn(value)
+        validate_issn(issn_candidate)
     except ValidationError:
         pass
     else:
-        return ("ISSN", value)
+        return ("ISSN", issn_candidate)
 
     try:
         validate_isbn(value)
@@ -520,6 +616,16 @@ def _sn_identifier(value: str) -> tuple[str, str] | None:
     return None
 
 
+def _add_preserved(preserved: dict[str, str | list[str]], tag: str, values: list[str]) -> None:
+    """Record ``values`` (already resolved to be surplus or unrescuable) under ``tag`` in
+    ``preserved``: a bare string for a single value, so the common one-value case stays exactly
+    the shape :class:`TestUnrescuableIdentifierPreservation` already asserts, and a list only when
+    ``tag`` genuinely carries more than one surplus value (T025, T027)."""
+    if not values:
+        return
+    preserved[tag] = values[0] if len(values) == 1 else values
+
+
 def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     """Every identifier this entry carries, mapped to its CSL top-level key.
 
@@ -528,22 +634,31 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     Nested under that single key, never flat: `from_csl_json` turns every flat `custom` key whose
     value is a plain string into an `ItemIdentifier` row typed by that key, which is exactly what
     preservation must not become (plan.md "Preservation goes under a single `custom[\"ris\"]` key").
-    Deliberately narrower than a full unmapped-tag sweep — `SN` shapes that resolve to neither
-    ISSN nor ISBN are a later story's concern (US-3 T025) and are left alone here, as they already
-    were before this task.
+
+    ``SN``'s three producer encodings — Web of Science repeating the tag, Scopus annotating
+    inline and packing several values behind ``; ``, EndNote continuing on an untagged line — are
+    flattened by :func:`_sn_candidates` into one ordered list of individual values; the first
+    value of each kind (ISSN, ISBN) is stored, and every other value — a second value of a kind
+    already stored, or one that resolves to neither shape — is preserved (T025, research R6).
+
+    An entry carrying more than one ``DO`` tag — a genuine Web of Science chapter record's own
+    and its containing book's — stores the first, by source position, as the DOI, and preserves
+    every other one, each normalized the same way as the first (T027, FR-018).
     """
     result: dict[str, Any] = {}
-    preserved: dict[str, str] = {}
+    preserved: dict[str, str | list[str]] = {}
 
     do_values = raw.values("DO")
     if do_values and do_values[0].strip():
-        normalized_doi = IdentifierNormalizer.normalize_doi(do_values[0].strip())
+        normalized_dois = [IdentifierNormalizer.normalize_doi(v.strip()) for v in do_values if v.strip()]
+        first_doi, *surplus_dois = normalized_dois
         try:
-            validate_doi(normalized_doi)
+            validate_doi(first_doi)
         except ValidationError:
-            preserved["DO"] = normalized_doi
+            _add_preserved(preserved, "DO", normalized_dois)
         else:
-            result["DOI"] = normalized_doi
+            result["DOI"] = first_doi
+            _add_preserved(preserved, "DO", surplus_dois)
 
     ur_values = raw.values("UR")
     if ur_values and ur_values[0].strip():
@@ -551,19 +666,25 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
         try:
             validate_url(ur_value)
         except ValidationError:
-            preserved["UR"] = ur_value
+            _add_preserved(preserved, "UR", [ur_value])
         else:
             result["URL"] = ur_value
 
-    sn_values = raw.values("SN")
-    if sn_values and sn_values[0].strip():
-        sn_value = sn_values[0].strip()
+    sn_raw_values = raw.values("SN")
+    if sn_raw_values and any(v.strip() for v in sn_raw_values):
+        candidates = _sn_candidates(sn_raw_values)
+        surplus: list[str] = []
         if ref_type in _REPORT_LIKE_SN_TYPES:
-            result["number"] = sn_value
+            result["number"] = candidates[0]
+            surplus.extend(candidates[1:])
         else:
-            resolved = _sn_identifier(sn_value)
-            if resolved:
-                result[resolved[0]] = resolved[1]
+            for candidate in candidates:
+                resolved = _sn_identifier(candidate)
+                if resolved and resolved[0] not in result:
+                    result[resolved[0]] = resolved[1]
+                else:
+                    surplus.append(candidate)
+        _add_preserved(preserved, "SN", surplus)
 
     if preserved:
         result["custom"] = {"ris": preserved}
