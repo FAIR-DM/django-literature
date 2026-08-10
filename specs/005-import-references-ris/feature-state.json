@@ -3,7 +3,7 @@
   "feature": "005-import-references-ris",
   "branch": "005-import-references-ris",
   "repo": "FAIR-DM/django-literature",
-  "state": "IMPLEMENT",
+  "state": "CONVERGE",
   "state_history": [
     {
       "state": "INTAKE",
@@ -32,6 +32,10 @@
     {
       "state": "IMPLEMENT",
       "at": "2026-08-05T13:26:23Z"
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-10T17:55:00Z"
     }
   ],
   "gates": {
