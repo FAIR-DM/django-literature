@@ -1220,3 +1220,21 @@ tests/data/ris/constructed/injection_looking_values.ris tests/data/ris/construct
 clean, fixture bytes confirmed unmodified by the trailing-whitespace/end-of-file-fixer hooks.
 
 Next: full suite, then `pre-commit run --all-files`, then the completion report.
+
+## 2026-08-10T14:35:00Z · Implementer US-5 · story close
+
+Full suite: `poetry run pytest -q` — 1106 passed (1071 baseline + 3 from T035 + 32 from T038; T034
+and T036 added no tests, per their own entries above). `poetry run pre-commit run --all-files` —
+clean on all eight hooks (trim trailing whitespace, fix end of files, check yaml, poetry-check,
+ruff lint, ruff format, mypy, deptry). Working tree clean, four commits, one per task, task ID in
+each subject.
+
+Prohibited paths confirmed byte-for-byte unchanged across all four commits:
+`literature/importers/base.py`, `literature/importers/results.py`, `literature/converters.py`,
+`tests/test_converters.py`, `tests/test_importers/test_bibtex.py`, `docs/bibtex-mapping.md`,
+`docs/data-model.md`. No model field, no migration (Article XIII): the diff touches `CONTEXT.md`,
+`README.md`, `docs/index.md`, `docs/ris-mapping.md` (new), `literature/importers/ris.py`,
+`tests/test_importers/test_ris.py`, two new fixtures under `tests/data/ris/constructed/`, that
+directory's `README.md`, and this file. Nothing else.
+
+Next: T039, which is Forge's own PR-exit checklist item against the whole feature diff, not mine.
