@@ -1280,6 +1280,73 @@ class TestMultipleDOTags:
         assert "custom" not in csl
 
 
+class TestUnmappedTagPreservation:
+    """A tag with no CSL equivalent is preserved under the single ``custom["ris"]`` key, nested
+    exactly as ``bibtex.py`` nests under ``custom["bibtex"]``, never as a flat ``custom`` key
+    (T030, FR-024, FR-028, Article XIII). No new outcome, no per-tag reporting channel, and no
+    model field or migration: an entry carrying only unmapped tags beyond the ones that give it a
+    type and a citation key is reported as created exactly like any other.
+
+    ``C7`` -- Scopus's article-number tag -- is a deliberate instance of this rather than a
+    special case: mapping it to CSL's scalar ``number`` would collide with ``SN``'s report/patent
+    use of that same field (see ``_identifiers``), so it stays unmapped and reaches the catalogue
+    through this same sweep (decisions.md D38).
+    """
+
+    def test_an_unmapped_tag_is_retrievable_under_custom_ris(self):
+        csl = RISFormat().to_csl_json(entry(n1="Export Date: 2024-01-01"))
+        assert csl["custom"]["ris"]["N1"] == "Export Date: 2024-01-01"
+
+    def test_preservation_nests_under_the_single_ris_key_not_flat(self):
+        csl = RISFormat().to_csl_json(entry(n1="Export Date: 2024-01-01"))
+        assert set(csl["custom"].keys()) == {"ris"}
+        assert "N1" not in csl["custom"]
+
+    def test_several_unmapped_tags_each_land_under_their_own_key(self):
+        csl = RISFormat().to_csl_json(entry(db="Scopus", ad="An address", c7="e12345"))
+        assert csl["custom"]["ris"]["DB"] == "Scopus"
+        assert csl["custom"]["ris"]["AD"] == "An address"
+        assert csl["custom"]["ris"]["C7"] == "e12345"
+
+    def test_a_repeated_unmapped_tag_becomes_a_list_of_two_or_more_values(self):
+        """D34's shape rule applies here too: a bare string for one value, a list only when the
+        tag genuinely carries more than one -- Web of Science's repeated ``N1``."""
+        csl = RISFormat().to_csl_json(entry(n1=["L2030246463", "2024-06-24"]))
+        assert csl["custom"]["ris"]["N1"] == ["L2030246463", "2024-06-24"]
+
+    def test_a_mapped_tag_is_never_swept_as_unmapped(self):
+        """No regression: a tag this module already resolves to a CSL variable does not also land
+        under ``custom["ris"]`` -- the sweep only picks up what nothing else claimed."""
+        csl = RISFormat().to_csl_json(entry(ti="A title"))
+        assert "custom" not in csl
+
+    def test_c7_is_preserved_rather_than_mapped_to_number(self):
+        """The C7 ruling (decisions.md D38): left unmapped, reaches the item through this sweep,
+        never silently dropped."""
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", c7="e12345"))
+        assert "number" not in csl
+        assert csl["custom"]["ris"]["C7"] == "e12345"
+
+    @pytest.mark.django_db
+    def test_no_itemidentifier_row_is_created_for_a_preserved_unmapped_tag(self):
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nN1  - A note\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="N1").exists()
+        assert item.custom["ris"]["N1"] == "A note"
+
+    @pytest.mark.django_db
+    def test_the_entry_is_reported_as_created_exactly_as_any_other(self):
+        """No extra outcome value and no per-tag reporting channel (FR-028): the result carries
+        exactly one entry result, ``created``, the same shape any entry gets."""
+        raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nN1  - A note\nDB  - Scopus\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        assert result.ok
+        assert len(result) == 1
+        assert len(result.created) == 1
+        assert result.created[0].outcome == Outcome.CREATED
+
+
 class TestCitationKeys:
     """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
     back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""

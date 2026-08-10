@@ -912,3 +912,36 @@ fail for the right reason is not what keeps it there.
 
 **ADR:** declined — applies an existing S3R ruling to a case that slipped past it, not a new
 decision.
+
+## D38 — `C7` (Scopus's article-number tag) stays unmapped; it reaches the item through T030's sweep
+
+**Ambiguity**: US-1 deliberately left `C7` unmapped rather than resolving it to CSL's scalar
+`number` field, because `number` is already `_identifiers`'s home for `SN` on `RPRT`/`PAT`
+reference types, and a second, unrelated scalar claim on the same field would collide whenever
+both a report/patent-typed `SN` and a `C7` co-occur. That was recorded as an open question for
+US-3 (decisions.md line 529, before this entry), and US-3 did not rule on it. T030 must, since its
+sweep is the first place `C7` could be silently dropped or silently preserved without a stated
+reason.
+
+**Chosen**: `C7` stays unmapped. It is not given a dedicated resolution in `_identifiers` or
+anywhere else; it reaches the stored item through the same generic unmapped-tag sweep
+(`_unmapped`, T030) that catches every other tag with no CSL equivalent — retrievable at
+`custom["ris"]["C7"]`, nested under the single `custom["ris"]` key like any other preserved tag.
+
+**Why defensible**: the collision `_identifiers` would otherwise cause is real, not hypothetical —
+`genuine/scopus.ris` and `genuine/webofscience.ris` both carry `C7` on `JOUR` entries, and `SN` on
+a `RPRT`/`PAT`-typed entry already claims `number` (research R6). CSL has no second numeric
+locator variable to give `C7` instead: `number` is CSL's own general-purpose numeric field
+(report, patent, resolution, bill number — the exact sense Scopus's article number itself is,
+which is precisely why the collision matters and cannot be dodged by finding a "more correct" CSL
+key). The cheap answer plan.md names — preservation under `custom["ris"]` — costs nothing, loses
+nothing (T033's corpus-wide sweep proves it is retrievable), and does not force a scalar field to
+arbitrate between two tags that both legitimately want it whenever both appear on one entry.
+Leaving `C7` to the generic sweep also means no special case is carried in `_identifiers` at all:
+one general rule (T030's sweep) accounts for `C7` the same way it accounts for `N1`, `DB`, `AD`
+and everything else nothing else claims.
+
+**Revisit if**: a later story adds a CSL variable this catalogue does not yet expose that is
+scoped narrowly enough to hold an article number without colliding with a report or patent number
+— at which point `C7` could move from the sweep to a dedicated resolution, the same way `SN`'s
+shape-based resolution was added on top of what would otherwise be its own sweep entry.

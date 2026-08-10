@@ -626,6 +626,31 @@ def _add_preserved(preserved: dict[str, str | list[str]], tag: str, values: list
     preserved[tag] = values[0] if len(values) == 1 else values
 
 
+#: Every tag this module resolves to a CSL variable, a contributor role, a date or an identifier
+#: -- the production record of what "mapped" means, consulted by the unmapped sweep below and by
+#: the corpus-wide test that proves nothing else escapes it (T030, T033).
+_CONSUMED_TAGS: frozenset[str] = frozenset(FIELD_TABLE) | frozenset(
+    {"TY", "ID", "T2", "SP", "AU", "ED", "A2", "A3", "A4", "PY", "DA", "Y1", "Y2", "DO", "UR", "SN"}
+)
+
+
+def _unmapped(raw: RISEntry) -> dict[str, str | list[str]]:
+    """Every tag this entry carries that maps to no CSL variable, contributor role, date or
+    identifier, preserved under its own key so nothing an entry states is silently dropped (T030,
+    FR-024, FR-028). ``C7`` -- Scopus's article-number tag -- is a deliberate instance of this
+    rather than a special case (decisions.md D38): it reaches the item through this sweep like
+    any other unmapped tag, never through a dedicated mapping and never dropped.
+    """
+    preserved: dict[str, str | list[str]] = {}
+    seen: set[str] = set()
+    for tag, _value in raw.tags:
+        if tag in _CONSUMED_TAGS or tag in seen:
+            continue
+        seen.add(tag)
+        _add_preserved(preserved, tag, raw.values(tag))
+    return preserved
+
+
 def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     """Every identifier this entry carries, mapped to its CSL top-level key.
 
@@ -864,6 +889,10 @@ class RISFormat(BibFormat):
         result.update(identifiers)
         if preserved:
             result.setdefault("custom", {}).setdefault("ris", {}).update(preserved["ris"])
+
+        unmapped = _unmapped(raw)
+        if unmapped:
+            result.setdefault("custom", {}).setdefault("ris", {}).update(unmapped)
 
         key = _citation_key(raw, issued, raw.index)
         limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM

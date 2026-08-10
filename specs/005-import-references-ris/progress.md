@@ -919,3 +919,41 @@ US-3 merged into `005-import-references-ris` as `a11809f`.
 **Review budget:** `budgets.review_cycles.max` lowered from 2 to 1 (Sam, 2026-08-10, token
 saving). One S6 pass over the finished feature diff, at most one round of fixes from it, then S7
 regardless.
+
+## 2026-08-10T00:00:00Z · Implementer US-4 · T030
+
+Did: wrote the failing tests first — `TestUnmappedTagPreservation` in
+`tests/test_importers/test_ris.py` (8 tests): a single unmapped tag retrievable under
+`custom["ris"]`, nested under the single key and never flat, several unmapped tags each landing
+under their own key, a repeated unmapped tag collapsing to a list only at two-or-more values (D34's
+shape rule), a mapped tag never also swept, `C7` specifically preserved rather than mapped to
+`number`, no `ItemIdentifier` row created for a preserved tag, and the entry reported as created
+with no extra outcome or per-tag channel. Then implemented in `literature/importers/ris.py`:
+`_CONSUMED_TAGS`, the exhaustive set of tags this module already resolves (`FIELD_TABLE`'s keys
+plus `TY`, `ID`, `T2`, `SP`, the four contributor tags, the four date tags, and `DO`/`UR`/`SN`),
+and `_unmapped()`, which walks `raw.tags` once, skips anything in `_CONSUMED_TAGS` or already seen,
+and routes the rest through `_add_preserved` (T025's helper, reused rather than duplicated) so the
+one-value/list-of-two-or-more shape stays consistent everywhere preservation happens. Wired into
+`to_csl_json` right after the identifier-preservation merge, into the same
+`custom["ris"]` dict.
+
+Ruled on `C7` (US-3's carried-forward open question, decisions.md line 529): stays unmapped,
+reaches the item through this same generic sweep rather than a dedicated resolution — recorded as
+decisions.md D38, with the collision it avoids (`SN`'s report/patent use of CSL's scalar `number`)
+confirmed against both `genuine/scopus.ris` and `genuine/webofscience.ris`, which both carry `C7`
+on `JOUR` entries.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnmappedTagPreservation -q` —
+red first (6 of 8 failing with `KeyError: 'custom'`, matching the shape the change adds; the other
+2 already passed pre-implementation, asserting no regression on a mapped tag / single-DO-style
+cases), green after. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 272
+passed (264 prior + 8 new). `poetry run mypy literature/importers/ris.py` — clean.
+
+Watch: the sweep is generic by construction, so it also now preserves several tags no earlier
+story named — `KW`, `EP`, `AN`, `C2`, `C3`, `FU`, `FX`, `J2`, `J9`, `JI`, `PA`, `PI`, `PU`, `WE`
+among them, seen while cross-checking the four genuine files' tag sets for this task. None of
+these get a dedicated CSL mapping here — that would be new scope beyond "nothing is thrown away" —
+they simply now land in `custom["ris"]` instead of being silently absent, which is exactly what
+T033 checks corpus-wide.
+
+Next: T032 (surplus single-slot values, including the 500-character trap).
