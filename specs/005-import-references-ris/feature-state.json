@@ -3,7 +3,7 @@
   "feature": "005-import-references-ris",
   "branch": "005-import-references-ris",
   "repo": "FAIR-DM/django-literature",
-  "state": "PR_READY",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "INTAKE",
@@ -44,6 +44,11 @@
     {
       "state": "PR_READY",
       "at": "2026-08-10T20:40:00Z"
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-10T19:04:29Z",
+      "note": "PR #40 merged; approved by SamuelJennings"
     }
   ],
   "gates": {
@@ -64,8 +69,8 @@
       "at": null
     },
     "merge": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-10T19:04:18Z"
     },
     "design_review": {
       "approved_by": "design-panel",
