@@ -22,7 +22,7 @@ from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
-from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
+from literature.importers.ris import _CONSUMED_TAGS, REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
 from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
@@ -1786,3 +1786,45 @@ class TestBulkAcceptance:
         with fixture("constructed/bulk_several_hundred_entries.ris") as handle:
             result = RISFormat().import_file(handle)
         assert Item.objects.count() == len(result.created) == 500
+
+
+class TestUnmappedTagCoverage:
+    """Corpus-wide sweep (T033, US-4 acceptance, SC-006): for every tag appearing anywhere in a
+    genuine file, that tag is either mapped to a CSL variable or retrievable afterwards from the
+    stored item. No tag is absent from both.
+
+    The tag list itself is derived from each file at run time — ``RISParser`` parsed fresh, right
+    here, over the actual fixture bytes — rather than hand-maintained, so a new fixture or a tag
+    added to an existing one is swept automatically rather than passing vacuously because nobody
+    updated a list (the exact defect shape this criterion exists to catch). "Mapped" is read from
+    ``_CONSUMED_TAGS``, the production module's own record of what it resolves, not a second list
+    duplicated here — the two sources this test compares are the file's own bytes and the mapping
+    code's own record of itself, never a copy of either.
+
+    Excludes nothing: every genuine file's every entry imports as created (``TestGenuineCorpus``,
+    ``TestEquivalenceAcrossProducers``), so every tag in every file has a stored item to check
+    retrievability against, with no entry to carve out as an exception.
+    """
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize(
+        "relative_path",
+        ["genuine/endnote.ris", "genuine/mendeley.ris", "genuine/scopus.ris", "genuine/webofscience.ris"],
+    )
+    def test_every_tag_is_mapped_or_retrievable(self, relative_path):
+        with fixture(relative_path) as handle:
+            raw_entries = [e for e in RISParser().parse(handle) if isinstance(e, RISEntry)]
+
+        with fixture(relative_path) as handle:
+            result = RISFormat().import_file(handle)
+        assert result.ok, relative_path
+        assert len(result.created) == len(raw_entries), relative_path
+
+        items_by_index = {created.index: created.item for created in result.created}
+
+        for raw in raw_entries:
+            item = items_by_index[raw.index]
+            preserved_keys = set((item.custom or {}).get("ris", {}).keys())
+            tags = {tag for tag, _value in raw.tags}
+            unaccounted = tags - _CONSUMED_TAGS - preserved_keys
+            assert not unaccounted, (relative_path, raw.index, sorted(unaccounted))

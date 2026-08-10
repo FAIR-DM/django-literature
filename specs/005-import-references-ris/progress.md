@@ -984,3 +984,32 @@ tests/test_importers/test_ris.py -q` — 280 passed (272 prior + 8 new). `poetry
 literature/importers/ris.py` — clean.
 
 Next: T033 (corpus-wide sweep: every tag in every genuine file mapped or retrievable).
+
+## 2026-08-10T00:35:00Z · Implementer US-4 · T033
+
+Did: added `TestUnmappedTagCoverage` to `tests/test_importers/test_ris.py`, parametrized over the
+four genuine files. For each, parses fresh with `RISParser()` to get the real tag set per entry —
+derived from the file's own bytes at run time, never a hand-maintained list — imports the same file,
+and for every parsed entry checks its tags against the union of `_CONSUMED_TAGS` (imported from
+`literature.importers.ris`, the mapping code's own record of what it resolves — not a second list
+duplicated in the test) and the keys under the matching stored item's `custom["ris"]`. Matched entry
+to item by `EntryResult.index`, which the parser assigns in source order and never reuses.
+
+This proves T030's sweep and T032's fix rather than adding new production behaviour, so it went
+green on first run against the real implementation — not a red/green cycle in the usual sense, since
+there was no new code path for a failing test to target. Sanity-checked the test has teeth before
+trusting that: temporarily excluded `N1` from `_unmapped`'s sweep (a one-line, reverted-before-commit
+change) and reran — 3 of 4 parametrized cases failed with the exact tag named in the assertion
+message (`endnote.ris`, `scopus.ris`, `webofscience.ris`, each of which genuinely carries `N1`;
+`mendeley.ris` doesn't and correctly stayed green). Reverted with `git checkout --
+literature/importers/ris.py` and confirmed clean before re-running for real.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUnmappedTagCoverage -q` — 4
+passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 284 passed (280 prior +
+4 new). `poetry run mypy literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+
+Excludes nothing (stated in the test's own docstring per the brief's instruction): every genuine
+file's every entry imports as created, so every tag in every file has a stored item to check
+retrievability against.
+
+Next: full-suite run, `pre-commit run --all-files`, then the completion report.
