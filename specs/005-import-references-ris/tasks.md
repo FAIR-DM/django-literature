@@ -228,7 +228,7 @@ as prose in `data-model.md` instead.*
 - **T034** `CONTEXT.md`: add the *minted citation key*; add *record* as RIS's spelling of *entry*;
   extend *dialect* to cover producer conventions that are not specified variants; add RIS spellings
   to *field* and *entry type*. **FR-036**
-- **T035 [P]** `data-model.md`: the full tag and reference-type mapping tables, the contributor role
+- **T035 [P]** ~~`data-model.md`~~ → **`docs/ris-mapping.md` (D40)**: the full tag and reference-type mapping tables, the contributor role
   resolution, the date precedence, the `SN` resolution, the citation-key scheme, and the note that
   producer fingerprints label fixtures and never reach the code. **FR-012**
 - **T036 [P]** README: the support boundary — the package reads the common producers as best it can,
