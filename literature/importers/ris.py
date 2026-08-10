@@ -73,6 +73,13 @@ class RISParser:
     #: own, and real exports vary).
     _TAG_RE: ClassVar[re.Pattern[str]] = re.compile(r"^([A-Z][A-Z0-9])\s{0,2}-\s?(.*)$")
 
+    #: RIS is a line-based format defined over CR, LF and CRLF, and nothing else (decisions.md
+    #: D41). ``str.splitlines`` additionally breaks on vertical tab, form feed, the file/group/
+    #: record separators, NEL and the Unicode line and paragraph separators, so a value carrying
+    #: one of those would be split here and rejoined by the continuation-line rule with the
+    #: character replaced by a space — a record that lands holding less than the file stated.
+    _LINE_BREAK_RE: ClassVar[re.Pattern[str]] = re.compile(r"\r\n|\r|\n")
+
     #: An untagged line following one of these tags becomes another value; following any other
     #: tag, it is a continuation joined onto the previous value with a single space (FR-007,
     #: amended — see decisions.md D12, D20). Repeatability is RIS syntax, decidable from the tag
@@ -108,7 +115,11 @@ class RISParser:
         if not text.strip():
             return
 
-        lines = text.splitlines()
+        lines = self._LINE_BREAK_RE.split(text)
+        if lines and lines[-1] == "":
+            # A file ending in a newline has no empty final line; ``str.splitlines`` drops it and
+            # so must this, or the last value gains an empty continuation.
+            lines.pop()
 
         has_tag_line = False
         has_ty = False

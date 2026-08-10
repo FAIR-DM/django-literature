@@ -1010,3 +1010,38 @@ text.
 **Revisit if**: the two mapping pages grow enough shared material — CSL variable descriptions,
 say — that a single generated "import mappings" page with a section per format reads better than
 two. That is a docs consolidation, not a change to what either page must contain.
+
+## D41 — a line ends at CR, LF or CRLF, and nowhere else
+
+**Context**: the US-5 Implementer, writing T038's untrusted-input assertions, observed that
+`RISParser.parse` framed its lines with `str.splitlines()` and that Python breaks on more than the
+newline characters. It flagged this as a non-blocking concern rather than a defect, on the grounds
+that FR-035's guarantee is about crashes and execution, and neither was at risk. It named two
+separators, vertical tab and form feed.
+
+**What was actually there**: eight. `str.splitlines()` also breaks on the file, group and record
+separators (`U+001C`–`U+001E`), on NEL (`U+0085`), and on the Unicode line and paragraph separators
+(`U+2028`, `U+2029`). A value carrying any of them was split at that character, and the two halves
+were then rejoined by the ordinary continuation-line rule with a single space in its place. The
+entry imported, reported as created, and held a title the file did not contain.
+
+**Chosen**: split on `\r\n|\r|\n` only, dropping the trailing empty element a final newline
+produces so the framing is otherwise byte-identical to what `splitlines()` gave. Eight parametrized
+cases assert each separator survives inside a value, and a ninth asserts CR, LF and CRLF all still
+end a line — narrowing the set must not break the three that are real.
+
+**Why this was fixed rather than deferred**: it is the defect shape this feature has now corrected
+four times and the one Sam named as the FS-004 carry-over — a record that lands, reports as
+created, and holds less than its source stated. The severity argument for deferring it is sound as
+far as it goes, and it is the wrong axis: nothing crashes, and the data is still wrong. RIS is a
+line-based format defined over CR, LF and CRLF, so the narrower split is also simply what the
+format says.
+
+**Why the Implementer was right to stop short of it**: changing the parser's line grammar is not a
+documentation story's work, and it named the observation precisely enough to be actioned. The
+undercount is a fact about `str.splitlines()`, not a lapse — the two separators it named are the
+two the fixture it wrote actually exercises.
+
+**Revisit if**: a genuine export is found that uses one of these six as a record separator, which
+would make reading it a producer convention rather than a fidelity loss. None of the eighteen
+upstream baselines does.

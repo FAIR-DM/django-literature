@@ -1238,3 +1238,21 @@ Prohibited paths confirmed byte-for-byte unchanged across all four commits:
 directory's `README.md`, and this file. Nothing else.
 
 Next: T039, which is Forge's own PR-exit checklist item against the whole feature diff, not mine.
+
+## 2026-08-10 · Forge · US-5 acceptance, and D41
+
+US-5's report verified independently before merge: `forge check-receipts` green on all three
+required skills, `forge verify` green on every step in the worktree, the full suite re-run there at
+1106, `forge tamper-check` flagged two files and both triaged clean (zero deleted or modified
+lines; 226 test definitions at base, 235 at head), the feature-state schema green, and the merge
+re-verified on the feature branch. The two deviations both check out: `RISFormat` really is in
+`config.DEFAULTS` and has been since US-1, so the README lines T036 corrected were genuinely
+stale, and `test_bibtex.py`'s equivalent forbidden-symbol list genuinely does not carry `open(`.
+
+The story's one concern turned out to be a defect, and larger than reported. See decisions.md D41:
+`str.splitlines()` breaks on eight separators, not the two the report named, and a value carrying
+any of them was silently split and rejoined with a space in its place. Fixed here rather than
+deferred — `RISParser.parse` now splits on `\r\n|\r|\n` only. Nine new tests, and the eight
+separator cases were confirmed to fail against the old line by reinstating it. Suite 1115.
+
+Next: T039 and S5 convergence — migration squash, cleanup, and the ADR verdicts across D1–D41.

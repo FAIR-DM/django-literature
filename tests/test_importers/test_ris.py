@@ -1975,6 +1975,31 @@ class TestUntrustedInput:
         assert all(e.outcome in set(Outcome) for e in result)
         assert all(e.reason for e in result.failed), relative_path
 
+    @pytest.mark.parametrize(
+        "separator",
+        ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"],
+        ids=["vertical-tab", "form-feed", "file-sep", "group-sep", "record-sep", "nel", "line-sep", "para-sep"],
+    )
+    def test_only_cr_lf_and_crlf_end_a_line(self, separator):
+        """D41: every character above ends a line for ``str.splitlines`` and for no RIS producer.
+
+        Splitting on one would break a value in half, and the continuation-line rule would then
+        rejoin the halves with a space -- an entry that imports, reports as created, and holds a
+        title the file never contained. RIS is defined over CR, LF and CRLF only.
+        """
+        source = f"TY  - JOUR\nTI  - Before{separator}after\nPY  - 2020\nER  - \n"
+        entries = list(RISParser().parse(io.BytesIO(source.encode("utf-8"))))
+        assert len(entries) == 1
+        assert dict(entries[0].tags)["TI"] == f"Before{separator}after"
+
+    def test_a_line_break_still_ends_a_line(self):
+        """The other half of D41: narrowing the separator set must not stop CR or CRLF working."""
+        for newline in ("\n", "\r\n", "\r"):
+            source = newline.join(["TY  - JOUR", "TI  - A title", "PY  - 2020", "ER  - "]) + newline
+            entries = list(RISParser().parse(io.BytesIO(source.encode("utf-8"))))
+            assert len(entries) == 1, newline
+            assert dict(entries[0].tags)["TI"] == "A title", newline
+
 
 class TestPublishedMapping:
     """The published mapping is generated from the tables, so it cannot drift from what the
