@@ -114,9 +114,7 @@ class TestGenuineCorpus:
 
         def dois(name: str) -> set[str]:
             text = (DATA / "genuine" / name).read_text(encoding="utf-8-sig")
-            return {
-                line[6:].strip().lower() for line in text.splitlines() if line.startswith("DO  - ")
-            }
+            return {line[6:].strip().lower() for line in text.splitlines() if line.startswith("DO  - ")}
 
         matched = [dois(name) for name in GENUINE_MATCHED_SET]
         assert len(matched[0]) == 10
@@ -1453,8 +1451,7 @@ class TestEquivalenceAcrossProducers:
             assert result.ok, producer
             assert len(result.created) == 10, producer
             by_producer[producer] = {
-                created.item.item_identifiers.get(type="DOI").value: created.item
-                for created in result.created
+                created.item.item_identifiers.get(type="DOI").value: created.item for created in result.created
             }
         return by_producer
 
@@ -1478,8 +1475,7 @@ class TestEquivalenceAcrossProducers:
         for doi in by_producer["endnote"]:
             families = {
                 producer: [
-                    item_name.name.family
-                    for item_name in items[doi].item_names.filter(role="author").order_by("order")
+                    item_name.name.family for item_name in items[doi].item_names.filter(role="author").order_by("order")
                 ]
                 for producer, items in by_producer.items()
             }
@@ -1532,9 +1528,7 @@ class TestEquivalenceAcrossProducers:
         def given_names(producer, doi):
             return [
                 item_name.name.given
-                for item_name in by_producer[producer][doi]
-                .item_names.filter(role="author")
-                .order_by("order")
+                for item_name in by_producer[producer][doi].item_names.filter(role="author").order_by("order")
             ]
 
         brownstein_doi = "10.1186/s12862-024-02210-9"
