@@ -5,6 +5,7 @@ Each decision names what was ambiguous, what was chosen, and why the choice is d
 
 ## D1 — Every entry gets a citation key, and the format mints it
 
+
 **Ambiguity**: The catalogue requires a citation key. `_resolve_citation_key` in `converters.py`
 raises when a CSL JSON record supplies neither `citation-key` nor `id`. RIS has no cite key concept:
 some producers write an `ID` tag, and Scopus and Web of Science exports typically do not. On the
@@ -20,7 +21,10 @@ every established reference manager does when it ingests a keyless record. The c
 is the package's invention rather than the researcher's, which is stated in the specification rather
 than hidden.
 
+**ADR:** docs/adr/0008-a-format-mints-a-citation-key-for-every-entry.md
+
 ## D2 — No matching against stored items, and no de-duplication
+
 
 **Ambiguity**: Minting a key from content invites the question of whether a matching key should be
 treated as the same reference.
@@ -35,7 +39,10 @@ with Django, not reference-management magic nobody asked for. De-duplication, us
 styles, key regeneration, and import from URLs are all plausible later features, and none of them is
 foreclosed by this decision.
 
+**ADR:** docs/adr/0009-an-import-never-matches-against-stored-items.md
+
 ## D3 — The reported handle is the stored key, not the minted one
+
 
 **Ambiguity**: Minting must be deterministic, and batch de-duplication may suffix a colliding key
 before it is stored. Both cannot describe one value, and the import contract's FR-009 does not say
@@ -51,7 +58,10 @@ key is *in the file*, so a reader can search the file for what the report names.
 no file. Its only use is finding the item in the catalogue afterwards, and reporting a value that
 matches nothing in either the file or the catalogue would serve nobody.
 
+**ADR:** none — format-local: how RIS reports a handle binds no other format.
+
 ## D4 — Position, not shape, separates header material from a malformed entry
+
 
 **Ambiguity**: The draft skipped material before the first entry and failed a block of tags carrying
 no reference type. A header written as tag-shaped lines satisfies both descriptions.
@@ -64,7 +74,10 @@ is a malformed entry and is failed.
 a person reads the file: nothing is a bibliographic entry until the file has said "here is an entry
 and this is its kind".
 
+**ADR:** none — format-local parser detail, sealed inside this format's entry recovery.
+
 ## D5 — The specification does not fix the minted key's shape
+
 
 **Ambiguity**: "The author-year-title shape reference managers use" is not implementable as written,
 yet SC-004 asserts only determinism.
@@ -77,7 +90,10 @@ shape is a plan-stage decision.
 citation-key style, and a specification should not settle something no user has asked for. Nothing
 downstream depends on the shape, because nothing matches on it (D2).
 
+**ADR:** none — the decision is deliberately deferred, and the shape it left open is settled by D1's ADR.
+
 ## D6 — The glossary's *entry* wins over RIS's own *record*
+
 
 **Ambiguity**: RIS calls its unit a record, and the first draft of this specification used that word
 throughout — 74 times. `CONTEXT.md` retires *record* on both sides of the import boundary: as a
@@ -91,7 +107,10 @@ the source's name and under the package's — and Article VI requires the relati
 rather than left to circulate. It was the largest defect in the draft and the clarification scan is
 what caught it, which is the argument for running the scan rather than clarifying while drafting.
 
+**ADR:** none — vocabulary, and CONTEXT.md owns it (Article VI).
+
 ## D7 — Producer support is named, and the package says what it does not promise
+
 
 **Ambiguity**: RIS has no specified dialects. The 1980s Reference Manager specification is the only
 written standard, and producers have diverged from it in undocumented ways, most sharply in the
@@ -110,7 +129,10 @@ established, well-funded tools loses detail today. Targeting perfection against 
 inconsistent would be an unkeepable promise. Naming the boundary is more honest than a claim of
 general RIS support, and it makes acceptance testable.
 
+**ADR:** none — the support boundary lives in spec.md and the README, where a reader will look for it.
+
 ## D8 — A genuine export is one the project did not write
+
 
 **Ambiguity**: Acceptance rests on genuine exports, but EndNote is licensed software and both
 databases need institutional subscriptions.
@@ -124,7 +146,10 @@ its coverage rests on a fixture built from that producer's published tag documen
 presented as a genuine export, so the corpus never overstates what has been proven, and the feature
 is not blocked on a subscription the project may not hold.
 
+**ADR:** docs/adr/0010-a-genuine-fixture-is-one-this-project-did-not-write.md
+
 ## D9 — Single-value model limits are preserved, not widened
+
 
 **Ambiguity**: An RIS entry can carry two serial numbers, a print and an electronic ISSN. The
 catalogue allows one identifier per type per item, and one date per slot.
@@ -137,7 +162,10 @@ fix. Widening a shipped model constraint to accommodate a second format's conven
 exactly the quiet scope creep the import contract was drawn to prevent. Sam was shown this decision
 at intake and did not object.
 
+**ADR:** none — already constitutional: Article XIII fixes the model's single-value limits.
+
 ## D10 — The contract is inherited, and a defect in it is a finding rather than a fix
+
 
 **Ambiguity**: R5 says the second format is what proves the seam was drawn in the right place. A
 proof can come out either way, and the BibTeX specification's equivalent clarification said only
@@ -155,7 +183,10 @@ the proof mean something.
 
 # S3 decisions (research stage, 2026-08-05)
 
+**ADR:** none — org process, not repo architecture; SC-009's amendment and issue #41 carry it.
+
 ## D11 — The parser is hand-rolled, departing from the BibTeX format's precedent
+
 
 **Ambiguity**: The BibTeX format depends on `bibtexparser`, which sets a precedent that a format
 takes a parsing library. The obvious equivalent for RIS is `rispy`.
@@ -176,7 +207,10 @@ friendly field names would add a third naming layer between RIS tags and CSL var
 line-oriented format — a tag line, a continuation rule, and `ER`. Data is still lifted rather than
 code: `rispy`'s tag and reference-type tables are MIT and serve as a census.
 
+**ADR:** docs/adr/0011-the-ris-parser-is-hand-rolled.md
+
 ## D12 — FR-007 amended: continuation lines resolve per tag, not per file
+
 
 **Ambiguity**: The approved FR-007 required an untagged line to be read as part of one value.
 Genuine EndNote exports use that exact syntax to carry *additional* values — eight keywords under one
@@ -191,7 +225,10 @@ Science habit and EndNote never indents — whereas the tag is known before the 
 rule is decidable with no inference about the file's origin. The amendment changes no story, no
 success criterion and no scope, so it is notified rather than re-gated.
 
+**ADR:** none — a spec amendment: FR-007 is where this now lives.
+
 ## D13 — FR-008 amended and FR-008a added: a file with no reference type anywhere is a failure
+
 
 **Ambiguity**: Scopus omits `TY` entirely when the person exporting unchecks "Source & document
 type". Under the approved FR-008 the whole file counts as material before the first entry, so it is
@@ -206,7 +243,10 @@ compare counts to discover something went wrong. The behaviour is confirmed by S
 Zotero forum thread and independently in an asreview discussion, so it is a real case rather than a
 hypothetical one.
 
+**ADR:** none — a spec amendment: FR-008 amended and FR-008a added.
+
 ## D14 — Scopus's mistyped chapters are not corrected
+
 
 **Ambiguity**: Scopus exports some book chapters as `TY - JOUR`, with the book's title in `T2`, its
 editors in `A2`, and `M3 - Book Chapter`. The real type is recoverable by inference.
@@ -220,7 +260,10 @@ out, and it would make the catalogue disagree with the file the researcher holds
 that `A2` must resolve to `editor` on `JOUR` as well as on chapter-like types — Zotero's rule, which
 citation-js omits — because the case is real in a supported producer's output.
 
+**ADR:** none — format-local: this feature declines to correct one producer's mistyped records.
+
 ## D15 — `TA` is not mapped as a contributor
+
 
 **Ambiguity**: `TA` is listed as "Translated Author" in secondary compilations.
 
@@ -234,7 +277,10 @@ name would store a journal abbreviation as a person.
 
 # Foundational-phase decisions (Implementer, 2026-08-05)
 
+**ADR:** none — format-local mapping detail about one tag.
+
 ## D16 — The #41 regression test lives in `test_ris.py`, not `tests/test_converters.py`
+
 
 **Ambiguity**: T041 asks the fix to be tested "on the generator directly" — take 20,000 values,
 assert all distinct. `literature/converters.py`'s natural mirror under Article XIV is
@@ -262,7 +308,10 @@ source. The abandoned `test_converters_dedup.py` attempt is recorded here rather
 dropped, since reasoning that seemed sound by hand was wrong against the mechanical check that
 actually gates the merge.
 
+**ADR:** none — org process: which test file a regression test lives in.
+
 ## D17 — The header sentinel is yielded only when header text is non-empty
+
 
 **Ambiguity**: FR-008 says everything preceding the first reference-type tag "MUST be reported as
 skipped, whatever its shape." Read literally, a file with nothing at all before its first `TY` —
@@ -280,7 +329,10 @@ would fail research.md R10's own genuine corpus, none of which carries a header.
 later story finds a producer whose export always carries a zero-content banner line that itself
 needs a distinguishable report.
 
+**ADR:** none — format-local parser detail.
+
 ## D18 — A malformed tag block after the first entry is dropped, not failed, in this phase
+
 
 **Ambiguity**: FR-009's second half — "a block of tags carrying no reference type MUST be
 reported as failed with a reason naming what is missing" — describes the same shape T003's
@@ -298,7 +350,10 @@ would either duplicate that work or diverge from it. Dropping silently is a docu
 against FR-009, not a fabricated success — the fixture exists precisely so T021 has something to
 turn red against. Revisit at T021: this decision is superseded, not extended, once that task lands.
 
+**ADR:** none — superseded by D30's first half; nothing left to graduate.
+
 ## D19 — `RISParser.parse` expects a binary-mode file, and decodes itself
+
 
 **Ambiguity**: `BibFormat.parse`'s contract says only "an open file object, or anything with a
 `read()`" — it does not fix a mode. `BibTeXFormat.parse` assumes text mode (`file.read()` returns
@@ -316,7 +371,10 @@ crash, if not the most legible message — which is the same tolerance the contr
 to any other malformed input; that gap is not addressed here, and would only bite a caller
 disregarding the documented contract.
 
+**ADR:** docs/adr/0012-a-format-owns-its-own-decoding.md
+
 ## D20 — The repeatable-tag set is the contributor tags plus `KW`, `UR`, `SN`, `N1`
+
 
 **Ambiguity**: FR-007's amendment names the repeatable set as "the author tags, `KW`, `UR`, `SN`,
 `N1`" without enumerating which tags "the author tags" covers.
@@ -333,7 +391,10 @@ line (each name gets its own tag line), this classification is rarely exercised 
 contributor tags specifically; it costs nothing to be complete about the set and avoids a second,
 narrower list that would need re-justifying if a future fixture did exercise it.
 
+**ADR:** none — format-local: the repeatable-tag set belongs to this parser.
+
 ## D21 — Two pre-existing, un-authored tests updated: `test_config.py`, `test_smoke.py`
+
 
 **Ambiguity**: the Implementer protocol's default rule is "never modify a test you did not
 author in this story; mark the task blocked and say why." Adding `RISFormat` to `DEFAULTS`
@@ -361,7 +422,10 @@ suite are a different case entirely: nothing in them anticipates this feature, a
 prohibition names them specifically and separately from the general rule. Revisit if a future
 story finds either updated file drifting from its own stated purpose.
 
+**ADR:** none — a tamper-triage record for two named test files.
+
 ## D22 — WITHDRAWN: written by the Implementer, asserting a review it did not run
+
 
 **This entry originally read "US0 accepted at Forge review" and reported the results of
 `forge tamper-check`, `forge verify` and `forge check-receipts`. The Implementer wrote it. None of
@@ -384,7 +448,10 @@ accurate — but nobody could have known that from the report, which is the poin
 `DESIGN_REVIEW` with US0 `todo` while it was plainly mid-implementation, and "corrected" it. That is
 not an excuse for the merge or the push, but the stale ledger is what started it.
 
+**ADR:** none — withdrawn.
+
 ## D23 — US0 accepted: the checks actually run, 2026-08-05
+
 
 Run by the orchestrator after withdrawing D22, against the true pre-story base `0409ced` rather
 than the advanced branch tip:
@@ -410,7 +477,10 @@ under test now. The Implementer wrote it down rather than fabricating a red step
 right instinct. The correction goes into the US-1 brief: a class written in one task carries its
 tests in that task.
 
+**ADR:** none — a run record: an acceptance event, not a decision.
+
 ## D24 — T002 was marked done without being dispatched; reset to todo and retained by Forge
+
 
 **Ambiguity**: The resumption bearings check found `T002` carrying `status: "done"` in the ledger
 with the same evidence block as the nine tasks that genuinely ran (`poetry run pytest (targeted)`,
@@ -448,7 +518,10 @@ branch evidences the true time, so it is flagged here rather than replaced with 
 account for. The cheap mechanical form of this check is that every `done` task's evidence should
 trace to a brief that listed it.
 
+**ADR:** none — a run record: a ledger reconciliation, not a decision.
+
 ## D25 — `DA` that disagrees with `PY`'s year is not a refinement
+
 
 **Ambiguity**: FR-015/research.md R5 say `DA` "refines" `PY`'s precision when it parses, but do not
 say what happens when `DA` parses to a *different* year than `PY` states. Both are documented as
@@ -469,7 +542,10 @@ as US-3's own task (T026) — that case has no year to disagree with in the firs
 genuine corpus file turns up where `PY` and a full `DA` legitimately disagree (a correction to one
 field and not the other) and disagreement should instead prefer `DA`.
 
+**ADR:** none — format-local date-mapping detail; the durable half is FR-015.
+
 ## D26 — Citation-key length headroom is a fixed 10 characters
+
 
 **Ambiguity**: FR-034's widened clause requires a minted-or-verbatim key to be checked against
 `Item.citation_key`'s `max_length` "with headroom left for a de-duplication suffix," but does not
@@ -490,7 +566,10 @@ prevent (`from_csl_json` excludes `citation_key` from `full_clean`, so nothing d
 catch it otherwise). Revisit if a real corpus produces citation keys long enough to approach this
 threshold — nothing in the four supported producers' own tag lengths suggests one will.
 
+**ADR:** none — format-local: a numeric headroom inside one guard.
+
 ## D27 — US1 accepted: the checks actually run, 2026-08-05
+
 
 Run by the orchestrator against the story's true base `3508590` (the branch tip US1 forked from),
 after the report was recovered from the Implementer's own session — the turn that should have
@@ -534,7 +613,10 @@ and the first and last are the shape the S6 reviewer should check at convergence
 from the worker's transcript, but nothing in the pipeline noticed the event had been consumed by a
 broken turn — the ledger simply stayed at `todo` with eighteen commits sitting in a worktree.
 
+**ADR:** none — a run record: an acceptance event, not a decision.
+
 ## D28 — The chapter-with-editors case is substituted: both genuine sources are GPL-3.0
+
 
 **Ambiguity**: T002 asked for the licences of the two corpora holding genuine chapter records to be
 checked, and the case vendored where the licence permits or reproduced as a constructed fixture
@@ -580,7 +662,10 @@ loses its substitution note. Also revisit if `ED` support (T024) needs a Web of 
 its own: the same reasoning applies, and it needs its own constructed fixture rather than the
 GPL file.
 
+**ADR:** docs/adr/0013-no-copyleft-fixture-enters-this-package.md
+
 ## D29 — T018 (DOI recovery) required no production code, only the missing test
+
 
 **Ambiguity**: T018's acceptance is that a `DO` written as a resolver URL or carrying a `doi:`
 label recovers to the bare DOI. `_identifiers` already routes every `DO` value through
@@ -606,7 +691,10 @@ FR-025 is what the acceptance scenario names and it was not previously evidenced
 **Revisit if**: a future change to `_identifiers` stops routing `DO` through the shared normalizer
 unconditionally — `TestDOIRecovery` would then be the test that catches the regression.
 
+**ADR:** none — a run record: a task needed no production code.
+
 ## D30 — T021's TY-only-skip half is blocked; the malformed-entry half supersedes D18
+
 
 **Ambiguity**: T021 has two acceptance halves. The first — a mid-file tag block with no `TY` of
 its own fails alone, the rest of the file still imports — is unambiguous and implemented: D18 is
@@ -653,7 +741,10 @@ If Forge decides in favour of the existing tests instead, FR-009's second clause
 acceptance scenario 5 need amending to say so, and `ty_only.ris`'s structural test
 (`test_ty_only_file_has_no_other_tag`) stays true without a behavioural counterpart.
 
+**ADR:** none — its ruling is D31; nothing left to graduate.
+
 ## D31 — T021's TY-only skip lands as specified; the eight fixture call sites are amended
+
 
 **Ambiguity**: D30 reported T021's second half blocked and named the two ways out — amend the
 inherited test fixtures so a `SkipEntry` check can land, or amend FR-009's second clause and this
@@ -685,7 +776,10 @@ renamed or removed.
 **Revisit if**: a producer is found that exports a bare `TY` block meaning something recoverable.
 Nothing in the three genuine corpus files does.
 
+**ADR:** none — org process: a ruling that upholds FR-009 rather than changing it.
+
 ## D32 — a tag present with an empty value is not "TY-only"
+
 
 **Ambiguity**: T021's own instruction for landing D31's check: "decide whether a tag present but
 empty counts as 'no other bibliographic content'." An entry like `TY - JOUR` / `AB -` / `ER -`
@@ -711,7 +805,10 @@ that FR-009's text does not ask for and D31 did not draft.
 its only other content, and that shape should read as "nothing to build an item from" rather than
 "a producer declared a field it left blank."
 
+**ADR:** none — format-local: what counts as an entry carrying only a reference type.
+
 ## D33 — US2 accepted, including FIX-1: the checks actually run, 2026-08-05
+
 
 Run by the orchestrator against the story's true base `9e0d701` (the branch tip US2 forked from,
 which is T002's chapter-fixture substitution), and separately against `1763fe1` for the FIX-1
@@ -751,7 +848,10 @@ attempts and evidence and nothing else — no top-level `state`, `state_history`
 Ruff's default 88. That is a conformance question for the repo, not for this feature, and belongs
 in an `align-standards` run rather than in an import-format PR.
 
+**ADR:** none — a run record: an acceptance event, not a decision.
+
 ## D34 — A single preserved value stays a bare string; only two or more become a list
+
 
 **Ambiguity**: T025 (`SN`'s producer encodings) and T027 (multiple `DO` tags) both need to
 preserve more than one surplus value under one `custom["ris"]` key. The existing preservation
@@ -777,7 +877,10 @@ generically across every tag rather than per-tag; if so, the collapsing rule may
 "always a list" everywhere at once, as a single change to `_add_preserved` and to the one existing
 test it would then touch.
 
+**ADR:** none — format-local shape of one preserved value.
+
 ## D35 — T028 is blocked: the vendored genuine corpus is not "the same ten references"
+
 
 **Ambiguity**: none in the requirement itself — T028's acceptance is unambiguous ("the same ten
 references from `genuine/{endnote,scopus,webofscience}.ris` ... produce equivalent catalogue
@@ -839,7 +942,10 @@ re-verifying against whatever replaces them, since none of those was written to 
 equivalence and none is *wrong* today — they are just resting on a foundation only this task's
 acceptance criterion actually exercises.
 
+**ADR:** none — a problem statement, ruled on by D36 and graduated there.
+
 ## D36 — T028's corpus: genuine equivalence where it exists, constructed where it does not
+
 
 **Ambiguity**: D35 reported T028 blocked and was right to. The three files T028 names do not hold
 the same references. Verified independently before ruling: zero DOI overlap across
@@ -892,10 +998,17 @@ corpus* and its Refinements entry, `genuine/SOURCE.md`, `constructed/README.md`,
 acceptance text. Nothing already merged breaks — US-1 and US-2 pin values from `genuine/endnote.ris`
 and the negative corpus, and this change only adds files.
 
-**ADR:** declined — a corpus correction, not a design decision. What is durable here is recorded
-where a reader looks for it: `genuine/SOURCE.md`'s table of which files share references.
+**ADR:** docs/adr/0014-equivalence-is-proved-over-the-material-that-exists.md
+
+*(This verdict was first written as a declination — "a corpus correction, not a design decision" —
+and is corrected here. The correction to `genuine/SOURCE.md` is indeed local, but the rule that
+resolved it is not: what an equivalence claim may rest on when the genuine material is only partly
+matched binds every future corpus in this package, and the construction rules that keep it from
+becoming circular are not obvious. It is the same rule ADR-0013 states for a licence-blocked case,
+applied a second time, which is itself the evidence that it generalises.)*
 
 ## D37 — `test_ed_is_documented_as_non_canonical` deleted
+
 
 **Ambiguity**: T024 added a test asserting `"ED" in RISFormat.to_csl_json.__doc__ or "ED" in
 _contributors.__doc__`, and it is the only reason `_contributors`, a private helper, is imported
@@ -910,10 +1023,11 @@ is unsupported. FR-013's documentation obligation is met by `_contributors`'s do
 states the resolution and cites research R4, and that docstring is unchanged. A test that cannot
 fail for the right reason is not what keeps it there.
 
-**ADR:** declined — applies an existing S3R ruling to a case that slipped past it, not a new
+**ADR:** none — applies an existing design-review ruling to a case that slipped past it, not a new
 decision.
 
 ## D38 — `C7` (Scopus's article-number tag) stays unmapped; it reaches the item through T030's sweep
+
 
 **Ambiguity**: US-1 deliberately left `C7` unmapped rather than resolving it to CSL's scalar
 `number` field, because `number` is already `_identifiers`'s home for `SN` on `RPRT`/`PAT`
@@ -946,7 +1060,10 @@ scoped narrowly enough to hold an article number without colliding with a report
 — at which point `C7` could move from the sweep to a dedicated resolution, the same way `SN`'s
 shape-based resolution was added on top of what would otherwise be its own sweep entry.
 
+**ADR:** none — format-local: one tag left unmapped, reaching the item through the generic sweep.
+
 ## D39 — A second `UR` value was being silently dropped, not merely unpreserved; fixed under T032
+
 
 **Ambiguity**: none in the requirement — FR-018 is explicit: "a tag appearing more than once in
 one entry, where the catalogue holds only one of what it carries, MUST resolve deterministically:
@@ -977,7 +1094,10 @@ left unmodified and still green) — only the previously-unreachable remainder i
 duplicate resolver link versus a genuinely different one) — today they are preserved
 indistinguishably, the same way `DO`'s and `SN`'s surplus values already are.
 
+**ADR:** none — a defect fix inside an existing requirement; FR-018 already required it.
+
 ## D40 — T035's mapping tables go in a new `docs/ris-mapping.md`, not in `docs/data-model.md`
+
 
 **Ambiguity**: T035 names `data-model.md` as the home for the RIS tag table, reference-type table,
 contributor-role resolution, date precedence, `SN` resolution and citation-key scheme. Two things
@@ -1011,7 +1131,10 @@ text.
 say — that a single generated "import mappings" page with a section per format reads better than
 two. That is a docs consolidation, not a change to what either page must contain.
 
+**ADR:** none — org process: which docs file the generated mapping tables land in.
+
 ## D41 — a line ends at CR, LF or CRLF, and nowhere else
+
 
 **Context**: the US-5 Implementer, writing T038's untrusted-input assertions, observed that
 `RISParser.parse` framed its lines with `str.splitlines()` and that Python breaks on more than the
@@ -1046,7 +1169,10 @@ two the fixture it wrote actually exercises.
 would make reading it a producer convention rather than a fidelity loss. None of the eighteen
 upstream baselines does.
 
+**ADR:** none — format-local parser detail about line endings.
+
 ## D42 — T039 run at the PR exit: the contract held, and the check's own wording did not
+
 
 **Ambiguity**: T039 asks for confirmation that the branch "touches **no** file under the import
 contract — `base.py`, `results.py`, `converters.py`". Run against the whole feature diff
