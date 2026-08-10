@@ -1068,3 +1068,27 @@ detail than the ledger string held. US-4's three tasks were written with `comman
 
 Carried into the loop rather than left as a one-off fix: the ledger check runs at every story
 acceptance from here, not only at stage exits.
+
+## 2026-08-10T13:15:00Z · Implementer US-5 · T034
+
+Did: added the vocabulary FR-036 names to `CONTEXT.md`. *minted citation key* as its own entry
+after *citation key*, since it is a specific case of it. *record* as its own entry after *entry*,
+mirroring how *cite key* records BibTeX's own name for a *citation key* — cross-referenced both
+ways, and against the existing *Synonyms to avoid* entry for `record`, which stays correct
+unchanged: it governs prose usage in specs and code, not whether the source format's own word gets
+documented. RIS spellings (`TY`, `T2`/`AU`/`DO`) added to *entry type* and *field* alongside their
+existing BibTeX examples. *dialect* gained a second paragraph: RIS has one written specification and
+no declared variants the way BibTeX has classic/BibLaTeX, so a producer's own undocumented
+convention (EndNote vs. Web of Science vs. Scopus) is a different shape of the same idea, drawn from
+spec.md's own Q&A on the point rather than invented fresh.
+
+Read the whole glossary first, per the brief's instruction, and matched each new entry's shape to
+its neighbours (definition, then how it relates to what came before) rather than writing a fresh
+style.
+
+No test surface: a glossary entry has no failing test to write first, unlike T035's generated page.
+
+Verified: `poetry run pre-commit run --files CONTEXT.md` — clean (trailing-whitespace,
+end-of-file-fixer, deptry all pass; ruff/mypy skip a Markdown file).
+
+Next: T035 (the RIS mapping document, D40).
