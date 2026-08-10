@@ -3,7 +3,7 @@
   "feature": "005-import-references-ris",
   "branch": "005-import-references-ris",
   "repo": "FAIR-DM/django-literature",
-  "state": "REVIEW",
+  "state": "PR_READY",
   "state_history": [
     {
       "state": "INTAKE",
@@ -40,6 +40,10 @@
     {
       "state": "REVIEW",
       "at": "2026-08-10T20:15:00Z"
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-10T20:40:00Z"
     }
   ],
   "gates": {
@@ -629,7 +633,7 @@
   },
   "pr": {
     "number": 40,
-    "draft": true
+    "draft": false
   },
   "escalations": []
 }
