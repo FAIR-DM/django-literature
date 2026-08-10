@@ -29,6 +29,15 @@ back to `id`). It is indexed but **not globally unique** — uniqueness is resol
 batch*: `from_csl_json` de-duplicates colliding keys by appending a suffix. Do not treat it as a
 primary key or a cross-batch stable identifier.
 
+### minted citation key
+
+A citation key a format builds from an entry's own bibliographic content, for a source syntax that
+supplies no cite key of its own — RIS is the first format that needs one, since BibTeX's `ID` is
+always present. Deterministic: the same entry mints the same key on every import, before any
+batch-scoped de-duplication suffix is applied. An entry too sparse to mint from falls back to its
+own position in the file rather than failing. Distinct from a key the source stated outright — RIS's
+own `ID` tag, taken verbatim where present — which is not minted at all.
+
 ### Name
 
 A contributor — a person **or** an organization — stored role-neutrally as the `Name` model
@@ -114,6 +123,15 @@ an import reports against: every entry a format finds gets exactly one outcome.
 entry is what the source file holds, and an `Item` is what the catalogue stores. An entry that is
 skipped or fails never becomes an `Item` at all.
 
+### record
+
+RIS's own name for what this glossary calls an *entry* — opened by a `TY` (reference type) tag and
+closed by `ER`, one per bibliographic item the file holds. The same relationship as *cite key*
+below: two names for one thing, on either side of the import boundary, with the glossary's own term
+on the catalogue side and the source format's term on the file side. Not used as a term in its own
+right here — write *entry*, the way *record* is already retired as a synonym for an item (see
+*Synonyms to avoid*).
+
 ### outcome
 
 What became of one entry: **created**, **skipped**, or **failed**. A fixed vocabulary rather than a
@@ -145,16 +163,16 @@ not survive the rollback.
 ### entry type
 
 The kind of record a source entry declares, in the source's own vocabulary — BibTeX's `@article`,
-`@book`, `@phdthesis`. A format maps it to a CSL item type, which is what the catalogue stores. The
-two vocabularies are not the same size: an entry type with no CSL equivalent maps to the generic
-one rather than failing the entry.
+`@book`, `@phdthesis`; RIS's `TY  - JOUR`, `TY  - BOOK`, `TY  - CHAP`. A format maps it to a CSL item
+type, which is what the catalogue stores. The two vocabularies are not the same size: an entry type
+with no CSL equivalent maps to the generic one rather than failing the entry.
 
 ### field
 
 One labelled value inside a source entry, again in the source's own vocabulary — BibTeX's `journal`,
-`author`, `doi`. A format maps a field to a CSL variable. A field it maps to none is preserved on
-the item rather than discarded, so *unmapped* describes what a format did with a field, not
-something wrong with the field.
+`author`, `doi`; RIS's `T2`, `AU`, `DO`. A format maps a field to a CSL variable. A field it maps to
+none is preserved on the item rather than discarded, so *unmapped* describes what a format did with
+a field, not something wrong with the field.
 
 ### dialect
 
@@ -163,6 +181,15 @@ BibTeX and BibLaTeX are one format's two dialects, one writing `journal` and `ye
 writes `journaltitle` and `date`. A single format reads both, because the person exporting a library
 has no way to know which one their reference manager wrote. Where an entry supplies both spellings
 of the same information and they disagree, precedence is documented rather than incidental.
+
+Not every format has named dialects to point to. RIS has one written specification and no declared
+variants of it, yet EndNote, Web of Science and Scopus — the producers a format reads — have each
+diverged from that specification in their own undocumented ways, most visibly in which tag carries a
+contributor's role. A *dialect* covers this case too: a producer's own convention for a format with
+no specified variants, read by the tags it actually uses rather than by detecting which tool wrote
+the file (there is no producer detection). The difference from BibTeX/BibLaTeX is only that nobody
+named these conventions in advance; resolving a disagreement between them is still a precedence
+question, decided the same way.
 
 ### cite key
 

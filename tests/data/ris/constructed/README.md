@@ -24,6 +24,8 @@ at the rule it broke rather than at a file with several problems in it (the same
 | `chapter_with_editors.ris` | A chapter carrying its book's editors in `A2` and the book title in `T2`. Not a malformation: it substitutes for a genuine chapter export, which no vendorable corpus supplies (spec.md *Verification corpus*, T002). |
 | `equivalence_scopus.ris` | The matched ten references in Scopus's tag ordering and encodings. Not a malformation: it substitutes for a genuine Scopus export of those references, which upstream does not publish (spec.md *Verification corpus*, T028). |
 | `equivalence_webofscience.ris` | The same ten in Web of Science's shape, for the same reason. |
+| `control_characters_in_values.ris` | A null byte and other C0 control characters embedded inside otherwise well-formed field values — recovered rather than crashing the parser or the mapping (FR-035, T038). |
+| `injection_looking_values.ris` | Field values shaped like a SQL statement, an HTML/JS payload, a format-string gadget, and shell/path-traversal syntax — stored as inert text, never interpreted (FR-035, SC-008, T038). |
 
 Every file here is written by this project — by hand, except the two equivalence fixtures, which are
 derived mechanically from a genuine file as described below. None is presented as a genuine

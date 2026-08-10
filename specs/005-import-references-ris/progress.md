@@ -1068,3 +1068,173 @@ detail than the ledger string held. US-4's three tasks were written with `comman
 
 Carried into the loop rather than left as a one-off fix: the ledger check runs at every story
 acceptance from here, not only at stage exits.
+
+## 2026-08-10T13:15:00Z · Implementer US-5 · T034
+
+Did: added the vocabulary FR-036 names to `CONTEXT.md`. *minted citation key* as its own entry
+after *citation key*, since it is a specific case of it. *record* as its own entry after *entry*,
+mirroring how *cite key* records BibTeX's own name for a *citation key* — cross-referenced both
+ways, and against the existing *Synonyms to avoid* entry for `record`, which stays correct
+unchanged: it governs prose usage in specs and code, not whether the source format's own word gets
+documented. RIS spellings (`TY`, `T2`/`AU`/`DO`) added to *entry type* and *field* alongside their
+existing BibTeX examples. *dialect* gained a second paragraph: RIS has one written specification and
+no declared variants the way BibTeX has classic/BibLaTeX, so a producer's own undocumented
+convention (EndNote vs. Web of Science vs. Scopus) is a different shape of the same idea, drawn from
+spec.md's own Q&A on the point rather than invented fresh.
+
+Read the whole glossary first, per the brief's instruction, and matched each new entry's shape to
+its neighbours (definition, then how it relates to what came before) rather than writing a fresh
+style.
+
+No test surface: a glossary entry has no failing test to write first, unlike T035's generated page.
+
+Verified: `poetry run pre-commit run --files CONTEXT.md` — clean (trailing-whitespace,
+end-of-file-fixer, deptry all pass; ruff/mypy skip a Markdown file).
+
+Next: T035 (the RIS mapping document, D40).
+
+## 2026-08-10T13:40:00Z · Implementer US-5 · T035
+
+Read decisions.md D40 first, as the brief required: the mapping tables go in a new
+`docs/ris-mapping.md`, not `docs/data-model.md`, mirroring `docs/bibtex-mapping.md`'s mechanism —
+a `_mapping_document()` in the format module, generated to disk, asserted equal by a test. Wrote
+the test first (`TestPublishedMapping`, three tests mirroring `test_bibtex.py`'s own class of the
+same name), watched it fail with `ImportError: cannot import name '_mapping_document'` — the right
+reason, since the function did not exist yet — then wrote `_mapping_document()` in
+`literature/importers/ris.py`.
+
+Content per the brief: reference-type table and tag table rendered directly from
+`REFERENCE_TYPE_TABLE` and `FIELD_TABLE`; `T2`/`SP`'s type-conditional resolution, the contributor
+role table, and the `SN` report/patent exception all rendered from the real frozensets
+(`_BOOK_LIKE_TYPES`, `_PAGE_COUNT_TYPES`, `_AU_EDITOR_TYPES`, `_CHAPTER_LIKE_A2_EDITOR_TYPES`, and
+so on) rather than hand-typed lists, including the two rows (`A2` collection-editor, `A3`
+collection-editor) computed as a set difference to match the `elif` the code actually runs — the
+"hand-written table duplicating a dict" failure the brief warned against would have reappeared
+one level up if I had typed those lists out instead. Date precedence, the citation-key scheme and
+the producer-fingerprint note are prose, since none of the three is a lookup table; the SN
+producer-encoding note and citation-key scheme were drawn from `_identifiers`' and
+`_mint_citation_key`'s own docstrings rather than restated from memory.
+
+Generated `docs/ris-mapping.md` with `poetry run python -c "from literature.importers.ris import
+_mapping_document; open('docs/ris-mapping.md','w').write(_mapping_document())"`, the same one-liner
+`_mapping_document`'s own docstring gives. Added `ris-mapping` to `docs/index.md`'s Reference
+toctree, next to `bibtex-mapping`. `docs/bibtex-mapping.md` and `docs/data-model.md` untouched.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestPublishedMapping -q` — red
+first (`ImportError`), green after. Full file: `poetry run pytest tests/test_importers/test_ris.py
+-q` — 288 passed (285 prior + 3 new). `poetry run mypy literature/importers/ris.py
+tests/test_importers/test_ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py docs/ris-mapping.md docs/index.md` —
+ruff-format reformatted one quote style on first run (no content change), clean on the regenerate
++ rerun that followed.
+
+Next: T036 (README support boundary).
+
+## 2026-08-10T13:55:00Z · Implementer US-5 · T036
+
+Did: added a "Reading RIS" subsection to README.md, mirroring "Reading BibTeX" in shape — what the
+format reads, its `custom["ris"]` preservation, a link to the generated mapping page — and stating
+the FR-032 support boundary in plain words: reads the common producers as best it can, makes no
+promise every variant imports perfectly, grows through bug reports and feature requests, EndNote
+primary with Web of Science and Scopus secondary.
+
+Two adjacent lines were stale and left the README self-contradictory against the section it was
+asking me to add to, so fixed both as part of stating RIS's own boundary rather than writing next
+to a wrong claim: "BibTeX is read out of the box" (RIS has shipped as a default since US-1 —
+`literature/importers/config.py`'s `DEFAULTS` — so this undersold what the package now does), and
+the settings example listing `myapp.formats.RISFormat` as a "format of your own" to add (RIS is
+built in now, so the example was telling a reader to write code that already exists). Replaced the
+example's third entry with a genuinely hypothetical format so the "replaces the default list"
+point the prose makes still holds. "RIS follows." — the one-line placeholder from when this
+paragraph was BibTeX-only — is replaced by the new subsection itself.
+
+No spec, story, task or requirement id appears in the new prose, per the brief's instruction that
+this is public-facing text with a separate editorial pass still to come.
+
+No test surface: README prose has no failing test to write first, the same as T034's glossary
+entries.
+
+Verified: `poetry run pre-commit run --files README.md` — clean.
+
+Next: T038 (security assertions).
+
+## 2026-08-10T14:20:00Z · Implementer US-5 · T038
+
+Loaded craft-security first, per the brief, and used its threat-model step: mapped the one trust
+boundary this module has (file content) and asked what "code execution, filesystem access, network
+access, or an unhandled error" would actually look like for a hand-rolled text parser with no
+request, template, shell or outbound call anywhere on its path — rather than writing generic
+security-sounding tests. Added `TestUntrustedInput` to `test_ris.py`, five tests, each stated in
+the class docstring against what it actually establishes and does not:
+
+- `test_the_module_reaches_nothing_outside_itself` — static: `ris.py`'s own source names no
+  execution/network primitive. Mirrors `test_bibtex.py`'s test of the same name and the same
+  forbidden-symbol list (dropped `open(` from that list after the first run false-failed on
+  `_mapping_document`'s own docstring, which names the regeneration one-liner — `bibtex.py` carries
+  the identical string, which is why its own list excludes it too).
+- `test_to_csl_json_opens_no_file` / `test_to_csl_json_makes_no_network_connection` — dynamic:
+  `builtins.open` / `socket.socket.connect` patched to raise, hostile path- and URL-shaped content
+  run through real conversion. Sanity-checked both have teeth before trusting them: temporarily
+  inserted a real `open(__file__)` and a real `socket.connect(...)` into `to_csl_json` (not
+  committed), confirmed each test caught it with the expected `AssertionError`, reverted and
+  diffed clean against the pre-change file.
+- `test_gadget_values_are_stored_as_inert_text` — format-string/template-injection and SQL-shaped
+  values survive conversion as the literal string, checked against the stored value itself, with
+  `os.system`/`subprocess.run`/`subprocess.Popen` patched to raise as a second witness.
+- `test_hostile_field_values_terminate` — six parametrized values targeting this module's own
+  regexes (`_SN_ANNOTATION_RE`'s open-paren backtracking, the bare-ISSN digit run, the citation-key
+  family-name and title-word regexes), mirroring `test_bibtex.py`'s test of the same name against
+  BibTeX's patterns instead.
+- `test_every_corpus_file_fails_cleanly_or_not_at_all` — parametrized per file (not one loop) over
+  every constructed and negative fixture, adding the assertion that every failure carries a reason,
+  which the pre-existing whole-corpus test (`TestWholeFileOutcomes`) does not check.
+
+Two new constructed fixtures back the last two tests, for cases the existing corpus does not hold:
+`control_characters_in_values.ris` (a null byte and other C0 control characters inside otherwise
+well-formed values) and `injection_looking_values.ris` (SQL-, script-, format-string- and
+shell-metacharacter-shaped values). Both are hand-written, recorded in `constructed/README.md`
+per the brief's instruction on constructing a needed case, and swept automatically by every
+directory-globbing test in the file — which is also why `CONSTRUCTED_FIXTURES` in
+`TestConstructedCorpus` (a hand-written inventory set, not test logic) needed the two names added;
+without it the pre-existing `test_the_named_fixture_set_is_exactly_what_is_on_disk` correctly
+failed, naming exactly the two new files.
+
+One finding worth recording rather than silently working around: `str.splitlines()`, which
+`RISParser.parse` uses to split the file, treats `\v` (0x0B) and `\f` (0x0C) as line boundaries —
+not only `\n`/`\r`. A value carrying either is silently split and rejoined through the ordinary
+continuation-line mechanism, which replaces the control character with a plain space rather than
+raising or preserving it verbatim. Confirmed by direct observation (`_TAG_RE`/`_continue_value`
+against the fixture, not assumed), and it is why `control_characters_in_values.ris` uses `\x00`,
+`\x07`, `\x1b` and `\x08` rather than `\v`/`\f` for the "preserved verbatim" claim — those two are
+still exercised by the fixture, just correctly not asserted as byte-identical. No behaviour change:
+this is within FR-035's guarantee (no crash, nothing executed) and not a defect this task's scope
+covers; noting it here rather than filing it, since it is a Python stdlib fact about `splitlines`
+rather than a bug in this module.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestUntrustedInput -q` — 32 passed.
+Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 320 passed (288 prior + 32
+new). `poetry run mypy literature/importers/ris.py tests/test_importers/test_ris.py` — clean.
+`poetry run pre-commit run --files tests/test_importers/test_ris.py
+tests/data/ris/constructed/control_characters_in_values.ris
+tests/data/ris/constructed/injection_looking_values.ris tests/data/ris/constructed/README.md` —
+clean, fixture bytes confirmed unmodified by the trailing-whitespace/end-of-file-fixer hooks.
+
+Next: full suite, then `pre-commit run --all-files`, then the completion report.
+
+## 2026-08-10T14:35:00Z · Implementer US-5 · story close
+
+Full suite: `poetry run pytest -q` — 1106 passed (1071 baseline + 3 from T035 + 32 from T038; T034
+and T036 added no tests, per their own entries above). `poetry run pre-commit run --all-files` —
+clean on all eight hooks (trim trailing whitespace, fix end of files, check yaml, poetry-check,
+ruff lint, ruff format, mypy, deptry). Working tree clean, four commits, one per task, task ID in
+each subject.
+
+Prohibited paths confirmed byte-for-byte unchanged across all four commits:
+`literature/importers/base.py`, `literature/importers/results.py`, `literature/converters.py`,
+`tests/test_converters.py`, `tests/test_importers/test_bibtex.py`, `docs/bibtex-mapping.md`,
+`docs/data-model.md`. No model field, no migration (Article XIII): the diff touches `CONTEXT.md`,
+`README.md`, `docs/index.md`, `docs/ris-mapping.md` (new), `literature/importers/ris.py`,
+`tests/test_importers/test_ris.py`, two new fixtures under `tests/data/ris/constructed/`, that
+directory's `README.md`, and this file. Nothing else.
+
+Next: T039, which is Forge's own PR-exit checklist item against the whole feature diff, not mine.

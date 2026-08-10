@@ -19,6 +19,7 @@ usage
 
 data-model
 bibtex-mapping
+ris-mapping
 api/index
 ```
 

@@ -976,3 +976,37 @@ left unmodified and still green) — only the previously-unreachable remainder i
 **Revisit if**: a future format needs to distinguish *which kind* of surplus URL it preserved (a
 duplicate resolver link versus a genuinely different one) — today they are preserved
 indistinguishably, the same way `DO`'s and `SN`'s surplus values already are.
+
+## D40 — T035's mapping tables go in a new `docs/ris-mapping.md`, not in `docs/data-model.md`
+
+**Ambiguity**: T035 names `data-model.md` as the home for the RIS tag table, reference-type table,
+contributor-role resolution, date precedence, `SN` resolution and citation-key scheme. Two things
+in the merged repository disagree with that. `docs/data-model.md` is about the *relational* model —
+`Item`, `Name`, `ItemName`, `ItemDate`, `ItemIdentifier` and their CSL JSON equivalents — and says
+nothing about any import format. And the sibling feature that had the identical task published its
+tables as `docs/bibtex-mapping.md`, a separate page in the toctree.
+
+**Chosen**: a new `docs/ris-mapping.md`, mirroring `docs/bibtex-mapping.md` in structure and in
+mechanism, added to the `docs/index.md` toctree next to it. `docs/data-model.md` is not touched.
+The page is generated from the mapping tables themselves by a `_mapping_document()` in
+`literature/importers/ris.py`, and a test asserts the published file equals the generator's current
+output, exactly as `tests/test_importers/test_bibtex.py:1101` does for BibTeX. FR-012 is satisfied
+by the tables existing, published and current — not by their being in one particular file.
+
+**Why defensible**: writing format-specific tables into the relational data-model page would make
+two unrelated subjects share a document, and would leave a reader comparing this package's two
+importers looking in two different places for the same kind of information. The generated-plus-
+asserted mechanism is the part that actually matters: a hand-maintained mapping table drifts from
+the code the first time a tag is added, and drifts silently, which is the same defect shape this
+feature has now corrected three times. Following the task text literally would have discarded a
+working solution the previous feature already built and proved.
+
+**Why this is a ruling and not a task edit by an Implementer**: deciding that a Sam-approved task's
+named file is the wrong file is not an Implementer's call. It is recorded here, before dispatch, so
+US-5 builds on a settled question rather than discovering it. `tasks.md` T035 is amended in place
+with a forward-tag to this entry rather than rewritten, per the standing convention for superseded
+text.
+
+**Revisit if**: the two mapping pages grow enough shared material — CSL variable descriptions,
+say — that a single generated "import mappings" page with a section per format reads better than
+two. That is a docs consolidation, not a change to what either page must contain.

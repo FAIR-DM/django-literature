@@ -157,6 +157,8 @@ CONSTRUCTED_FIXTURES = {
     "chapter_with_editors.ris",
     "equivalence_scopus.ris",
     "equivalence_webofscience.ris",
+    "control_characters_in_values.ris",
+    "injection_looking_values.ris",
 }
 
 
@@ -1837,3 +1839,169 @@ class TestUnmappedTagCoverage:
             tags = {tag for tag, _value in raw.tags}
             unaccounted = tags - _CONSUMED_TAGS - preserved_keys
             assert not unaccounted, (relative_path, raw.index, sorted(unaccounted))
+
+
+#: Every file in the corpus that is expected to fail cleanly or not at all -- every constructed
+#: and negative fixture together, discovered from the two directories rather than hand-listed, the
+#: same reasoning ``GENUINE_FILES`` above already applies to the genuine corpus.
+_ALL_CORPUS_FILES = sorted(f"constructed/{p.name}" for p in (DATA / "constructed").glob("*.ris")) + sorted(
+    f"negative/{p.name}" for p in (DATA / "negative").glob("*.ris")
+)
+
+
+class TestUntrustedInput:
+    """A ``.ris`` file is untrusted content (FR-035, SC-008, T038).
+
+    craft-security's threat model for this module: file content is the only trust boundary here --
+    there is no request, no template, no shell and no outbound call anywhere on the import path.
+    What each test below actually establishes, stated plainly so this class does not read as
+    coverage it does not have:
+
+    - ``test_the_module_reaches_nothing_outside_itself`` is a *static* guarantee: the module's own
+      source never names a code-execution, filesystem, or network primitive. It says nothing about
+      hostile content reaching one of those primitives indirectly, through a library this module
+      calls (a validator, the ORM) -- that is what the next two tests cover dynamically instead.
+    - ``test_to_csl_json_opens_no_file`` / ``test_to_csl_json_makes_no_network_connection`` run
+      hostile, path- and URL-shaped content through real conversion with the primitive itself
+      patched to fail loudly if reached, at runtime, not by inspecting source.
+    - ``test_gadget_values_are_stored_as_inert_text`` proves format-string-, template-injection-
+      and SQL-shaped content survives conversion as an unevaluated string -- checked against the
+      value actually stored, with ``os.system``/``subprocess`` patched to fail as a second witness
+      -- rather than an assertion that merely re-runs a happy-path conversion under a scary name.
+    - ``test_hostile_field_values_terminate`` is a regression net against catastrophic backtracking
+      in this module's own regular expressions. It proves termination on the values tried here; it
+      cannot prove the absence of a pathological input nobody has constructed yet.
+    - ``test_every_corpus_file_fails_cleanly_or_not_at_all`` extends the whole-corpus sweep
+      ``TestWholeFileOutcomes.test_no_import_ever_raises_on_this_corpus`` already runs, adding a
+      per-file parametrize (one bad file is named, not lost in a loop) and the additional
+      assertion that every failure actually carries a reason a caller could act on.
+
+    Two fixtures back these tests that no existing corpus file exercises: ``constructed/
+    control_characters_in_values.ris`` (a null byte and other C0 control characters inside
+    otherwise well-formed values -- recovered rather than crashing the parser) and ``constructed/
+    injection_looking_values.ris`` (SQL-, script-, format-string- and shell-shaped field values --
+    stored as text, not interpreted). Both are swept automatically by every test in this class and
+    by ``TestWholeFileOutcomes`` and ``TestNegativeCorpus`` above, since all three glob their
+    directory rather than naming files.
+    """
+
+    def test_the_module_reaches_nothing_outside_itself(self):
+        """No import in ``ris.py`` that could execute, spawn, read an arbitrary path, or connect
+        on file content -- the same static check ``test_bibtex.py`` runs for the sibling format.
+        """
+        source = (Path(__file__).parent.parent.parent / "literature" / "importers" / "ris.py").read_text(
+            encoding="utf-8"
+        )
+        for forbidden in ("subprocess", "socket", "urllib", "requests", "os.system", "eval(", "exec(", "pickle"):
+            assert forbidden not in source, forbidden
+
+    def test_to_csl_json_opens_no_file(self, monkeypatch):
+        def _forbidden_open(*args, **kwargs):
+            raise AssertionError(f"conversion opened a file: args={args!r} kwargs={kwargs!r}")
+
+        monkeypatch.setattr("builtins.open", _forbidden_open)
+
+        hostile = entry(
+            ty="JOUR",
+            ti="../../../../etc/passwd",
+            ab="file:///etc/passwd",
+            n1=["$(cat /etc/passwd)", "\\\\server\\share\\file"],
+        )
+        csl = RISFormat().to_csl_json(hostile)
+        assert isinstance(csl, dict)
+
+    def test_to_csl_json_makes_no_network_connection(self, monkeypatch):
+        import socket
+
+        def _forbidden_connect(*args, **kwargs):
+            raise AssertionError("conversion attempted a network connection")
+
+        monkeypatch.setattr(socket.socket, "connect", _forbidden_connect)
+
+        hostile = entry(
+            ty="JOUR",
+            ur="http://169.254.169.254/latest/meta-data/",
+            do="10.1000/attacker.example%2Fcallback",
+            n1="ftp://attacker.example/exfil",
+        )
+        csl = RISFormat().to_csl_json(hostile)
+        assert isinstance(csl, dict)
+
+    def test_gadget_values_are_stored_as_inert_text(self, monkeypatch):
+        import os
+        import subprocess
+
+        def _forbidden(*args, **kwargs):
+            raise AssertionError("hostile content reached a subprocess/os primitive")
+
+        monkeypatch.setattr(os, "system", _forbidden)
+        monkeypatch.setattr(subprocess, "run", _forbidden)
+        monkeypatch.setattr(subprocess, "Popen", _forbidden)
+
+        gadget_title = "{0.__class__.__init__.__globals__[os].system('id')}"
+        gadget_note = "'; DROP TABLE literature_item; --"
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", ti=gadget_title, n1=gadget_note))
+
+        assert csl["title"] == gadget_title
+        assert csl["custom"]["ris"]["N1"] == gadget_note
+
+    @pytest.mark.parametrize(
+        "hostile",
+        [
+            "(" * 5000,  # SN annotation-stripping regex, no closing paren to match
+            "(ISSN)" * 2000,  # repeated close pattern for the same regex
+            "9" * 5000,  # a very long run against the bare-ISSN-shape regex
+            "a" * 50000,  # a very long plain value
+            "O'Brien-" * 3000 + ", J.",  # citation-key family-name punctuation-stripping regex
+            "the " * 5000 + "Title",  # citation-key title-word stopword scan
+        ],
+    )
+    def test_hostile_field_values_terminate(self, hostile):
+        """Each of these completes rather than backtracking indefinitely; the test fails by timing
+        out if a regex in this module ever becomes quadratic (mirrors ``test_bibtex.py``'s test of
+        the same name, against this module's own patterns instead of BibTeX's).
+        """
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", au=f"{hostile[:50]}, J.", ti=hostile, sn=hostile))
+        assert isinstance(csl, dict)
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize("relative_path", _ALL_CORPUS_FILES)
+    def test_every_corpus_file_fails_cleanly_or_not_at_all(self, relative_path):
+        """SC-008: every outcome comes back through the result, and every failed entry names a
+        reason -- never a bare crash, and never a failure a caller has nothing to act on.
+        """
+        with fixture(relative_path) as handle:
+            result = RISFormat().import_file(handle)
+        assert all(e.outcome in set(Outcome) for e in result)
+        assert all(e.reason for e in result.failed), relative_path
+
+
+class TestPublishedMapping:
+    """The published mapping is generated from the tables, so it cannot drift from what the
+    importer does (T035, FR-012, D40) — the same mechanism ``TestPublishedMapping`` in
+    ``test_bibtex.py`` proves for BibTeX, mirrored here rather than reinvented.
+    """
+
+    def test_the_document_on_disk_matches_the_tables(self):
+        from literature.importers.ris import _mapping_document
+
+        published = (Path(__file__).parent.parent.parent / "docs" / "ris-mapping.md").read_text(encoding="utf-8")
+        assert published == _mapping_document(), (
+            "docs/ris-mapping.md is stale — regenerate it from literature.importers.ris._mapping_document()"
+        )
+
+    def test_every_reference_type_row_appears(self):
+        from literature.importers.ris import _mapping_document
+
+        document = _mapping_document()
+        for ris_type, csl_type in REFERENCE_TYPE_TABLE.items():
+            assert f"`{ris_type}`" in document, ris_type
+            assert f"`{csl_type}`" in document, csl_type
+
+    def test_every_field_row_appears(self):
+        from literature.importers.ris import FIELD_TABLE, _mapping_document
+
+        document = _mapping_document()
+        for tag, csl_key in FIELD_TABLE.items():
+            assert f"`{tag}`" in document, tag
+            assert f"`{csl_key}`" in document, csl_key
