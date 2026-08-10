@@ -454,17 +454,17 @@
         },
         {
           "id": "T028",
-          "status": "todo",
-          "attempts": 1,
+          "status": "done",
+          "attempts": 2,
           "evidence": {
             "commands": [
-              "grep DO tests/data/ris/genuine/endnote.ris tests/data/ris/genuine/scopus.ris tests/data/ris/genuine/webofscience.ris",
-              "git log --oneline --all -- tests/data/ris/genuine/"
+              "poetry run pytest tests/test_importers/test_ris.py::TestEquivalenceAcrossProducers -q",
+              "poetry run pytest tests/test_importers/test_ris.py -q",
+              "poetry run ruff check tests/test_importers/test_ris.py",
+              "poetry run mypy literature/importers/ris.py"
             ],
-            "results": "zero DOI overlap across all three genuine files; see decisions.md D35 for full evidence and reasoning"
-          },
-          "reason": "The vendored genuine/{endnote,scopus,webofscience}.ris files are not the same ten references (zero DOI/author/title overlap), contradicting genuine/SOURCE.md and T028's own acceptance criterion. See decisions.md D35.",
-          "note": "D35 block upheld and independently reproduced; unblocked by D36 corpus correction (8af0116). Redispatch pending."
+            "results": "7 passed (new class); 264 passed full file (257 prior + 7 new); ruff clean; mypy clean (no production file changed). Two assertions hand mutation-tested to confirm non-vacuous, both correctly failed before revert."
+          }
         },
         {
           "id": "T029",

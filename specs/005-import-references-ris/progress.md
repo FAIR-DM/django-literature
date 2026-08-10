@@ -836,3 +836,50 @@ file: `poetry run pytest tests/test_importers/test_ris.py -q` — 257 passed (25
 
 Next: none — T029 was this story's last independently-completable task. Full-suite verify and the
 completion report follow. T028 remains blocked pending Forge's resolution of D35.
+
+## 2026-08-05T23:50:00Z · Implementer US-3 · T028
+
+Did: wrote `TestEquivalenceAcrossProducers` in `tests/test_importers/test_ris.py` (7 tests, all
+`django_db`-backed end-to-end imports via `get_format("ris")().import_file(handle)`, no producer
+argument anywhere). Imports all four files D36 settles the corpus on —
+`genuine/endnote.ris`, `genuine/mendeley.ris`, `constructed/equivalence_scopus.ris`,
+`constructed/equivalence_webofscience.ris` — and compares the resulting `Item`s by DOI (not by
+citation key or position, which the corpus does not claim equivalent). Asserts, per the acceptance
+criterion's own scope: the same ten DOIs present in all four; entry type equivalent; contributor
+family names and order equivalent; issued date and its precision equivalent; DOI identifiers
+equivalent. Two further tests assert the genuine divergences D36 names, each explicitly rather
+than folded into a lenient comparison: `test_issn_identifier_diverges_...` (EndNote's `SN`
+resolves an ISSN for every entry; the two constructed re-encodings of EndNote's own `SN` values
+carry the identical one; Mendeley's file carries no `SN` tag at all, so it resolves none) and
+`test_initials_punctuation_diverges_between_endnote_and_mendeley` (EndNote punctuates initials
+with periods, Mendeley emits them bare — both the Brownstein example D36 names and a stronger one,
+Jalil, where Mendeley's `N.-E.` is not merely `N. E.` with the punctuation stripped but a
+differently placed hyphen).
+
+No production code changed — `literature/importers/base.py`, `results.py` and `converters.py`
+untouched (SC-009), and nothing in `literature/importers/ris.py` either: T024–T027 already built
+the mapping this test exercises. All 7 tests passed on first run, which is expected for this task
+and not a red flag for the same reason T029's entry above gives — the corpus and the mapping were
+already correct, and T028's job is to prove it, not to build it. To confirm the assertions are
+load-bearing rather than vacuously true, two were mutation-tested by hand: inverting the ISSN-
+absence assertion for Mendeley, and inverting the Brownstein punctuation assertion, both correctly
+failed against the real corpus before being reverted (neither mutation was committed).
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestEquivalenceAcrossProducers -q`
+— 7 passed. Full file: `poetry run pytest tests/test_importers/test_ris.py -q` — 264 passed (257
+prior + 7 new). `poetry run ruff check tests/test_importers/test_ris.py` — clean.
+`poetry run mypy literature/importers/ris.py` — clean (unchanged; no production file to check for
+this task). `poetry run ruff format --check tests/test_importers/test_ris.py` — reports the file
+would be reformatted, but this predates the task (`git stash` confirms the same warning fires on
+the base commit, at the pre-existing `dois()` helper in `TestGenuineCorpus`) and was never part of
+this story's own verify commands (T024–T029's evidence entries all run `ruff check` only). My own
+new code adds three more instances of the same cosmetic disagreement — long dict/list
+comprehensions `ruff format` would collapse to one line, all within the 120-character limit either
+way. Left as committed, matching the surrounding class's style rather than diverging from it; see
+`concerns` in the completion report.
+
+Corpus untouched, per D36 and the brief's prohibition: no fixture file in `tests/data/ris/` was
+edited, re-derived or extended.
+
+Next: T028 was this story's last remaining task. Full-suite verify and the completion report
+follow.
