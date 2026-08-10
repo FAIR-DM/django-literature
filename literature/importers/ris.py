@@ -816,6 +816,148 @@ def _citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int) -> s
     return _mint_citation_key(raw, issued, index)
 
 
+# ---------------------------------------------------------------------------
+# Published mapping (T035, FR-012, decisions.md D40) — rendered from the tables above rather than
+# written alongside them, the same mechanism ``bibtex.py``'s ``_mapping_document`` established for
+# the sibling format, so the page and the code cannot disagree. ``docs/ris-mapping.md`` is this
+# function's output and a test asserts it still is.
+# ---------------------------------------------------------------------------
+
+
+def _mapping_document() -> str:
+    """The reference-type, tag, contributor, date, identifier and citation-key mapping, as a
+    Markdown document.
+
+    Private on purpose, for the same reason ``bibtex._mapping_document`` is: the import contract's
+    public surface is a curated, two-way-asserted list (``literature.importers.__all__``), and a
+    documentation generator does not belong in it. Regenerate the published page after changing any
+    table above::
+
+        poetry run python -c "from literature.importers.ris import _mapping_document; \
+            open('docs/ris-mapping.md','w').write(_mapping_document())"
+
+    A test asserts the file on disk still matches, so a table change that skips this step fails
+    rather than shipping a stale page.
+    """
+    lines = [
+        "# RIS mapping",
+        "",
+        "What this package makes of a `.ris` file: which reference type becomes which CSL item",
+        "type, and which tag becomes which CSL variable, contributor role, date or identifier. One",
+        "format reads EndNote, Web of Science and Scopus alike — there is no producer detection, so",
+        "every row below is resolved from the tag itself, never from which tool wrote the file.",
+        "",
+        "This page is generated from the mapping tables themselves, so it cannot describe something",
+        "the importer does not do. A tag with no row here is not discarded: it is kept with the",
+        'record under `custom["ris"]`, where it can be read back afterwards.',
+        "",
+        "## Reference types",
+        "",
+        "| RIS `TY` | CSL item type |",
+        "| --- | --- |",
+    ]
+    lines += [f"| `{ris_type}` | `{csl_type}` |" for ris_type, csl_type in sorted(REFERENCE_TYPE_TABLE.items())]
+    lines += [
+        "",
+        f"A reference type with no row above becomes `{_FALLBACK_TYPE}` rather than failing the entry.",
+        "",
+        "## Tags",
+        "",
+        "| RIS tag | CSL variable |",
+        "| --- | --- |",
+    ]
+    lines += [f"| `{tag}` | `{csl_key}` |" for tag, csl_key in sorted(FIELD_TABLE.items())]
+    lines += [
+        "",
+        "`T2` and `SP` map to different CSL variables depending on the entry's reference type, so",
+        "they carry no single row above:",
+        "",
+        "- `T2` is `collection-title` on "
+        + ", ".join(f"`{t}`" for t in sorted(_BOOK_LIKE_TYPES))
+        + " — types that are already their own container — and `container-title` everywhere else.",
+        "- `SP` is `number-of-pages` on "
+        + ", ".join(f"`{t}`" for t in sorted(_PAGE_COUNT_TYPES))
+        + " — a whole work rather than something with a locator inside a container — and `page` "
+        + "everywhere else.",
+        "",
+        "## Contributors",
+        "",
+        "Contributor role is resolved from the tag and the entry's reference type together, since",
+        "no RIS specification fixes one tag to one role across every kind of entry:",
+        "",
+        "| RIS tag | CSL role | Reference types |",
+        "| --- | --- | --- |",
+        "| `AU` | `editor` | " + ", ".join(f"`{t}`" for t in sorted(_AU_EDITOR_TYPES)) + " |",
+        "| `AU` | `author` | everywhere else |",
+        "| `ED` | `editor` | all — Web of Science's own editor tag, used in place of `A2` |",
+        "| `A2` | `editor` | " + ", ".join(f"`{t}`" for t in sorted(_CHAPTER_LIKE_A2_EDITOR_TYPES)) + " |",
+        "| `A2` | `collection-editor` | "
+        + ", ".join(f"`{t}`" for t in sorted(_BOOK_LIKE_TYPES - _CHAPTER_LIKE_A2_EDITOR_TYPES))
+        + " |",
+        "| `A3` | `editor` | " + ", ".join(f"`{t}`" for t in sorted(_A3_EDITOR_TYPES)) + " |",
+        "| `A3` | `collection-editor` | "
+        + ", ".join(f"`{t}`" for t in sorted(_A3_COLLECTION_EDITOR_TYPES - _A3_EDITOR_TYPES))
+        + " |",
+        "| `A4` | `translator` | " + ", ".join(f"`{t}`" for t in sorted(_A4_TRANSLATOR_TYPES)) + " |",
+        "",
+        "A tag with no row for a given reference type is left unmapped there rather than guessed at.",
+        "",
+        "## Dates",
+        "",
+        "| RIS tag | CSL variable |",
+        "| --- | --- |",
+        "| `PY` | `issued` (anchor) |",
+        "| `DA` | refines `issued`'s precision, when its year agrees with `PY`'s |",
+        "| `Y1` | `issued`, only when `PY` is absent |",
+        "| `Y2` | `accessed` |",
+        "",
+        "`PY` anchors the year; where `DA` also parses and agrees with it, `DA`'s extra precision",
+        "(month, or month and day) is kept. A `DA` whose year disagrees is left alone, and a `DA`",
+        "stating no year at all — Web of Science's own shape, `SEP 22` or `DEC` — is spliced onto",
+        "`PY`'s year instead, unless it is a month range, which is discarded rather than guessed at.",
+        "Without `PY`, `Y1` supplies the issued date at whatever precision it states. Where neither",
+        "resolves to a structured date but one carries text, that text is kept as a literal fallback",
+        "rather than discarded, `PY`'s own text taking precedence over `Y1`'s.",
+        "",
+        "## Identifiers",
+        "",
+        "| RIS tag | CSL key |",
+        "| --- | --- |",
+        "| `DO` | `DOI` |",
+        "| `UR` | `URL` |",
+        "| `SN` | `ISSN` or `ISBN`, resolved by the value's own shape |",
+        "",
+        "`SN` is not disambiguated by the format itself. Its value is checked against the ISSN and",
+        "then the ISBN shape and stored under whichever matches, except on "
+        + ", ".join(f"`{t}`" for t in sorted(_REPORT_LIKE_SN_TYPES))
+        + ", where it is a report or patent number and not an identifier at all. `SN`'s three",
+        "producer encodings — Web of Science repeating the tag, Scopus annotating a value inline",
+        "and packing several behind `; `, EndNote continuing on an untagged line — are flattened",
+        "into one ordered list of individual values before this resolution runs. `DO` and `UR` take",
+        "the first value the entry carries, by source position; every other value of any of the",
+        "three tags is preserved on the item rather than discarded.",
+        "",
+        "## Citation keys",
+        "",
+        "RIS supplies no cite key of its own. `ID` is taken verbatim where the entry carries one;",
+        "otherwise a key is minted from the entry's own content — the first author's family name,",
+        "the issued year, and the title's first significant word (skipping `a`/`an`/`the`), lowercased",
+        "and run together with no separator. An entry missing any one of the three falls back to its",
+        "own position in the file instead, deterministically either way. What batch-scoped",
+        "de-duplication then stores may carry a suffix; the import result names the key as stored.",
+        "",
+        "## A note on producer fixtures",
+        "",
+        "Each producer's genuine test fixture carries a byte-for-byte fingerprint — a fragment only",
+        "that producer's export is known to contain — used solely to prove the vendored corpus is",
+        "what it claims to be. No mapping above depends on which producer wrote a file: there is no",
+        "producer-detection branch anywhere in this module, and every row applies uniformly regardless",
+        "of the file's origin.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
 

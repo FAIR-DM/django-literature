@@ -1837,3 +1837,34 @@ class TestUnmappedTagCoverage:
             tags = {tag for tag, _value in raw.tags}
             unaccounted = tags - _CONSUMED_TAGS - preserved_keys
             assert not unaccounted, (relative_path, raw.index, sorted(unaccounted))
+
+
+class TestPublishedMapping:
+    """The published mapping is generated from the tables, so it cannot drift from what the
+    importer does (T035, FR-012, D40) — the same mechanism ``TestPublishedMapping`` in
+    ``test_bibtex.py`` proves for BibTeX, mirrored here rather than reinvented.
+    """
+
+    def test_the_document_on_disk_matches_the_tables(self):
+        from literature.importers.ris import _mapping_document
+
+        published = (Path(__file__).parent.parent.parent / "docs" / "ris-mapping.md").read_text(encoding="utf-8")
+        assert published == _mapping_document(), (
+            "docs/ris-mapping.md is stale — regenerate it from literature.importers.ris._mapping_document()"
+        )
+
+    def test_every_reference_type_row_appears(self):
+        from literature.importers.ris import _mapping_document
+
+        document = _mapping_document()
+        for ris_type, csl_type in REFERENCE_TYPE_TABLE.items():
+            assert f"`{ris_type}`" in document, ris_type
+            assert f"`{csl_type}`" in document, csl_type
+
+    def test_every_field_row_appears(self):
+        from literature.importers.ris import FIELD_TABLE, _mapping_document
+
+        document = _mapping_document()
+        for tag, csl_key in FIELD_TABLE.items():
+            assert f"`{tag}`" in document, tag
+            assert f"`{csl_key}`" in document, csl_key

@@ -1092,3 +1092,40 @@ Verified: `poetry run pre-commit run --files CONTEXT.md` — clean (trailing-whi
 end-of-file-fixer, deptry all pass; ruff/mypy skip a Markdown file).
 
 Next: T035 (the RIS mapping document, D40).
+
+## 2026-08-10T13:40:00Z · Implementer US-5 · T035
+
+Read decisions.md D40 first, as the brief required: the mapping tables go in a new
+`docs/ris-mapping.md`, not `docs/data-model.md`, mirroring `docs/bibtex-mapping.md`'s mechanism —
+a `_mapping_document()` in the format module, generated to disk, asserted equal by a test. Wrote
+the test first (`TestPublishedMapping`, three tests mirroring `test_bibtex.py`'s own class of the
+same name), watched it fail with `ImportError: cannot import name '_mapping_document'` — the right
+reason, since the function did not exist yet — then wrote `_mapping_document()` in
+`literature/importers/ris.py`.
+
+Content per the brief: reference-type table and tag table rendered directly from
+`REFERENCE_TYPE_TABLE` and `FIELD_TABLE`; `T2`/`SP`'s type-conditional resolution, the contributor
+role table, and the `SN` report/patent exception all rendered from the real frozensets
+(`_BOOK_LIKE_TYPES`, `_PAGE_COUNT_TYPES`, `_AU_EDITOR_TYPES`, `_CHAPTER_LIKE_A2_EDITOR_TYPES`, and
+so on) rather than hand-typed lists, including the two rows (`A2` collection-editor, `A3`
+collection-editor) computed as a set difference to match the `elif` the code actually runs — the
+"hand-written table duplicating a dict" failure the brief warned against would have reappeared
+one level up if I had typed those lists out instead. Date precedence, the citation-key scheme and
+the producer-fingerprint note are prose, since none of the three is a lookup table; the SN
+producer-encoding note and citation-key scheme were drawn from `_identifiers`' and
+`_mint_citation_key`'s own docstrings rather than restated from memory.
+
+Generated `docs/ris-mapping.md` with `poetry run python -c "from literature.importers.ris import
+_mapping_document; open('docs/ris-mapping.md','w').write(_mapping_document())"`, the same one-liner
+`_mapping_document`'s own docstring gives. Added `ris-mapping` to `docs/index.md`'s Reference
+toctree, next to `bibtex-mapping`. `docs/bibtex-mapping.md` and `docs/data-model.md` untouched.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestPublishedMapping -q` — red
+first (`ImportError`), green after. Full file: `poetry run pytest tests/test_importers/test_ris.py
+-q` — 288 passed (285 prior + 3 new). `poetry run mypy literature/importers/ris.py
+tests/test_importers/test_ris.py` — clean. `poetry run pre-commit run --files
+literature/importers/ris.py tests/test_importers/test_ris.py docs/ris-mapping.md docs/index.md` —
+ruff-format reformatted one quote style on first run (no content change), clean on the regenerate
++ rerun that followed.
+
+Next: T036 (README support boundary).
