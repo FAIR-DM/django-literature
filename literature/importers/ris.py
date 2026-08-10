@@ -53,6 +53,16 @@ class RISEntry:
         """Every value this entry carries under ``tag``, in source order."""
         return [value for t, value in self.tags if t == tag]
 
+    def first(self, tag: str) -> str:
+        """This entry's first value under ``tag``, stripped, or ``""`` where it carries none.
+
+        A tag present with a blank value reads the same as an absent one here, which is what
+        every mapping site wants: a value that is only whitespace is nothing to store. Sites that
+        genuinely need the unstripped text, or every value, use :meth:`values` instead.
+        """
+        values = self.values(tag)
+        return values[0].strip() if values else ""
+
 
 class RISParser:
     """Reads one ``.ris`` file into :class:`RISEntry` objects, one at a time.
@@ -516,15 +526,13 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
     ``literal`` fallback ``ItemDate`` already has, rather than discarded (T020, FR-026) — ``PY``'s
     own text wins, since it is the anchor tag and ``Y1`` is only ever consulted in its absence.
     """
-    py_values = raw.values("PY")
-    py_value = py_values[0].strip() if py_values else ""
+    py_value = raw.first("PY")
     if py_value:
         py_parts = _ris_date_parts(py_value)
         if py_parts:
             year = py_parts[0]
-            da_values = raw.values("DA")
-            if da_values:
-                da_value = da_values[0].strip()
+            da_value = raw.first("DA")
+            if da_value:
                 da_parts = _ris_date_parts(da_value)
                 if da_parts and da_parts[0] == year:
                     return {"date-parts": [list(da_parts)]}
@@ -534,8 +542,7 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
                         return {"date-parts": [list(spliced)]}
             return {"date-parts": [[year]]}
 
-    y1_values = raw.values("Y1")
-    y1_value = y1_values[0].strip() if y1_values else ""
+    y1_value = raw.first("Y1")
     if y1_value:
         y1_parts = _ris_date_parts(y1_value)
         if y1_parts:
@@ -555,8 +562,7 @@ def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
     An unparseable ``Y2`` falls back to ``literal`` rather than being discarded (T020, FR-026),
     the same rule :func:`_issued_date` applies to ``PY``/``Y1``.
     """
-    y2_values = raw.values("Y2")
-    y2_value = y2_values[0].strip() if y2_values else ""
+    y2_value = raw.first("Y2")
     if not y2_value:
         return None
     y2_parts = _ris_date_parts(y2_value)
@@ -821,9 +827,9 @@ def _mint_citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int)
 def _citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int) -> str:
     """The citation key this entry carries or mints, before any batch de-duplication (FR-019
     through FR-021)."""
-    id_values = raw.values("ID")
-    if id_values and id_values[0].strip():
-        return id_values[0].strip()
+    stated = raw.first("ID")
+    if stated:
+        return stated
     return _mint_citation_key(raw, issued, index)
 
 
@@ -969,6 +975,20 @@ def _mapping_document() -> str:
     return "\n".join(lines)
 
 
+def _preserve(result: dict[str, Any], values: dict[str, Any]) -> None:
+    """Merge ``values`` into ``result``'s preservation sink, creating it only if there is something
+    to put in it.
+
+    The sink is a single nested ``custom["ris"]`` dict, never flat keys on ``custom``:
+    ``from_csl_json`` turns every flat ``custom`` key whose value is a string into an
+    ``ItemIdentifier`` row, whose ``value`` is capped at 500 characters and validated on save, so a
+    long preserved value written flat would fail the whole entry (plan.md "Preservation").
+    """
+    if not values:
+        return
+    result.setdefault("custom", {}).setdefault("ris", {}).update(values)
+
+
 class RISFormat(BibFormat):
     """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
 
@@ -1022,17 +1042,17 @@ class RISFormat(BibFormat):
         }
 
         for tag, csl_key in FIELD_TABLE.items():
-            values = raw.values(tag)
-            if values and values[0].strip():
-                result[csl_key] = values[0].strip()
+            value = raw.first(tag)
+            if value:
+                result[csl_key] = value
 
-        t2_values = raw.values("T2")
-        if t2_values and t2_values[0].strip():
-            result[_container_or_collection_variable(ref_type)] = t2_values[0].strip()
+        t2 = raw.first("T2")
+        if t2:
+            result[_container_or_collection_variable(ref_type)] = t2
 
-        sp_values = raw.values("SP")
-        if sp_values and sp_values[0].strip():
-            result[_page_variable(ref_type)] = sp_values[0].strip()
+        sp = raw.first("SP")
+        if sp:
+            result[_page_variable(ref_type)] = sp
 
         result.update(_contributors(raw, ref_type))
 
@@ -1047,11 +1067,8 @@ class RISFormat(BibFormat):
         preserved = identifiers.pop("custom", None)
         result.update(identifiers)
         if preserved:
-            result.setdefault("custom", {}).setdefault("ris", {}).update(preserved["ris"])
-
-        unmapped = _unmapped(raw)
-        if unmapped:
-            result.setdefault("custom", {}).setdefault("ris", {}).update(unmapped)
+            _preserve(result, preserved["ris"])
+        _preserve(result, _unmapped(raw))
 
         key = _citation_key(raw, issued, raw.index)
         limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM
