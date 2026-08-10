@@ -957,3 +957,30 @@ they simply now land in `custom["ris"]` instead of being silently absent, which 
 T033 checks corpus-wide.
 
 Next: T032 (surplus single-slot values, including the 500-character trap).
+
+## 2026-08-10T00:20:00Z · Implementer US-4 · T032
+
+Did: wrote the failing tests first — `TestSurplusIdentifierValues` (5 tests) and
+`TestLongPreservedValueDoesNotFailTheEntry` (3 tests) in `tests/test_importers/test_ris.py`. While
+writing them, found that `_identifiers`'s `UR` block read only `raw.values("UR")[0]` and never
+looked at a second value at all — not preserved, not discarded on purpose, simply unreachable —
+and that every genuine EndNote and Mendeley record in the corpus carries exactly two `UR` tags (a
+search-result link, a duplicate DOI-resolver link), so this was live data loss on 20 real records
+every import, not a hypothetical. Recorded as decisions.md D39. Then fixed `_identifiers`'s `UR`
+block in `literature/importers/ris.py` to mirror `DO`'s existing shape: first value validated and
+stored as `URL` on success with the remainder preserved, or every value preserved together on
+failure. `TestLongPreservedValueDoesNotFailTheEntry`'s three tests were already green before this
+change — T030's generic sweep already routes `constructed/long_unmapped_tag_value.ris`'s `Z9` tag
+through `_add_preserved`, so the 500-character trap this task's other half names was already
+closed; this task's own contribution there is the test that proves it, run against the fixture
+`constructed/README.md` names for exactly this case.
+
+Verified: `poetry run pytest tests/test_importers/test_ris.py::TestSurplusIdentifierValues
+tests/test_importers/test_ris.py::TestLongPreservedValueDoesNotFailTheEntry -q` — red first (4 of
+8 new tests failing: 3 with `KeyError: 'custom'` for the never-preserved second `UR` value, 1 with
+an assertion mismatch for the invalid-first-plus-surplus case; the other 4 were already green,
+matching the note above), green after. Full file: `poetry run pytest
+tests/test_importers/test_ris.py -q` — 280 passed (272 prior + 8 new). `poetry run mypy
+literature/importers/ris.py` — clean.
+
+Next: T033 (corpus-wide sweep: every tag in every genuine file mapped or retrievable).

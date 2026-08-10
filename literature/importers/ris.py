@@ -669,6 +669,10 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     An entry carrying more than one ``DO`` tag — a genuine Web of Science chapter record's own
     and its containing book's — stores the first, by source position, as the DOI, and preserves
     every other one, each normalized the same way as the first (T027, FR-018).
+
+    An entry carrying more than one ``UR`` tag — every genuine EndNote and Mendeley record does,
+    a search-result link followed by a duplicate DOI-resolver link — stores the first, by source
+    position, as the URL, and preserves every other one the same way (T032, FR-018).
     """
     result: dict[str, Any] = {}
     preserved: dict[str, str | list[str]] = {}
@@ -688,12 +692,14 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     ur_values = raw.values("UR")
     if ur_values and ur_values[0].strip():
         ur_value = ur_values[0].strip()
+        surplus_urs = [v.strip() for v in ur_values[1:] if v.strip()]
         try:
             validate_url(ur_value)
         except ValidationError:
-            _add_preserved(preserved, "UR", [ur_value])
+            _add_preserved(preserved, "UR", [ur_value, *surplus_urs])
         else:
             result["URL"] = ur_value
+            _add_preserved(preserved, "UR", surplus_urs)
 
     sn_raw_values = raw.values("SN")
     if sn_raw_values and any(v.strip() for v in sn_raw_values):

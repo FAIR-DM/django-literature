@@ -945,3 +945,34 @@ and everything else nothing else claims.
 scoped narrowly enough to hold an article number without colliding with a report or patent number
 — at which point `C7` could move from the sweep to a dedicated resolution, the same way `SN`'s
 shape-based resolution was added on top of what would otherwise be its own sweep entry.
+
+## D39 — A second `UR` value was being silently dropped, not merely unpreserved; fixed under T032
+
+**Ambiguity**: none in the requirement — FR-018 is explicit: "a tag appearing more than once in
+one entry, where the catalogue holds only one of what it carries, MUST resolve deterministically:
+the first value is stored and the remainder preserved." `_identifiers`'s `DO` and `SN` blocks
+already do this. Its `UR` block did not: `if ur_values and ur_values[0].strip():` reads only index
+`0` of `raw.values("UR")` and never looks at the rest — not "the surplus is discarded", nothing
+in the function's control flow reaches a second value at all.
+
+**Why this is T032's, not a pre-existing test contradicting it**: no test asserted the second value
+is dropped — there was no test covering multi-value `UR` in any shape. The Implementer protocol's
+"a test I did not author contradicts my task, so stop" does not apply where the gap is an absence
+of coverage, not a coded expectation. And the gap is not hypothetical: every genuine EndNote and
+Mendeley record in the corpus carries exactly two `UR` tags — a search-result link and a duplicate
+DOI-resolver link (`genuine/endnote.ris`'s own first entry, and confirmed by tag count: 20 `UR`
+lines across 10 entries in each of `endnote.ris` and `mendeley.ris`). Twenty real records were
+losing a value on every import before this fix, silently, which is precisely what FR-024/FR-028
+exist to prevent.
+
+**Chosen**: `_identifiers`'s `UR` block now mirrors `DO`'s shape exactly — the first value is
+validated; on success it is stored as `URL` and every later value is preserved via
+`_add_preserved`; on failure, every value including the first is preserved, since none was stored.
+No change to which value is *chosen* as the URL (still the first, by source position, matching
+existing behaviour and `TestEndToEnd`'s and `TestEquivalenceAcrossProducers`'s assertions, both
+left unmodified and still green) — only the previously-unreachable remainder is now retrievable at
+`custom["ris"]["UR"]`.
+
+**Revisit if**: a future format needs to distinguish *which kind* of surplus URL it preserved (a
+duplicate resolver link versus a genuinely different one) — today they are preserved
+indistinguishably, the same way `DO`'s and `SN`'s surplus values already are.

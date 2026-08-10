@@ -1347,6 +1347,79 @@ class TestUnmappedTagPreservation:
         assert result.created[0].outcome == Outcome.CREATED
 
 
+class TestSurplusIdentifierValues:
+    """A single-slot identifier field that receives more values than it can hold preserves the
+    surplus rather than the model being widened to fit it, and the entry is not failed (T032,
+    FR-018, FR-024). ``DO`` and ``SN`` already do this (``TestMultipleDOTags``,
+    ``TestSNProducerEncodings``); this covers ``UR``, whose second value was silently dropped
+    before this task -- ``_identifiers`` read only ``raw.values("UR")[0]`` -- even though every
+    genuine EndNote and Mendeley record in the corpus carries exactly two ``UR`` tags (a search
+    result link and a duplicate DOI-resolver link, confirmed against ``genuine/endnote.ris``'s own
+    first entry).
+    """
+
+    def test_a_second_ur_value_is_preserved(self):
+        csl = RISFormat().to_csl_json(
+            entry(ur=["https://www.embase.com/search?id=1", "https://dx.doi.org/10.1002/ar.25520"])
+        )
+        assert csl["URL"] == "https://www.embase.com/search?id=1"
+        assert csl["custom"]["ris"]["UR"] == "https://dx.doi.org/10.1002/ar.25520"
+
+    def test_a_third_ur_value_makes_the_surplus_a_list(self):
+        csl = RISFormat().to_csl_json(entry(ur=["https://a.example", "https://b.example", "https://c.example"]))
+        assert csl["URL"] == "https://a.example"
+        assert csl["custom"]["ris"]["UR"] == ["https://b.example", "https://c.example"]
+
+    def test_an_invalid_first_ur_with_a_surplus_preserves_both(self):
+        csl = RISFormat().to_csl_json(entry(ur=["not a url at all", "https://b.example"]))
+        assert "URL" not in csl
+        assert csl["custom"]["ris"]["UR"] == ["not a url at all", "https://b.example"]
+
+    def test_a_single_ur_tag_is_unaffected(self):
+        """No regression on the ordinary one-``UR`` case (T014)."""
+        csl = RISFormat().to_csl_json(entry(ur="https://www.embase.com/search?id=1"))
+        assert csl["URL"] == "https://www.embase.com/search?id=1"
+        assert "custom" not in csl
+
+    @pytest.mark.django_db
+    def test_genuine_endnotes_second_ur_value_is_now_preserved(self):
+        with fixture("genuine/endnote.ris") as handle:
+            RISFormat().import_file(handle)
+        item = Item.objects.get(citation_key="889")
+        assert item.item_identifiers.get(type="URL").value == (
+            "https://www.embase.com/search/results?subaction=viewrecord&id=L2030246463&from=export"
+        )
+        assert item.custom["ris"]["UR"] == "http://dx.doi.org/10.1002/ar.25520"
+
+
+class TestLongPreservedValueDoesNotFailTheEntry:
+    """A preserved value longer than 500 characters -- the ``ItemIdentifier.value`` cap a flat
+    write would hit -- still leaves the entry created, because a correctly nested preservation
+    under ``custom["ris"]`` never reaches that cap at all (T032, S3R, plan.md 'Preservation goes
+    under a single custom["ris"] key')."""
+
+    @pytest.mark.django_db
+    def test_the_entry_is_created_despite_a_preserved_value_over_500_characters(self):
+        with fixture("constructed/long_unmapped_tag_value.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.ok
+        assert len(result.created) == 1
+
+    @pytest.mark.django_db
+    def test_no_itemidentifier_row_is_created_for_the_long_value(self):
+        with fixture("constructed/long_unmapped_tag_value.ris") as handle:
+            result = RISFormat().import_file(handle)
+        item = result.created[0].item
+        assert not item.item_identifiers.filter(type="Z9").exists()
+
+    @pytest.mark.django_db
+    def test_the_full_value_is_retrievable_uncapped(self):
+        with fixture("constructed/long_unmapped_tag_value.ris") as handle:
+            result = RISFormat().import_file(handle)
+        item = result.created[0].item
+        assert len(item.custom["ris"]["Z9"]) > 500
+
+
 class TestCitationKeys:
     """``ID`` verbatim, otherwise minted deterministically; an entry too sparse to mint from falls
     back to its index; an overlong key fails the entry (T015, FR-019 through FR-023, FR-034)."""
