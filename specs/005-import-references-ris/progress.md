@@ -883,3 +883,39 @@ edited, re-derived or extended.
 
 Next: T028 was this story's last remaining task. Full-suite verify and the completion report
 follow.
+
+## US-3 accepted — 2026-08-10
+
+T028's report verified independently. Receipts green for both required craft skills
+(`craft-tdd/2026-08-05/eae3b6c7`, `craft-increments/2026-08-05/d3dce07f`). Full suite re-run in
+the worktree: 1050 passed, matching the report. SC-009's five prohibited paths byte-for-byte
+unchanged across `7476508..b01aacc`. One tamper flag on `tests/test_importers/test_ris.py`,
+triaged and cleared: 201 test definitions at base, 208 at head, no name dropped and not one
+deleted line in the diff — the flag is the file being appended to.
+
+`forge verify` was **red on lint**, and the cause was inherited rather than introduced. Two
+things the Implementer could not have fixed inside its own prohibitions:
+
+- `ruff format` disagreed with hand-wrapped comprehensions, including the pre-existing
+  `TestGenuineCorpus.dois()` helper. The Implementer flagged this as a concern and demonstrated
+  it fires at the base commit, which is correct — but it means the gate was already red when the
+  task was dispatched.
+- Both constructed producer files carried a trailing space on every `ER  - ` line. No genuine
+  file in the corpus has trailing whitespace anywhere, so stripping it moves the constructed
+  files closer to the shape they re-encode, not further from it.
+
+Both were introduced by the D36 corpus correction, which was verified by test run rather than by
+`forge verify`. Fixed in `9e83fca`, formatting and whitespace only, suite unchanged at 1050.
+`forge verify` then green on all five steps in the worktree and again on the feature branch after
+the merge.
+
+The Implementer's scope question — whether `ruff format --check` belongs in a story's verify set
+— does not need answering. `forge verify`'s lint step runs pre-commit, which runs `ruff-format`
+already. The per-task command lists are a subset of the gate, never a substitute for it, and a
+task's evidence being green is not the same claim as the gate being green.
+
+US-3 merged into `005-import-references-ris` as `a11809f`.
+
+**Review budget:** `budgets.review_cycles.max` lowered from 2 to 1 (Sam, 2026-08-10, token
+saving). One S6 pass over the finished feature diff, at most one round of fixes from it, then S7
+regardless.
