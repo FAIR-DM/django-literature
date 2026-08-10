@@ -1211,3 +1211,56 @@ survives if "defect fix" keeps meaning a fix whose pinned behaviour is unchanged
 
 **ADR:** none — this is a run-time verification record for one criterion on one feature, and nothing
 downstream inherits it. The durable half is already SC-009's amendment in `spec.md`.
+
+## D43 — a contributor tag with no role on this reference type is preserved, not consumed
+
+**Ambiguity**: `_CONSUMED_TAGS` — the module's record of what "mapped" means, read by the unmapped
+sweep and by the corpus-wide test — listed `A2`, `A3` and `A4` flat, for every reference type. Their
+roles are type-conditional: `A2` resolves on about 21 types, `A3` on 10, `A4` on 9, of roughly 56.
+On every other type the sweep skipped the tag as mapped while no role claimed it, so the value was
+dropped with no error and no trace. `A2 - Doe, Jane` on a `THES` produced CSL JSON with no `editor`
+and no `custom` key at all (S6 review, RIS-001, reproduced).
+
+**Chosen**: The flat set becomes `consumed_tags(ref_type)`, and `_contributor_role(tag, ref_type)`
+is the single place a role is resolved — `_contributors` and the sweep now read the same function,
+so neither can drift from the other. A contributor tag with no role on this entry's type is an
+unmapped tag and reaches the item through `custom["ris"]` like any other. `_unmapped` takes the
+reference type for the same reason.
+
+**Why defensible**: FR-024 requires any tag with no CSL equivalent to be preserved, and US-4's whole
+premise is that nothing an entry states is thrown away. Research R4's per-type matrix documents a
+gap in *role assignment*; it never licensed discarding the value. `A2` on a thesis names a person
+the file states.
+
+The corpus test that exists to catch exactly this could not: it read the same flat set, so it
+answered "mapped" for every type. It now asks per entry, with that entry's reference type. That is
+the second time on this feature a check was blind because it consulted a hand-maintained summary
+rather than the per-case truth — the same shape as US-4's hand-written file list.
+
+**Revisit if**: a later feature gives one of these tags a role on a type the matrix leaves blank.
+The role table is the only thing to change; the sweep follows it automatically.
+
+**ADR:** none — this is a mapping-local correction, and the general rule it applies (FR-024, US-4)
+is already the feature's own stated requirement rather than something this decision establishes.
+
+## D44 — an identifier tag is read by whether it carries a value, never by its first occurrence
+
+**Ambiguity**: `_identifiers`'s `DO` and `UR` blocks guarded on `values[0].strip()`. An entry whose
+first `DO` or `UR` line was blank and whose second carried a real identifier fell out of the block
+entirely — no `DOI`, no `URL`, and nothing preserved either, since both tags are unconditionally
+consumed. The identifier was gone (S6 review, RIS-002, reproduced). `SN` immediately below already
+guarded on `any(v.strip() for v in ...)` and did not have the defect.
+
+**Chosen**: All three blocks ask whether the tag carries any populated value, then take the first
+populated one as primary and preserve the rest. "First" means first populated, throughout.
+
+**Why defensible**: this is D39's defect one line earlier. D39 fixed a second `UR` value being
+dropped rather than preserved; this is the whole tag being dropped because the first occurrence was
+empty. A blank tag line is not a statement that the tag is absent, and RIS producers emit them.
+The correct form was already in the file, in the block below — the fix is making three blocks that
+do the same job say it the same way.
+
+**Revisit if**: a producer is found that uses a blank first occurrence as a positional marker, so
+that position rather than order carries meaning. Nothing in the corpus does.
+
+**ADR:** none — a local guard correction inside one format's identifier mapping.

@@ -415,6 +415,38 @@ def _add_contributors(roles: dict[str, list[dict[str, Any]]], role: str, names: 
             roles.setdefault(role, []).append(parsed)
 
 
+#: The contributor tags this module reads, in the order their roles are resolved.
+_CONTRIBUTOR_TAGS: tuple[str, ...] = ("AU", "ED", "A2", "A3", "A4")
+
+
+def _contributor_role(tag: str, ref_type: str) -> str | None:
+    """The CSL role ``tag`` names on ``ref_type``, or ``None`` where it names none.
+
+    ``AU`` and ``ED`` always resolve. ``A2``, ``A3`` and ``A4`` resolve only on the reference types
+    research.md R4's per-type matrix documents them for, which is most types for ``A2`` and a
+    minority for ``A3`` and ``A4``.
+
+    ``None`` does not mean "discard": a contributor tag with no documented role on this entry's
+    reference type is an unmapped tag, and reaches the item through the preservation sweep like
+    any other (decisions.md D43, FR-024). :func:`_consumed_tags` is what keeps the two in step.
+    """
+    if tag == "AU":
+        return "editor" if ref_type in _AU_EDITOR_TYPES else "author"
+    if tag == "ED":
+        return "editor"
+    if tag == "A2":
+        if ref_type in _CHAPTER_LIKE_A2_EDITOR_TYPES:
+            return "editor"
+        return "collection-editor" if ref_type in _BOOK_LIKE_TYPES else None
+    if tag == "A3":
+        if ref_type in _A3_EDITOR_TYPES:
+            return "editor"
+        return "collection-editor" if ref_type in _A3_COLLECTION_EDITOR_TYPES else None
+    if tag == "A4":
+        return "translator" if ref_type in _A4_TRANSLATOR_TYPES else None
+    return None
+
+
 def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]]]:
     """Every contributor tag this entry carries, resolved to its CSL role in source order.
 
@@ -425,23 +457,10 @@ def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]
     """
     roles: dict[str, list[dict[str, Any]]] = {}
 
-    au_role = "editor" if ref_type in _AU_EDITOR_TYPES else "author"
-    _add_contributors(roles, au_role, raw.values("AU"))
-
-    _add_contributors(roles, "editor", raw.values("ED"))
-
-    if ref_type in _CHAPTER_LIKE_A2_EDITOR_TYPES:
-        _add_contributors(roles, "editor", raw.values("A2"))
-    elif ref_type in _BOOK_LIKE_TYPES:
-        _add_contributors(roles, "collection-editor", raw.values("A2"))
-
-    if ref_type in _A3_EDITOR_TYPES:
-        _add_contributors(roles, "editor", raw.values("A3"))
-    elif ref_type in _A3_COLLECTION_EDITOR_TYPES:
-        _add_contributors(roles, "collection-editor", raw.values("A3"))
-
-    if ref_type in _A4_TRANSLATOR_TYPES:
-        _add_contributors(roles, "translator", raw.values("A4"))
+    for tag in _CONTRIBUTOR_TAGS:
+        role = _contributor_role(tag, ref_type)
+        if role:
+            _add_contributors(roles, role, raw.values(tag))
 
     return roles
 
@@ -643,25 +662,44 @@ def _add_preserved(preserved: dict[str, str | list[str]], tag: str, values: list
     preserved[tag] = values[0] if len(values) == 1 else values
 
 
-#: Every tag this module resolves to a CSL variable, a contributor role, a date or an identifier
-#: -- the production record of what "mapped" means, consulted by the unmapped sweep below and by
-#: the corpus-wide test that proves nothing else escapes it (T030, T033).
-_CONSUMED_TAGS: frozenset[str] = frozenset(FIELD_TABLE) | frozenset(
-    {"TY", "ID", "T2", "SP", "AU", "ED", "A2", "A3", "A4", "PY", "DA", "Y1", "Y2", "DO", "UR", "SN"}
+#: Every tag this module resolves whatever the reference type is -- a CSL variable, a date, an
+#: identifier, or a contributor role that does not vary. The type-conditional contributor tags are
+#: deliberately absent: what they resolve to is a question about one entry, not about the module,
+#: and :func:`_consumed_tags` is the answer to it.
+_ALWAYS_CONSUMED_TAGS: frozenset[str] = frozenset(FIELD_TABLE) | frozenset(
+    {"TY", "ID", "T2", "SP", "AU", "ED", "PY", "DA", "Y1", "Y2", "DO", "UR", "SN"}
 )
 
 
-def _unmapped(raw: RISEntry) -> dict[str, str | list[str]]:
+def _consumed_tags(ref_type: str) -> frozenset[str]:
+    """Every tag this module resolves for an entry of ``ref_type`` -- the production record of what
+    "mapped" means, consulted by the unmapped sweep below and by the corpus-wide test that proves
+    nothing else escapes it (T030, T033).
+
+    It takes the reference type because ``A2``, ``A3`` and ``A4`` are only mapped on the types
+    :func:`_contributor_role` documents a role for. Reading it as a flat set instead was how those
+    tags came to be dropped on every other type: marked mapped, so the sweep skipped them, while
+    no role claimed them (decisions.md D43).
+    """
+    return _ALWAYS_CONSUMED_TAGS | frozenset(t for t in _CONTRIBUTOR_TAGS if _contributor_role(t, ref_type))
+
+
+def _unmapped(raw: RISEntry, ref_type: str) -> dict[str, str | list[str]]:
     """Every tag this entry carries that maps to no CSL variable, contributor role, date or
     identifier, preserved under its own key so nothing an entry states is silently dropped (T030,
     FR-024, FR-028). ``C7`` -- Scopus's article-number tag -- is a deliberate instance of this
     rather than a special case (decisions.md D38): it reaches the item through this sweep like
     any other unmapped tag, never through a dedicated mapping and never dropped.
+
+    A contributor tag with no role on ``ref_type`` is another such instance (decisions.md D43):
+    ``A2`` on a thesis names somebody the file states and this mapping has no CSL role for, so it
+    is preserved rather than discarded.
     """
+    consumed = _consumed_tags(ref_type)
     preserved: dict[str, str | list[str]] = {}
     seen: set[str] = set()
     for tag, _value in raw.tags:
-        if tag in _CONSUMED_TAGS or tag in seen:
+        if tag in consumed or tag in seen:
             continue
         seen.add(tag)
         _add_preserved(preserved, tag, raw.values(tag))
@@ -690,12 +728,17 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     An entry carrying more than one ``UR`` tag — every genuine EndNote and Mendeley record does,
     a search-result link followed by a duplicate DOI-resolver link — stores the first, by source
     position, as the URL, and preserves every other one the same way (T032, FR-018).
+
+    "First" throughout means the first *populated* occurrence: each of these three blocks asks
+    whether the tag carries any value at all, never whether its first occurrence does. Reading
+    only index 0 dropped the whole tag — identifier and preservation alike — for an entry whose
+    first ``DO`` or ``UR`` line was blank and whose second was not (decisions.md D44).
     """
     result: dict[str, Any] = {}
     preserved: dict[str, str | list[str]] = {}
 
     do_values = raw.values("DO")
-    if do_values and do_values[0].strip():
+    if any(v.strip() for v in do_values):
         normalized_dois = [IdentifierNormalizer.normalize_doi(v.strip()) for v in do_values if v.strip()]
         first_doi, *surplus_dois = normalized_dois
         try:
@@ -707,9 +750,9 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
             _add_preserved(preserved, "DO", surplus_dois)
 
     ur_values = raw.values("UR")
-    if ur_values and ur_values[0].strip():
-        ur_value = ur_values[0].strip()
-        surplus_urs = [v.strip() for v in ur_values[1:] if v.strip()]
+    if any(v.strip() for v in ur_values):
+        populated_urs = [v.strip() for v in ur_values if v.strip()]
+        ur_value, *surplus_urs = populated_urs
         try:
             validate_url(ur_value)
         except ValidationError:
@@ -719,7 +762,7 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
             _add_preserved(preserved, "UR", surplus_urs)
 
     sn_raw_values = raw.values("SN")
-    if sn_raw_values and any(v.strip() for v in sn_raw_values):
+    if any(v.strip() for v in sn_raw_values):
         candidates = _sn_candidates(sn_raw_values)
         surplus: list[str] = []
         if ref_type in _REPORT_LIKE_SN_TYPES:
@@ -917,7 +960,9 @@ def _mapping_document() -> str:
         + " |",
         "| `A4` | `translator` | " + ", ".join(f"`{t}`" for t in sorted(_A4_TRANSLATOR_TYPES)) + " |",
         "",
-        "A tag with no row for a given reference type is left unmapped there rather than guessed at.",
+        "A tag with no row for a given reference type is left unmapped there rather than guessed",
+        "at, and its value is kept under `custom.ris` like any other unmapped tag rather than",
+        "dropped — an `A2` on a thesis names somebody, whatever CSL has no role for.",
         "",
         "## Dates",
         "",
@@ -1068,7 +1113,7 @@ class RISFormat(BibFormat):
         result.update(identifiers)
         if preserved:
             _preserve(result, preserved["ris"])
-        _preserve(result, _unmapped(raw))
+        _preserve(result, _unmapped(raw, ref_type))
 
         key = _citation_key(raw, issued, raw.index)
         limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM

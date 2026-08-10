@@ -22,7 +22,7 @@ from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
-from literature.importers.ris import _CONSUMED_TAGS, REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser
+from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser, _consumed_tags
 from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
@@ -1334,6 +1334,42 @@ class TestUnmappedTagPreservation:
         csl = RISFormat().to_csl_json(entry(ti="A title"))
         assert "custom" not in csl
 
+    @pytest.mark.parametrize(
+        ("tag", "ref_type"),
+        [
+            ("A2", "THES"),
+            ("A2", "DATA"),
+            ("A3", "JOUR"),
+            ("A3", "THES"),
+            ("A4", "RPRT"),
+            ("A4", "JOUR"),
+        ],
+    )
+    def test_a_contributor_tag_with_no_role_on_this_type_is_preserved(self, tag, ref_type):
+        """A2, A3 and A4 resolve to a role on some reference types and not others (research.md
+        R4's matrix). On a type where one does not resolve, the value is unmapped, so it belongs
+        in this sweep -- it was being treated as mapped and swept by neither (decisions.md D43).
+        """
+        csl = RISFormat().to_csl_json(entry(ty=ref_type, **{tag.lower(): "Doe, Jane"}))
+        assert csl["custom"]["ris"][tag] == "Doe, Jane"
+
+    @pytest.mark.parametrize(
+        ("tag", "ref_type", "role"),
+        [
+            ("A2", "CHAP", "editor"),
+            ("A2", "BOOK", "collection-editor"),
+            ("A3", "BOOK", "editor"),
+            ("A3", "CHAP", "collection-editor"),
+            ("A4", "BOOK", "translator"),
+        ],
+    )
+    def test_a_contributor_tag_with_a_role_on_this_type_is_not_also_preserved(self, tag, ref_type, role):
+        """The other side of the same rule: where the tag does resolve, the role claims it and the
+        sweep leaves it alone -- never both."""
+        csl = RISFormat().to_csl_json(entry(ty=ref_type, **{tag.lower(): "Doe, Jane"}))
+        assert csl[role] == [{"family": "Doe", "given": "Jane"}]
+        assert "custom" not in csl
+
     def test_c7_is_preserved_rather_than_mapped_to_number(self):
         """The C7 ruling (decisions.md D38): left unmapped, reaches the item through this sweep,
         never silently dropped."""
@@ -1394,6 +1430,25 @@ class TestSurplusIdentifierValues:
         csl = RISFormat().to_csl_json(entry(ur="https://www.embase.com/search?id=1"))
         assert csl["URL"] == "https://www.embase.com/search?id=1"
         assert "custom" not in csl
+
+    def test_a_blank_first_do_does_not_discard_the_populated_second(self):
+        """The guard asks whether the tag carries a value, never whether its *first* occurrence
+        does. Reading index 0 alone dropped the DOI entirely -- not stored, not preserved -- for
+        an entry whose first ``DO`` line was blank (decisions.md D44)."""
+        csl = RISFormat().to_csl_json(entry(do=["", "10.1000/xyz123"]))
+        assert csl["DOI"] == "10.1000/xyz123"
+        assert "custom" not in csl
+
+    def test_a_blank_first_ur_does_not_discard_the_populated_second(self):
+        csl = RISFormat().to_csl_json(entry(ur=["   ", "https://b.example"]))
+        assert csl["URL"] == "https://b.example"
+        assert "custom" not in csl
+
+    def test_a_blank_first_sn_does_not_discard_the_populated_second(self):
+        """``SN`` already guarded on the whole tag rather than index 0 -- pinned here so the three
+        blocks stay in step."""
+        csl = RISFormat().to_csl_json(entry(sn=["", "1932-8494"]))
+        assert csl["ISSN"] == "1932-8494"
 
     @pytest.mark.django_db
     def test_genuine_endnotes_second_ur_value_is_now_preserved(self):
@@ -1811,9 +1866,12 @@ class TestUnmappedTagCoverage:
     here, over the actual fixture bytes — rather than hand-maintained, so a new fixture or a tag
     added to an existing one is swept automatically rather than passing vacuously because nobody
     updated a list (the exact defect shape this criterion exists to catch). "Mapped" is read from
-    ``_CONSUMED_TAGS``, the production module's own record of what it resolves, not a second list
-    duplicated here — the two sources this test compares are the file's own bytes and the mapping
-    code's own record of itself, never a copy of either.
+    ``_consumed_tags(ref_type)``, the production module's own record of what it resolves, not a
+    second list duplicated here — the two sources this test compares are the file's own bytes and
+    the mapping code's own record of itself, never a copy of either. It is asked per entry, with
+    that entry's reference type, because ``A2``, ``A3`` and ``A4`` are only mapped on some types:
+    a flat set answered "mapped" for every type and hid exactly the defect this sweep is for
+    (decisions.md D43).
 
     Excludes nothing: every genuine file's every entry imports as created (``TestGenuineCorpus``,
     ``TestEquivalenceAcrossProducers``), so every tag in every file has a stored item to check
@@ -1837,7 +1895,7 @@ class TestUnmappedTagCoverage:
             item = items_by_index[raw.index]
             preserved_keys = set((item.custom or {}).get("ris", {}).keys())
             tags = {tag for tag, _value in raw.tags}
-            unaccounted = tags - _CONSUMED_TAGS - preserved_keys
+            unaccounted = tags - _consumed_tags(raw.first("TY") or "") - preserved_keys
             assert not unaccounted, (relative_path, raw.index, sorted(unaccounted))
 
 

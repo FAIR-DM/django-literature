@@ -297,6 +297,14 @@ public behaviour** may land here, with its own issue for traceability. #41 is no
 this feature's pull request, which also honours the standing rule that a session's work lands as one
 pull request rather than several.
 
+**One precision on "changes none of their public behaviour", added at review.** Read absolutely it
+is not quite true of #41: past 701 collisions on one base key the old generator repeated suffixes
+already taken, so the resolving loop never returned, and the fix's whole purpose is to change that
+outcome. What it changes is a call that never completed. For every batch the old code could
+complete — including all 701 values `tests/test_converters.py` pins, unmodified on this branch —
+the two are identical. That is the sense the criterion is judged in: no behaviour any caller could
+observe moved.
+
 ### 2026-08-05 — the verification corpus is not one matched reference set
 
 Research R10 recorded that `asreview/citation-file-formatting` publishes *the same ten references
@@ -331,6 +339,14 @@ names. The claim they were vendored under was not.
   producer's tag ordering and encoding conventions — conventions taken from that producer's own
   genuine file, not from documentation. No identifier is invented: each fixture carries only the
   fields SC-005 judges, plus the shape markers its producer's genuine export shows.
+  **These two halves are not equal-strength evidence, and nothing here should be read as claiming
+  they are.** The field values in both constructed files are EndNote's own, re-encoded — the
+  Scopus fixture's `SN  - 19328494 (ISSN)` is `endnote.ris`'s `SN  - 1932-8494` in Scopus's
+  encoding. So what they prove is that the parser reads each producer's real tag conventions back
+  to the same CSL: syntactic fidelity, established by construction. They are not independent
+  proof that a genuine Scopus or Web of Science export of these ten references would agree, and
+  only a matched genuine export from those producers — which no upstream corpus publishes —
+  could be.
 - Their **genuine** files, `genuine/scopus.ris` and `genuine/webofscience.ris`, continue to carry
   every producer-convention test in User Story 3, which is the stronger evidence for those and was
   never affected by this.

@@ -110,7 +110,9 @@ no RIS specification fixes one tag to one role across every kind of entry:
 | `A3` | `collection-editor` | `ADVS`, `CHAP`, `CONF`, `EBOOK`, `MUSIC`, `SER`, `SLIDE`, `SOUND`, `VIDEO` |
 | `A4` | `translator` | `ANCIENT`, `BOOK`, `CHAP`, `CLSWK`, `CTLG`, `DICT`, `EDBOOK`, `ENCYC`, `PAMP` |
 
-A tag with no row for a given reference type is left unmapped there rather than guessed at.
+A tag with no row for a given reference type is left unmapped there rather than guessed
+at, and its value is kept under `custom.ris` like any other unmapped tag rather than
+dropped — an `A2` on a thesis names somebody, whatever CSL has no role for.
 
 ## Dates
 
