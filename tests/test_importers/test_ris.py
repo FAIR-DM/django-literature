@@ -1413,6 +1413,143 @@ class TestUnnamedProducer:
         assert (issued.begin.date.year, issued.begin.date.month) == (2018, 5)
 
 
+class TestEquivalenceAcrossProducers:
+    """The matched ten references import equivalently through one registered format name, with
+    no producer argument, from every file that holds them: two genuine exports plus the two
+    constructed re-encodings that stand in for the two supported producers with no matched
+    genuine export (T028, D36, US-3 acceptance, SC-005, FR-029).
+
+    Equivalence is judged only on what the acceptance criterion names -- entry type, contributors
+    and their order, dates and their precision, and identifiers -- never on title or the minted
+    citation key, which the corpus does not claim to hold equivalent (``genuine/mendeley.ris``'s
+    own fingerprint differs there by construction of the two files being separate exports).
+
+    The genuine divergences between ``endnote.ris`` and ``mendeley.ris`` (D36) are asserted
+    explicitly, each its own test, rather than folded into a lenient comparison: EndNote's ``SN``
+    resolves an ISSN identifier that Mendeley's absent ``SN`` never supplies, and EndNote
+    punctuates initials with periods where Mendeley emits them bare. The two constructed files are
+    derived mechanically from ``endnote.ris`` and differ only in encoding, so equivalence against
+    it is exact for them (D36) -- no divergence test is written for that pair because there is
+    none to name.
+    """
+
+    _FILES = {
+        "endnote": "genuine/endnote.ris",
+        "mendeley": "genuine/mendeley.ris",
+        "scopus": "constructed/equivalence_scopus.ris",
+        "webofscience": "constructed/equivalence_webofscience.ris",
+    }
+
+    def _import_all(self):
+        """Import every corpus file through ``get_format("ris")``, the one registered name, with
+        no argument naming a producer anywhere -- the assertion folded in from the deleted T040.
+        Returns ``{producer: {doi: Item}}`` so later assertions can compare like-for-like by DOI
+        rather than by position or citation key, which the corpus does not claim to hold equal.
+        """
+        by_producer = {}
+        for producer, relative_path in self._FILES.items():
+            with fixture(relative_path) as handle:
+                result = get_format("ris")().import_file(handle)
+            assert result.ok, producer
+            assert len(result.created) == 10, producer
+            by_producer[producer] = {
+                created.item.item_identifiers.get(type="DOI").value: created.item
+                for created in result.created
+            }
+        return by_producer
+
+    @pytest.mark.django_db
+    def test_all_four_files_produce_the_same_ten_dois_with_no_producer_argument(self):
+        by_producer = self._import_all()
+        doi_sets = [set(items) for items in by_producer.values()]
+        assert len(doi_sets[0]) == 10
+        assert all(dois == doi_sets[0] for dois in doi_sets[1:]), by_producer.keys()
+
+    @pytest.mark.django_db
+    def test_entry_type_is_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            types = {producer: items[doi].type for producer, items in by_producer.items()}
+            assert len(set(types.values())) == 1, (doi, types)
+
+    @pytest.mark.django_db
+    def test_contributor_family_names_and_order_are_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            families = {
+                producer: [
+                    item_name.name.family
+                    for item_name in items[doi].item_names.filter(role="author").order_by("order")
+                ]
+                for producer, items in by_producer.items()
+            }
+            assert len({tuple(f) for f in families.values()}) == 1, (doi, families)
+
+    @pytest.mark.django_db
+    def test_issued_dates_and_their_precision_are_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            dates = {}
+            for producer, items in by_producer.items():
+                issued = items[doi].item_dates.get(date_type="issued")
+                dates[producer] = (issued.begin.date.year, issued.begin.precision)
+            assert len(set(dates.values())) == 1, (doi, dates)
+
+    @pytest.mark.django_db
+    def test_doi_identifiers_are_equivalent_across_all_four(self):
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            for producer, items in by_producer.items():
+                assert items[doi].item_identifiers.get(type="DOI").value == doi, producer
+
+    @pytest.mark.django_db
+    def test_issn_identifier_diverges_endnote_scopus_and_webofscience_carry_one_mendeley_none(self):
+        """The first genuine divergence D36 names: EndNote's ``SN`` resolves an ISSN identifier
+        for every one of the ten entries, and the two constructed files -- mechanical re-encodings
+        of EndNote's own ``SN`` values -- carry the identical value. Mendeley emits no ``SN`` tag
+        anywhere in the file (``genuine/mendeley.ris``), so it resolves none. Asserted explicitly
+        rather than compared away by omitting the field."""
+        by_producer = self._import_all()
+        for doi in by_producer["endnote"]:
+            issn = {
+                producer: by_producer[producer][doi].item_identifiers.get(type="ISSN").value
+                for producer in ("endnote", "scopus", "webofscience")
+            }
+            assert len(set(issn.values())) == 1, (doi, issn)
+            assert not by_producer["mendeley"][doi].item_identifiers.filter(type="ISSN").exists(), doi
+
+    @pytest.mark.django_db
+    def test_initials_punctuation_diverges_between_endnote_and_mendeley(self):
+        """The second genuine divergence D36 names: EndNote punctuates initials with periods (and
+        a separating space), and the two constructed files, re-encoded from EndNote's own values,
+        carry the identical punctuation. Mendeley emits initials bare. Two concrete examples,
+        both cited in ``genuine/SOURCE.md``: Brownstein's two entries, where only the punctuation
+        differs, and Jalil's, where Mendeley's ``N.-E.`` is not merely EndNote's ``N. E.`` with
+        the punctuation stripped but a differently placed hyphen -- a genuinely different
+        rendering of the same initials, not a single mechanical transform."""
+        by_producer = self._import_all()
+
+        def given_names(producer, doi):
+            return [
+                item_name.name.given
+                for item_name in by_producer[producer][doi]
+                .item_names.filter(role="author")
+                .order_by("order")
+            ]
+
+        brownstein_doi = "10.1186/s12862-024-02210-9"
+        assert given_names("endnote", brownstein_doi) == ["C. D."]
+        assert given_names("mendeley", brownstein_doi) == ["C D"]
+        assert given_names("scopus", brownstein_doi) == ["C. D."]
+        assert given_names("webofscience", brownstein_doi) == ["C. D."]
+
+        jalil_doi = "10.1038/s41598-024-53447-9"
+        assert given_names("endnote", jalil_doi)[-1] == "N. E."
+        assert given_names("mendeley", jalil_doi)[-1] == "N.-E."
+        assert given_names("scopus", jalil_doi)[-1] == "N. E."
+        assert given_names("webofscience", jalil_doi)[-1] == "N. E."
+
+
 class TestEndToEnd:
     """One call over ``genuine/endnote.ris``: every entry created, in source order, with the
     expected types, contributor order, date precision and identifiers (T017, US-1 acceptance,
