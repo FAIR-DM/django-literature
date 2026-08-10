@@ -1,6 +1,6 @@
 # Roadmap
 
-**Date:** 2026-07-23
+**Date:** 2026-08-10
 
 This document was designed against [GOALS.md](../GOALS.md). See also [CONTEXT.md](../CONTEXT.md) for domain terminology and [memory/constitution.md](../memory/constitution.md) for project standards.
 
@@ -63,22 +63,11 @@ Serves G7.
 
 ### R5 — Import from BibTeX and RIS
 
-*multi-feature · advances G5*
+*Delivered · advances G5*
 
-The store converts CSL JSON only, yet researchers keep their references in BibTeX and RIS exports from reference managers and databases. This item adds importers for both formats, mapping their fields onto the model through the existing conversion boundary and routing anything that will not normalize to the store's documented fallbacks rather than dropping it. It comes before the front end so the interface has working import paths and real data to surface from the start.
+BibTeX and RIS references import into the model through one shared contract: an agreed way to run an import and one shape for reporting each record's outcome, with format-specific parsing underneath. Unresolved source fields land in the model's fallback slots instead of being dropped, and a caller can tell which records failed to import and why, rather than just comparing counts. Both importers are proven against corpora of real-world files, including messy and partial records.
 
-Underneath their differing syntax both formats do the same job, and the front end will eventually need to accept an uploaded file without knowing which format it holds. So the item also settles one calling contract shared by every importer: an agreed way to run an import, and one shape for its result, with format-specific parsing underneath and out of the caller's way. Article III bars a base class without a concrete use behind it, so that contract ships together with the first importer rather than ahead of it, and the second format is what proves the seam was drawn in the right place.
-
-**Deliverables:**
-
-- One import contract shared by every format, covering how an import is invoked and how the outcome of each record is reported, delivered together with the first importer.
-- BibTeX import that maps entries and contributor lists onto the model.
-- RIS import that maps tagged records onto the model.
-- Unresolved source fields preserved through the model's fallback slots rather than discarded.
-- A caller can tell which records failed to import and why, instead of comparing counts.
-- Tests over representative real-world files, including messy and partial records.
-
-Serves G5. Out of scope: exporting to BibTeX or RIS, and any live sync with external registries, though the contract should not make an export counterpart harder to add later.
+Serves G5. Out of scope: exporting to BibTeX or RIS, and any live sync with external registries — the contract does not make an export counterpart harder to add later.
 
 ### R6 — Opt-in front-end app on django-mvp, with a runnable demo
 
