@@ -237,11 +237,18 @@ as prose in `data-model.md` instead.*
 - **T038 [P]** Security: assert no `.ris` content causes code execution, filesystem access, network
   access or an unhandled error, including over the negative fixtures. **FR-035, SC-008**
 - **T039** **A PR-exit checklist item, not a test (S3R).** Confirm by `git diff` that the branch
-  touches **no** file under the import contract — `base.py`, `results.py`, `converters.py` — and that
+  makes ~~**no**~~ no *behaviour-widening* change to any file under the import contract —
+  `base.py`, `results.py`, `converters.py` — and that
   the pre-existing import-contract, converters and BibTeX suites are green and unmodified. Also
   confirm `makemessages` is clean and that no human-readable string in the diff is unwrapped,
   **folded in from the deleted T037 (S3R round 2)**. Record the outcome against SC-009 in the PR body.
   **FR-002, FR-005, SC-009, FR-034**
+
+  *Amended 2026-08-10 at the PR exit.* The original wording said "touches no file", which contradicts
+  the amended SC-009 and the restoration of T041 by two paragraphs below it: T041 is a defect fix
+  inside `converters.py` that this pull request deliberately carries. The check that matters, and the
+  one that was run, is that no public behaviour of the workflow, the reported result, or the CSL-to-item
+  conversion changed to suit this format.
 
 *T041's history, since it moved twice.* It was written into Phase 0, removed at S3R round 2 on a
 literal reading of SC-009, and restored on Sam's instruction once SC-009 was amended to say what it

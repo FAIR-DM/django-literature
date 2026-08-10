@@ -1045,3 +1045,43 @@ two the fixture it wrote actually exercises.
 **Revisit if**: a genuine export is found that uses one of these six as a record separator, which
 would make reading it a producer convention rather than a fidelity loss. None of the eighteen
 upstream baselines does.
+
+## D42 — T039 run at the PR exit: the contract held, and the check's own wording did not
+
+**Ambiguity**: T039 asks for confirmation that the branch "touches **no** file under the import
+contract — `base.py`, `results.py`, `converters.py`". Run against the whole feature diff
+(`git diff main...HEAD`), that check fails: `converters.py` carries 12 insertions and 6 deletions.
+Every story's own range showed it unchanged, because the change is T041's and T041 landed in Phase 0.
+
+**Chosen**: The contract check passes and T039's wording is amended in place, forward-tagged rather
+than deleted. What was actually verified:
+
+- **`base.py` and `results.py` — empty diff across the whole feature.** Nothing was added to the
+  import contract for this format to work.
+- **`converters.py` — T041 only.** `_generate_dedup_suffix` becomes an odometer over increasing
+  lengths so the sequence never repeats, which is what stops `_resolve_citation_key` looping forever
+  past 701 items sharing a base key (issue #41). The first 701 values are unchanged, and
+  `tests/test_converters.py` — which pins them — is byte-for-byte unmodified, which is the evidence
+  that no public behaviour moved.
+- **`tests/test_converters.py` and `tests/test_importers/test_bibtex.py` — byte-for-byte unmodified**,
+  and green: full suite 1071 passing, `forge verify` green on all five steps.
+- **Two tamper flags, both approved**: `test_config.py` widens its shipped-formats assertion from
+  `{"bibtex"}` to `{"bibtex", "ris"}`, and `test_smoke.py` adds three names to `PUBLIC_SURFACE`. Both
+  widen, neither weakens, and both are the same shape D23 approved for US0.
+- **Every human-readable failure reason is `gettext_lazy`-wrapped** (FR-034): five sites in `ris.py`,
+  checked individually rather than by counting. `makemessages` is a CI-side gate on this repo — no
+  local `gettext` — so that half of T039 is confirmed by the CI run on the pull request, and the PR
+  body says so rather than claiming a local pass.
+
+**Why defensible**: SC-009 was amended on Sam's instruction on 2026-08-05 precisely to distinguish
+widening the contract from fixing a defect inside it, and T041 was restored to this pull request under
+that amendment. T039's wording predates the amendment. Leaving the literal text in place would have
+one of two outcomes, both wrong: a red gate on work Sam explicitly asked to land here, or a quiet pass
+that ignores the criterion's own words. The criterion's intent — this format widened nothing — is what
+was tested, and it holds.
+
+**Revisit if**: a later feature changes `converters.py` for its own convenience. The distinction only
+survives if "defect fix" keeps meaning a fix whose pinned behaviour is unchanged.
+
+**ADR:** none — this is a run-time verification record for one criterion on one feature, and nothing
+downstream inherits it. The durable half is already SC-009's amendment in `spec.md`.

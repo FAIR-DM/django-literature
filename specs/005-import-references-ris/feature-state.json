@@ -534,7 +534,7 @@
       "id": "US5",
       "priority": "P5",
       "issue": null,
-      "status": "in_progress",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -587,8 +587,16 @@
         },
         {
           "id": "T039",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "git diff --stat main...HEAD -- literature/importers/base.py literature/importers/results.py literature/converters.py tests/test_converters.py tests/test_importers/test_bibtex.py",
+              "forge verify --base main",
+              "forge tamper-check --base main"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     }
