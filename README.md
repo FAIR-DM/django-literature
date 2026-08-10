@@ -146,15 +146,17 @@ CSL JSON is what this package stores, but researchers keep their libraries in Bi
 import contract reads any configured format through one call and tells you what happened to every
 entry in the file. Declare which formats your project reads in settings:
 
-BibTeX is read out of the box and needs no configuration. Declare `BIB_FORMATS` only to add a
-format of your own, which replaces the default list rather than extending it:
+BibTeX and RIS are both read out of the box and need no configuration. Declare `BIB_FORMATS` only
+to add a format of your own, which replaces the default list rather than extending it — so list the
+built-ins you still want alongside it:
 
 ```python
 # settings.py
 LITERATURE = {
     "BIB_FORMATS": [
         "literature.importers.bibtex.BibTeXFormat",
-        "myapp.formats.RISFormat",
+        "literature.importers.ris.RISFormat",
+        "myapp.formats.EndNoteXMLFormat",
     ],
 }
 ```
@@ -223,9 +225,36 @@ print(item.custom["bibtex"])   # {'file': ':papers/curie1898.pdf:PDF', 'owner': 
 [What maps to what](https://django-literature.readthedocs.io/en/latest/bibtex-mapping.html) is
 generated from the mapping tables themselves, so it cannot fall out of step with the code.
 
-RIS follows. Adding a format means writing a `BibFormat` subclass with a parser and a conversion
-to CSL JSON, then listing its dotted path in `LITERATURE["BIB_FORMATS"]` — the workflow above does
-not change. A format with an unusual need may override any of the workflow's other steps
+#### Reading RIS
+
+`ris` reads a `.ris` file the way EndNote, Web of Science and Scopus write it, with no producer
+detection: one format, reading every tag the original specification defines and every tag these
+producers use beyond it, decided from the tag itself rather than from which tool wrote the file.
+RIS supplies no cite key of its own — where an entry carries no `ID` tag, one is minted from its
+own author, year and title instead, and importing the same file twice mints the same key both
+times.
+
+Bibliographic exports vary more than any one specification can promise to cover, so this package
+reads the common producers as best it can. It makes no promise that every variant imports
+perfectly, and its coverage grows over time through bug reports and feature requests rather than
+a fixed target: EndNote is the primary support target, with Web of Science and Scopus supported
+secondarily. A file from a producer this package does not name is still read — tags the
+specification defines are read, and tags it does not are preserved rather than dropped.
+
+Tags with no CSL equivalent are kept with the record rather than discarded, the same as BibTeX's
+own bookkeeping fields:
+
+```python
+item = result.created[0].item
+print(item.custom["ris"])   # {'C7': 'e70142', 'N1': 'Funding: NIH grant R01-GM12345'}
+```
+
+[What maps to what](https://django-literature.readthedocs.io/en/latest/ris-mapping.html) is
+generated from the mapping tables themselves too, the same way as BibTeX's own page.
+
+Adding a further format means writing a `BibFormat` subclass with a parser and a conversion to CSL
+JSON, then listing its dotted path in `LITERATURE["BIB_FORMATS"]` — the workflow above does not
+change. A format with an unusual need may override any of the workflow's other steps
 (`import_entries`, `import_entry`, `get_result`); the base class only has to get the job done when
 its two required stages are supplied, not stop you from replacing the rest.
 

@@ -1129,3 +1129,31 @@ ruff-format reformatted one quote style on first run (no content change), clean 
 + rerun that followed.
 
 Next: T036 (README support boundary).
+
+## 2026-08-10T13:55:00Z · Implementer US-5 · T036
+
+Did: added a "Reading RIS" subsection to README.md, mirroring "Reading BibTeX" in shape — what the
+format reads, its `custom["ris"]` preservation, a link to the generated mapping page — and stating
+the FR-032 support boundary in plain words: reads the common producers as best it can, makes no
+promise every variant imports perfectly, grows through bug reports and feature requests, EndNote
+primary with Web of Science and Scopus secondary.
+
+Two adjacent lines were stale and left the README self-contradictory against the section it was
+asking me to add to, so fixed both as part of stating RIS's own boundary rather than writing next
+to a wrong claim: "BibTeX is read out of the box" (RIS has shipped as a default since US-1 —
+`literature/importers/config.py`'s `DEFAULTS` — so this undersold what the package now does), and
+the settings example listing `myapp.formats.RISFormat` as a "format of your own" to add (RIS is
+built in now, so the example was telling a reader to write code that already exists). Replaced the
+example's third entry with a genuinely hypothetical format so the "replaces the default list"
+point the prose makes still holds. "RIS follows." — the one-line placeholder from when this
+paragraph was BibTeX-only — is replaced by the new subsection itself.
+
+No spec, story, task or requirement id appears in the new prose, per the brief's instruction that
+this is public-facing text with a separate editorial pass still to come.
+
+No test surface: README prose has no failing test to write first, the same as T034's glossary
+entries.
+
+Verified: `poetry run pre-commit run --files README.md` — clean.
+
+Next: T038 (security assertions).
