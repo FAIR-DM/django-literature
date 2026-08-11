@@ -133,7 +133,13 @@ plugins = ["mypy_django_plugin.main"]
 disable_error_code = ["django-manager-missing"]
 
 [tool.django-stubs]
-django_settings_module = "tests.settings"
+# The core-only settings, deliberately not tests.settings. The plugin calls
+# django.setup(), so it needs every app in INSTALLED_APPS importable — and
+# tests.settings installs literature.ui, whose dependency arrives through an
+# optional extra the Code Quality job does not install. Pointing here costs
+# nothing: literature.ui declares no models, and ignore_missing_imports above
+# already resolves django-mvp to Any (it ships no py.typed).
+django_settings_module = "tests.settings_core"
 ignore_missing_model_attributes = "True"
 
 [tool.deptry]
