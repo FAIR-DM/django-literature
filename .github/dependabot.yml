@@ -8,8 +8,6 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "SamuelJennings"
     labels:
       - "dependencies"
       - "python"
@@ -29,8 +27,6 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 3
-    reviewers:
-      - "SamuelJennings"
     labels:
       - "dependencies"
       - "github-actions"
