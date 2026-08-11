@@ -183,3 +183,11 @@ ui = ["django-mvp (>=0.17,<1.0) ; python_version >= '3.12'"]
 [project.urls]
 homepage = "https://github.com/FAIR-DM/django-literature"
 repository = "https://github.com/FAIR-DM/django-literature"
+
+[tool.forge.conformance]
+# tests/test_ui/test_templates.py tests the shipped templates under
+# literature/ui/templates/ directly — its subject is not a Python module, so
+# there is no literature/ui/templates.py to mirror (Article X's declared
+# exception). T025 (Phase 5) adds this file's other guards and extends this
+# list with test_architecture.py and test_packaging.py.
+non-mirror-paths = ["tests/test_ui/test_templates.py"]
