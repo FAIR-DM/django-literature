@@ -15,6 +15,12 @@ def scalar_fields(item, skip=DEFAULT_SKIP):
     field named in ``skip``. A field whose value is ``None``, an empty string,
     or ``False`` is treated as not carried, so it is omitted rather than
     yielded with a blank value (FR-021).
+
+    A field declared with ``choices`` yields its label, not its stored value:
+    ``Item.type`` reads "Journal Article" here exactly as it does on the
+    catalogue badge, rather than the raw CSL slug (RC-003). Emptiness is still
+    judged on the stored value, and Django's ``get_FOO_display()`` returns the
+    raw value unchanged when it maps to no label.
     """
     for field in item._meta.get_fields():
         if not hasattr(field, "attname"):
@@ -26,4 +32,6 @@ def scalar_fields(item, skip=DEFAULT_SKIP):
         value = getattr(item, field.name, None)
         if value is None or value == "" or value is False:
             continue
+        if field.choices:
+            value = getattr(item, f"get_{field.name}_display")()
         yield field.verbose_name, value

@@ -73,6 +73,21 @@ class TestItemListView:
         assert "2020" in content
         assert str(item_name.name) in content
 
+    def test_row_shows_a_ranged_issued_date_at_both_ends(self, client, db):
+        # FR-013 is "at the precision stored", and a range's precision is both
+        # ends — the row used to drop everything after ``begin`` while the
+        # reference page rendered the same date correctly (RC-002).
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "2019" in content
+        assert "2021" in content
+
+    def test_row_falls_back_to_a_free_text_date(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=None, literal="in press")
+        assert "in press" in client.get(reverse("literature:item-list")).content.decode()
+
     def test_query_count_does_not_grow_with_row_count(self, client, db):
         def add_items(n):
             for _ in range(n):
@@ -126,6 +141,14 @@ class TestItemDetailView:
             < content.index(str(second_author.name))
             < content.index(str(editor.name))
         )
+
+    def test_item_type_reads_as_its_label_not_its_stored_slug(self, client, db):
+        # The same field on the catalogue badge reads "Journal Article"; the
+        # scalar grid used to show the raw CSL slug beside it (RC-003).
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk})).content.decode()
+        assert "Journal Article" in content
+        assert "article-journal" not in content
 
     def test_year_only_date_renders_at_its_own_precision(self, client, db):
         item = ItemFactory()

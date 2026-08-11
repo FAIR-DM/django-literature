@@ -2,6 +2,8 @@
 
 import pytest
 
+from literature.choices import ItemType
+from literature.models import Item
 from literature.ui.fields import scalar_fields
 from tests.factories import ItemFactory
 
@@ -21,6 +23,20 @@ class TestScalarFields:
         labels = {str(label) for label, _ in scalar_fields(item)}
         assert str(item._meta.get_field("title").verbose_name) not in labels
         assert str(item._meta.get_field("volume").verbose_name) not in labels
+
+    def test_a_choice_field_yields_its_label_not_its_stored_value(self):
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        pairs = {str(label): value for label, value in scalar_fields(item)}
+        assert pairs[str(item._meta.get_field("type").verbose_name)] == "Journal Article"
+
+    def test_a_stored_value_matching_no_label_is_yielded_unchanged(self):
+        # get_FOO_display() falls back to the raw value, so a slug the
+        # enumeration has since dropped still renders rather than vanishing.
+        item = ItemFactory()
+        Item.objects.filter(pk=item.pk).update(type="not-a-csl-type")
+        item.refresh_from_db()
+        pairs = {str(label): value for label, value in scalar_fields(item)}
+        assert pairs[str(item._meta.get_field("type").verbose_name)] == "not-a-csl-type"
 
     def test_omits_relations(self):
         item = ItemFactory()

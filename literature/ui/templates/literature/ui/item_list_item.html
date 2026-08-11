@@ -23,7 +23,7 @@
   {% block credited_roles %}{% endblock %}
   {% for item_date in object.item_dates.all %}
     {% if item_date.date_type == "issued" %}
-      <c-text size="sm" muted>{% translate "Issued" %}: {{ item_date.begin|default:item_date.literal }}</c-text>
+      <c-text size="sm" muted>{% translate "Issued" %}: {% include "literature/ui/_date_value.html" %}</c-text>
     {% endif %}
   {% endfor %}
   <c-text size="xs" muted>{{ object.citation_key }}</c-text>
