@@ -233,6 +233,17 @@ class TestContributorDetailView:
         assert "2021" in content
         assert str(item.get_type_display()) in content
 
+    def test_the_credit_row_states_the_roles_as_this_contributors_own(self, client, db):
+        # FR-035. The row's inherited contributor line already prints every
+        # role anyone held on the item, so asserting a role label alone passes
+        # even with this contributor's own credit line deleted. Assert the
+        # line that attributes those roles to the contributor whose page it is.
+        contributor = NameFactory()
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=contributor, role=NameRole.EDITOR)
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert "Credited as" in response.content.decode()
+
     def test_breadcrumb_links_to_the_catalogue_by_its_resolved_url(self, client, db):
         # The model-derived crud_views entry would be 'name-list', a route
         # this app does not have.

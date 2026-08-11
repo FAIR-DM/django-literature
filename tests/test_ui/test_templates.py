@@ -337,6 +337,7 @@ READER_FACING_ATTRIBUTES = ("title", "label", "text", "heading", "message", "pla
 
 _BLOCKTRANSLATE_RE = re.compile(r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL)
 _TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}")
+_DJANGO_COMMENT_RE = re.compile(r"\{#.*?#\}", re.DOTALL)
 _DJANGO_TAG_RE = re.compile(r"\{%.*?%\}", re.DOTALL)
 _DJANGO_VAR_RE = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 _HTML_TAG_RE = re.compile(r"<[^>]*>", re.DOTALL)
@@ -357,8 +358,11 @@ def reader_visible_residue(source: str) -> str:
     reader-facing) is removed with its tag rather than surfacing as residue.
     What remains still carries structural punctuation — ``:``, ``,``,
     ``&middot;``, ``&ndash;`` — because none of it is filtered by name; see
-    :func:`has_unwrapped_reader_text`."""
-    text = _BLOCKTRANSLATE_RE.sub(" ", source)
+    :func:`has_unwrapped_reader_text`. ``{# … #}`` comments go first: the
+    template engine never renders them, so their prose is not text a reader
+    sees and translating it would be meaningless."""
+    text = _DJANGO_COMMENT_RE.sub(" ", source)
+    text = _BLOCKTRANSLATE_RE.sub(" ", text)
     text = _TRANSLATE_TAG_RE.sub(" ", text)
     text = _DJANGO_TAG_RE.sub(" ", text)
     text = _DJANGO_VAR_RE.sub(" ", text)
@@ -413,6 +417,9 @@ class TestI18nGuard:
 
     def test_accepts_the_same_string_wrapped_in_translate(self):
         assert not has_unwrapped_reader_text('<c-text>{% translate "Showing results" %}</c-text>')
+
+    def test_ignores_prose_inside_a_template_comment(self):
+        assert not has_unwrapped_reader_text("{# a note to the next reader of this file #}")
 
     def test_accepts_the_same_string_wrapped_in_blocktranslate(self):
         assert not has_unwrapped_reader_text(

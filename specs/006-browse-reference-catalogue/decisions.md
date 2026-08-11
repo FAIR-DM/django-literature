@@ -4,7 +4,6 @@ Rationale that would not fit inline in `spec.md`, plus every ambiguity resolved 
 Each decision names what was ambiguous, what was chosen, and why the choice is defensible.
 
 ## D1 — The list orders by most recently added, not by issued date
-
 **Ambiguity**: Intake settled that the list ships with one fixed order and named "newest issued date
 first" as an example rather than a ruling. An issued date is not a field on the item: it is an
 `ItemDate` in the `issued` slot, backed by partial-date fields, so it may be a year alone, a
@@ -23,8 +22,9 @@ disagreement surfaces as a reader noticing the list reshuffles when they touch a
 the store's own declared default keeps one answer in the package, and costs nothing a reader asked
 for: nobody has requested an issued-date order, and #49 is where they would get it.
 
-## D2 — A reference page is addressed by primary key, never by citation key
+**ADR:** none — the specification states the order, and issue #49 owns reader-chosen ordering when it lands.
 
+## D2 — A reference page is addressed by primary key, never by citation key
 **Ambiguity**: The citation key is the human-facing handle for an item and the obvious candidate for
 a readable URL.
 
@@ -38,8 +38,9 @@ arbitrary one of several items or require a uniqueness the model does not have a
 no mandate to add. Readable URLs are a real want, but they are a change to the store's key
 semantics, which is a feature of its own.
 
-## D3 — A list entry carries the citation key
+**ADR:** docs/adr/0015-a-reference-page-is-addressed-by-primary-key.md
 
+## D3 — A list entry carries the citation key
 **Ambiguity**: Whether the citation key belongs in the list at all, or only on the reference page.
 
 **Chosen**: It appears on both.
@@ -49,8 +50,9 @@ only thing distinguishing two entries in a catalogue holding several editions or
 the same authors in the same year. Leaving it to the reference page means the reader has to open
 candidates one at a time to find the one they meant.
 
-## D4 — A contributor has a page of their own
+**ADR:** none — a presentation choice the specification carries as FR-013.
 
+## D4 — A contributor has a page of their own
 **Reversed at the specification gate, 2026-08-11.** The original decision is kept below, because the
 reasoning that produced it is what the reversal answers.
 
@@ -80,8 +82,9 @@ built and the cheapest to lose if the run is cut short. The opt-in guarantee sta
 is a property that has to hold from the moment the app exists, and adding surface before it is
 verified is how it gets lost.
 
-## D7 — Identical stored names are not merged
+**ADR:** none — a scope decision, settled at the specification gate and recorded there.
 
+## D7 — Identical stored names are not merged
 **Ambiguity**: The contributor page makes the store's lack of name de-duplication visible for the
 first time. Two `Name` records holding the same family and given values are two records, so a person
 imported from two different files has two pages, each showing half their work.
@@ -96,8 +99,9 @@ have no way to see that a merge had happened or to correct it. Reporting the sto
 honest, and it leaves de-duplication available as a feature that can be specified properly, with the
 maintainer deciding what evidence justifies a merge.
 
-## D5 — Opt-in is enforced by the dependency graph, not by convention
+**ADR:** docs/adr/0017-identical-stored-names-are-not-merged.md
 
+## D5 — Opt-in is enforced by the dependency graph, not by convention
 **Ambiguity**: "Opt-in" could mean only that a host chooses whether to add the app to
 `INSTALLED_APPS`, with django-mvp installed either way.
 
@@ -111,8 +115,9 @@ install, the transitive dependency still appears in its lock file and its vulner
 the separation degrades silently the first time something in the core imports from the app. Making
 it a dependency-graph property means US3 can be verified mechanically rather than reviewed by eye.
 
-## D6 — A local component is a bridge, and the specification tracks it
+**ADR:** docs/adr/0016-the-front-end-arrives-through-an-optional-extra.md
 
+## D6 — A local component is a bridge, and the specification tracks it
 **Ambiguity**: The composition rule inherited from django-accounts-center forbids custom components,
 but Sam's answer at intake allows filling a gap locally until an upstream django-mvp release carries
 the component. Without a record, a temporary bridge is indistinguishable from the custom component
@@ -127,8 +132,9 @@ cycle. The section is empty at specification time, so its contents at merge are 
 this feature took on, named and with a stated exit — which is the standing requirement that
 technical debt is deliberate and its cost named, rather than accumulated by accident.
 
-## D9 — The scalar-field helper ships inside the UI app, not the core
+**ADR:** none — the binding rule (django-mvp is the one adopted UI layer) now lives in the constitution's UI clause, and the tracking mechanism is this specification's FR-009.
 
+## D9 — The scalar-field helper ships inside the UI app, not the core
 **Ambiguity**: The helper that walks an item's non-empty scalar fields duplicates an idiom already
 in-line in three places in the core, which reads as an argument for putting it in `literature/utils/`.
 
@@ -142,8 +148,9 @@ feature out of the core entirely, and Article III, which forbids indirection wit
 use. If the three copies are ever unified, the helper moves to `utils/` then, with the second caller
 that earns it.
 
-## D8 — SC-002 states documented steps, not "one app" *(amended after the design review, 2026-08-11)*
+**ADR:** none — where one helper file sits, with one caller, inside the boundary ADR-0016 already draws.
 
+## D8 — SC-002 states documented steps, not "one app" *(amended after the design review, 2026-08-11)*
 **Ambiguity**: The specification as approved said the host adds ~~one app~~ and gets a working
 interface with ~~no further configuration~~. Planning research then established what django-mvp
 actually requires of a host: `django.contrib.sites`, `django.contrib.staticfiles`, `django_cotton`,
@@ -166,8 +173,9 @@ measuring the wrong thing, so the criterion is what changed.
 **Recorded for veto**: this amends text approved at the specification gate. The scope, the pages and
 the guarantee are unchanged.
 
-## D10 — `literature/ui/urls.py` binds placeholder views, not `literature.ui.views`
+**ADR:** none — an amendment to this feature's own success criterion, recorded in the specification it amends.
 
+## D10 — `literature/ui/urls.py` binds placeholder views, not `literature.ui.views`
 **Ambiguity**: T006 (foundational) creates `literature/ui/urls.py` with three named, reversible
 routes. The views those routes name — `ItemListView`, `ItemDetailView`, `ContributorDetailView` —
 are built later, one per story, in `literature/ui/views.py`, which the foundational phase does not
@@ -199,8 +207,9 @@ across two of US-1/US-2/US-4's branches at convergence — that would mean the "
 non-conflicting edit" assumption above was wrong, and the lazy-dispatch alternative should be
 built instead.
 
-## D11 — `T006` executed before `T004` in this session
+**ADR:** none — a sequencing device for the run; the routes bind their real views now and nothing downstream inherits it.
 
+## D11 — `T006` executed before `T004` in this session
 **Ambiguity**: the brief lists tasks `T001`–`T006` in that order, and T004's own task text ("mount
 the app in tests/urls.py at a prefix") depends on `literature/ui/urls.py` existing, which T006
 creates. T006's acceptance ("each name reverses... under the mounted prefix") does not, in turn,
@@ -218,8 +227,9 @@ depend on it, which is exactly this case.
 
 **Revisit if**: never — this is a within-story execution-order note, not a standing rule.
 
-## D12 — `tests/test_ui/conftest.py` ships one populated-item fixture, not a bespoke `client`
+**ADR:** none — a within-story execution-order note.
 
+## D12 — `tests/test_ui/conftest.py` ships one populated-item fixture, not a bespoke `client`
 **Ambiguity**: T004 directs this file to hold "the client and item fixtures T009, T013 and T020
 share, so no story owns them" — but those three tasks belong to US-1, US-2 and US-4, dispatched
 after this story, and their own task text (read only for this sequencing question, per the note in
@@ -244,8 +254,9 @@ non-default client) — flagged as a concern in this story's completion report f
 before those stories dispatch, since "no story owns them" only holds if what is here is actually
 sufficient.
 
-## D13 — Two test-infrastructure files created ahead of the task that names them
+**ADR:** none — a test-fixture choice local to this feature's test package.
 
+## D13 — Two test-infrastructure files created ahead of the task that names them
 **Ambiguity**: two of this story's test files have no natural single-task owner. `tests/test_ui/__init__.py`
 is T004's stated deliverable (Article XIV), but T002 is the first task that needs
 `tests/test_ui/` to exist as a collectible package, three tasks earlier. `tests/test_ui/test_templates.py`
@@ -272,8 +283,9 @@ ahead of them for no benefit.
 `non-mirror-paths` entry unexpected — this decision is exactly the context for why both are already
 there.
 
-## D8 — The type-check plugin reads the core-only settings
+**ADR:** none — a file-creation ordering note local to this run.
 
+## D14 — The type-check plugin reads the core-only settings
 **Ambiguity**: T005 unblocked the test job by installing the `ui` extra in CI, and the test matrix
 went green. The Code Quality job then failed with `Error constructing plugin instance of
 NewSemanalDjangoPlugin`. The two jobs are separate reusable workflows, and only the test one accepts
@@ -300,3 +312,49 @@ avoiding. Pointing the plugin at the core settings makes the type check independ
 which is what it should have been.
 
 **ADR:** none — a build-configuration choice local to this repo, with nothing downstream inheriting it.
+## D15 — The credit row extends the catalogue row rather than restating it
+
+**Ambiguity**: FR-034 requires a credit row on the contributor page to carry what a catalogue entry
+carries. US-4 delivered that by copying `item_list_item.html` into `contributor_item.html` and adding
+the roles line, which satisfies the requirement on the day and lets the two drift apart on any later
+day.
+
+**Chosen**: `contributor_item.html` extends `item_list_item.html` and fills one block with the roles
+line. The catalogue row is defined once.
+
+**Why defensible**: the requirement is that the two stay the same, so inheritance states it rather
+than a convention restating it. Twenty duplicated lines went with it, and a change to what a
+catalogue entry shows now reaches the contributor page by construction. Applied at convergence, with
+the full suite green before and after.
+
+**ADR:** none — one template extending another, inside this app.
+
+## D16 — The reader-text guard ignores template comments
+
+**Ambiguity**: the i18n guard (T021) flags any literal prose left in a shipped template outside
+`{% translate %}`. It strips template tags, variables, HTML and entities, but not `{# … #}`
+comments, so a comment explaining a template to the next contributor read as untranslated
+reader-facing text.
+
+**Chosen**: comments are stripped first, and a test proves prose inside one is not flagged.
+
+**Why defensible**: the template engine never renders a comment, so there is no reader to translate
+it for. The guard's own bar — "text a reader sees" — was what it failed to apply. Surfaced by the
+convergence cleanup, which added the first comment to a shipped template.
+
+**ADR:** none — a correction inside this feature's own test guard.
+
+## D17 — The two tamper flags at convergence are accepted
+
+**Ambiguity**: `forge tamper-check` flags `tests/settings.py` and `tests/urls.py` as pre-existing
+test files this branch modified, which is the guardrail against a run weakening tests it cannot pass.
+
+**Chosen**: both accepted.
+
+**Why defensible**: neither is a test. `tests/settings.py` moved its whole body verbatim into the new
+`tests/settings_core.py` and now imports from it before appending the UI stack, so the core-only
+settings a core-only boot test needs exist as their own module; nothing was removed. `tests/urls.py`
+gained the four-line mount the app is served from. No assertion was changed, relaxed or deleted
+anywhere in the diff, and the file-by-file diff is in the pull request for confirmation.
+
+**ADR:** none — a guardrail triage note for this run.

@@ -195,7 +195,7 @@ standing policy. Sam authorised the push under his own credentials, and it lande
 
 `--extras ui` turned the test matrix green across Python 3.12/3.13 and Django 5.2/6.0. The Code
 Quality job then failed for the same underlying reason in a workflow that accepts no install
-argument; resolved by pointing the type-check plugin at the core-only settings (D8), which lands as
+argument; resolved by pointing the type-check plugin at the core-only settings (D14), which lands as
 `fed87b9` and makes the type check independent of the optional extra.
 
 One flake seen and not reproduced: the 3.13 / Django 6.0 job restored an empty cached virtualenv, so
