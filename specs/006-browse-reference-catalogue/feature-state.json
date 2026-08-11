@@ -59,7 +59,7 @@
       "priority": "P0",
       "issue": null,
       "worktree": null,
-      "status": "blocked",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -84,9 +84,19 @@
         },
         {
           "id": "T005",
-          "status": "blocked",
+          "status": "done",
           "attempts": 0,
-          "evidence": "Change authored and verified locally, then held back: GitHub refuses a GitHub App push that touches .github/workflows/ without the workflows permission, which per standing policy the per-account bots never get. Patch saved at engineering-org/runs/django-literature/006-browse-reference-catalogue/T005-ci-ui-extra.patch. Needs Sam to apply it."
+          "evidence": {
+            "commands": [
+              "git push origin 006-browse-reference-catalogue (maintainer PAT \u2014 a GitHub App may not push .github/workflows/)",
+              "gh run list --branch 006-browse-reference-catalogue"
+            ],
+            "tests": [
+              "call-tests / Test Python 3.12+3.13, Django 5.2+6.0 green with --extras ui",
+              "call-build / Code Quality green"
+            ],
+            "verified_by_ci": true
+          }
         },
         {
           "id": "T006",

@@ -186,3 +186,20 @@ the run") needs a real CI run against this branch's PR, which this story cannot 
 PR is open.
 
 Next: T001–T006 complete. Full verify, then the completion report.
+
+## 2026-08-11 — T005 unblocked and closed
+
+The workflow change could not be pushed by the bot: GitHub refuses a GitHub App push touching
+`.github/workflows/` without the `workflows` permission, which the per-account bots never hold by
+standing policy. Sam authorised the push under his own credentials, and it landed as `5bb2d76`.
+
+`--extras ui` turned the test matrix green across Python 3.12/3.13 and Django 5.2/6.0. The Code
+Quality job then failed for the same underlying reason in a workflow that accepts no install
+argument; resolved by pointing the type-check plugin at the core-only settings (D8), which lands as
+`fed87b9` and makes the type check independent of the optional extra.
+
+One flake seen and not reproduced: the 3.13 / Django 6.0 job restored an empty cached virtualenv, so
+`poetry install` was skipped and `pytest` was absent. A re-run of the failed jobs passed. Recorded
+because the cache key is in the shared workflow and this will recur.
+
+Phase 0 complete. All six foundational tasks done, both required checks green.

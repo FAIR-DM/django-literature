@@ -271,3 +271,32 @@ ahead of them for no benefit.
 **Revisit if**: T025's implementer finds the existing `test_templates.py` content or the existing
 `non-mirror-paths` entry unexpected — this decision is exactly the context for why both are already
 there.
+
+## D8 — The type-check plugin reads the core-only settings
+
+**Ambiguity**: T005 unblocked the test job by installing the `ui` extra in CI, and the test matrix
+went green. The Code Quality job then failed with `Error constructing plugin instance of
+NewSemanalDjangoPlugin`. The two jobs are separate reusable workflows, and only the test one accepts
+an install argument — the shared build workflow declares no `poetry-install-args` input at all, so
+the extra cannot be passed to it from this repo.
+
+**Chosen**: `[tool.django-stubs] django_settings_module` points at `tests.settings_core` rather than
+`tests.settings`.
+
+**Why defensible**: django-stubs calls `django.setup()`, so every app in the settings module's
+`INSTALLED_APPS` has to be importable. `tests.settings` installs `literature.ui`, whose dependency
+arrives through an optional extra that job does not install, so the plugin could not construct and
+the whole job went red — including the parts that have nothing to do with this feature.
+
+Nothing is lost by checking against the core-only settings. The plugin uses the settings module to
+resolve model metadata, and `literature.ui` declares no models. django-mvp resolves to `Any` either
+way: it ships no `py.typed`, and `ignore_missing_imports` is already set for the whole project.
+
+The alternative was adding a `poetry-install-args` input to the shared build workflow and cutting a
+release of it. That is the more general fix, since any package adopting an optional UI extra meets
+this, but it is a change to another repository and a release cadence this feature does not own — and
+it would still leave the type check depending on an optional dependency, which is the thing worth
+avoiding. Pointing the plugin at the core settings makes the type check independent of the extra,
+which is what it should have been.
+
+**ADR:** none — a build-configuration choice local to this repo, with nothing downstream inheriting it.
