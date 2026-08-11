@@ -90,7 +90,6 @@ class ContributorDetailView(MVPDetailView):
     # not apply.
     directory: list[str] = []
 
-
     # A NEW dict, not a mutation of the shared MVP_CONFIG one (see
     # ItemDetailView for the same note). Literal target names, not
     # '{model_name}-list'/'{model_name}-detail': this view's model is Name,
@@ -111,7 +110,7 @@ class ContributorDetailView(MVPDetailView):
         # class body: verbose_name_plural is a lazy translation, and calling
         # .title() on it at import time would freeze one language into the
         # class for the life of the process.
-        return Item._meta.verbose_name_plural.title()  # type: ignore[union-attr]  # Item.Meta always sets this
+        return Item._meta.verbose_name_plural.title()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

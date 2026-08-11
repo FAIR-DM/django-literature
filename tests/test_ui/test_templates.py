@@ -321,17 +321,19 @@ class TestUtilityClassAllowlist:
 # T021 — i18n guard. FR-007, D-7.
 #
 # Every literal string a reader sees in a shipped template must be inside
-# {% translate %} or {% blocktranslate %}. Scope: text nodes between HTML
-# tags. Literal text embedded in a component *attribute* value (for example
-# a hard-coded ``title="Foo"``) is out of scope — telling a reader-visible
-# attribute like ``title`` apart from a Cotton configuration attribute like
-# ``size="sm"`` or ``cols="1"`` is not mechanically decidable from the
-# reference material this task was given, the way class-vs-parameter was for
-# the guard above. Every attribute-embedded literal string in the six
-# shipped templates today already goes through {% translate %} regardless
-# (item_detail.html's ``<c-section title="{% translate "Contributors" %}">``
-# and its two siblings), so this is a documented gap, not a proven miss.
+# {% translate %} or {% blocktranslate %}. Two places a reader can see one:
+# a text node between HTML tags, and a component attribute that carries
+# content rather than configuration. The second needs the same kind of
+# named list the class guard above needs, because ``title="Contributors"``
+# is prose and ``size="sm"`` is not, and nothing in the markup distinguishes
+# them. READER_FACING_ATTRIBUTES is that list. Add to it when a component
+# this app uses grows another content attribute.
 # ---------------------------------------------------------------------------
+
+#: Attributes whose value is shown to a reader as language. Everything else —
+#: ``size``, ``cols``, ``md``, ``gap``, ``muted``, ``name`` — configures a
+#: component and is not translated.
+READER_FACING_ATTRIBUTES = ("title", "label", "text", "heading", "message", "placeholder", "alt")
 
 _BLOCKTRANSLATE_RE = re.compile(r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL)
 _TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}")
@@ -340,6 +342,9 @@ _DJANGO_VAR_RE = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 _HTML_TAG_RE = re.compile(r"<[^>]*>", re.DOTALL)
 _HTML_ENTITY_RE = re.compile(r"&[#a-zA-Z0-9]+;")
 _LETTER_RE = re.compile(r"[A-Za-z]")
+_READER_ATTRIBUTE_RE = re.compile(
+    r"\b(?:" + "|".join(READER_FACING_ATTRIBUTES) + r")\s*=\s*\"([^\"]*)\"",
+)
 
 
 def reader_visible_residue(source: str) -> str:
@@ -360,6 +365,21 @@ def reader_visible_residue(source: str) -> str:
     text = _HTML_TAG_RE.sub(" ", text)
     text = _HTML_ENTITY_RE.sub(" ", text)
     return text
+
+
+def unwrapped_reader_attributes(source: str) -> list[str]:
+    """Values of reader-facing attributes that still read as language once
+    every ``{% translate %}``, ``{% blocktranslate %}``, other template tag
+    and ``{{ variable }}`` has been removed. A value built from a translated
+    string or a context variable leaves nothing behind and does not appear
+    here — a hard-coded ``title="Contributors"`` does. The machinery is
+    stripped first so the nested quotes in ``title="{% translate "Dates" %}"``
+    cannot be mistaken for a bare literal."""
+    text = _BLOCKTRANSLATE_RE.sub(" ", source)
+    text = _TRANSLATE_TAG_RE.sub(" ", text)
+    text = _DJANGO_TAG_RE.sub(" ", text)
+    text = _DJANGO_VAR_RE.sub(" ", text)
+    return [value for value in _READER_ATTRIBUTE_RE.findall(text) if _LETTER_RE.search(value)]
 
 
 def has_unwrapped_reader_text(source: str) -> bool:
@@ -415,3 +435,23 @@ class TestI18nGuard:
     )
     def test_colon_comma_entities_and_whitespace_do_not_trip_it(self, fragment):
         assert not has_unwrapped_reader_text(fragment)
+
+    @pytest.mark.parametrize("template_path", TEMPLATE_PATHS, ids=lambda p: p.name)
+    def test_no_unwrapped_reader_facing_attribute(self, template_path):
+        found = unwrapped_reader_attributes(template_path.read_text())
+        assert not found, (
+            f"{template_path.name}: reader-facing attribute value outside "
+            f"{{% translate %}}/{{% blocktranslate %}}: {found!r}"
+        )
+
+    def test_detects_a_hard_coded_reader_facing_attribute(self):
+        assert unwrapped_reader_attributes('<c-section title="Contributors">') == ["Contributors"]
+
+    def test_accepts_a_reader_facing_attribute_built_from_translate(self):
+        assert unwrapped_reader_attributes('<c-section title="{% translate "Contributors" %}">') == []
+
+    def test_accepts_a_reader_facing_attribute_built_from_a_variable(self):
+        assert unwrapped_reader_attributes('<c-data-field label="{{ label }}" />') == []
+
+    def test_ignores_configuration_attributes(self):
+        assert unwrapped_reader_attributes('<c-text size="sm" muted><c-grid cols="1" md="2" gap="4">') == []
