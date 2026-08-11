@@ -4,10 +4,14 @@ Filled in one class per story: ``ItemListView`` (US-1), ``ItemDetailView``
 (US-2), ``ContributorDetailView`` (US-4).
 """
 
+from collections import defaultdict
+
+from django.core.paginator import InvalidPage, Paginator
+from django.http import Http404
 from django.utils.translation import gettext_lazy as _
 from mvp.views import MVPDetailView, MVPListView
 
-from literature.models import Item
+from literature.models import Item, ItemName, Name
 from literature.ui.fields import scalar_fields
 
 
@@ -64,4 +68,90 @@ class ItemDetailView(MVPDetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["scalar_fields"] = list(scalar_fields(self.object))
+        return context
+
+
+class ContributorDetailView(MVPDetailView):
+    """The contributor page — FR-032 through FR-038."""
+
+    model = Name
+    template_name = "literature/ui/contributor_detail.html"
+    list_item_template = "literature/ui/contributor_item.html"
+
+    # Same page size as the catalogue (FR-036) — read off ItemListView's own
+    # default rather than restating 24 here, so the two lists cannot drift
+    # out of step.
+    paginate_by = ItemListView.paginate_by
+
+    # Reverses the breadcrumb's list link, same as ItemDetailView.
+    show_list_action = True
+
+    # A read-only page — MVPDetailView's default (['update', 'delete']) does
+    # not apply.
+    directory: list[str] = []
+
+    # This page's "list" is the catalogue (an Item list), not a Name list —
+    # matches what item_detail.html's breadcrumb already reads, rather than
+    # the model-derived default ("Names").
+    list_view_title = Item._meta.verbose_name_plural.title()  # type: ignore[union-attr]  # Item.Meta always sets this
+
+    # A NEW dict, not a mutation of the shared MVP_CONFIG one (see
+    # ItemDetailView for the same note). Literal target names, not
+    # '{model_name}-list'/'{model_name}-detail': this view's model is Name,
+    # and 'name-list'/'name-detail' are not routes this app has.
+    crud_views = {
+        **MVPDetailView.crud_views,
+        "list": "literature:item-list",
+        "detail": "literature:contributor-detail",
+    }
+
+    empty_state_heading = _("Not credited on anything yet")
+    empty_state_message = _("This contributor has no credited references in the catalogue.")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # MVPDetailView does not paginate — build a Paginator by hand over
+        # the items this contributor is credited on, in the catalogue's
+        # order. .distinct() is load-bearing: a contributor holding two
+        # roles on one item has two ItemName rows, and without it the item
+        # would appear twice (FR-035). The prefetch matches the catalogue
+        # list's, because FR-034 gives a credit row the same content a
+        # catalogue row carries.
+        items = (
+            Item.objects.filter(item_names__name=self.object)
+            .distinct()
+            .prefetch_related("item_names__name", "item_dates")
+        )
+        paginator = Paginator(items, self.paginate_by)
+        try:
+            page_obj = paginator.page(self.request.GET.get("page", 1))
+        except InvalidPage as exc:
+            # Paginator.get_page() would silently clamp an out-of-range page
+            # to the last one — FR-036 requires a 404 instead.
+            raise Http404(str(exc)) from exc
+
+        # list() forces evaluation now, caching page_obj.object_list's
+        # queryset in place — the objects annotated below are the same ones
+        # the template iterates later, so no extra query is spent doing it.
+        items_on_page = list(page_obj.object_list)
+
+        # The role(s) *this* contributor held on each item, from a single
+        # further query — not one per row.
+        roles_by_item = defaultdict(list)
+        for item_name in ItemName.objects.filter(name=self.object, item__in=items_on_page):
+            roles_by_item[item_name.item_id].append(item_name.get_role_display())
+        for page_item in items_on_page:
+            page_item.credited_roles = roles_by_item[page_item.id]
+
+        context["page_obj"] = page_obj
+        # MVPListViewMixin.get_context_data (mvp/views/list.py) is what
+        # normally sets these three keys — a DetailView never mixes it in,
+        # so they are set explicitly here instead (see the story brief).
+        context["grid_config"] = {}
+        context["list_item_template"] = self.list_item_template
+        context["empty_state"] = {
+            "heading": self.empty_state_heading,
+            "message": self.empty_state_message,
+        }
         return context
