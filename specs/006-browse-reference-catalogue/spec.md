@@ -204,8 +204,10 @@ Empty at specification time. FR-009 requires that any component built locally be
 
 Two page templates stand in for django-mvp's own, filed upstream as django-mvp#219:
 
-- `literature/ui/base.html` composes the page frame (breadcrumb toolbar, title, content region) that django-mvp's `page_view.html` already composes. It cannot extend `page_view.html`, because that template extends the unqualified `base.html`, which django-mvp does not ship and which therefore resolves against a template the host would have to write — and a host writing a template is what SC-002 rules out. Shipping our own top-level `base.html` instead would resolve for the whole project and displace the host's.
-- `literature/ui/item_list.html` carries the body of django-mvp's `list_view.html` for the same reason, with a second one on top: `list_view.html` loads `crispy_forms_tags`, so it needs `crispy_forms` installed even for a page with no form on it.
+- `literature/ui/base.html` composes the page frame (breadcrumb toolbar, title, content region) that django-mvp's `page_view.html` already composes.
+- `literature/ui/item_list.html` carries the body of django-mvp's `list_view.html`.
+
+One thing keeps both out of reach: `page_view.html` extends the unqualified `base.html`, which django-mvp does not ship. That name belongs to the host project, so extending the packaged chain means every host writes a template before a page renders, and SC-002 rules that out. Shipping a top-level `base.html` of our own would resolve for the whole project and displace the host's. `list_view.html` compiles cleanly once django-mvp's own documented apps are installed and fails at render for the same single reason.
 
 Both are retired by a package-qualified chain upstream (`mvp/page_view.html` extending `mvp/base.html`), which is what django-mvp#219 asks for. Neither defines a component: both compose django-mvp's own.
 

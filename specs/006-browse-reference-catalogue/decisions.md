@@ -394,14 +394,19 @@ like it is rewriting templates the dependency already ships.
 upstream request that retires them (django-mvp#219).
 
 **Why defensible**: the packaged chain is unreachable from a reusable app, not merely inconvenient.
-`page_view.html` extends the unqualified `base.html`, which django-mvp does not ship — with mvp,
-cotton, easy-icons and flex-menu all installed, `get_template("base.html")` raises
+`page_view.html` extends the unqualified `base.html`, which django-mvp does not ship — with
+django-mvp's own documented apps all installed, `get_template("base.html")` raises
 `TemplateDoesNotExist` while `get_template("mvp/base.html")` resolves. That name is the host
 project's own file, so extending the chain would require every host to write one, which is exactly
 what SC-002 forbids. Shipping a top-level `base.html` of our own would resolve project-wide and
-displace the host's. `list_view.html` adds a second obstacle: it loads `crispy_forms_tags`, so it
-needs `crispy_forms` in `INSTALLED_APPS` for a page carrying no form. Composing the frame from
-django-mvp's own components is what its getting-started guide tells an app to do.
+displace the host's. Composing the frame from django-mvp's own components is what its
+getting-started guide tells an app to do.
+
+**Corrected 2026-08-12**: an earlier draft of this decision named a second obstacle, that
+`list_view.html` loads `crispy_forms_tags`. crispy-forms and crispy-tailwind are hard dependencies
+of django-mvp and are listed in its own setup steps, so the only thing this repository had wrong was
+its own install list, which now carries them. `list_view.html` compiles once they are installed and
+fails at render on `base.html` alone.
 
 **Cost named**: about thirty lines that will drift from django-mvp when either template is improved
 there. The exit is upstream and filed, not a promise to remember.
