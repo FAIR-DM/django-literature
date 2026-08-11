@@ -3,7 +3,7 @@
   "feature": "006-browse-reference-catalogue",
   "branch": "006-browse-reference-catalogue",
   "repo": "FAIR-DM/django-literature",
-  "state": "CONVERGE",
+  "state": "REVIEW",
   "state_history": [
     {
       "state": "INTAKE",
@@ -39,6 +39,11 @@
       "state": "CONVERGE",
       "at": "2026-08-11T00:00:00Z",
       "note": "Implementation complete at ca320dd; forge verify all green, 1305 passing"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-11T18:00:00Z",
+      "note": "S5 exit green: verify+tamper triaged, credit row refactored, 3 ADRs graduated, 17 verdicts"
     }
   ],
   "gates": {
@@ -450,7 +455,7 @@
   ],
   "budgets": {
     "converge_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 2
     },
     "review_cycles": {
