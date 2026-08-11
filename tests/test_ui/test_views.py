@@ -163,6 +163,19 @@ class TestItemDetailView:
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
         assert 'href="https://example.org/paper"' in response.content.decode()
 
+    def test_identifier_carrying_a_script_scheme_is_never_followable(self, client, db):
+        # An unrecognised identifier type skips format validation entirely
+        # (FR-017), so the value reaching this page is arbitrary stored text.
+        item = ItemFactory()
+        payload = "javascript://%0aalert(document.cookie)"
+        ItemIdentifierFactory(item=item, type="CUSTOM", value=payload)
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert f'href="{payload}"' not in content
+        assert 'href="javascript' not in content
+        # Still shown in full, just as text rather than as a link.
+        assert payload in content
+
     def test_missing_item_is_a_404(self, client, db):
         response = client.get(reverse("literature:item-detail", kwargs={"pk": 999999}))
         assert response.status_code == 404

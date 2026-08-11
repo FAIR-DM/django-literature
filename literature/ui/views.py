@@ -13,6 +13,7 @@ from mvp.views import MVPDetailView, MVPListView
 
 from literature.models import Item, ItemName, Name
 from literature.ui.fields import scalar_fields
+from literature.ui.links import web_url
 
 
 class ItemListView(MVPListView):
@@ -68,6 +69,16 @@ class ItemDetailView(MVPDetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["scalar_fields"] = list(scalar_fields(self.object))
+
+        # Whether an identifier may be rendered as a link is decided here,
+        # against a scheme allowlist, and never in the template: a template
+        # can only ask whether the value *looks* like a URL, and
+        # ``javascript://x`` passes that test (RS-001). Annotating the
+        # instances reuses the queryset's prefetch, so this costs no query.
+        identifiers = list(self.object.item_identifiers.all())
+        for identifier in identifiers:
+            identifier.href = web_url(identifier.value)
+        context["identifiers"] = identifiers
         return context
 
 

@@ -36,13 +36,14 @@
     </c-section>
   {% endif %}
 
-  {% if object.item_identifiers.all %}
+  {% if identifiers %}
     <c-section title="{% translate "Identifiers" %}">
       <c-grid cols="1" md="2" gap="4">
-        {% for identifier in object.item_identifiers.all %}
+        {% for identifier in identifiers %}
           <c-data-field label="{{ identifier.type }}">
-            {% if "://" in identifier.value %}
-              <a href="{{ identifier.value }}">{{ identifier.value }}</a>
+            {# identifier.href is set by the view, and only for an allowlisted scheme (RS-001). #}
+            {% if identifier.href %}
+              <a href="{{ identifier.href }}">{{ identifier.value }}</a>
             {% else %}
               {{ identifier.value }}
             {% endif %}
