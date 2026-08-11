@@ -49,18 +49,52 @@ only thing distinguishing two entries in a catalogue holding several editions or
 the same authors in the same year. Leaving it to the reference page means the reader has to open
 candidates one at a time to find the one they meant.
 
-## D4 — No contributor-centred page
+## D4 — A contributor has a page of their own
+
+**Reversed at the specification gate, 2026-08-11.** The original decision is kept below, because the
+reasoning that produced it is what the reversal answers.
+
+~~**Chosen**: Out of scope. Contributors are shown on the reference page and are not themselves
+navigable. The request names one list and one reference page, and no sibling issue in R6 owns a
+contributor view, so building it here is new scope rather than a slice of agreed scope, and it would
+set the boundary against #49's filtering by contributor without that feature having a say.~~
 
 **Ambiguity**: A `Name` is stored shared across items, so a page collecting everything one
-contributor worked on is a small step from the reference page and an obvious thing to want.
+contributor worked on is a small step from the reference page. The scan ruled it out as unrequested.
+At the gate the maintainer asked for it directly, which settles the "unrequested" half of that
+reasoning and leaves the boundary question against #49 open.
 
-**Chosen**: Out of scope. Contributors are shown on the reference page and are not themselves
-navigable.
+**Chosen**: In scope, as User Story 4. A contributor's name on a reference page links to that
+contributor's page, which shows the name as stored and the items they are credited on with the role
+they held on each, paginated and ordered as the catalogue is.
 
-**Why defensible**: The request names one list and one reference page, and no sibling issue in R6
-owns a contributor view — so building it here is new scope rather than a slice of agreed scope, and
-it would set the boundary against #49's filtering by contributor without that feature having a say.
-Recorded as a possible later feature so the want is not lost.
+**Why defensible**: The boundary against #49 holds, and it is a difference in kind rather than a line
+drawn for convenience. This page is a destination reached by following a link from a reference the
+reader is already looking at, and it answers a question the store can answer directly, since
+contributors are stored once and shared. #49 is a query surface: text search over the catalogue and
+facets the reader chooses, of which contributor is one. The two can coexist without either owning
+the other, and #49 may later link into these pages rather than reimplementing them.
+
+Priority P4 rather than P3: it is the only story none of the others depend on, so it is the last
+built and the cheapest to lose if the run is cut short. The opt-in guarantee stays at P3 because it
+is a property that has to hold from the moment the app exists, and adding surface before it is
+verified is how it gets lost.
+
+## D7 — Identical stored names are not merged
+
+**Ambiguity**: The contributor page makes the store's lack of name de-duplication visible for the
+first time. Two `Name` records holding the same family and given values are two records, so a person
+imported from two different files has two pages, each showing half their work.
+
+**Chosen**: The interface reports the store. Identical names keep separate pages, and no attempt is
+made to decide that two records are the same person.
+
+**Why defensible**: Merging is authorship disambiguation, which is a research problem in its own
+right and one that established reference managers get wrong regularly. Guessing it inside a browse
+page would make the interface assert something the catalogue does not hold, and the reader would
+have no way to see that a merge had happened or to correct it. Reporting the store keeps the page
+honest, and it leaves de-duplication available as a feature that can be specified properly, with the
+maintainer deciding what evidence justifies a merge.
 
 ## D5 — Opt-in is enforced by the dependency graph, not by convention
 
