@@ -141,6 +141,10 @@ extend_exclude = ["tasks.py", "tests/", "demo/", "docs/"]
 
 [tool.deptry.per_rule_ignores]
 DEP003 = ["literature"]
+# django-mvp (the `ui` extra) is consumed through Django app config and
+# templates — INSTALLED_APPS, `{% extends "mvp/base.html" %}` — not a Python
+# import, until a story's views.py imports it directly (T007). See T001.
+DEP002 = ["django-mvp"]
 
 [project]
 name = "django-literature"
@@ -168,6 +172,22 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
+[project.optional-dependencies]
+# django-mvp declares requires-python >=3.12, while this project keeps its
+# >=3.11 floor for core-only consumers (see T001) — the marker keeps `poetry
+# lock` resolvable on 3.11 by making the extra unavailable there rather than
+# raising the whole project's floor. One entry only: django-mvp brings
+# django-cotton, easy-icons and flex-menus itself (research R1).
+ui = ["django-mvp (>=0.17,<1.0) ; python_version >= '3.12'"]
+
 [project.urls]
 homepage = "https://github.com/FAIR-DM/django-literature"
 repository = "https://github.com/FAIR-DM/django-literature"
+
+[tool.forge.conformance]
+# tests/test_ui/test_templates.py tests the shipped templates under
+# literature/ui/templates/ directly — its subject is not a Python module, so
+# there is no literature/ui/templates.py to mirror (Article X's declared
+# exception). T025 (Phase 5) adds this file's other guards and extends this
+# list with test_architecture.py and test_packaging.py.
+non-mirror-paths = ["tests/test_ui/test_templates.py"]

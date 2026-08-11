@@ -1,0 +1,14 @@
+{% extends "mvp/base.html" %}
+{% block content %}
+  <c-page class="{{ page.class }}">
+    <c-container>
+      <c-toolbar>
+        <c-breadcrumbs :items="page.breadcrumbs" class="py-2" />
+      </c-toolbar>
+      <c-page.content gap="4" class="py-4">
+        <c-page.title :attrs="page" />
+        {% block page.content %}{% endblock %}
+      </c-page.content>
+    </c-container>
+  </c-page>
+{% endblock %}

@@ -1,3 +1,7 @@
 """URL configuration for the literature test suite."""
 
-urlpatterns = []
+from django.urls import include, path
+
+urlpatterns = [
+    path("catalogue/", include("literature.ui.urls")),
+]

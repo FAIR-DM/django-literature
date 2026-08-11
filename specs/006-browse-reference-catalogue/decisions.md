@@ -165,3 +165,109 @@ measuring the wrong thing, so the criterion is what changed.
 
 **Recorded for veto**: this amends text approved at the specification gate. The scope, the pages and
 the guarantee are unchanged.
+
+## D10 — `literature/ui/urls.py` binds placeholder views, not `literature.ui.views`
+
+**Ambiguity**: T006 (foundational) creates `literature/ui/urls.py` with three named, reversible
+routes. The views those routes name — `ItemListView`, `ItemDetailView`, `ContributorDetailView` —
+are built later, one per story, in `literature/ui/views.py`, which the foundational phase does not
+create (the prohibition on writing view classes here exists precisely so a later story does not
+collide with content this phase already wrote). `path()` needs a real callable at import time,
+so the routes cannot name a module or symbol that does not exist yet.
+
+**Chosen**: each route binds to `django.views.generic.View` — a real, working, but content-free
+Django class, not one from this feature. The route names, patterns and namespace are final;
+nothing in this file names a symbol from `literature.ui.views`. When US-1, US-2 and US-4 add their
+real view classes, each story's own task should update its one corresponding `path()` line to
+point at it — a single-line, non-conflicting edit across three independent branches, not a shared
+symbol three stories would otherwise define independently (the actual "merge conflict at
+convergence" the views.py/tests_views.py prohibition is guarding against).
+
+**Why defensible**: `reverse()` only needs the URLconf to load and the pattern names to exist; it
+never invokes the view. Django's own generic `View` is the cheapest table-stakes callable that
+satisfies that without inventing a bespoke deferred-import mechanism or writing anything that
+looks like this feature's actual view logic. The alternative — a small lazy-dispatch wrapper that
+imports `literature.ui.views` at request time instead of import time — would remove the follow-up
+edit entirely, but at the cost of a mechanism nothing else in this codebase uses and that solves a
+problem only if the four stories are dispatched from four independent branches off the same base
+commit rather than sequentially from each other's accepted work; either way, three one-line edits
+to already-distinct routes is a cost worth accepting over speculative machinery for an unconfirmed
+orchestration detail (Article III).
+
+**Revisit if**: a later story's implementer finds `literature/ui/urls.py` unexpectedly conflicts
+across two of US-1/US-2/US-4's branches at convergence — that would mean the "single-line,
+non-conflicting edit" assumption above was wrong, and the lazy-dispatch alternative should be
+built instead.
+
+## D11 — `T006` executed before `T004` in this session
+
+**Ambiguity**: the brief lists tasks `T001`–`T006` in that order, and T004's own task text ("mount
+the app in tests/urls.py at a prefix") depends on `literature/ui/urls.py` existing, which T006
+creates. T006's acceptance ("each name reverses... under the mounted prefix") does not, in turn,
+depend on T004: it builds its own throwaway `ROOT_URLCONF` via `override_settings`, so it never
+needed T004's mount to exist. The dependency runs one way.
+
+**Chosen**: implemented T006 before completing T004, each still as its own complete, independently
+green, independently committed slice with its own tests — the task boundaries and acceptance
+criteria are unchanged, only the order they were executed and committed in.
+
+**Why defensible**: both tasks belong to this same story (US0); there is no cross-story boundary
+here of the kind the prohibitions protect (US-1/US-2/US-3/US-4 never touch either file). Craft
+increments' "risk first" guidance is to resolve a task other tasks depend on before the tasks that
+depend on it, which is exactly this case.
+
+**Revisit if**: never — this is a within-story execution-order note, not a standing rule.
+
+## D12 — `tests/test_ui/conftest.py` ships one populated-item fixture, not a bespoke `client`
+
+**Ambiguity**: T004 directs this file to hold "the client and item fixtures T009, T013 and T020
+share, so no story owns them" — but those three tasks belong to US-1, US-2 and US-4, dispatched
+after this story, and their own task text (read only for this sequencing question, per the note in
+`progress.md`) does not specify what either fixture needs to look like.
+
+**Chosen**: one `populated_item` fixture — a saved `Item` with one `ItemName`, one `ItemDate` and
+one `ItemIdentifier`, wrapping the four factories `tests/conftest.py` already exposes individually.
+No bespoke `client` fixture: pytest-django's own `client` fixture (a plain `django.test.Client`)
+is already available to every test in the tree without redeclaration, and the three routes it
+would hit (`literature:item-list`, `literature:item-detail`, `literature:contributor-detail`) need
+nothing session-specific — the pages are open by default (S0 intake, question 4).
+
+**Why defensible**: `populated_item` is the one composition every one of the three pages plausibly
+renders against (a row with a contributor, a date and an identifier, not a bare item), built from
+existing factories rather than a new one. Declaring a `client` fixture that only re-wraps
+`django.test.Client()` with no added behaviour is the redundant abstraction craft-increments'
+Simplicity First rules out.
+
+**Revisit if**: US-1, US-2 or US-4's own implementer finds this fixture does not match what their
+task actually needs (a different combination of related records, or a genuine reason for a
+non-default client) — flagged as a concern in this story's completion report for Forge to confirm
+before those stories dispatch, since "no story owns them" only holds if what is here is actually
+sufficient.
+
+## D13 — Two test-infrastructure files created ahead of the task that names them
+
+**Ambiguity**: two of this story's test files have no natural single-task owner. `tests/test_ui/__init__.py`
+is T004's stated deliverable (Article XIV), but T002 is the first task that needs
+`tests/test_ui/` to exist as a collectible package, three tasks earlier. `tests/test_ui/test_templates.py`
+is where T003's own base-template test lives (no source module to mirror it against — the
+`literature/ui/templates.py` that would satisfy `check_mirror` does not exist and should not), but
+the same filename is T025's (Phase 5, not this story) declared deliverable for the utility-class
+allowlist and i18n guard.
+
+**Chosen**: `tests/test_ui/__init__.py` created at T002, a one-line docstring; T004's own commit
+does not recreate it. `tests/test_ui/test_templates.py` created at T003 holding only
+`TestBaseTemplate`; `[tool.forge.conformance] non-mirror-paths` declares it there, as a one-entry
+list. T025 extends both the file (a new `Test*` class) and the declared list (two more entries)
+when it lands — it does not create either from scratch, and its own task text should be read with
+that in mind.
+
+**Why defensible**: both files are needed by an earlier task than the one that names them as its
+own deliverable, and nothing about creating them early conflicts with what the naming task still
+needs to do — T004 still adds `conftest.py` to an already-existing package; T025 still adds its two
+guards to an already-existing module. Waiting would have meant either inventing a temporary empty
+package/file only to fill it in later, or blocking T002/T003 on a task three-to-nineteen slots
+ahead of them for no benefit.
+
+**Revisit if**: T025's implementer finds the existing `test_templates.py` content or the existing
+`non-mirror-paths` entry unexpected — this decision is exactly the context for why both are already
+there.
