@@ -24,10 +24,6 @@ jobs:
       django-versions: '["5.2", "6.0"]'
       # Test/lint tooling lives in the single (non-optional) dev group via the
       # mvp-shared[dev,test] bundle, so the default `--with test` would fail.
-      # `--extras ui` installs the opt-in front end's dependency (django-mvp)
-      # too — without it, every literature.ui test is silently skipped here
-      # and the suite shrinks to the core (plan.md risk 3). The matrix's
-      # default python-versions (3.12, 3.13) already satisfy the extra's
-      # python_version >= 3.12 marker.
-      poetry-install-args: '--extras ui'
+      # Empty args install main + dev + docs, which covers pytest.
+      poetry-install-args: ''
     secrets: inherit
