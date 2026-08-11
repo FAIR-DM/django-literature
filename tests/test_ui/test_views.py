@@ -5,12 +5,13 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """
 
+import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from literature.choices import DateType, NameRole
-from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory
+from literature.choices import DateType, ItemType, NameRole
+from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory
 
 
 class TestItemListView:
@@ -90,3 +91,100 @@ class TestItemListView:
         assert response.status_code == 200
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
+
+
+class TestItemDetailView:
+    """The reference page — FR-019 through FR-026."""
+
+    def test_carried_fields_appear_and_absent_fields_do_not(self, client, db):
+        item = ItemFactory(title="Full Record", volume="12", issue="")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        volume_label = item._meta.get_field("volume").verbose_name
+        issue_label = item._meta.get_field("issue").verbose_name
+        assert f">{volume_label}</h6>" in content
+        assert "12" in content
+        # issue is blank on this item — its label must not appear at all (FR-021).
+        assert f">{issue_label}</h6>" not in content
+
+    def test_carried_fields_match_the_scalar_fields_helper(self, client, db):
+        item = ItemFactory(title="Full Record", volume="12", issue="")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        labels = {str(label) for label, _ in response.context["scalar_fields"]}
+        assert str(item._meta.get_field("volume").verbose_name) in labels
+        assert str(item._meta.get_field("issue").verbose_name) not in labels
+
+    def test_contributors_grouped_by_role_and_in_stored_order(self, client, db):
+        item = ItemFactory()
+        first_author = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        second_author = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        editor = ItemNameFactory(item=item, role=NameRole.EDITOR)
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert (
+            content.index(str(first_author.name))
+            < content.index(str(second_author.name))
+            < content.index(str(editor.name))
+        )
+
+    def test_year_only_date_renders_at_its_own_precision(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1998")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert "1998" in content
+        assert "1998-01-01" not in content
+
+    def test_full_date_renders_at_its_own_precision(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1998-03-14")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        assert "1998-03-14" in response.content.decode()
+
+    def test_range_date_shown_as_a_range(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.EVENT_DATE, begin="2020-01-01", end="2020-01-05")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert "2020-01-01" in content
+        assert "2020-01-05" in content
+
+    def test_identifiers_show_their_type_including_types_the_store_does_not_recognise(self, client, db):
+        item = ItemFactory()
+        ItemIdentifierFactory(item=item, type="ARK", value="ark:/12345/x")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert "ARK" in content
+        assert "ark:/12345/x" in content
+
+    def test_identifier_addressing_a_resolvable_location_is_followable(self, client, db):
+        item = ItemFactory()
+        ItemIdentifierFactory(item=item, type="URL", value="https://example.org/paper")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        assert 'href="https://example.org/paper"' in response.content.decode()
+
+    def test_missing_item_is_a_404(self, client, db):
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": 999999}))
+        assert response.status_code == 404
+
+    def test_renders_without_contributors_dates_or_identifiers(self, client, db):
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        assert response.status_code == 200
+
+    @pytest.mark.parametrize("item_type", ItemType.values)
+    def test_renders_for_every_item_type(self, client, db, item_type):
+        item = ItemFactory(type=item_type)
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        assert response.status_code == 200
+
+    def test_breadcrumb_links_to_the_catalogue_by_its_resolved_url(self, client, db):
+        # The plain MVPDetailView.crud_views mapping is un-namespaced, so
+        # reverse('item-list') raises NoReverseMatch under this app's
+        # namespaced urls.py — this is the regression the brief's
+        # correction exists to prevent (see plan.md, resolve_crud_url).
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        catalogue_url = reverse("literature:item-list")
+        assert f'href="{catalogue_url}"' in content
