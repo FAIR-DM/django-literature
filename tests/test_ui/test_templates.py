@@ -315,3 +315,103 @@ class TestUtilityClassAllowlist:
     )
     def test_accepts_documented_utilities_and_their_allowed_prefixes(self, token):
         assert is_allowed_utility_class(token)
+
+
+# ---------------------------------------------------------------------------
+# T021 — i18n guard. FR-007, D-7.
+#
+# Every literal string a reader sees in a shipped template must be inside
+# {% translate %} or {% blocktranslate %}. Scope: text nodes between HTML
+# tags. Literal text embedded in a component *attribute* value (for example
+# a hard-coded ``title="Foo"``) is out of scope — telling a reader-visible
+# attribute like ``title`` apart from a Cotton configuration attribute like
+# ``size="sm"`` or ``cols="1"`` is not mechanically decidable from the
+# reference material this task was given, the way class-vs-parameter was for
+# the guard above. Every attribute-embedded literal string in the six
+# shipped templates today already goes through {% translate %} regardless
+# (item_detail.html's ``<c-section title="{% translate "Contributors" %}">``
+# and its two siblings), so this is a documented gap, not a proven miss.
+# ---------------------------------------------------------------------------
+
+_BLOCKTRANSLATE_RE = re.compile(r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL)
+_TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}")
+_DJANGO_TAG_RE = re.compile(r"\{%.*?%\}", re.DOTALL)
+_DJANGO_VAR_RE = re.compile(r"\{\{.*?\}\}", re.DOTALL)
+_HTML_TAG_RE = re.compile(r"<[^>]*>", re.DOTALL)
+_HTML_ENTITY_RE = re.compile(r"&[#a-zA-Z0-9]+;")
+_LETTER_RE = re.compile(r"[A-Za-z]")
+
+
+def reader_visible_residue(source: str) -> str:
+    """What is left of ``source``'s text nodes once every already-translated
+    span, every other piece of template machinery, and every HTML tag and
+    entity is removed — in that order, so a ``{% translate %}`` used inside
+    an attribute value (``title="{% translate "Dates" %}"``) is excised
+    before the generic tag/HTML stripping ever runs, and so a literal string
+    inside an ``{% if %}``/``{% regroup %}`` condition (template logic, not
+    reader-facing) is removed with its tag rather than surfacing as residue.
+    What remains still carries structural punctuation — ``:``, ``,``,
+    ``&middot;``, ``&ndash;`` — because none of it is filtered by name; see
+    :func:`has_unwrapped_reader_text`."""
+    text = _BLOCKTRANSLATE_RE.sub(" ", source)
+    text = _TRANSLATE_TAG_RE.sub(" ", text)
+    text = _DJANGO_TAG_RE.sub(" ", text)
+    text = _DJANGO_VAR_RE.sub(" ", text)
+    text = _HTML_TAG_RE.sub(" ", text)
+    text = _HTML_ENTITY_RE.sub(" ", text)
+    return text
+
+
+def has_unwrapped_reader_text(source: str) -> bool:
+    """True if any letter survives :func:`reader_visible_residue`. A colon
+    separator, the ``&middot;`` separator, the ``&ndash;`` en dash and a
+    comma-and-space list join all carry no letters, so they pass through
+    without needing to be named as exceptions one at a time — this is a
+    generalisation of "colon, middot and whitespace are not reader-facing
+    prose", not a narrower reading of it: anything with no letter in it is
+    not prose a reader reads as language, wrapped or not."""
+    return bool(_LETTER_RE.search(reader_visible_residue(source)))
+
+
+class TestI18nGuard:
+    """T021 — FR-007, D-7. Every literal string a reader sees in a template
+    ``literature.ui`` ships is wrapped in ``{% translate %}`` or
+    ``{% blocktranslate %}`` — see :func:`has_unwrapped_reader_text` and its
+    docstring for what counts as "a reader sees" and what does not."""
+
+    @pytest.mark.parametrize("template_path", TEMPLATE_PATHS, ids=lambda p: p.name)
+    def test_no_unwrapped_reader_text(self, template_path):
+        source = template_path.read_text()
+        residue = reader_visible_residue(source)
+        assert not has_unwrapped_reader_text(source), (
+            f"{template_path.name}: literal reader-facing text outside "
+            f"{{% translate %}}/{{% blocktranslate %}}: {residue!r}"
+        )
+
+    def test_detects_a_bare_literal_reader_string(self):
+        assert has_unwrapped_reader_text("<c-text>Showing results</c-text>")
+
+    def test_accepts_the_same_string_wrapped_in_translate(self):
+        assert not has_unwrapped_reader_text('<c-text>{% translate "Showing results" %}</c-text>')
+
+    def test_accepts_the_same_string_wrapped_in_blocktranslate(self):
+        assert not has_unwrapped_reader_text(
+            "<c-text>{% blocktranslate %}Showing results{% endblocktranslate %}</c-text>"
+        )
+
+    def test_accepts_translate_used_inside_an_attribute_value(self):
+        assert not has_unwrapped_reader_text('<c-section title="{% translate "Dates" %}">')
+
+    @pytest.mark.parametrize(
+        "fragment",
+        [
+            "{{ group.grouper }}:",
+            "{% if not forloop.last %}, {% endif %}",
+            "&middot;",
+            "&ndash;",
+            "   \n   ",
+            "",
+        ],
+    )
+    def test_colon_comma_entities_and_whitespace_do_not_trip_it(self, fragment):
+        assert not has_unwrapped_reader_text(fragment)
