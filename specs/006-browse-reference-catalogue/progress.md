@@ -166,3 +166,23 @@ on each of the three `INSTALLED_APPS`/`TEMPLATES` star-import references in `tes
 
 Next: T005, wire the `ui` extra into CI. Watch: `populated_item`/`client` fixture sufficiency is
 D-12's open question for US-1/US-2/US-4 to confirm — flagged in the completion report's concerns.
+
+## 2026-08-11T14:26:43Z · Implementer US0 · T005
+
+Did: `.github/workflows/tests.yml` — `poetry-install-args: '--extras ui'` (was `''`). The reusable
+workflow's `python-versions` default (`["3.12", "3.13"]`) is left as-is and already satisfies the
+extra's `python_version >= '3.12'` marker, so no other input needs changing.
+
+No pytest scope for a workflow-call argument. Verified instead: YAML parses
+(`python3 -c "import yaml; yaml.safe_load(...)"`, `pre-commit run check-yaml`) and the exact
+command the reusable workflow's `setup-poetry` action runs —
+`poetry install --no-interaction --no-root --extras ui` — succeeds locally against this
+worktree's lock file (exit 0, "No dependencies to install or update", the extra already present
+from T001's `poetry install --extras ui`).
+
+Concern: T005's own acceptance ("confirm on the pull request that the UI tests actually appear in
+the run") needs a real CI run against this branch's PR, which this story cannot produce or observe
+— no `gh`, no network beyond the package registry, no tokens. Flagged for Forge to confirm once the
+PR is open.
+
+Next: T001–T006 complete. Full verify, then the completion report.
