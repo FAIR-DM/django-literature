@@ -41,10 +41,14 @@ class TestItemListView:
         assert response.status_code == 404
 
     def test_empty_catalogue_renders_the_stated_empty_result(self, client, db):
+        # Assert this view's own wording, not merely the presence of an empty
+        # state — django-mvp's default heading ("There's nothing here yet")
+        # would satisfy a looser match and hide an unwired empty state.
         response = client.get(reverse("literature:item-list"))
         assert response.status_code == 200
         content = response.content.decode()
-        assert "Nothing" in content or "nothing" in content
+        assert "Nothing in the catalogue yet" in content
+        assert "References imported or created will appear here." in content
 
     def test_each_row_links_to_that_items_page(self, client, db):
         item = ItemFactory(title="A Linked Reference")
