@@ -127,7 +127,7 @@ cycle. The section is empty at specification time, so its contents at merge are 
 this feature took on, named and with a stated exit — which is the standing requirement that
 technical debt is deliberate and its cost named, rather than accumulated by accident.
 
-## D7 — The scalar-field helper ships inside the UI app, not the core
+## D9 — The scalar-field helper ships inside the UI app, not the core
 
 **Ambiguity**: The helper that walks an item's non-empty scalar fields duplicates an idiom already
 in-line in three places in the core, which reads as an argument for putting it in `literature/utils/`.
