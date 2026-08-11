@@ -79,6 +79,8 @@ The intended way to use the package in full is an opt-in front end, kept entirel
 
 - An installable front-end app that a host opts into, with the core still installable on its own and carrying no front-end dependency.
 - Browse, create, edit, and delete flows for references and their contributors, dates, and identifiers.
+- Search and filtering across the catalogue, so a library of thousands of references stays usable.
+- A path for importing a BibTeX or RIS file from the front end, reporting the outcome of every entry in the file.
 - A self-contained design system that does not depend on the host project's styling.
 - A demo project that starts with a documented command and serves the front end over seed references spanning a range of item types, names, dates, and identifiers.
 - A smoke path over the demo, run in CI on every change, so regressions are caught before release.
