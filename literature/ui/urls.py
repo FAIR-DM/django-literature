@@ -22,6 +22,6 @@ app_name = "literature"
 
 urlpatterns = [
     path("", views.ItemListView.as_view(), name="item-list"),
-    path("<int:pk>/", View.as_view(), name="item-detail"),
+    path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("contributors/<int:pk>/", View.as_view(), name="contributor-detail"),
 ]

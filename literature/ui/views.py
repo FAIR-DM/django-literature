@@ -5,9 +5,10 @@ Filled in one class per story: ``ItemListView`` (US-1), ``ItemDetailView``
 """
 
 from django.utils.translation import gettext_lazy as _
-from mvp.views import MVPListView
+from mvp.views import MVPDetailView, MVPListView
 
 from literature.models import Item
+from literature.ui.fields import scalar_fields
 
 
 class ItemListView(MVPListView):
@@ -31,3 +32,36 @@ class ItemListView(MVPListView):
         # restated here. Prefetch what a row needs so a page costs a
         # constant number of queries regardless of catalogue size.
         return super().get_queryset().prefetch_related("item_names__name", "item_dates")
+
+
+class ItemDetailView(MVPDetailView):
+    """The reference page — FR-019, FR-025, FR-027."""
+
+    model = Item
+    template_name = "literature/ui/item_detail.html"
+
+    # Reverses the breadcrumb's list link. The default False leaves it
+    # href-less: PageObjectMixin.get_breadcrumbs() calls resolve_crud_url("list")
+    # regardless, and show_list_action gates whether that call is even attempted.
+    show_list_action = True
+    directory: list[str] = []
+
+    # MVPDetailView.crud_views is MVP_CONFIG["view_names"] itself — a dict
+    # shared process-wide. Building a new one here (rather than assigning
+    # into it) avoids reconfiguring django-mvp for every other view.
+    # The plain entries carry no namespace ('{model_name}-list'), so
+    # resolve_crud_url's plain reverse('item-list') raises NoReverseMatch
+    # under this app's namespaced urls.py (app_name = "literature").
+    crud_views = {
+        **MVPDetailView.crud_views,
+        "list": "literature:{model_name}-list",
+        "detail": "literature:{model_name}-detail",
+    }
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related("item_names__name", "item_dates", "item_identifiers")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["scalar_fields"] = list(scalar_fields(self.object))
+        return context
