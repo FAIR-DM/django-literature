@@ -243,3 +243,31 @@ task actually needs (a different combination of related records, or a genuine re
 non-default client) — flagged as a concern in this story's completion report for Forge to confirm
 before those stories dispatch, since "no story owns them" only holds if what is here is actually
 sufficient.
+
+## D13 — Two test-infrastructure files created ahead of the task that names them
+
+**Ambiguity**: two of this story's test files have no natural single-task owner. `tests/test_ui/__init__.py`
+is T004's stated deliverable (Article XIV), but T002 is the first task that needs
+`tests/test_ui/` to exist as a collectible package, three tasks earlier. `tests/test_ui/test_templates.py`
+is where T003's own base-template test lives (no source module to mirror it against — the
+`literature/ui/templates.py` that would satisfy `check_mirror` does not exist and should not), but
+the same filename is T025's (Phase 5, not this story) declared deliverable for the utility-class
+allowlist and i18n guard.
+
+**Chosen**: `tests/test_ui/__init__.py` created at T002, a one-line docstring; T004's own commit
+does not recreate it. `tests/test_ui/test_templates.py` created at T003 holding only
+`TestBaseTemplate`; `[tool.forge.conformance] non-mirror-paths` declares it there, as a one-entry
+list. T025 extends both the file (a new `Test*` class) and the declared list (two more entries)
+when it lands — it does not create either from scratch, and its own task text should be read with
+that in mind.
+
+**Why defensible**: both files are needed by an earlier task than the one that names them as its
+own deliverable, and nothing about creating them early conflicts with what the naming task still
+needs to do — T004 still adds `conftest.py` to an already-existing package; T025 still adds its two
+guards to an already-existing module. Waiting would have meant either inventing a temporary empty
+package/file only to fill it in later, or blocking T002/T003 on a task three-to-nineteen slots
+ahead of them for no benefit.
+
+**Revisit if**: T025's implementer finds the existing `test_templates.py` content or the existing
+`non-mirror-paths` entry unexpected — this decision is exactly the context for why both are already
+there.
