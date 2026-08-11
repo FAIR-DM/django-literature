@@ -59,7 +59,7 @@
       "priority": "P0",
       "issue": null,
       "worktree": null,
-      "status": "done",
+      "status": "blocked",
       "replans": 0,
       "tasks": [
         {
@@ -84,8 +84,9 @@
         },
         {
           "id": "T005",
-          "status": "done",
-          "attempts": 0
+          "status": "blocked",
+          "attempts": 0,
+          "evidence": "Change authored and verified locally, then held back: GitHub refuses a GitHub App push that touches .github/workflows/ without the workflows permission, which per standing policy the per-account bots never get. Patch saved at engineering-org/runs/django-literature/006-browse-reference-catalogue/T005-ci-ui-extra.patch. Needs Sam to apply it."
         },
         {
           "id": "T006",
