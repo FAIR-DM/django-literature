@@ -212,6 +212,34 @@ class TestContributorDetailView:
         assert "Credited Work" in content
         assert str(NameRole.EDITOR.label) in content
 
+    def test_credit_row_carries_what_a_catalogue_row_carries(self, client, db):
+        # FR-034 defers to FR-013 for a credit row's content, so the row shows
+        # the item's own contributors as well as the role this contributor
+        # held on it — the roles are additional, not a replacement.
+        contributor = NameFactory(family="Rowe", given="A")
+        coauthor = NameFactory(family="Peralta", given="B")
+        item = ItemFactory(title="Jointly Written Work", citation_key="rowe2021joint")
+        ItemNameFactory(item=item, name=contributor, role=NameRole.EDITOR)
+        ItemNameFactory(item=item, name=coauthor, role=NameRole.AUTHOR)
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
+
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        content = response.content.decode()
+
+        assert "Jointly Written Work" in content
+        assert str(coauthor) in content
+        assert str(NameRole.AUTHOR.label) in content
+        assert "rowe2021joint" in content
+        assert "2021" in content
+        assert str(item.get_type_display()) in content
+
+    def test_breadcrumb_links_to_the_catalogue_by_its_resolved_url(self, client, db):
+        # The model-derived crud_views entry would be 'name-list', a route
+        # this app does not have.
+        contributor = NameFactory()
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert f'href="{reverse("literature:item-list")}"' in response.content.decode()
+
     def test_item_held_under_two_roles_appears_once_carrying_both(self, client, db):
         contributor = NameFactory()
         item = ItemFactory(title="Dual Role Work")

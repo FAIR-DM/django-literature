@@ -90,10 +90,6 @@ class ContributorDetailView(MVPDetailView):
     # not apply.
     directory: list[str] = []
 
-    # This page's "list" is the catalogue (an Item list), not a Name list —
-    # matches what item_detail.html's breadcrumb already reads, rather than
-    # the model-derived default ("Names").
-    list_view_title = Item._meta.verbose_name_plural.title()  # type: ignore[union-attr]  # Item.Meta always sets this
 
     # A NEW dict, not a mutation of the shared MVP_CONFIG one (see
     # ItemDetailView for the same note). Literal target names, not
@@ -107,6 +103,15 @@ class ContributorDetailView(MVPDetailView):
 
     empty_state_heading = _("Not credited on anything yet")
     empty_state_message = _("This contributor has no credited references in the catalogue.")
+
+    def get_list_title(self):
+        # This page's "list" is the catalogue (an Item list), not a Name list,
+        # so the breadcrumb reads as it does on the reference page rather than
+        # the model-derived default ("Names"). Resolved per request, not in the
+        # class body: verbose_name_plural is a lazy translation, and calling
+        # .title() on it at import time would freeze one language into the
+        # class for the life of the process.
+        return Item._meta.verbose_name_plural.title()  # type: ignore[union-attr]  # Item.Meta always sets this
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

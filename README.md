@@ -92,11 +92,11 @@ python manage.py migrate
 
 ### Installing the front end
 
-`literature.ui` is a second, opt-in app that adds a catalogue list page and a reference page over
-whatever the core already stores. It is not required by the core and it is not installed by
-default. It needs Python 3.12 or later and Django 5.2 or later, floors the core does not share, so
-a project on an older Python or Django keeps the core available and simply cannot resolve the
-extra.
+`literature.ui` is a second, opt-in app that adds a catalogue list page, a reference page and a
+contributor page over whatever the core already stores. It is not required by the core and it is
+not installed by default. It needs Python 3.12 or later and Django 5.2 or later, floors the core
+does not share, so a project on an older Python or Django keeps the core available and simply
+cannot resolve the extra.
 
 ```bash
 pip install django-literature[ui]
@@ -172,6 +172,16 @@ TEMPLATES = [
 SITE_ID = 1
 ```
 
+Pages render without it, but the site name is part of every page title, and reaching it needs the
+matching middleware:
+
+```python
+MIDDLEWARE = [
+    # ...
+    "django.contrib.sites.middleware.CurrentSiteMiddleware",
+]
+```
+
 Then include the app's URLs at whatever prefix the project wants:
 
 ```python
@@ -187,8 +197,9 @@ urlpatterns = [
 The routes are namespaced `literature`, so a template reverses them as `{% url 'literature:item-list' %}`
 and `{% url 'literature:item-detail' pk=item.pk %}`.
 
-That is every step. Once the URLs are included, the catalogue list and the reference page are live —
-no view, template, URL pattern, or line of styling is left for the host to write.
+That is every step. Once the URLs are included, the catalogue list, the reference page and the
+contributor page are live. No view, template, URL pattern, or line of styling is left for the host
+to write.
 
 ---
 

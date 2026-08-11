@@ -6,6 +6,18 @@
   <h3 class="text-lg font-semibold">
     <a href="{% url 'literature:item-detail' pk=object.pk %}">{{ object.title|default:object.citation_key }}</a>
   </h3>
+  {% regroup object.item_names.all by get_role_display as contributor_groups %}
+  {% if contributor_groups %}
+    <c-text size="sm" muted>
+      {% for group in contributor_groups %}
+        {{ group.grouper }}:
+        {% for item_name in group.list %}
+          {{ item_name.name }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+        {% if not forloop.last %}&middot;{% endif %}
+      {% endfor %}
+    </c-text>
+  {% endif %}
   {% if object.credited_roles %}
     <c-text size="sm" muted>
       {% translate "Credited as" %}:
