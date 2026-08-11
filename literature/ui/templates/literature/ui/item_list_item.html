@@ -1,0 +1,27 @@
+{% load i18n %}
+<c-card>
+  <c-slot name="badges">
+    <c-badge text="{{ object.get_type_display }}" />
+  </c-slot>
+  <h3 class="text-lg font-semibold">
+    <a href="{% url 'literature:item-detail' pk=object.pk %}">{{ object.title|default:object.citation_key }}</a>
+  </h3>
+  {% regroup object.item_names.all by get_role_display as contributor_groups %}
+  {% if contributor_groups %}
+    <c-text size="sm" muted>
+      {% for group in contributor_groups %}
+        {{ group.grouper }}:
+        {% for item_name in group.list %}
+          {{ item_name.name }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+        {% if not forloop.last %}&middot;{% endif %}
+      {% endfor %}
+    </c-text>
+  {% endif %}
+  {% for item_date in object.item_dates.all %}
+    {% if item_date.date_type == "issued" %}
+      <c-text size="sm" muted>{% translate "Issued" %}: {{ item_date.begin|default:item_date.literal }}</c-text>
+    {% endif %}
+  {% endfor %}
+  <c-text size="xs" muted>{{ object.citation_key }}</c-text>
+</c-card>

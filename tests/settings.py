@@ -25,3 +25,29 @@ TEMPLATES[0]["OPTIONS"]["context_processors"] = [  # noqa: F405
 SITE_ID = 1
 
 ROOT_URLCONF = "tests.urls"
+
+# ``mvp/base.html`` loads the packaged stylesheet with ``{% static %}``
+# unconditionally, so any UI page render needs this — django.contrib.staticfiles
+# being installed is not enough on its own (research R1).
+STATIC_URL = "static/"
+
+# django-mvp resolves every icon name it renders through django-easy-icons;
+# without a "default" renderer configured, any page using <c-icon> (which
+# mvp/base.html does) raises ImproperlyConfigured (docs/getting-started.md).
+EASY_ICONS = {
+    "default": {
+        "renderer": "easy_icons.renderers.ProviderRenderer",
+        "config": {"tag": "i"},
+        "packs": ["mvp.utils.BS5_ICONS"],
+    },
+}
+
+# ``mvp/base.html``'s chrome (sidebar, mobile dock) is rendered by
+# django-flex-menus, which raises ValueError at render time without these
+# renderers configured (docs/getting-started.md's minimal example).
+FLEX_MENUS = {
+    "renderers": {
+        "sidebar": "mvp.renderers.SidebarRenderer",
+        "dock": "mvp.renderers.MobileFooterNavRenderer",
+    },
+}

@@ -1,0 +1,20 @@
+{% extends "literature/ui/base.html" %}
+{% load i18n %}
+{% block page.content %}
+  {% if page_obj %}
+    <c-text size="sm" muted>
+      {% blocktranslate with start=page_obj.start_index end=page_obj.end_index total=page_obj.paginator.count %}
+        Showing {{ start }}-{{ end }} of {{ total }} references
+      {% endblocktranslate %}
+    </c-text>
+  {% endif %}
+  <c-page.list :list="object_list"
+               :attrs="grid_config"
+               :card="list_item_template"
+               :empty_state="empty_state" />
+  {% if page_obj %}
+    <div class="w-full flex justify-center items-center">
+      <c-pagination :page_obj="page_obj" />
+    </div>
+  {% endif %}
+{% endblock page.content %}
