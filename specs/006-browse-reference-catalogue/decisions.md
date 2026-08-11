@@ -358,3 +358,52 @@ gained the four-line mount the app is served from. No assertion was changed, rel
 anywhere in the diff, and the file-by-file diff is in the pull request for confirmation.
 
 **ADR:** none — a guardrail triage note for this run.
+
+## D18 — The contributor page is a list view, not a detail view that paginates
+
+**Ambiguity**: US-4 built the contributor page as an `MVPDetailView` of `Name` that assembled a
+`Paginator` by hand and set `page_obj`, `grid_config`, `list_item_template` and `empty_state` into
+the context itself, because a detail view does not mix in django-mvp's list machinery. Raised at the
+merge gate: the view reproduced logic django-mvp already owns.
+
+**Chosen**: `ContributorDetailView` subclasses `ItemListView`. The page is the catalogue filtered to
+one contributor's credits, so pagination, page size, the empty state, the grid configuration and the
+not-found on an out-of-range page all arrive with `MVPListView`. What remains is the part the base
+class cannot know: the contributor is the page's subject, and each row carries the roles that
+contributor held. `contributor_detail.html` is deleted; the page renders through `item_list.html`.
+
+**Why defensible**: FR-036 requires the list to paginate and order exactly as the catalogue does.
+Inheriting the catalogue view states that, where the hand-built version restated it and could drift
+from it — the page size was already being read off `ItemListView` to stop exactly that. Around fifty
+lines of view code and one template go with it, and every acceptance test for the page passes
+unchanged, including the two-roles case, the past-the-end 404, the missing-contributor 404 and the
+empty state.
+
+**Cost named**: the counted line above the list now reads "Showing 1-3 of 3 references" rather than
+"3 credited references", because the template is shared. No requirement names that wording.
+
+**ADR:** none — a view composed from the app's own catalogue view, inside this app.
+
+## D19 — The two page templates are recorded as stand-ins, not accepted as ours
+
+**Ambiguity**: raised at the merge gate — `literature/ui/base.html` reproduces django-mvp's
+`page_view.html`, and `item_list.html` reproduces the body of its `list_view.html`, so the app looks
+like it is rewriting templates the dependency already ships.
+
+**Chosen**: both stay, and both are now listed under the specification's *Component gaps* with the
+upstream request that retires them (django-mvp#219).
+
+**Why defensible**: the packaged chain is unreachable from a reusable app, not merely inconvenient.
+`page_view.html` extends the unqualified `base.html`, which django-mvp does not ship — with mvp,
+cotton, easy-icons and flex-menu all installed, `get_template("base.html")` raises
+`TemplateDoesNotExist` while `get_template("mvp/base.html")` resolves. That name is the host
+project's own file, so extending the chain would require every host to write one, which is exactly
+what SC-002 forbids. Shipping a top-level `base.html` of our own would resolve project-wide and
+displace the host's. `list_view.html` adds a second obstacle: it loads `crispy_forms_tags`, so it
+needs `crispy_forms` in `INSTALLED_APPS` for a page carrying no form. Composing the frame from
+django-mvp's own components is what its getting-started guide tells an app to do.
+
+**Cost named**: about thirty lines that will drift from django-mvp when either template is improved
+there. The exit is upstream and filed, not a promise to remember.
+
+**ADR:** none — a temporary stand-in tracked in the specification, with a filed exit.
