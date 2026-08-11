@@ -73,7 +73,7 @@ A reader has found a reference in the list and wants everything the catalogue ho
 
 ### User Story 3 - Install the store on its own and get nothing extra (Priority: P3)
 
-A project that only wants somewhere to keep references installs the core, and that is all it gets. No front-end package is resolved into its environment, no interface app appears in its project, and nothing it already runs changes. The interface is something it can add later by installing an extra and adding one app.
+A project that only wants somewhere to keep references installs the core, and that is all it gets. No front-end package is resolved into its environment, no interface app appears in its project, and nothing it already runs changes. The interface is something it can add later by installing an extra and following the documented install steps.
 
 **Why this priority**: It is a guarantee rather than a journey, and it delivers no browsing value on its own — which is exactly why it is stated separately and verified separately. It is the property the roadmap protects, and the one most easily lost by accident once the interface exists.
 
@@ -83,7 +83,7 @@ A project that only wants somewhere to keep references installs the core, and th
 
 1. **Given** a clean environment, **When** the package is installed without the interface extra, **Then** no front-end package is resolved into it.
 2. **Given** a project with only the core in `INSTALLED_APPS`, **When** it runs, **Then** the core behaves exactly as it did before this feature and imports nothing from the interface app.
-3. **Given** a project that later installs the extra and adds the interface app, **When** it includes the URLs, **Then** the interface works with no further configuration.
+3. **Given** a project that later installs the extra and follows the documented install steps, **When** it includes the URLs, **Then** the interface works without it writing a view, a template, a URL pattern or a line of styling.
 
 ---
 
@@ -128,7 +128,7 @@ A reader looking at a reference recognises one of its authors and wants to know 
 - **FR-001**: The package MUST ship a front-end app, `literature.ui`, which a host enables by adding it to `INSTALLED_APPS` alongside the core (Article X).
 - **FR-002**: Installing the core MUST resolve no front-end dependency. django-mvp MUST arrive only through an optional extra the package declares, so opt-in is a property of the dependency graph and not a convention.
 - **FR-003**: The app's URLs MUST be an optional, namespaced include that the host wires up. Nothing is mounted automatically (Article X).
-- **FR-004**: The app MUST work with no configuration. Any configuration it introduces MUST live under the namespaced `LITERATURE` settings key (Article X).
+- **FR-004**: The app MUST introduce no configuration of its own — a host that has installed it and its declared dependencies gets working pages without setting anything. Any configuration it later introduces MUST live under the namespaced `LITERATURE` settings key (Article X). Installing the app's dependencies, which the host does once from the documented steps, is not configuration in this sense (see D8).
 - **FR-005**: Every name the app makes public MUST be importable from the `literature` namespace and MUST NOT collide with common Django project structures (Article X).
 - **FR-006**: No core module may import from the app, and the core MUST behave exactly as it does today when the app is absent from `INSTALLED_APPS`.
 - **FR-007**: Every user-facing string the app produces MUST be translatable (Article VIII).
@@ -207,7 +207,7 @@ Empty at specification time. FR-009 requires that any component built locally be
 ### Measurable Outcomes
 
 - **SC-001**: A project installing the package without the interface extra resolves no front-end dependency, and its use of the core is unchanged.
-- **SC-002**: A project installing the extra, adding one app and including the URLs reaches a working catalogue list and reference page without writing a view, a template, a URL pattern, or a line of styling.
+- **SC-002**: A project installing the extra, following the documented install steps and including the URLs reaches a working catalogue list and reference page without writing a view, a template, a URL pattern, or a line of styling. The install steps are documented in one place and are sufficient (see D8).
 - **SC-003**: A catalogue of several thousand references renders its first page, and the rendered page does not grow with the catalogue's size.
 - **SC-004**: A reader can tell two references apart from their list entries and reach either one's page in a single step.
 - **SC-005**: For any stored item, every scalar field it carries appears on its page and no field it does not carry appears at all.

@@ -10,15 +10,25 @@ project needs, at minimum (`django-mvp/docs/getting-started.md`, cross-checked a
 `django-mvp/demo/settings.py`):
 
 - `INSTALLED_APPS`: `django.contrib.sites`, `django_cotton`, `easy_icons`, `flex_menu`, `mvp`,
-  `crispy_forms`, `crispy_tailwind`. `mvp` must precede `crispy_tailwind`, because django-mvp ships
-  a template override for a crispy-tailwind help-text template and app order decides which is found.
+  ~~`crispy_forms`, `crispy_tailwind`~~. `mvp` must precede `crispy_tailwind` where both are
+  installed, because django-mvp ships a template override for a crispy-tailwind help-text template
+  and app order decides which is found.
 - The context processor `mvp.context_processors.mvp_config`, without which the app shell cannot
   resolve its layout configuration.
-- `CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]` and `CRISPY_TEMPLATE_PACK = "tailwind"`.
+- ~~`CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]` and `CRISPY_TEMPLATE_PACK = "tailwind"`.~~
 - `django.contrib.staticfiles` with the app-directories finder, so the packaged stylesheet is found.
+- `SITE_ID`, and `django.contrib.sites.middleware.CurrentSiteMiddleware` if the page-title suffix
+  `mvp/base.html` renders from `{{ request.site.name }}` is to be non-empty.
 
-`crispy_forms` and `crispy_tailwind` are not optional even for read-only pages: django-mvp's own
-`list_view.html` loads `crispy_forms_tags` unconditionally. They arrive transitively — django-mvp's
+**The crispy entries are struck out — D-1 removed their only caller.** They were justified below by
+`list_view.html` loading `crispy_forms_tags`, and D-1 rules that nothing in this app references
+`list_view.html`. In django-mvp, `crispy` appears in `list_view.html`, `cotton/form/render.html`,
+`cotton/form/formset/row.html` and `tailwind/layout/help_text.html`, none of which is in the
+`mvp/base.html` → `<c-app>` → `<c-page.*>` / `<c-pagination>` / `<c-data-field>` chain this app uses;
+cotton resolves components lazily at render time, so an unreferenced component costs nothing. Two
+fewer apps and two fewer settings in the host contract T023 documents.
+
+They still arrive transitively as *packages*, just not as installed apps — django-mvp's
 own `[project].dependencies` are `django>=5.2`, `django-cotton==2.6.1`, `django-flex-menus>=0.4.3`,
 `django-easy-icons>=0.6`, `mergedeep`, `django-crispy-forms>=2.7`, `crispy-tailwind>=1.0.3`
 (`django-mvp/pyproject.toml`). **Depending on `django-mvp` alone pulls the whole set**, so the

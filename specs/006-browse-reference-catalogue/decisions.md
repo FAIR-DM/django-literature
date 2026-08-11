@@ -126,3 +126,42 @@ its upstream request.
 cycle. The section is empty at specification time, so its contents at merge are exactly the debt
 this feature took on, named and with a stated exit — which is the standing requirement that
 technical debt is deliberate and its cost named, rather than accumulated by accident.
+
+## D7 — The scalar-field helper ships inside the UI app, not the core
+
+**Ambiguity**: The helper that walks an item's non-empty scalar fields duplicates an idiom already
+in-line in three places in the core, which reads as an argument for putting it in `literature/utils/`.
+
+**Chosen**: `literature/ui/fields.py`, beside its only caller. The three in-line copies stay as they
+are, and deduplicating them stays a follow-up.
+
+**Why defensible**: The deduplication is the only thing that would justify a core module, and the
+same decision declines to do it — so the core would gain a module shipped to every core-only
+consumer with one caller inside an optional app. That contradicts FR-006, which exists to keep this
+feature out of the core entirely, and Article III, which forbids indirection without a present second
+use. If the three copies are ever unified, the helper moves to `utils/` then, with the second caller
+that earns it.
+
+## D8 — SC-002 states documented steps, not "one app" *(amended after the design review, 2026-08-11)*
+
+**Ambiguity**: The specification as approved said the host adds ~~one app~~ and gets a working
+interface with ~~no further configuration~~. Planning research then established what django-mvp
+actually requires of a host: `django.contrib.sites`, `django.contrib.staticfiles`, `django_cotton`,
+`easy_icons`, `flex_menu` and `mvp` in `INSTALLED_APPS`, the `mvp_config` context processor, `SITE_ID`
+and the sites middleware. As written, SC-002 and User Story 3's third acceptance scenario were not
+achievable and no task could carry them.
+
+**Chosen**: Both restate the host's step as *following the documented install steps*, and T023 makes
+the README the single place those steps live. The guarantee that survives is the one the criterion
+was written to protect: the host writes no view, no template, no URL pattern and no styling. FR-004
+is clarified in the same pass — it means the app introduces no settings of its own, not that its
+dependencies install themselves.
+
+**Why defensible**: The alternative is an app that configures its host, by mutating `INSTALLED_APPS`
+or shipping a settings module for it to import. That is worse than the documentation it replaces: it
+takes decisions away from the project that owns them, it is invisible where a reader looks for it,
+and it makes an embeddable package non-embeddable — the opposite of Article X. The criterion was
+measuring the wrong thing, so the criterion is what changed.
+
+**Recorded for veto**: this amends text approved at the specification gate. The scope, the pages and
+the guarantee are unchanged.
