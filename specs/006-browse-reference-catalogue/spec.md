@@ -112,7 +112,7 @@ A project that only wants somewhere to keep references installs the core, and th
 - **FR-008**: Every visual element on both pages MUST be composed from django-mvp's own components and design system. The app MUST NOT ship a stylesheet of its own and MUST NOT define components of its own.
 - **FR-009**: Where django-mvp carries no component for something these pages need, the need MUST be raised before anything is built, and a genuine gap MUST be filed as a request against django-mvp. A local implementation MAY stand in until a django-mvp release carries the component, and MUST be recorded in the specification's *Component gaps* section so that it is removed when the release lands.
 - **FR-010**: The interface MUST NOT adopt or blend into the host project's styling.
-- **FR-011**: The package MUST depend on django-mvp at its current release, and the development toolchain bundle MUST be moved to its current release in the same change.
+- **FR-011**: The package MUST depend on django-mvp at its current release (0.17.0 at the time of writing). The shared development toolchain the package already pins is at its own current release and needs no move.
 
 **The catalogue list**
 
