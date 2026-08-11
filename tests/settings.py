@@ -1,56 +1,27 @@
-"""Minimal Django settings for the literature test suite."""
+"""Django settings for the literature test suite, with the opt-in front end wired in.
 
-SECRET_KEY = "django-insecure-test-secret-key-for-tests-only"
+``tests.settings_core`` is the base — everything a core-only consumer needs —
+and this module imports from it and appends the UI stack (plan.md D-4).
+"""
 
-DEBUG = True
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    },
-    # A second alias, used by the import tests that route ``literature`` models
-    # away from ``default``. This package is a reusable app, so the project
-    # installing it chooses the routing, and a transaction opened on the wrong
-    # connection is invisible until it fails to roll anything back.
-    "secondary": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    },
-}
+from tests.settings_core import *  # noqa: F403
 
 INSTALLED_APPS = [
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "literature",
+    *INSTALLED_APPS,  # noqa: F405
+    "django.contrib.sites",
+    "django.contrib.staticfiles",
+    "django_cotton",
+    "easy_icons",
+    "flex_menu",
+    "mvp",
+    "literature.ui",
 ]
 
-MIDDLEWARE = [
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
+TEMPLATES[0]["OPTIONS"]["context_processors"] = [  # noqa: F405
+    *TEMPLATES[0]["OPTIONS"]["context_processors"],  # noqa: F405
+    "mvp.context_processors.mvp_config",
 ]
 
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-            ],
-        },
-    }
-]
+SITE_ID = 1
 
 ROOT_URLCONF = "tests.urls"
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-USE_TZ = True
-TIME_ZONE = "UTC"
-USE_I18N = True

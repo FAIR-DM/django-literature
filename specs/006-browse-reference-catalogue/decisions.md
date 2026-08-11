@@ -217,3 +217,29 @@ increments' "risk first" guidance is to resolve a task other tasks depend on bef
 depend on it, which is exactly this case.
 
 **Revisit if**: never — this is a within-story execution-order note, not a standing rule.
+
+## D12 — `tests/test_ui/conftest.py` ships one populated-item fixture, not a bespoke `client`
+
+**Ambiguity**: T004 directs this file to hold "the client and item fixtures T009, T013 and T020
+share, so no story owns them" — but those three tasks belong to US-1, US-2 and US-4, dispatched
+after this story, and their own task text (read only for this sequencing question, per the note in
+`progress.md`) does not specify what either fixture needs to look like.
+
+**Chosen**: one `populated_item` fixture — a saved `Item` with one `ItemName`, one `ItemDate` and
+one `ItemIdentifier`, wrapping the four factories `tests/conftest.py` already exposes individually.
+No bespoke `client` fixture: pytest-django's own `client` fixture (a plain `django.test.Client`)
+is already available to every test in the tree without redeclaration, and the three routes it
+would hit (`literature:item-list`, `literature:item-detail`, `literature:contributor-detail`) need
+nothing session-specific — the pages are open by default (S0 intake, question 4).
+
+**Why defensible**: `populated_item` is the one composition every one of the three pages plausibly
+renders against (a row with a contributor, a date and an identifier, not a bare item), built from
+existing factories rather than a new one. Declaring a `client` fixture that only re-wraps
+`django.test.Client()` with no added behaviour is the redundant abstraction craft-increments'
+Simplicity First rules out.
+
+**Revisit if**: US-1, US-2 or US-4's own implementer finds this fixture does not match what their
+task actually needs (a different combination of related records, or a genuine reason for a
+non-default client) — flagged as a concern in this story's completion report for Forge to confirm
+before those stories dispatch, since "no story owns them" only holds if what is here is actually
+sufficient.

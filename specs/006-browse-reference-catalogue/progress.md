@@ -133,3 +133,36 @@ conformance` — passed. `pre-commit run --files literature/ui/urls.py tests/tes
 — green.
 
 Next: T004, test wiring — now unblocked.
+
+## 2026-08-11T14:26:43Z · Implementer US0 · T004
+
+Did: `git mv tests/settings.py tests/settings_core.py` and gave it its own
+`ROOT_URLCONF = "tests.urls_core"` (new file, empty `urlpatterns`) — the base, not a copy, per D-4.
+New `tests/settings.py`: `from tests.settings_core import *  # noqa: F403` plus appends
+`django.contrib.sites`, `django.contrib.staticfiles`, `django_cotton`, `easy_icons`, `flex_menu`,
+`mvp`, `literature.ui` to `INSTALLED_APPS`, the `mvp.context_processors.mvp_config` context
+processor, `SITE_ID = 1`, `ROOT_URLCONF = "tests.urls"`. No crispy app or setting added. Mounted
+the app in `tests/urls.py`: `path("catalogue/", include("literature.ui.urls"))` — matches the
+prefix `test_urls.py` (T006) already assumed. `tests/test_ui/conftest.py`: one `populated_item`
+fixture (see D-12; `tests/test_ui/__init__.py` already existed from T002).
+
+Test-first: `tests/test_ui/test_smoke.py` — `TestSettingsCore` boots `tests.settings_core` in a
+subprocess (forcing `DJANGO_SETTINGS_MODULE`, not `setdefault`: pytest-django already exports it
+into the environment as `tests.settings`, and a plain `setdefault` silently inherited that instead
+of overriding it — caught by the first run, not guessed at) and asserts no UI app and an empty
+urlconf; `TestSettings` asserts in-process (this *is* the session's real settings module) that the
+UI stack, context processor, `SITE_ID`, `ROOT_URLCONF` and the crispy-absence all hold. Ran red
+first — `tests.settings.py` existed only as the bare `from tests.settings_core import *` line, so
+every `TestSettings` assertion failed for the missing content, not a collection error — then green
+after the appends and the `tests/urls.py` mount.
+
+Verified: `poetry run pytest tests/test_ui/ -v` — 18 passed (all four foundational test modules
+together). `poetry run python3 -c "... get_template('literature/ui/base.html') ..."` — loads
+without `TemplateDoesNotExist`, confirming `mvp`/`django_cotton` are genuinely wired, not just
+declared. `forge verify --steps conformance` — passed. `poetry run deptry .` — exit 0. `pre-commit
+run --files tests/settings_core.py tests/settings.py tests/urls_core.py tests/urls.py
+tests/test_ui/test_smoke.py tests/test_ui/conftest.py` — green: `F403` on the star-import, `F405`
+on each of the three `INSTALLED_APPS`/`TEMPLATES` star-import references in `tests/settings.py`.
+
+Next: T005, wire the `ui` extra into CI. Watch: `populated_item`/`client` fixture sufficiency is
+D-12's open question for US-1/US-2/US-4 to confirm — flagged in the completion report's concerns.
