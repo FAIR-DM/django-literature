@@ -3,7 +3,7 @@
   "feature": "006-browse-reference-catalogue",
   "branch": "006-browse-reference-catalogue",
   "repo": "FAIR-DM/django-literature",
-  "state": "REVIEW",
+  "state": "PR_READY",
   "state_history": [
     {
       "state": "INTAKE",
@@ -44,6 +44,11 @@
       "state": "REVIEW",
       "at": "2026-08-11T18:00:00Z",
       "note": "S5 exit green: verify+tamper triaged, credit row refactored, 3 ADRs graduated, 17 verdicts"
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-11T21:15:00Z",
+      "note": "S6 exit green: 3 correctness findings and 1 security finding, all verified and remedied (RC-001/RS-001 in 5911cad, RC-002 and RC-003 in df55bcb); review report posted on PR #55. PR body rewritten to contract, marked ready for review at 4cf18c4, all checks green."
     }
   ],
   "gates": {
@@ -473,6 +478,6 @@
   },
   "pr": {
     "number": 55,
-    "draft": true
+    "draft": false
   }
 }
