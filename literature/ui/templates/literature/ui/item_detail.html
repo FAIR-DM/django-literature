@@ -1,0 +1,54 @@
+{% extends "literature/ui/base.html" %}
+{% load i18n %}
+{% block page.content %}
+  <c-grid cols="1" md="2" gap="4">
+    {% for label, value in scalar_fields %}<c-data-field label="{{ label }}" value="{{ value }}" />{% endfor %}
+  </c-grid>
+
+  {% regroup object.item_names.all by get_role_display as contributor_groups %}
+  {% if contributor_groups %}
+    <c-section title="{% translate "Contributors" %}">
+      <c-grid cols="1" md="2" gap="4">
+        {% for group in contributor_groups %}
+          <c-data-field label="{{ group.grouper }}">
+            {% for item_name in group.list %}{{ item_name.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          </c-data-field>
+        {% endfor %}
+      </c-grid>
+    </c-section>
+  {% endif %}
+
+  {% if object.item_dates.all %}
+    <c-section title="{% translate "Dates" %}">
+      <c-grid cols="1" md="2" gap="4">
+        {% for item_date in object.item_dates.all %}
+          <c-data-field label="{{ item_date.get_date_type_display }}">
+            {% if item_date.end %}
+              {{ item_date.begin }} &ndash; {{ item_date.end }}
+            {% elif item_date.begin %}
+              {{ item_date.begin }}
+            {% elif item_date.literal %}
+              {{ item_date.literal }}
+            {% endif %}
+          </c-data-field>
+        {% endfor %}
+      </c-grid>
+    </c-section>
+  {% endif %}
+
+  {% if object.item_identifiers.all %}
+    <c-section title="{% translate "Identifiers" %}">
+      <c-grid cols="1" md="2" gap="4">
+        {% for identifier in object.item_identifiers.all %}
+          <c-data-field label="{{ identifier.type }}">
+            {% if "://" in identifier.value %}
+              <a href="{{ identifier.value }}">{{ identifier.value }}</a>
+            {% else %}
+              {{ identifier.value }}
+            {% endif %}
+          </c-data-field>
+        {% endfor %}
+      </c-grid>
+    </c-section>
+  {% endif %}
+{% endblock page.content %}
