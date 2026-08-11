@@ -75,22 +75,53 @@
         {
           "id": "T001",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry lock",
+              "poetry run deptry .",
+              "poetry check",
+              "poetry install --with dev --extras ui",
+              "poetry run pre-commit run --files pyproject.toml poetry.lock"
+            ]
+          }
         },
         {
           "id": "T002",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_apps.py -v",
+              "poetry run pre-commit run --files literature/ui/__init__.py literature/ui/apps.py tests/test_ui/__init__.py tests/test_ui/test_apps.py"
+            ]
+          }
         },
         {
           "id": "T003",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_templates.py -v",
+              "forge verify --steps conformance",
+              "poetry run pre-commit run --files literature/ui/templates/literature/ui/base.html tests/test_ui/test_templates.py"
+            ]
+          }
         },
         {
           "id": "T004",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/ -v",
+              "poetry run python3 -c \"import django, os; os.environ['DJANGO_SETTINGS_MODULE']='tests.settings'; django.setup(); from django.template.loader import get_template; get_template('literature/ui/base.html')\"",
+              "forge verify --steps conformance",
+              "poetry run deptry .",
+              "poetry run pre-commit run --files tests/settings_core.py tests/settings.py tests/urls_core.py tests/urls.py tests/test_ui/test_smoke.py tests/test_ui/conftest.py"
+            ]
+          }
         },
         {
           "id": "T005",
@@ -111,7 +142,14 @@
         {
           "id": "T006",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -v",
+              "forge verify --steps conformance",
+              "poetry run pre-commit run --files literature/ui/urls.py tests/test_ui/test_urls.py"
+            ]
+          }
         }
       ]
     },
@@ -126,17 +164,44 @@
         {
           "id": "T007",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemListView -x",
+              "poetry run mypy literature/ui/views.py literature/ui/urls.py",
+              "poetry run ruff check literature/ui/views.py literature/ui/urls.py"
+            ]
+          }
         },
         {
           "id": "T008",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/",
+              "manual utility-class allowlist check via grep against docs/utility-classes.md"
+            ]
+          }
         },
         {
           "id": "T009",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView (9 tests)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemListView -x"
+            ]
+          }
         }
       ]
     },
@@ -151,22 +216,59 @@
         {
           "id": "T010",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fields.py::TestScalarFields \u2014 7 passed"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fields.py -v",
+              "poetry run pre-commit run --files literature/ui/fields.py tests/test_ui/test_fields.py"
+            ]
+          }
         },
         {
           "id": "T011",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemDetailView \u2014 56 passed (test-first; observed red as 405 before the view existed, then TemplateDoesNotExist before T012's template)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemDetailView -v",
+              "poetry run pre-commit run --files literature/ui/views.py literature/ui/urls.py"
+            ]
+          }
         },
         {
           "id": "T012",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemDetailView \u2014 56 passed"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemDetailView -v",
+              "poetry run pre-commit run --files literature/ui/templates/literature/ui/item_detail.html"
+            ]
+          }
         },
         {
           "id": "T013",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py + tests/test_ui/test_fields.py \u2014 72 passed (task scope); full suite 1220 passed"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py tests/test_ui/test_fields.py -q",
+              "poetry run pytest -q",
+              "poetry run python manage.py makemigrations --check --dry-run"
+            ]
+          }
         }
       ]
     },
@@ -181,17 +283,32 @@
         {
           "id": "T014",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_architecture.py::TestCoreImportsNothingFromTheUIStack"
+            ]
+          }
         },
         {
           "id": "T015",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_packaging.py::TestDjangoMVPIsOptOnly"
+            ]
+          }
         },
         {
           "id": "T016",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_boot.py::TestCoreBootsWithNoUIAppInstalled"
+            ]
+          }
         }
       ]
     },
@@ -206,22 +323,58 @@
         {
           "id": "T017",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_urls.py (4 passed)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -q"
+            ]
+          }
         },
         {
           "id": "T018",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestContributorDetailView (10 passed)",
+              "tests/test_ui/test_templates.py (5 passed)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestContributorDetailView -q",
+              "poetry run pytest tests/test_ui/test_templates.py -q"
+            ]
+          }
         },
         {
           "id": "T019",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemDetailView::test_contributor_names_link_to_their_page"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py -q"
+            ]
+          }
         },
         {
           "id": "T020",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestContributorDetailView (10 tests: roles, one-row-two-roles, catalogue ordering, page-size cap, out-of-range 404, institutional name, empty result, missing contributor 404, identical names, query count)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestContributorDetailView -q",
+              "poetry run pytest tests/test_ui/ -q",
+              "poetry run pre-commit run --files literature/ui/views.py literature/ui/urls.py literature/ui/templates/literature/ui/item_detail.html literature/ui/templates/literature/ui/contributor_detail.html literature/ui/templates/literature/ui/contributor_item.html tests/test_ui/test_views.py"
+            ]
+          }
         }
       ]
     },
@@ -236,27 +389,61 @@
         {
           "id": "T021",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_templates.py::TestUtilityClassAllowlist (6 templates parametrized + 2 checker tests)",
+              "tests/test_ui/test_templates.py::TestI18nGuard (6 templates parametrized + 5 checker tests)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_templates.py -q (43 passed)",
+              "poetry run ruff check tests/test_ui/test_templates.py",
+              "poetry run mypy tests/test_ui/test_templates.py"
+            ]
+          }
         },
         {
           "id": "T022",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pre-commit run --files CONTEXT.md"
+            ]
+          }
         },
         {
           "id": "T023",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run python -c \"import importlib.metadata\" (read django-mvp Requires-Dist)",
+              "poetry run pytest -q (1244 passed)",
+              "poetry run pre-commit run --files README.md"
+            ]
+          }
         },
         {
           "id": "T024",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pre-commit run --files memory/constitution.md"
+            ]
+          }
         },
         {
           "id": "T025",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "grep -n -A6 'non-mirror-paths' pyproject.toml \u2014 matches the declared list exactly",
+              "test -f on each of the four declared paths \u2014 all exist"
+            ]
+          }
         }
       ]
     }
