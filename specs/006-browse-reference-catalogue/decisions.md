@@ -165,3 +165,55 @@ measuring the wrong thing, so the criterion is what changed.
 
 **Recorded for veto**: this amends text approved at the specification gate. The scope, the pages and
 the guarantee are unchanged.
+
+## D10 — `literature/ui/urls.py` binds placeholder views, not `literature.ui.views`
+
+**Ambiguity**: T006 (foundational) creates `literature/ui/urls.py` with three named, reversible
+routes. The views those routes name — `ItemListView`, `ItemDetailView`, `ContributorDetailView` —
+are built later, one per story, in `literature/ui/views.py`, which the foundational phase does not
+create (the prohibition on writing view classes here exists precisely so a later story does not
+collide with content this phase already wrote). `path()` needs a real callable at import time,
+so the routes cannot name a module or symbol that does not exist yet.
+
+**Chosen**: each route binds to `django.views.generic.View` — a real, working, but content-free
+Django class, not one from this feature. The route names, patterns and namespace are final;
+nothing in this file names a symbol from `literature.ui.views`. When US-1, US-2 and US-4 add their
+real view classes, each story's own task should update its one corresponding `path()` line to
+point at it — a single-line, non-conflicting edit across three independent branches, not a shared
+symbol three stories would otherwise define independently (the actual "merge conflict at
+convergence" the views.py/tests_views.py prohibition is guarding against).
+
+**Why defensible**: `reverse()` only needs the URLconf to load and the pattern names to exist; it
+never invokes the view. Django's own generic `View` is the cheapest table-stakes callable that
+satisfies that without inventing a bespoke deferred-import mechanism or writing anything that
+looks like this feature's actual view logic. The alternative — a small lazy-dispatch wrapper that
+imports `literature.ui.views` at request time instead of import time — would remove the follow-up
+edit entirely, but at the cost of a mechanism nothing else in this codebase uses and that solves a
+problem only if the four stories are dispatched from four independent branches off the same base
+commit rather than sequentially from each other's accepted work; either way, three one-line edits
+to already-distinct routes is a cost worth accepting over speculative machinery for an unconfirmed
+orchestration detail (Article III).
+
+**Revisit if**: a later story's implementer finds `literature/ui/urls.py` unexpectedly conflicts
+across two of US-1/US-2/US-4's branches at convergence — that would mean the "single-line,
+non-conflicting edit" assumption above was wrong, and the lazy-dispatch alternative should be
+built instead.
+
+## D11 — `T006` executed before `T004` in this session
+
+**Ambiguity**: the brief lists tasks `T001`–`T006` in that order, and T004's own task text ("mount
+the app in tests/urls.py at a prefix") depends on `literature/ui/urls.py` existing, which T006
+creates. T006's acceptance ("each name reverses... under the mounted prefix") does not, in turn,
+depend on T004: it builds its own throwaway `ROOT_URLCONF` via `override_settings`, so it never
+needed T004's mount to exist. The dependency runs one way.
+
+**Chosen**: implemented T006 before completing T004, each still as its own complete, independently
+green, independently committed slice with its own tests — the task boundaries and acceptance
+criteria are unchanged, only the order they were executed and committed in.
+
+**Why defensible**: both tasks belong to this same story (US0); there is no cross-story boundary
+here of the kind the prohibitions protect (US-1/US-2/US-3/US-4 never touch either file). Craft
+increments' "risk first" guidance is to resolve a task other tasks depend on before the tasks that
+depend on it, which is exactly this case.
+
+**Revisit if**: never — this is a within-story execution-order note, not a standing rule.
