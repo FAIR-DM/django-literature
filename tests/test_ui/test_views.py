@@ -11,7 +11,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from literature.choices import DateType, ItemType, NameRole
-from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory
+from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
 
 
 class TestItemListView:
@@ -188,3 +188,122 @@ class TestItemDetailView:
         content = response.content.decode()
         catalogue_url = reverse("literature:item-list")
         assert f'href="{catalogue_url}"' in content
+
+    def test_contributor_names_link_to_their_page(self, client, db):
+        # FR-022 — the only reachability path into the contributor page
+        # (US-4) is a link from here.
+        item = ItemFactory()
+        item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert f'href="{contributor_url}"' in content
+
+
+class TestContributorDetailView:
+    """The contributor page — FR-032 through FR-038."""
+
+    def test_credits_listed_with_roles(self, client, db):
+        contributor = NameFactory()
+        item = ItemFactory(title="Credited Work")
+        ItemNameFactory(item=item, name=contributor, role=NameRole.EDITOR)
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        content = response.content.decode()
+        assert "Credited Work" in content
+        assert str(NameRole.EDITOR.label) in content
+
+    def test_item_held_under_two_roles_appears_once_carrying_both(self, client, db):
+        contributor = NameFactory()
+        item = ItemFactory(title="Dual Role Work")
+        ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, name=contributor, role=NameRole.EDITOR)
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        content = response.content.decode()
+        assert content.count("Dual Role Work") == 1
+        assert str(NameRole.AUTHOR.label) in content
+        assert str(NameRole.EDITOR.label) in content
+
+    def test_list_paginates_in_the_catalogues_order(self, client, db):
+        contributor = NameFactory()
+        older = ItemFactory(title="Older Credit")
+        newer = ItemFactory(title="Newer Credit")
+        ItemNameFactory(item=older, name=contributor, role=NameRole.AUTHOR)
+        ItemNameFactory(item=newer, name=contributor, role=NameRole.AUTHOR)
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        content = response.content.decode()
+        assert content.index("Newer Credit") < content.index("Older Credit")
+
+    def test_page_holds_no_more_than_paginate_by_items_whatever_the_credit_count(self, client, db):
+        contributor = NameFactory()
+        for _ in range(30):
+            item = ItemFactory()
+            ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert len(response.context["page_obj"]) == 24
+
+    def test_page_number_past_the_end_is_a_404(self, client, db):
+        contributor = NameFactory()
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
+        response = client.get(
+            reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}),
+            {"page": 999},
+        )
+        assert response.status_code == 404
+
+    def test_institutional_name_renders_unsplit(self, client, db):
+        contributor = NameFactory(family="", given="", literal="Some Research Institute")
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert response.status_code == 200
+        assert "Some Research Institute" in response.content.decode()
+
+    def test_contributor_with_no_credits_renders_the_stated_empty_result(self, client, db):
+        contributor = NameFactory()
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Not credited on anything yet" in content
+        assert "This contributor has no credited references in the catalogue." in content
+
+    def test_missing_contributor_is_a_404(self, client, db):
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": 999999}))
+        assert response.status_code == 404
+
+    def test_two_records_with_identical_names_keep_separate_pages(self, client, db):
+        first = NameFactory(family="Smith", given="J")
+        second = NameFactory(family="Smith", given="J")
+        first_item = ItemFactory(title="First Smiths Work")
+        second_item = ItemFactory(title="Second Smiths Work")
+        ItemNameFactory(item=first_item, name=first, role=NameRole.AUTHOR)
+        ItemNameFactory(item=second_item, name=second, role=NameRole.AUTHOR)
+
+        first_response = client.get(reverse("literature:contributor-detail", kwargs={"pk": first.pk}))
+        first_content = first_response.content.decode()
+        assert "First Smiths Work" in first_content
+        assert "Second Smiths Work" not in first_content
+
+        second_response = client.get(reverse("literature:contributor-detail", kwargs={"pk": second.pk}))
+        second_content = second_response.content.decode()
+        assert "Second Smiths Work" in second_content
+        assert "First Smiths Work" not in second_content
+
+    def test_query_count_does_not_grow_with_credit_count(self, client, db):
+        contributor = NameFactory()
+
+        def add_credits(n):
+            for _ in range(n):
+                item = ItemFactory()
+                ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
+                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
+
+        add_credits(3)
+        with CaptureQueriesContext(connection) as small_credit_list:
+            response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert response.status_code == 200
+
+        add_credits(15)
+        with CaptureQueriesContext(connection) as large_credit_list:
+            response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert response.status_code == 200
+
+        assert len(large_credit_list.captured_queries) == len(small_credit_list.captured_queries)
