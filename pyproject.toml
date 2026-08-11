@@ -145,12 +145,16 @@ ignore_missing_model_attributes = "True"
 [tool.deptry]
 extend_exclude = ["tasks.py", "tests/", "demo/", "docs/"]
 
+# django-mvp installs as `mvp`, and deptry only learns that by reading the
+# installed package's metadata. The Code Quality job installs the main and dev
+# groups but no extra, so there deptry falls back to guessing `django_mvp` and
+# reports literature/ui/views.py's `from mvp.views import ...` as undeclared.
+# Stating the mapping makes the check answer the same either way.
+[tool.deptry.package_module_name_map]
+django-mvp = "mvp"
+
 [tool.deptry.per_rule_ignores]
 DEP003 = ["literature"]
-# django-mvp (the `ui` extra) is consumed through Django app config and
-# templates — INSTALLED_APPS, `{% extends "mvp/base.html" %}` — not a Python
-# import, until a story's views.py imports it directly (T007). See T001.
-DEP002 = ["django-mvp"]
 
 [project]
 name = "django-literature"
