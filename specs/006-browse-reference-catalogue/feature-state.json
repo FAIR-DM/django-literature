@@ -3,7 +3,7 @@
   "feature": "006-browse-reference-catalogue",
   "branch": "006-browse-reference-catalogue",
   "repo": "FAIR-DM/django-literature",
-  "state": "IMPLEMENT",
+  "state": "CONVERGE",
   "state_history": [
     {
       "state": "INTAKE",
@@ -29,6 +29,16 @@
       "state": "PLAN",
       "at": "2026-08-11T00:00:00Z",
       "note": "plan.md, research.md, tasks.md authored"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "All 25 tasks across US0-US5 landed on the feature branch"
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "Implementation complete at ca320dd; forge verify all green, 1305 passing"
     }
   ],
   "gates": {
@@ -134,29 +144,29 @@
       "id": "US2",
       "priority": "P2",
       "issue": 53,
-      "worktree": "/home/sam/projects/fairdm/dl-fs006-us2",
-      "status": "in_progress",
+      "worktree": null,
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T010",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T011",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T012",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T013",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         }
       ]
     },
@@ -190,28 +200,28 @@
       "priority": "P4",
       "issue": 56,
       "worktree": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T017",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T018",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T019",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T020",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         }
       ]
     },
@@ -220,28 +230,33 @@
       "priority": "P5",
       "issue": null,
       "worktree": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T021",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T022",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T023",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T024",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T025",
+          "status": "done",
+          "attempts": 1
         }
       ]
     }
