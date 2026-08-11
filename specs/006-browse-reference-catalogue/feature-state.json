@@ -3,7 +3,7 @@
   "feature": "006-browse-reference-catalogue",
   "branch": "006-browse-reference-catalogue",
   "repo": "FAIR-DM/django-literature",
-  "state": "PLAN",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "INTAKE",
@@ -59,37 +59,37 @@
       "priority": "P0",
       "issue": null,
       "worktree": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T001",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T002",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T003",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T004",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T005",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T006",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         }
       ]
