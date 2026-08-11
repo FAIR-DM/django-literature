@@ -11,7 +11,7 @@
       <c-grid cols="1" md="2" gap="4">
         {% for group in contributor_groups %}
           <c-data-field label="{{ group.grouper }}">
-            {% for item_name in group.list %}{{ item_name.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            {% for item_name in group.list %}<a href="{% url 'literature:contributor-detail' pk=item_name.name.pk %}">{{ item_name.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
           </c-data-field>
         {% endfor %}
       </c-grid>
