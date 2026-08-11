@@ -110,22 +110,22 @@
       "priority": "P1",
       "issue": 52,
       "worktree": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T007",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T008",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T009",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         }
       ]
@@ -134,8 +134,8 @@
       "id": "US2",
       "priority": "P2",
       "issue": 53,
-      "worktree": null,
-      "status": "todo",
+      "worktree": "/home/sam/projects/fairdm/dl-fs006-us2",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
@@ -165,22 +165,22 @@
       "priority": "P3",
       "issue": 54,
       "worktree": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T014",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T015",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T016",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         }
       ]

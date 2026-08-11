@@ -194,6 +194,15 @@ repository = "https://github.com/FAIR-DM/django-literature"
 # tests/test_ui/test_templates.py tests the shipped templates under
 # literature/ui/templates/ directly — its subject is not a Python module, so
 # there is no literature/ui/templates.py to mirror (Article X's declared
-# exception). T025 (Phase 5) adds this file's other guards and extends this
-# list with test_architecture.py and test_packaging.py.
-non-mirror-paths = ["tests/test_ui/test_templates.py"]
+# exception). Each entry is declared with the commit that creates its file, so
+# the conformance gate stays green between stories; T025 (Phase 5) checks the
+# final list rather than assembling it. test_architecture.py takes the package
+# boundary as its subject, test_packaging.py takes pyproject.toml, and
+# test_boot.py takes the core booting with the UI app absent — none of the four
+# mirrors a Python module.
+non-mirror-paths = [
+    "tests/test_ui/test_architecture.py",
+    "tests/test_ui/test_boot.py",
+    "tests/test_ui/test_packaging.py",
+    "tests/test_ui/test_templates.py",
+]

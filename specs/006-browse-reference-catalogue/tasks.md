@@ -197,15 +197,20 @@ shared state.
   own lower floor. **This section is SC-002's evidence** — the success criterion is met by these
   steps being documented and sufficient, not by the app configuring itself. **FR-003, FR-004,
   SC-002, Article VII**
-- **T025 [P]** Declare the non-mirror test paths. Add to `pyproject.toml`:
+- **T025 [P]** Check the non-mirror test paths. Each entry is declared by the commit that creates
+  its file, so the conformance gate stays green between stories rather than going red for the whole
+  run; this task confirms the final list reads:
 
   ```toml
   [tool.forge.conformance]
-  non-mirror-paths = ["tests/test_ui/test_architecture.py", "tests/test_ui/test_packaging.py", "tests/test_ui/test_templates.py"]
+  non-mirror-paths = ["tests/test_ui/test_architecture.py", "tests/test_ui/test_boot.py", "tests/test_ui/test_packaging.py", "tests/test_ui/test_templates.py"]
   ```
 
   Article XIV exempts a test whose subject is not a Python module only when the repo declares it, and
-  these three take the package boundary, `pyproject.toml` and the shipped templates as their subject.
+  these four take the package boundary, the core's boot under `tests.settings_core`, `pyproject.toml`
+  and the shipped templates as their subject. `test_boot.py` is US-3's own addition: T016's task text
+  names a core-only boot test without a filename, and its subject — the core package booting with the
+  UI app absent — mirrors no module either.
   **Article XIV**
 - **T024** `memory/constitution.md`: the architecture section currently says no third-party UI
   package is prescribed and that adopting one is an amendment. GOALS.md G4, the README's scope
