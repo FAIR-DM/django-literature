@@ -1,0 +1,123 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "006-browse-reference-catalogue",
+  "branch": "006-browse-reference-catalogue",
+  "repo": "FAIR-DM/django-literature",
+  "state": "PLAN",
+  "state_history": [
+    { "state": "INTAKE", "at": "2026-08-11T00:00:00Z", "note": "Grilled from issue #45 against its five R6 siblings" },
+    { "state": "SPECIFY", "at": "2026-08-11T00:00:00Z", "note": "spec.md + decisions.md, clarification scan run in full" },
+    { "state": "SETUP", "at": "2026-08-11T00:00:00Z", "note": "Epic promoted, stories filed, draft PR #55 opened" },
+    { "state": "GATE_SPEC", "at": "2026-08-11T00:00:00Z", "note": "Approved after the contributor page was added as US4" },
+    { "state": "PLAN", "at": "2026-08-11T00:00:00Z", "note": "plan.md, research.md, tasks.md authored" }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-11T00:00:00Z",
+      "self_resolved": [
+        "D1 list orders by most recently added, not issued date",
+        "D2 a reference page is addressed by primary key, not citation key",
+        "D3 a list entry carries the citation key",
+        "D5 opt-in enforced by the dependency graph via an optional extra",
+        "D6 a local component would be a tracked bridge, recorded in Component gaps",
+        "D7 identical stored names keep separate pages"
+      ]
+    },
+    "plan": { "approved_by": null, "at": null },
+    "merge": { "approved_by": null, "at": null }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "issue": null,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        { "id": "T001", "status": "todo", "attempts": 0 },
+        { "id": "T002", "status": "todo", "attempts": 0 },
+        { "id": "T003", "status": "todo", "attempts": 0 },
+        { "id": "T004", "status": "todo", "attempts": 0 },
+        { "id": "T005", "status": "todo", "attempts": 0 },
+        { "id": "T006", "status": "todo", "attempts": 0 }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 52,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        { "id": "T007", "status": "todo", "attempts": 0 },
+        { "id": "T008", "status": "todo", "attempts": 0 },
+        { "id": "T009", "status": "todo", "attempts": 0 }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 53,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        { "id": "T010", "status": "todo", "attempts": 0 },
+        { "id": "T011", "status": "todo", "attempts": 0 },
+        { "id": "T012", "status": "todo", "attempts": 0 },
+        { "id": "T013", "status": "todo", "attempts": 0 }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 54,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        { "id": "T014", "status": "todo", "attempts": 0 },
+        { "id": "T015", "status": "todo", "attempts": 0 },
+        { "id": "T016", "status": "todo", "attempts": 0 }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 56,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        { "id": "T017", "status": "todo", "attempts": 0 },
+        { "id": "T018", "status": "todo", "attempts": 0 },
+        { "id": "T019", "status": "todo", "attempts": 0 },
+        { "id": "T020", "status": "todo", "attempts": 0 }
+      ]
+    },
+    {
+      "id": "US5",
+      "priority": "P5",
+      "issue": null,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        { "id": "T021", "status": "todo", "attempts": 0 },
+        { "id": "T022", "status": "todo", "attempts": 0 },
+        { "id": "T023", "status": "todo", "attempts": 0 },
+        { "id": "T024", "status": "todo", "attempts": 0 }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": { "used": 0, "max": 2 },
+    "review_cycles": { "used": 0, "max": 1 },
+    "design_review_cycles": { "used": 0, "max": 1 },
+    "tokens": { "used": 0, "max": 4000000 }
+  },
+  "pr": { "number": 55, "draft": true }
+}
