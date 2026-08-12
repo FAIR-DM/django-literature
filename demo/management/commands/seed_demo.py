@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from literature.converters import from_csl_json_list
 from literature.models import Item, Name
@@ -24,28 +25,34 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        # Name is shared between items and is not reachable from Item's cascade, and
-        # the converter reuses rows with get_or_create — deleting Item alone would
-        # leave every contributor ever loaded behind (plan.md D-2).
-        Item.objects.all().delete()
-        Name.objects.all().delete()
+        # The delete and the load are one operation. The converter skips an invalid
+        # entry rather than raising, so the count check below is the only thing that
+        # notices a partial load — and by then the previous catalogue is already
+        # deleted. Without this, the failure the command exists to report would leave
+        # the database at neither the old state nor the new one (RC-002).
+        with transaction.atomic():
+            # Name is shared between items and is not reachable from Item's cascade, and
+            # the converter reuses rows with get_or_create — deleting Item alone would
+            # leave every contributor ever loaded behind (plan.md D-2).
+            Item.objects.all().delete()
+            Name.objects.all().delete()
 
-        seed_path = Path(os.environ.get("DEMO_SEED_PATH", str(_DEFAULT_SEED_PATH)))
-        with seed_path.open() as f:
-            entries = json.load(f)
+            seed_path = Path(os.environ.get("DEMO_SEED_PATH", str(_DEFAULT_SEED_PATH)))
+            with seed_path.open() as f:
+                entries = json.load(f)
 
-        loaded = from_csl_json_list(entries)
+            loaded = from_csl_json_list(entries)
 
-        if len(loaded) != len(entries):
-            # from_csl_json_list skips an invalid entry with a warning rather than
-            # raising, so a half-loaded catalogue must be caught here (FR-020).
-            loaded_keys = {item.citation_key for item in loaded}
-            missing = [
-                _key_of(entry) or "<unidentified entry>" for entry in entries if _key_of(entry) not in loaded_keys
-            ]
-            raise CommandError(
-                f"seed_demo loaded {len(loaded)} of {len(entries)} entries from {seed_path}; "
-                f"failed to load: {', '.join(missing)}"
-            )
+            if len(loaded) != len(entries):
+                # from_csl_json_list skips an invalid entry with a warning rather than
+                # raising, so a half-loaded catalogue must be caught here (FR-020).
+                loaded_keys = {item.citation_key for item in loaded}
+                missing = [
+                    _key_of(entry) or "<unidentified entry>" for entry in entries if _key_of(entry) not in loaded_keys
+                ]
+                raise CommandError(
+                    f"seed_demo loaded {len(loaded)} of {len(entries)} entries from {seed_path}; "
+                    f"failed to load: {', '.join(missing)}"
+                )
 
         self.stdout.write(self.style.SUCCESS(f"seed_demo loaded {len(loaded)} references from {seed_path}"))

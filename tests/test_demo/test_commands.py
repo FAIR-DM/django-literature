@@ -51,6 +51,47 @@ print("RESULT_JSON:" + json.dumps({{
 }}))
 """
 
+# Reads the database without writing to it, so a test can state what a *failed*
+# seed_demo left behind. Runs no migration: the database it inspects has already
+# been migrated by the seed run under test.
+_INSPECT_SCRIPT = """
+import json
+import os
+
+os.environ["DJANGO_SETTINGS_MODULE"] = "demo.settings"
+os.environ["DEMO_DB_PATH"] = {db_path!r}
+
+import django
+django.setup()
+
+from literature.models import Item
+
+print("RESULT_JSON:" + json.dumps({{
+    "item_count": Item.objects.count(),
+    "citation_keys": sorted(Item.objects.values_list("citation_key", flat=True)),
+}}))
+"""
+
+
+def _read_result_json(result: subprocess.CompletedProcess) -> dict:
+    for line in result.stdout.splitlines():
+        if line.startswith("RESULT_JSON:"):
+            return json.loads(line[len("RESULT_JSON:") :])
+    raise AssertionError(f"no RESULT_JSON line in stdout: {result.stdout!r}")
+
+
+def _inspect(db_path: Path) -> dict:
+    """What ``db_path`` holds now, read in a fresh subprocess."""
+    result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
+        [sys.executable, "-c", _INSPECT_SCRIPT.format(db_path=str(db_path))],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=_REPO_ROOT,
+    )
+    assert result.returncode == 0, result.stderr
+    return _read_result_json(result)
+
 
 def _run_seed_demo_raw(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
     """Run ``seed_demo`` in a fresh subprocess, returning the raw completed process."""
@@ -68,10 +109,7 @@ def _run_seed_demo(db_path: Path, seed_path: Path) -> dict:
     """Run ``seed_demo`` in a fresh subprocess against ``db_path``, seeded from ``seed_path``."""
     result = _run_seed_demo_raw(db_path, seed_path)
     assert result.returncode == 0, result.stderr
-    for line in result.stdout.splitlines():
-        if line.startswith("RESULT_JSON:"):
-            return json.loads(line[len("RESULT_JSON:") :])
-    raise AssertionError(f"no RESULT_JSON line in stdout: {result.stdout!r}")
+    return _read_result_json(result)
 
 
 class TestSeedDemo:
@@ -135,6 +173,30 @@ class TestSeedDemo:
         assert result.returncode != 0
         assert "Bad2020" in result.stderr
         assert "1" in result.stderr and "2" in result.stderr
+
+    def test_a_failed_seed_leaves_the_catalogue_exactly_as_it_was(self, tmp_path):
+        # The command deletes before it loads, so without a transaction the
+        # partial-load failure it is built to detect (FR-020) would report
+        # correctly and still leave the database holding neither the previous
+        # catalogue nor the new one (RC-002).
+        db_path = tmp_path / "db.sqlite3"
+        good = tmp_path / "good.json"
+        good.write_text(json.dumps([{"citation-key": "Alpha2020", "type": "book", "title": "Alpha"}]))
+        partial = tmp_path / "partial.json"
+        partial.write_text(
+            json.dumps(
+                [
+                    {"citation-key": "Beta2021", "type": "book", "title": "Beta"},
+                    {"citation-key": "Bad2020", "type": "not-a-real-type", "title": "Bad"},
+                ]
+            )
+        )
+
+        _run_seed_demo(db_path, good)
+        result = _run_seed_demo_raw(db_path, partial)
+
+        assert result.returncode != 0
+        assert _inspect(db_path)["citation_keys"] == ["Alpha2020"]
 
 
 class TestDemoCommand:
