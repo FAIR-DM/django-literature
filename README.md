@@ -90,6 +90,134 @@ Apply migrations:
 python manage.py migrate
 ```
 
+### Installing the front end
+
+`literature.ui` is a second, opt-in app that adds a catalogue list page, a reference page and a
+contributor page over whatever the core already stores. It is not required by the core and it is
+not installed by default. It needs Python 3.12 or later and Django 5.2 or later, floors the core
+does not share, so a project on an older Python or Django keeps the core available and simply
+cannot resolve the extra.
+
+```bash
+pip install django-literature[ui]
+```
+
+Add the following to `INSTALLED_APPS`, in this order, alongside `literature`:
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    "literature",
+    "django.contrib.sites",
+    "django.contrib.staticfiles",
+    "django_cotton",
+    "easy_icons",
+    "flex_menu",
+    "mvp",
+    "crispy_forms",
+    "crispy_tailwind",
+    "literature.ui",
+]
+```
+
+`mvp` comes before `crispy_tailwind` because django-mvp overrides one of crispy-tailwind's
+templates and the first app to declare a template path wins. Both crispy apps arrive with django-mvp
+as hard dependencies, so listing them installs nothing extra.
+
+### The `base.html` this app ships
+
+django-mvp's packaged pages extend a template named `base.html`, which is the shell a project
+writes for itself. Until django-mvp ships a default of its own, `literature.ui` carries one: a
+single line forwarding to `mvp/base.html`, with no blocks of its own.
+
+A project that has its own `base.html` keeps it — a project's template directory is searched before
+any app's — and a project that has none gets a working shell instead of `TemplateDoesNotExist`. If
+you want the pages inside your own layout, write `base.html` in your project and it takes over with
+nothing else to change.
+
+The UI app is built on [django-mvp](https://github.com/django-mvp), which needs a few settings of
+its own before a page renders. `mvp/base.html`, the shell every page extends, loads its stylesheet
+through `{% static %}` unconditionally, so having `django.contrib.staticfiles` installed is not
+enough on its own:
+
+```python
+STATIC_URL = "static/"
+```
+
+Every icon the shell renders resolves through django-easy-icons. Without a default renderer
+configured, opening any page in the UI app raises `ImproperlyConfigured`:
+
+```python
+EASY_ICONS = {
+    "default": {
+        "renderer": "easy_icons.renderers.ProviderRenderer",
+        "config": {"tag": "i"},
+        "packs": ["mvp.utils.BS5_ICONS"],
+    },
+}
+```
+
+The shell's sidebar and mobile navigation are rendered by django-flex-menus, which raises
+`ValueError` at render time without renderers configured:
+
+```python
+FLEX_MENUS = {
+    "renderers": {
+        "sidebar": "mvp.renderers.SidebarRenderer",
+        "dock": "mvp.renderers.MobileFooterNavRenderer",
+    },
+}
+```
+
+The shell also reads the current site, through `django.contrib.sites` and the `mvp_config` context
+processor:
+
+```python
+TEMPLATES = [
+    {
+        # ...
+        "OPTIONS": {
+            "context_processors": [
+                # ...
+                "mvp.context_processors.mvp_config",
+            ],
+        },
+    },
+]
+
+SITE_ID = 1
+```
+
+Pages render without it, but the site name is part of every page title, and reaching it needs the
+matching middleware:
+
+```python
+MIDDLEWARE = [
+    # ...
+    "django.contrib.sites.middleware.CurrentSiteMiddleware",
+]
+```
+
+Then include the app's URLs at whatever prefix the project wants:
+
+```python
+# urls.py
+from django.urls import include, path
+
+urlpatterns = [
+    # ...
+    path("catalogue/", include("literature.ui.urls")),
+]
+```
+
+The routes are namespaced `literature`, so a template reverses them as `{% url 'literature:item-list' %}`
+and `{% url 'literature:item-detail' pk=item.pk %}`.
+
+That is every step. Once the URLs are included, the catalogue list, the reference page and the
+contributor page are live. No view, template, URL pattern, or line of styling is left for the host
+to write.
+
 ---
 
 ## Quick Start
