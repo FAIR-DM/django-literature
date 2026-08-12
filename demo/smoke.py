@@ -13,6 +13,7 @@ server, not under pytest (conventions; constitution Article VII).
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 # The demo runs with DEBUG = True (plan.md D-5): an unbounded body on failure
@@ -85,15 +86,24 @@ class DemoWalk:
         )
 
     def _get(self, url):
-        """GET url, returning the decoded body or failing with a bounded excerpt (FR-020)."""
+        """GET url, following redirects, and fail if any lands on a login page (FR-005, T015)."""
         try:
             with urllib.request.urlopen(url, timeout=10) as response:  # noqa: S310 — http(s) only, built from base_url argv, never external input
-                return response.read().decode("utf-8", errors="replace")
+                body = response.read().decode("utf-8", errors="replace")
+                final_url = response.geturl()
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             self._fail(url, exc.code, "unsuccessful response", body)
         except urllib.error.URLError as exc:
             self._fail(url, None, f"could not connect: {exc.reason}")
+
+        # The whole walk is unauthenticated (FR-005) — a redirect to a login
+        # page anywhere in it is a failure of that openness, checked rather
+        # than assumed.
+        if "login" in urllib.parse.urlparse(final_url).path.lower():
+            self._fail(url, 200, f"redirected to a login page ({final_url}) on an unauthenticated walk", body)
+
+        return body
 
     def _fail(self, url, status, reason, body=""):
         excerpt = body[:_BODY_EXCERPT_LIMIT]
