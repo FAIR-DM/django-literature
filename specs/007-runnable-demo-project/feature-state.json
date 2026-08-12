@@ -73,53 +73,101 @@
       "tasks": [
         {
           "id": "T001",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": ["poetry run ruff check demo/settings.py"],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T002",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": ["poetry run ruff check demo/settings.py"],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T003",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": ["poetry run ruff check demo/urls.py"],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T004",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T005",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "DEMO_DB_PATH=/tmp/dl-demo-t005/db.sqlite3 DJANGO_SETTINGS_MODULE=demo.settings poetry run python manage.py migrate --noinput",
+              "poetry run python manage.py runserver 127.0.0.1:8765 --noreload",
+              "curl -s -o catalogue.html -w \"HTTP %{http_code}\" http://127.0.0.1:8765/catalogue/"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T006",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests_added": ["tests/test_demo/test_commands.py::TestSeedDemo"],
+            "commands": ["poetry run pytest tests/test_demo/test_commands.py -q"],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T007",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": ["poetry run pytest tests/test_demo/test_commands.py::TestSeedDemo::test_loads_the_catalogue -q"],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T008",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests_added": ["tests/test_demo/test_commands.py::TestSeedDemo::test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds"],
+            "commands": ["poetry run pytest tests/test_demo/test_commands.py -q"],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T009",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests_added": ["tests/test_demo/test_commands.py::TestDemoCommand"],
+            "commands": [
+              "poetry run pytest tests/test_demo/test_commands.py -q",
+              "DEMO_DB_PATH=/tmp/dl-demo-t009/db.sqlite3 poetry run python manage.py demo"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T010",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "verified_by_ci": false
+          }
         }
       ]
     },
