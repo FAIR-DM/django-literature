@@ -223,3 +223,34 @@ printed address) and against `demo/settings.py`'s `DEBUG`/`SECRET_KEY`/`DATABASE
 match what is documented.
 Next: full suite, pre-commit, completion report.
 Watch: none.
+
+## 2026-08-12T11:55Z · Implementer US2 · T011
+
+Did: Wrote `tests/test_demo/test_seed.py`, `TestSeedCatalogue` — one test per research.md R8 shape
+(item-type spread, 8+ contributors, exactly-2 contributors, one contributor under two roles across
+two references, year-only date, full date, date range, 2+ identifier types with a DOI, exactly one
+bare reference, total above `paginate_by`). Reads `demo/seed/catalogue.json` as plain JSON — no
+Django app registry beyond what pytest-django already set up, no database, no subprocess. The one
+exception is `paginate_by`, read from `literature.ui.views.ItemListView.paginate_by` at collection
+time rather than hard-coded (T011-paginate) — confirmed via
+`poetry run python -c "...ItemListView.paginate_by..."` under `tests.settings` before writing the
+test: 24. Role, date-slot and identifier-type vocabularies come from `literature.choices`
+(`NameRole`, `DateType`, `IdentifierType`) rather than being retyped, so the test can't drift from
+the package's own source of truth the way a hand-typed list could.
+Verified: RED observed against the placeholder catalogue —
+`poetry run pytest tests/test_demo/test_seed.py -v` → 6 failed, 4 passed. Failures, all for the
+expected reason (the placeholder is four entries with three item types and no sparse/paginate/date-
+range shape):
+```
+FAILED ...test_covers_at_least_ten_distinct_item_types - AssertionError: assert 3 >= 10
+FAILED ...test_a_contributor_is_credited_on_two_references_under_two_different_roles - AssertionError: no contributor is credited under two different roles across two references
+FAILED ...test_has_a_year_only_date - AssertionError: assert 'year' in {'other'}
+FAILED ...test_has_a_date_range - AssertionError: assert 'range' in {'other'}
+FAILED ...test_has_exactly_one_reference_with_no_contributors_dates_or_identifiers - assert 0 == 1
+FAILED ...test_has_enough_references_to_paginate - AssertionError: assert 4 > 24
+```
+The four that passed against the placeholder (8+ contributors via Vaswani, exactly-2 via
+Watson/Crick, a full date, 2+ identifier types with a DOI) are shapes T007's placeholder happened
+to already carry; T012's curated catalogue must keep them true, not just make the other six pass.
+Next: T012 — curate `demo/seed/catalogue.json` to turn all ten green.
+Watch: none.
