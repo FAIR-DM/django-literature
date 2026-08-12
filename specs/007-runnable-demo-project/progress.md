@@ -423,3 +423,37 @@ trailing-slash directory-prefix convention before using it, then ran the kit's o
 new, 2 carried by baseline)`.
 Next: full suite, pre-commit, story completion report.
 Watch: none.
+
+## 2026-08-12T14:40Z · Implementer US4 · T019
+
+Did: extended `tests/test_ui/test_packaging.py` with two classes —
+`TestOnlyLiteratureIsPackaged` (FR-023, the `packages` declaration is exactly
+`[{include = "literature"}]`) and `TestNoDemoOnlyDependencyEntersTheBuild` (FR-024, the runtime
+dependency list and the `ui` extra are each pinned to their exact current contents). Reused the
+module's `_load_pyproject` helper rather than writing a second reader.
+Verified: each assertion watched failing against a real break in `pyproject.toml`, one at a time —
+adding `{include = "demo"}` to `packages`; adding a plausible demo-only dependency to `[project]
+dependencies`; adding the same to the `ui` extra. Each break reverted in the same task with
+`git status --short` and `git diff -- pyproject.toml` both empty before moving on. Scoped run 7
+passed, full suite 1347 passed, pre-commit green on all eight hooks.
+Next: story completion report.
+Watch: none.
+
+## 2026-08-12T14:55Z · Forge · US4 convergence
+
+Did: merged `007-us4` into the feature branch as `f385f89`.
+Verified independently on the merged branch, not from the report: full suite 1347 passed,
+pre-commit green on all eight hooks, `forge verify` green on all five steps.
+Verified the proxy itself, which no test can: built the distribution and inspected it. The wheel
+holds `literature/` and the dist-info and nothing else; the sdist holds `literature/`,
+`pyproject.toml`, `README.md`, `LICENSE` and `PKG-INFO`. Neither carries `demo/` or
+`demo/seed/catalogue.json`. Then applied T019's first break and rebuilt: the wheel gained
+`demo/__init__.py`, both management commands and `demo/seed/catalogue.json`. So the `packages`
+declaration really is the single point of truth for what ships, and the assertion guarding it
+tracks the built artefact rather than standing in for it. Recorded as D14. Reverted; tree clean.
+`tamper-check` flags `tests/test_ui/test_packaging.py` as a modified pre-existing test. Triage:
+approved — T019's own wording is "extend `tests/test_ui/test_packaging.py`", the diff is 30
+insertions and 0 deletions, and all four pre-existing assertions in `TestDjangoMVPIsOptOnly` are
+untouched.
+Next: S5 (ADR verdicts) and PR review.
+Watch: none.

@@ -328,3 +328,46 @@ and verified; the workflow that runs it in CI arrives with the maintainer's push
 a required check in the branch ruleset is a repository-settings action either way.
 
 **ADR**: none — this is a repeat of a recorded standing policy, not a new decision.
+
+## D13 — FR-024 is a closed set, not a list of forbidden package names
+
+**Ambiguity**: FR-024 forbids "anything existing only for the demo" from reaching an installing
+project. No such package exists today — `demo/` imports nothing beyond `literature` and Django —
+so there is no name to deny, and a denylist written against an empty set guards nothing.
+
+**Chosen**: pin both dependency lists to their exact current contents. Any addition to
+`[project] dependencies` or to the `ui` extra fails the assertion, whatever the newcomer is for.
+
+**Why defensible**: the requirement is about a category, not a package, and a closed set is the
+only form that covers a category whose members are not yet known. It also needs no fixture data
+and no maintenance of a name list that would go stale the first time someone invented a new way
+to depend on something.
+
+**Consequence**: a legitimate new runtime dependency fails this test and the author has to add it
+to the assertion. That is the intended cost — it makes widening the package's dependency surface
+a deliberate, reviewed edit rather than a line nobody notices in a diff. The class name and
+docstring say so, so the failure is self-explaining.
+
+**ADR**: none — a test-design choice inside one story, not a standing decision.
+
+## D14 — the `packages` declaration is verified as a proxy, and the proxy was checked
+
+**Ambiguity**: US4's acceptance scenario says the *built distribution* is inspected. T019 asserts
+on `pyproject.toml` instead. An assertion about a declaration is only as good as the claim that
+the declaration determines the artefact, and no test in the suite makes that claim.
+
+**Chosen**: keep the assertion where it is — a test that shells out to `poetry build` costs
+seconds on every run and needs a build backend wherever the suite runs — and check the proxy once,
+directly, at convergence.
+
+**Evidence**: built both artefacts on the merged branch. The wheel holds `literature/` and its
+dist-info; the sdist holds `literature/`, `pyproject.toml`, `README.md`, `LICENSE`, `PKG-INFO`.
+Neither carries `demo/` or `demo/seed/catalogue.json`. Adding `{include = "demo"}` to the
+declaration and rebuilding put `demo/__init__.py`, both management commands and
+`demo/seed/catalogue.json` into the wheel. The declaration determines the artefact, and the
+assertion catches the edit that would change it.
+
+**Consequence**: SC-009 is demonstrated rather than inferred. If the build backend or its
+configuration ever changes, this check is the one to repeat.
+
+**ADR**: none.
