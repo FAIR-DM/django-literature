@@ -3,7 +3,7 @@
   "feature": "007-runnable-demo-project",
   "branch": "007-runnable-demo-project",
   "repo": "FAIR-DM/django-literature",
-  "state": "CONVERGE",
+  "state": "PR_READY",
   "state_history": [
     {
       "state": "INTAKE",
@@ -73,6 +73,16 @@
       "state": "CONVERGE",
       "at": "2026-08-12T15:20:00Z",
       "note": "All four stories done. ADR gate green: D3 and D4 graduated to ADR-0018 and ADR-0019, twelve declined with reasons. Cleanup pass applied inside the feature diff. No migrations in this feature."
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-12T16:05:00Z",
+      "note": "Review pass done, one round, correctness and spec lens over the whole feature diff. Verdict approve, risk medium, three findings (2 medium, 1 low), all verified and all fixed in 1de5fd8. Reviewer receipt gate green (craft-review/2026-08-05/57b2f2f3, craft-simplify/2026-08-04/69038ce1). COR-002: seed_demo deleted every Item and Name before knowing the catalogue would load, with no transaction, so the partial-load failure it exists to report left the database at neither the old state nor the new one; reproduced as a red test (Alpha2020 replaced by a lone Beta2021) and fixed with transaction.atomic(). COR-001: demo/smoke.py carried FR-018..FR-022 and no test imported it, and the workflow that would exercise it live is held off the branch (D12), so it was covered by nothing; tests/test_demo/test_smoke.py now asserts both link patterns against really-rendered front-end HTML, the /catalogue/ prefix against demo/urls.py, the body excerpt bound, and the FR-005 login-redirect check. COR-003: seed key Sanger1977 carried Maxam & Gilbert's 1977 PNAS paper (DOI 10.1073/pnas.74.2.560 resolved to confirm); reference genuine, key renamed to MaxamGilbert1977. Post-fix: 1357 passed, pre-commit green, forge verify green on all five steps, live manage.py demo walked by demo/smoke.py exit 0."
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-12T16:10:00Z",
+      "note": "PR #63 out of draft, review summary commented as fairdm-bot. stage-exit S6 green on all six checks. Outstanding for Sam: land T016-demo-guard-workflow.patch (bot has no workflows permission) and arm the demo check as required in ruleset 19620991."
     }
   ],
   "gates": {
@@ -388,6 +398,6 @@
   },
   "pr": {
     "number": 63,
-    "draft": true
+    "draft": false
   }
 }
