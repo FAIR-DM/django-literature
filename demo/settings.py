@@ -66,6 +66,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # The shell's site name in every page title needs this (README.md).
+                "mvp.context_processors.mvp_config",
             ],
         },
     }
@@ -73,7 +75,31 @@ TEMPLATES = [
 
 ROOT_URLCONF = "demo.urls"
 
+# mvp/base.html loads the packaged stylesheet with {% static %} unconditionally,
+# so having django.contrib.staticfiles installed is not enough on its own
+# (README.md, tests/settings.py).
 STATIC_URL = "static/"
+
+# Every icon the shell renders resolves through django-easy-icons; without a
+# "default" renderer configured, opening any page in the UI app raises
+# ImproperlyConfigured (README.md, tests/settings.py).
+EASY_ICONS = {
+    "default": {
+        "renderer": "easy_icons.renderers.ProviderRenderer",
+        "config": {"tag": "i"},
+        "packs": ["mvp.utils.BS5_ICONS"],
+    },
+}
+
+# The shell's sidebar and mobile navigation are rendered by django-flex-menus,
+# which raises ValueError at render time without these renderers configured
+# (README.md, tests/settings.py).
+FLEX_MENUS = {
+    "renderers": {
+        "sidebar": "mvp.renderers.SidebarRenderer",
+        "dock": "mvp.renderers.MobileFooterNavRenderer",
+    },
+}
 
 # The shell reads the current site through the mvp_config context processor.
 SITE_ID = 1
