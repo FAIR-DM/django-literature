@@ -13,6 +13,7 @@ a second copy that can drift from the source of truth without either copy failin
 """
 
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -21,7 +22,9 @@ import pytest
 from literature.choices import DateType, IdentifierType, NameRole
 from literature.ui.views import ItemListView
 
-_CATALOGUE_PATH = Path(__file__).resolve().parent.parent.parent / "demo" / "seed" / "catalogue.json"
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_CATALOGUE_PATH = _REPO_ROOT / "demo" / "seed" / "catalogue.json"
+_UI_TEMPLATES = _REPO_ROOT / "literature" / "ui" / "templates" / "literature" / "ui"
 
 _ROLE_KEYS = [role.value for role in NameRole]
 _DATE_KEYS = [date_type.value for date_type in DateType]
@@ -65,6 +68,20 @@ def catalogue():
 @pytest.fixture(scope="module")
 def paginate_by():
     return ItemListView.paginate_by
+
+
+@pytest.fixture(scope="module")
+def snippet_words():
+    """The word count a row truncates an abstract to, read from the row template.
+
+    Hard-coded here it would be a second copy of a number that lives in the
+    template, free to drift the moment the template changes — the same reason
+    ``paginate_by`` is read from the view rather than typed out.
+    """
+    source = (_UI_TEMPLATES / "item_list_item.html").read_text(encoding="utf-8")
+    match = re.search(r"abstract\|truncatewords:(\d+)", source)
+    assert match, "the catalogue row no longer truncates the abstract with truncatewords"
+    return int(match.group(1))
 
 
 class TestSeedCatalogue:
@@ -136,3 +153,16 @@ class TestSeedCatalogue:
 
     def test_has_enough_references_to_paginate(self, catalogue, paginate_by):
         assert len(catalogue) > paginate_by
+
+    def test_has_a_reference_whose_abstract_the_row_must_truncate(self, catalogue, snippet_words):
+        # A row shows the abstract as a snippet. A seed carrying only short
+        # abstracts, or none, demonstrates the row's other branch and leaves
+        # this one unseen by anyone running the demo.
+        lengths = [len(entry["abstract"].split()) for entry in catalogue if entry.get("abstract")]
+        assert lengths, "no seeded reference carries an abstract"
+        assert max(lengths) > snippet_words
+
+    def test_has_references_carrying_no_abstract(self, catalogue):
+        # The other branch: most real catalogues are mostly abstract-less, and
+        # the row has to look right for those too.
+        assert any(not entry.get("abstract") for entry in catalogue)
