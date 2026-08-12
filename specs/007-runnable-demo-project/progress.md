@@ -114,3 +114,25 @@ Verified: manual line-by-line comparison of `demo/settings.py` and `demo/urls.py
 README.md:93-220; no diff found.
 Next: T005 (manual server run).
 Watch: none — no README edit made, per the task's own "if nothing was missing, say so" branch.
+
+## 2026-08-12T10:50Z · Implementer US1 · T005 (manual verification)
+
+Did: `mkdir -p /tmp/dl-demo-t005 && DEMO_DB_PATH=/tmp/dl-demo-t005/db.sqlite3
+DJANGO_SETTINGS_MODULE=demo.settings poetry run python manage.py migrate --noinput` — applied
+admin, auth, contenttypes, literature (2 migrations), sessions, sites cleanly, no errors. Then
+`poetry run python manage.py runserver 127.0.0.1:8765 --noreload` in the background and
+`curl -s -o catalogue.html -w "HTTP %{http_code}"  http://127.0.0.1:8765/catalogue/` → `HTTP 200`.
+The response body renders the packaged empty state: "Nothing in the catalogue yet" / "References
+imported or created will appear here.", page title "Items | example.com" (confirming SITE_ID +
+mvp_config wiring), no traceback. `curl` against `/admin/login/` also returned `HTTP 200`. Server
+process killed and the scratch database directory removed afterward; no `.sqlite3` file is tracked
+by git (`git status` clean).
+Verified: first real serve of the front end from a project — `poetry install --extras ui` had
+already been run for the worktree; `migrate` then `runserver` then `/catalogue/` all succeeded as
+above.
+Next: T006 (failing test for seed_demo).
+Watch (concerns, not fixed — outside T001-T003's documented scope): the server log printed
+`Could not reverse URL for view 'home' in menu item 'home' / Reverse for 'home' not found` on every
+request. The page still rendered correctly (200, correct content), so this did not block T005, but
+it suggests django-mvp's default navigation expects a URL named `home` that neither the README's
+front-end install steps nor `demo/urls.py` provide. Recorded in the completion report's `concerns`.
