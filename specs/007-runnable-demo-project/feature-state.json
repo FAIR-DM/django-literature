@@ -53,6 +53,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-12T11:00:00Z",
       "note": "US1 rolled back to in_progress: the craft-skill receipt gate is RED. The implementer confirmed on being asked that it loaded neither craft-tdd nor craft-increments and declined to backfill a receipt, so US1 was produced from the brief alone. forge check-receipts --skills craft-tdd,craft-increments exits 1. Per Sam's 2026-08-04 directive the ledger does not advance on a red skill gate, whatever the state of the code. The preceding 10:48:00Z entry asserting independent verification was written by neither the orchestrator nor Sam and its attribution is unresolved; it is left in place rather than rewritten, and this entry is the correction. What the orchestrator did verify directly on 007-us1, after that entry was written: poetry run pytest -q 1334 passed; poetry run pre-commit run --all-files green; the full diff read; the demo started and probed over HTTP. That review found one defect the story missed and fixed it under D9 - no route named home, so the demo root returned 404 and every page render logged a menu reversal failure."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-12T11:50:00Z",
+      "note": "US2 done: T011-T013 merged. Receipt gate green (craft-tdd, craft-increments). Re-verified by orchestrator on the merged branch: pytest 1344 passed, pre-commit all hooks green, tamper-check clean, catalogue 28 entries / 13 item types all valid against literature.choices.ItemType, and a scratch migrate+seed_demo+runserver served 24 items on page 1, 4 on page 2, and the Watson-Crick detail page with Contributors/Dates/Identifiers. Test-first ordering confirmed from the commit graph (de339c0 test precedes d35b73e catalogue)."
     }
   ],
   "gates": {
@@ -223,24 +228,47 @@
       "id": "US2",
       "priority": "P2",
       "issue": 60,
-      "worktree": null,
-      "status": "todo",
+      "worktree": "/home/sam/projects/fairdm/dl-us2-fs007",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T011",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests_added": [
+              "tests/test_demo/test_seed.py::TestSeedCatalogue"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_demo/test_seed.py -v"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T012",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_demo/test_seed.py -v",
+              "DEMO_DB_PATH=/tmp/dl-demo-t012/db.sqlite3 poetry run python manage.py seed_demo"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T013",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run python manage.py runserver --noreload 127.0.0.1:8766",
+              "curl http://127.0.0.1:8766/catalogue/ ; /catalogue/?page=2 ; /catalogue/2/ ; /catalogue/contributors/68/ ; /catalogue/23/"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },
