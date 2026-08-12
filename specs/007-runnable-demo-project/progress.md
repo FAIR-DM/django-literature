@@ -136,3 +136,52 @@ Watch (concerns, not fixed — outside T001-T003's documented scope): the server
 request. The page still rendered correctly (200, correct content), so this did not block T005, but
 it suggests django-mvp's default navigation expects a URL named `home` that neither the README's
 front-end install steps nor `demo/urls.py` provide. Recorded in the completion report's `concerns`.
+
+## 2026-08-12T11:00Z · Implementer US1 · T006
+
+Did: Created `tests/test_demo/__init__.py` and `tests/test_demo/test_commands.py`, following
+`tests/test_ui/test_smoke.py`'s subprocess mechanism (plan.md D-10): `DJANGO_SETTINGS_MODULE` and
+`DEMO_DB_PATH` are set with `os.environ[...] =`, never `setdefault`, inside a script run via
+`subprocess.run([sys.executable, "-c", script], ...)`. `DEMO_DB_PATH` points at `tmp_path` so the
+suite never touches the developer's demo database; `migrate` runs before `seed_demo` in the same
+subprocess. Three tests: loads the catalogue, running twice leaves the same count, reseeding
+against different content leaves only the new items. The third test needed control over which
+catalogue file `seed_demo` reads without mutating the tracked `demo/seed/catalogue.json`, so I
+introduced `DEMO_SEED_PATH` (recorded as decisions.md D7, mirrors T001's `DEMO_DB_PATH`).
+Verified: `poetry run pytest tests/test_demo/test_commands.py -q` → 3 failed, all with
+`CommandError: Unknown command: 'seed_demo'` — the right reason (RED, per craft-tdd). `poetry run
+ruff check tests/test_demo/` — All checks passed.
+Next: T007 (seed catalogue).
+Watch: none.
+
+## 2026-08-12T11:10Z · Implementer US1 · T007
+
+Did: Created `demo/seed/catalogue.json` — 4 real, verifiable references in CSL JSON (Shannon 1948,
+Watson & Crick 1953, Darwin 1859, Vaswani et al. 2017), covering `article-journal`, `book` and
+`paper-conference` types. Placeholder only, per the task's own limit — full curation is T012.
+Verified: ran `literature.converters.from_csl_json_list` against the file in a scratch pytest test
+(not committed) — all 4 entries loaded, citation keys
+`['Shannon1948', 'WatsonCrick1953', 'Darwin1859', 'Vaswani2017']`.
+Next: T008 (seed_demo command).
+Watch: none.
+
+## 2026-08-12T11:25Z · Implementer US1 · T008
+
+Did: Created `demo/management/__init__.py`, `demo/management/commands/__init__.py` and
+`demo/management/commands/seed_demo.py`: deletes every `Item` and every `Name` first, reads the
+catalogue path from `DEMO_SEED_PATH` (default `demo/seed/catalogue.json`, decisions.md D7), loads it
+through `literature.converters.from_csl_json_list`, and raises `CommandError` naming any entries
+whose citation key isn't among the loaded items when the loaded count doesn't match the file's
+entry count. `help` states the deletion outright. Also added a fourth test,
+`test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds`, to
+`tests/test_demo/test_commands.py` for this failure-mode behaviour — it's in the brief's T008
+acceptance criteria but not enumerated among T006's three named scenarios, so I wrote it test-first
+as part of this task rather than skip it.
+Verified: `poetry run pytest tests/test_demo/test_commands.py::TestSeedDemo::test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds -q` →
+1 failed with `Unknown command: 'seed_demo'` (RED, right reason) before the command existed. After
+implementing: `poetry run pytest tests/test_demo/test_commands.py -q` → 4 passed. `DEMO_DB_PATH=/tmp/dl-demo-t008.sqlite3
+poetry run python manage.py help seed_demo` → help text states "Delete every Item and every Name...
+Destructive: anything entered through the admin is lost." `poetry run ruff check demo/management/
+tests/test_demo/` — All checks passed.
+Next: T009 (demo command).
+Watch: none.
