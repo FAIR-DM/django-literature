@@ -462,7 +462,7 @@ Watch: none.
 
 Sam's instruction after running the demo locally: `demo/management/commands/demo.py` is
 unnecessary overhead, and asking someone to run `seed_demo` explicitly before serving is not too
-much. Recorded as decisions.md D14.
+much. Recorded as decisions.md D15.
 
 Applied: the command is deleted; `spec.md` FR-003, FR-004, SC-001, US-1's narrative, independent
 test and scenarios 1, 3 and 5 are refined in place with dated notes, and the clarification-scan

@@ -379,7 +379,7 @@ configuration ever changes, this check is the one to repeat.
 
 **ADR:** none — a verification method applied once at convergence, not a rule anything follows.
 
-## D14 — The composite `demo` command is removed; the documented path is three stock commands
+## D15 — The composite `demo` command is removed; the documented path is three stock commands
 **Ambiguity**: None at specification time. FR-003 asked for "one documented command", and T009
 delivered `demo/management/commands/demo.py` wrapping `migrate`, `seed_demo` and `runserver`.
 
