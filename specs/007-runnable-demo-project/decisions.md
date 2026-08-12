@@ -285,3 +285,26 @@ just to make the report read clean.
 novel.
 
 **ADR**: none.
+
+### D11 addendum — a break that does satisfy both clauses (added at convergence)
+
+D11's search was constrained to `demo/settings.py`, which T017 licensed. Widening it by one file
+finds the demonstration T017's wording asks for. Removing the `call_command("seed_demo")` line from
+`demo/management/commands/demo.py` — that is, breaking the one documented command's seeding step —
+was run at convergence with these observed results:
+
+- The guard fails: `demo/smoke.py` reports `/catalogue/ [200]: no reference link on the catalogue
+  list — the seed did not load`, exit 1. The page itself is healthy and returns 200, so this is the
+  FR-019 scenario, not a crash.
+- The full suite stays green: `1344 passed`. `TestDemoCommand` asserts only the missing-`ui`-extra
+  failure message, and no test anywhere asserts that `manage.py demo` seeds, so nothing in `tests/`
+  observes the break.
+
+Reverted immediately; `git status` and `git diff` clean before committing.
+
+This is the stronger demonstration on its own terms as well as its wording: the break is in the
+command that FR-003 makes the feature's headline requirement, and the thing the guard catches is
+exactly the drift the whole story exists for — a demo that no longer shows anything while every
+test passes. D11's finding about `EASY_ICONS` stands as recorded and remains true; the correction is
+to the choice of break, not to the child's reading of the overlap. `tasks.md` T017's named example
+is superseded by this one.
