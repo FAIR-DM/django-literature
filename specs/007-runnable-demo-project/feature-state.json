@@ -3,7 +3,7 @@
   "feature": "007-runnable-demo-project",
   "branch": "007-runnable-demo-project",
   "repo": "FAIR-DM/django-literature",
-  "state": "DESIGN_REVIEW",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "INTAKE",
@@ -35,9 +35,14 @@
       "at": "2026-08-12T10:07:00Z"
     },
     {
-      "state": "planned",
-      "at": "2026-08-12",
-      "note": "Design review applied: 13 findings, 2 blocking (SPEC-001 the documented command was unexercised, SPEC-002 a partial seed passed silently). T020 dropped."
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-12T10:35:00Z",
+      "note": "13 findings; 2 blocking verified against the code and fixed in plan.md/tasks.md; T020 dropped; one round, budget spent"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-12T10:40:00Z",
+      "note": "US1 dispatched (sonnet, worktree dl-us1-fs007); plan notification sent carrying the design-review verdict"
     }
   ],
   "gates": {
@@ -54,8 +59,8 @@
       ]
     },
     "plan": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "notified",
+      "at": "2026-08-12T10:40:00Z"
     },
     "merge": {
       "approved_by": null,
@@ -67,8 +72,8 @@
       "id": "US1",
       "priority": "P1",
       "issue": 59,
-      "worktree": null,
-      "status": "todo",
+      "worktree": "/home/sam/projects/fairdm/dl-us1-fs007",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
@@ -209,7 +214,7 @@
       "max": 1
     },
     "design_review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 1
     },
     "tokens": {
