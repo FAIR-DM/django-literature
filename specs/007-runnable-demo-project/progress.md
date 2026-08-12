@@ -408,3 +408,18 @@ Next: T018 (conformance entry).
 Watch: flagged in `concerns` for the reviewer — the literal "full suite stays green" wording in
 T017's acceptance doesn't hold for this specific break, though the guard's underlying capability
 (catching a real wiring break no existing fixture reaches) is demonstrated and real.
+
+## 2026-08-12T14:05Z · Implementer US3 · T018
+
+Did: added `tests/test_demo/` to `[tool.forge.conformance]` `non-mirror-paths` in `pyproject.toml`
+as a single directory-prefix entry (trailing slash), following the four existing entries, with a
+comment naming the real reason — the demo project lives outside the `literature/` tree the mirror
+rule is defined against (plan.md D-9) — rather than "no source module exists to mirror", which
+Article XIV would reject given `test_commands.py`'s subject is two Python modules this feature
+creates.
+Verified: read `engineering-org/kit/forgekit/conformance.py`'s own docstring to confirm the
+trailing-slash directory-prefix convention before using it, then ran the kit's own checker —
+`kit/forge conformance --repo /home/sam/projects/fairdm/dl-us3-fs007` — `[conformance] clean (0
+new, 2 carried by baseline)`.
+Next: full suite, pre-commit, story completion report.
+Watch: none.
