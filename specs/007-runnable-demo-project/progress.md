@@ -325,3 +325,101 @@ Server killed and the scratch database directory removed; `git status` clean aft
 Next: full suite (`poetry run pytest -q`) and `poetry run pre-commit run --all-files` before the
 story completion report.
 Watch: none.
+
+## 2026-08-12T13:41Z · Implementer US3 · T014
+
+Did: found and stopped an orphaned `python manage.py demo` process (pid 2826389) left running on
+port 8000 from the merged, stale `dl-us1-fs007` worktree — it predates this session and was
+blocking the only port the demo command can bind to (`--noreload`/hardcoded, no port argument
+forwarded). Wrote `demo/smoke.py`: a `DemoWalk` class that follows links from the catalogue list
+(never reverses a detail URL) — list page 1, its `?page=2`, a reference page, a contributor page —
+asserting on content (the anchor text captured from the previous page, not status alone) at every
+step, and failing with the URL, status and a 500-char-bounded body excerpt.
+Verified: ran it by hand against a real server on a scratch `DEMO_DB_PATH`
+(`poetry run python manage.py demo`, polled `/catalogue/` for readiness) — `OK: walked the demo
+catalogue, its second page, a reference and a contributor at http://127.0.0.1:8000`, exit 0.
+Also exercised two failure paths by hand: connection-refused on a dead port (bounded message, exit
+1), and an emptied scratch database — list page still returns 200 (the FS-006 empty-state page)
+but `smoke.py` correctly reports `no reference link on the catalogue list — the seed did not
+load`, exit 1, with a 500-char excerpt of the empty-state HTML — the exact FR-019 scenario the
+guard exists to catch. Reseeded and re-ran to confirm the healthy pass returns.
+`poetry run ruff check demo/smoke.py` and `ruff format --check` clean after one `noqa: S310` on the
+single `urlopen` call (base_url is CLI argv, never external input) and one reformat.
+Next: T015 (login-redirect assertion, same file).
+Watch: the stray US1-worktree server process is worth a mention in `concerns` — nothing in this
+story's scope owns cleaning up other worktrees' leftovers, but it cost real time to find.
+
+## 2026-08-12T13:44Z · Implementer US3 · T015
+
+Did: added the login-redirect check to `DemoWalk._get()` — every response's final URL (after
+redirects) is checked for `"login"` in its path; a match fails the walk naming the URL it landed
+on. FR-005's other half (no account is created) is settled by reading `demo/management/commands/demo.py`,
+which calls only `migrate`, `seed_demo` and `runserver` — no `createsuperuser` — not asserted here,
+per the brief.
+Verified: the healthy walk still passes (`OK: ...`, exit 0) against the running scratch server.
+Since nothing in the walk's four pages is actually login-gated, exercised the mechanism directly
+against `/admin/` (not part of the walk) to prove it fires: `DemoWalk({{base}})._get(".../admin/")`
+raised `SmokeCheckFailed: .../admin/ [200]: redirected to a login page
+(.../admin/login/?next=/admin/) on an unauthenticated walk"` — confirms the detection logic itself
+works, independent of whether any walked page happens to redirect today.
+`ruff check`/`ruff format --check` clean.
+Next: T016 (the workflow).
+Watch: none.
+
+## 2026-08-12T13:52Z · Implementer US3 · T016
+
+Did: added `.github/workflows/demo.yml`. Uses the house shape from `publish.yml` (the one workflow
+in this repo with discrete steps rather than a reusable-workflow call) —
+`actions/checkout@v7` + `django-mvp/shared/.github/actions/setup-poetry@v0.2.0`, confirmed by
+fetching that composite action's `action.yml` from the `v0.2.0` tag via `gh api` to verify its
+`poetry-install-args` input exists before relying on it. Steps: install `--extras ui`, start
+`python manage.py demo` backgrounded with a scratch `DEMO_DB_PATH` under `runner.temp`, poll
+`/catalogue/` up to 30×1s rather than sleep, run `demo/smoke.py`, stop the server with
+`if: always()`. Triggers on `pull_request` with no path filter (comment matches `tests.yml`'s and
+`build.yml`'s wording, adapted) and on `push` to `main` with paths scoped to `demo/**`,
+`literature/**`, `pyproject.toml`, `poetry.lock`, the workflow file. `permissions: contents: read`
+at workflow level; no `secrets: inherit` (none needed — public-index install, local assertion).
+Verified: `actionlint` (found at `/tmp/actionlint`, not on `PATH` — invoked by full path) reports
+zero findings against the file. Simulated the whole job locally, same commands the workflow runs
+(start → poll → smoke → stop) against a fresh scratch `DEMO_DB_PATH`: ready after 3s, smoke exit 0,
+server confirmed stopped afterward, scratch directory removed.
+Next: T017 (prove the guard against a real break).
+Watch: `actionlint` isn't on `PATH` in this worktree — noting for the report per the ritual rather
+than silently skipping it.
+
+## 2026-08-12T13:58Z · Implementer US3 · T017
+
+Did: broke `demo/settings.py` by removing `EASY_ICONS` (tasks.md's named "cheapest real example"),
+started the demo on a scratch DB, and ran `demo/smoke.py` against it: `FAILED: .../catalogue/
+[500]: unsuccessful response` with a bounded excerpt of Django's `ImproperlyConfigured` technical
+page (title and first lines only — nothing past 500 chars reached the log). Then ran the full
+suite: **not** fully green — `1 failed, 1343 passed`. The one failure,
+`tests/test_demo/test_urls.py::TestDemoUrls::test_no_page_render_logs_a_menu_reversal_failure`, is
+pre-existing (landed by D9 in US1) and renders `/catalogue/` under `demo.settings` in a real
+subprocess for an unrelated stated reason (catching a menu-reversal warning) — it catches this
+break as a side effect of rendering the same shell chrome the icons live in. Recorded as D11 in
+`decisions.md`: no `demo/settings.py`-only break was found that the guard's content checks would
+catch without also tripping that pre-existing test, because every setting visible enough to break
+rendering is consumed by shell chrome every page renders identically.
+Reverted: `git checkout -- demo/settings.py`; `git diff demo/settings.py` and `git status --short`
+both empty before moving on. Re-ran `tests/test_demo/test_urls.py` alone to confirm green again (3
+passed).
+Next: T018 (conformance entry).
+Watch: flagged in `concerns` for the reviewer — the literal "full suite stays green" wording in
+T017's acceptance doesn't hold for this specific break, though the guard's underlying capability
+(catching a real wiring break no existing fixture reaches) is demonstrated and real.
+
+## 2026-08-12T14:05Z · Implementer US3 · T018
+
+Did: added `tests/test_demo/` to `[tool.forge.conformance]` `non-mirror-paths` in `pyproject.toml`
+as a single directory-prefix entry (trailing slash), following the four existing entries, with a
+comment naming the real reason — the demo project lives outside the `literature/` tree the mirror
+rule is defined against (plan.md D-9) — rather than "no source module exists to mirror", which
+Article XIV would reject given `test_commands.py`'s subject is two Python modules this feature
+creates.
+Verified: read `engineering-org/kit/forgekit/conformance.py`'s own docstring to confirm the
+trailing-slash directory-prefix convention before using it, then ran the kit's own checker —
+`kit/forge conformance --repo /home/sam/projects/fairdm/dl-us3-fs007` — `[conformance] clean (0
+new, 2 carried by baseline)`.
+Next: full suite, pre-commit, story completion report.
+Watch: none.
