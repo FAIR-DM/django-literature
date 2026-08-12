@@ -295,3 +295,33 @@ noted here so it isn't repeated).
 Next: T013 — confirm by hand that the reference page, the contributor page, the list's second
 page, and the sparse reference all render over the curated catalogue.
 Watch: none.
+
+## 2026-08-12T12:25Z · Implementer US2 · T013
+
+Did: Confirmed by hand that the curated catalogue renders correctly across the four pages T013
+names. Scratch database at `/tmp/dl-demo-t013/db.sqlite3` (removed afterward):
+`DEMO_DB_PATH=... poetry run python manage.py migrate --noinput -v 0`, then `seed_demo` → "loaded
+28 references", then `runserver 127.0.0.1:8766 --noreload` in the background (8000 was already in
+use locally).
+Verified (all four via `curl`, status and rendered content, not status alone):
+- List page 1 — `GET /catalogue/` → 200, 24 item links (`/catalogue/5/` … `/catalogue/28/`),
+  pagination control offering `?page=1` and `?page=2`.
+- List page 2 — `GET /catalogue/?page=2` → 200, the remaining 4 items (Shannon, Cerf & Kahn among
+  them) — 28 total across the two pages, matching `len(catalogue)`.
+- Reference page — `GET /catalogue/2/` (Watson & Crick 1953, `pk=2`) → 200, title, both authors,
+  and the DOI all present in the body; "Contributors", "Dates" and "Identifiers" section headings
+  all present.
+- Contributor page — `GET /catalogue/contributors/68/` (Douglas Hofstadter, `pk=68` — found via
+  `Name.objects.filter(family="Hofstadter").first()`) → 200, both "Gödel, Escher, Bach" (author)
+  and "That Mad Ache" (translator) listed — the two-roles-two-references shape from T012 actually
+  reachable by browsing, not just present in the seed file.
+- Sparse reference — `GET /catalogue/23/` (Beowulf, `pk=23` — found via
+  `Item.objects.get(citation_key="Beowulf").pk`) → 200, title renders, and none of "Contributors",
+  "Dates" or "Identifiers" appears in the body — confirmed against `literature/ui/item_detail.html`,
+  whose three sections are each gated on `{% if %}` (`contributor_groups`, `object.item_dates.all`,
+  `identifiers`) and so are omitted rather than rendered empty.
+Server killed and the scratch database directory removed; `git status` clean afterward, no
+`.sqlite3` tracked.
+Next: full suite (`poetry run pytest -q`) and `poetry run pre-commit run --all-files` before the
+story completion report.
+Watch: none.
