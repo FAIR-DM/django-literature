@@ -1,0 +1,483 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "006-browse-reference-catalogue",
+  "branch": "006-browse-reference-catalogue",
+  "repo": "FAIR-DM/django-literature",
+  "state": "PR_READY",
+  "state_history": [
+    {
+      "state": "INTAKE",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "Grilled from issue #45 against its five R6 siblings"
+    },
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "spec.md + decisions.md, clarification scan run in full"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "Epic promoted, stories filed, draft PR #55 opened"
+    },
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "Approved after the contributor page was added as US4"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "plan.md, research.md, tasks.md authored"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "All 25 tasks across US0-US5 landed on the feature branch"
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-11T00:00:00Z",
+      "note": "Implementation complete at ca320dd; forge verify all green, 1305 passing"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-11T18:00:00Z",
+      "note": "S5 exit green: verify+tamper triaged, credit row refactored, 3 ADRs graduated, 17 verdicts"
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-11T21:15:00Z",
+      "note": "S6 exit green: 3 correctness findings and 1 security finding, all verified and remedied (RC-001/RS-001 in 5911cad, RC-002 and RC-003 in df55bcb); review report posted on PR #55. PR body rewritten to contract, marked ready for review at 4cf18c4, all checks green."
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-11T00:00:00Z",
+      "self_resolved": [
+        "D1 list orders by most recently added, not issued date",
+        "D2 a reference page is addressed by primary key, not citation key",
+        "D3 a list entry carries the citation key",
+        "D5 opt-in enforced by the dependency graph via an optional extra",
+        "D6 a local component would be a tracked bridge, recorded in Component gaps",
+        "D7 identical stored names keep separate pages"
+      ]
+    },
+    "plan": {
+      "approved_by": "notified",
+      "at": "2026-08-11T14:20:00Z"
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "issue": null,
+      "worktree": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry lock",
+              "poetry run deptry .",
+              "poetry check",
+              "poetry install --with dev --extras ui",
+              "poetry run pre-commit run --files pyproject.toml poetry.lock"
+            ]
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_apps.py -v",
+              "poetry run pre-commit run --files literature/ui/__init__.py literature/ui/apps.py tests/test_ui/__init__.py tests/test_ui/test_apps.py"
+            ]
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_templates.py -v",
+              "forge verify --steps conformance",
+              "poetry run pre-commit run --files literature/ui/templates/literature/ui/base.html tests/test_ui/test_templates.py"
+            ]
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/ -v",
+              "poetry run python3 -c \"import django, os; os.environ['DJANGO_SETTINGS_MODULE']='tests.settings'; django.setup(); from django.template.loader import get_template; get_template('literature/ui/base.html')\"",
+              "forge verify --steps conformance",
+              "poetry run deptry .",
+              "poetry run pre-commit run --files tests/settings_core.py tests/settings.py tests/urls_core.py tests/urls.py tests/test_ui/test_smoke.py tests/test_ui/conftest.py"
+            ]
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "git push origin 006-browse-reference-catalogue (maintainer PAT \u2014 a GitHub App may not push .github/workflows/)",
+              "gh run list --branch 006-browse-reference-catalogue"
+            ],
+            "tests": [
+              "call-tests / Test Python 3.12+3.13, Django 5.2+6.0 green with --extras ui",
+              "call-build / Code Quality green"
+            ],
+            "verified_by_ci": true
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -v",
+              "forge verify --steps conformance",
+              "poetry run pre-commit run --files literature/ui/urls.py tests/test_ui/test_urls.py"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 52,
+      "worktree": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemListView -x",
+              "poetry run mypy literature/ui/views.py literature/ui/urls.py",
+              "poetry run ruff check literature/ui/views.py literature/ui/urls.py"
+            ]
+          }
+        },
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/",
+              "manual utility-class allowlist check via grep against docs/utility-classes.md"
+            ]
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView (9 tests)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemListView -x"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 53,
+      "worktree": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fields.py::TestScalarFields \u2014 7 passed"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fields.py -v",
+              "poetry run pre-commit run --files literature/ui/fields.py tests/test_ui/test_fields.py"
+            ]
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemDetailView \u2014 56 passed (test-first; observed red as 405 before the view existed, then TemplateDoesNotExist before T012's template)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemDetailView -v",
+              "poetry run pre-commit run --files literature/ui/views.py literature/ui/urls.py"
+            ]
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemDetailView \u2014 56 passed"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemDetailView -v",
+              "poetry run pre-commit run --files literature/ui/templates/literature/ui/item_detail.html"
+            ]
+          }
+        },
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py + tests/test_ui/test_fields.py \u2014 72 passed (task scope); full suite 1220 passed"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py tests/test_ui/test_fields.py -q",
+              "poetry run pytest -q",
+              "poetry run python manage.py makemigrations --check --dry-run"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 54,
+      "worktree": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_architecture.py::TestCoreImportsNothingFromTheUIStack"
+            ]
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_packaging.py::TestDjangoMVPIsOptOnly"
+            ]
+          }
+        },
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_boot.py::TestCoreBootsWithNoUIAppInstalled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 56,
+      "worktree": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_urls.py (4 passed)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestContributorDetailView (10 passed)",
+              "tests/test_ui/test_templates.py (5 passed)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestContributorDetailView -q",
+              "poetry run pytest tests/test_ui/test_templates.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemDetailView::test_contributor_names_link_to_their_page"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestContributorDetailView (10 tests: roles, one-row-two-roles, catalogue ordering, page-size cap, out-of-range 404, institutional name, empty result, missing contributor 404, identical names, query count)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestContributorDetailView -q",
+              "poetry run pytest tests/test_ui/ -q",
+              "poetry run pre-commit run --files literature/ui/views.py literature/ui/urls.py literature/ui/templates/literature/ui/item_detail.html literature/ui/templates/literature/ui/contributor_detail.html literature/ui/templates/literature/ui/contributor_item.html tests/test_ui/test_views.py"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US5",
+      "priority": "P5",
+      "issue": null,
+      "worktree": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_templates.py::TestUtilityClassAllowlist (6 templates parametrized + 2 checker tests)",
+              "tests/test_ui/test_templates.py::TestI18nGuard (6 templates parametrized + 5 checker tests)"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_templates.py -q (43 passed)",
+              "poetry run ruff check tests/test_ui/test_templates.py",
+              "poetry run mypy tests/test_ui/test_templates.py"
+            ]
+          }
+        },
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pre-commit run --files CONTEXT.md"
+            ]
+          }
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run python -c \"import importlib.metadata\" (read django-mvp Requires-Dist)",
+              "poetry run pytest -q (1244 passed)",
+              "poetry run pre-commit run --files README.md"
+            ]
+          }
+        },
+        {
+          "id": "T024",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pre-commit run --files memory/constitution.md"
+            ]
+          }
+        },
+        {
+          "id": "T025",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "grep -n -A6 'non-mirror-paths' pyproject.toml \u2014 matches the declared list exactly",
+              "test -f on each of the four declared paths \u2014 all exist"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 1,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 4000000
+    }
+  },
+  "pr": {
+    "number": 55,
+    "draft": false
+  }
+}

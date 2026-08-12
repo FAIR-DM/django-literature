@@ -238,8 +238,11 @@ The bundled demo/reference project is executable documentation and a regression 
   development and testing. Core migrations ship in the package.
 - **Citation rendering:** `citeproc-py` or a governance-approved equivalent; bundled CSL style
   files are attributable to the CSL project and licensed accordingly.
-- **UI:** server-rendered Django templates by default. No third-party form/table/filter/JS
-  packages are prescribed yet; adopting one is a constitutional amendment.
+- **UI:** server-rendered Django templates. The opt-in `literature.ui` app is built on
+  [django-mvp](https://github.com/django-mvp), the one adopted UI layer — arriving through the
+  optional `ui` extra rather than a core dependency, so the core stays free of it and a core-only
+  install resolves no front-end package. No further third-party form/table/filter/JS package is
+  prescribed; adopting another is a constitutional amendment.
 - **Testing & tooling:** pytest and pytest-django are canonical; test modules mirror the
   `literature/` tree with `test_` prefixes. Static analysis via Ruff and mypy as configured in
   `pyproject.toml`. Coverage is a guide to find gaps, not a merge gate.
@@ -284,4 +287,4 @@ This constitution supersedes ad-hoc practice when they conflict. It covers the c
 - Final authority currently rests with the original author, leaving room for a broader governance
   model as more maintainers join.
 
-**Version**: 3.1.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-08-05
+**Version**: 3.2.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-08-11

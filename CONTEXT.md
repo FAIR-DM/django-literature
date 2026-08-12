@@ -199,6 +199,20 @@ the same value as the **citation key** above, arriving under the source's name b
 in `Item.citation_key`. Two names for one value, on either side of the import boundary, in the same
 way `entry` and `Item` are two names for the two sides of a record.
 
+### UI app
+
+The opt-in Django app carrying the interface, `literature.ui`. Installed alongside the core, it adds
+a list page and a reference page over what the core already stores. The core has no dependency on
+it, at import time or otherwise — a project can add `literature` on its own and never resolve the
+UI app at all. Built on [django-mvp](https://github.com/django-mvp), which owns the interface's look
+end to end; the UI app ships no styling of its own.
+
+### catalogue
+
+The set of stored items, spoken about from the interface. The core's own term for the same set is
+the store, or `Item.objects` — *catalogue* is the UI app's word for it in prose and on the page
+itself: "the catalogue list", "a catalogue holding no items".
+
 ## Synonyms to avoid
 
 - **`Reference` / `Publication` / `Record`** for an item — the canonical term is **`Item`**

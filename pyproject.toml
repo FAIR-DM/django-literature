@@ -133,11 +133,25 @@ plugins = ["mypy_django_plugin.main"]
 disable_error_code = ["django-manager-missing"]
 
 [tool.django-stubs]
-django_settings_module = "tests.settings"
+# The core-only settings, deliberately not tests.settings. The plugin calls
+# django.setup(), so it needs every app in INSTALLED_APPS importable — and
+# tests.settings installs literature.ui, whose dependency arrives through an
+# optional extra the Code Quality job does not install. Pointing here costs
+# nothing: literature.ui declares no models, and ignore_missing_imports above
+# already resolves django-mvp to Any (it ships no py.typed).
+django_settings_module = "tests.settings_core"
 ignore_missing_model_attributes = "True"
 
 [tool.deptry]
 extend_exclude = ["tasks.py", "tests/", "demo/", "docs/"]
+
+# django-mvp installs as `mvp`, and deptry only learns that by reading the
+# installed package's metadata. The Code Quality job installs the main and dev
+# groups but no extra, so there deptry falls back to guessing `django_mvp` and
+# reports literature/ui/views.py's `from mvp.views import ...` as undeclared.
+# Stating the mapping makes the check answer the same either way.
+[tool.deptry.package_module_name_map]
+django-mvp = "mvp"
 
 [tool.deptry.per_rule_ignores]
 DEP003 = ["literature"]
@@ -168,6 +182,31 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
+[project.optional-dependencies]
+# django-mvp declares requires-python >=3.12, while this project keeps its
+# >=3.11 floor for core-only consumers (see T001) — the marker keeps `poetry
+# lock` resolvable on 3.11 by making the extra unavailable there rather than
+# raising the whole project's floor. One entry only: django-mvp brings
+# django-cotton, easy-icons and flex-menus itself (research R1).
+ui = ["django-mvp (>=0.17,<1.0) ; python_version >= '3.12'"]
+
 [project.urls]
 homepage = "https://github.com/FAIR-DM/django-literature"
 repository = "https://github.com/FAIR-DM/django-literature"
+
+[tool.forge.conformance]
+# tests/test_ui/test_templates.py tests the shipped templates under
+# literature/ui/templates/ directly — its subject is not a Python module, so
+# there is no literature/ui/templates.py to mirror (Article X's declared
+# exception). Each entry is declared with the commit that creates its file, so
+# the conformance gate stays green between stories; T025 (Phase 5) checks the
+# final list rather than assembling it. test_architecture.py takes the package
+# boundary as its subject, test_packaging.py takes pyproject.toml, and
+# test_boot.py takes the core booting with the UI app absent — none of the four
+# mirrors a Python module.
+non-mirror-paths = [
+    "tests/test_ui/test_architecture.py",
+    "tests/test_ui/test_boot.py",
+    "tests/test_ui/test_packaging.py",
+    "tests/test_ui/test_templates.py",
+]
