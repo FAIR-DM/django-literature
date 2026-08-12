@@ -1,18 +1,22 @@
 {% load i18n %}
 <c-card>
   <c-slot name="badges">
-    <c-badge text="{{ object.get_type_display }}" />
+    <c-badge variant="primary" text="{{ object.get_type_display }}" />
   </c-slot>
   <h3 class="text-lg font-semibold">
-    <a href="{% url 'literature:item-detail' pk=object.pk %}">{{ object.title|default:object.citation_key }}</a>
+    <c-link hover href="{% url 'literature:item-detail' pk=object.pk %}">{{ object.title|default:object.citation_key }}</c-link>
   </h3>
-  {% regroup object.item_names.all by get_role_display as contributor_groups %}
-  {% if contributor_groups %}
+  {% comment %}
+    Grouped by the view, not here: a role heading reads "Authors" over three
+    names and "Author" over one, and choosing between those needs the group's
+    size and the active language's plural forms. See literature/ui/contributors.py.
+  {% endcomment %}
+  {% if object.contributor_groups %}
     <c-text size="sm" muted>
-      {% for group in contributor_groups %}
-        {{ group.grouper }}:
-        {% for item_name in group.list %}
-          {{ item_name.name }}{% if not forloop.last %}, {% endif %}
+      {% for group in object.contributor_groups %}
+        {{ group.label }}:
+        {% for name in group.names %}
+          <c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}
         {% endfor %}
         {% if not forloop.last %}&middot;{% endif %}
       {% endfor %}
@@ -28,5 +32,8 @@
       <c-text size="sm" muted>{% translate "Issued" %}: {% include "literature/ui/_date_value.html" %}</c-text>
     {% endif %}
   {% endfor %}
-  <c-text size="xs" muted>{{ object.citation_key }}</c-text>
+  {% if object.abstract %}
+    <c-text size="sm" muted>{{ object.abstract|truncatewords:30 }}</c-text>
+  {% endif %}
+  <c-text size="xs" muted>{% translate "Cite key" %}: {{ object.citation_key }}</c-text>
 </c-card>

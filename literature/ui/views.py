@@ -13,14 +13,28 @@ from django.utils.translation import gettext_lazy as _
 from mvp.views import MVPDetailView, MVPListView
 
 from literature.models import Item, ItemName, Name
+from literature.ui.contributors import contributor_groups
 from literature.ui.fields import scalar_fields
 from literature.ui.links import web_url
+
+#: What the catalogue calls itself, everywhere a reader is shown its name — the
+#: list page's own heading and the breadcrumb back to it from both other pages.
+#: "Item" is the model's name and reads as the store's vocabulary rather than
+#: the reader's, but renaming the model to fix one heading would rename it in
+#: the admin and in the migration state too, so the name is set here instead.
+CATALOGUE_TITLE = _("Publications")
+
+#: The same word where the page uses it inside a sentence, as its own message
+#: rather than ``CATALOGUE_TITLE.lower()``: lowercasing is an English habit and
+#: a language that capitalises its nouns would be served the wrong form.
+CATALOGUE_NAME_PLURAL = _("publications")
 
 
 class ItemListView(MVPListView):
     """The catalogue list — FR-012, FR-014, FR-015, FR-018, FR-027, FR-029."""
 
     model = Item
+    page_title = CATALOGUE_TITLE
     # No ``template_name``: the page renders through django-mvp's own
     # ``list_view.html``, which the package reaches via the pass-through
     # ``base.html`` this app ships until django-mvp carries a default of its
@@ -42,12 +56,38 @@ class ItemListView(MVPListView):
         # constant number of queries regardless of catalogue size.
         return super().get_queryset().prefetch_related("item_names__name", "item_dates")
 
+    def get_model_info(self):
+        # django-mvp's list template writes its position line from this, as
+        # "Showing 1-24 of 28 {verbose_name_plural}" directly under the page's
+        # heading. Left to the model's own name, the two lines name the same
+        # collection two different ways a few pixels apart.
+        return {**super().get_model_info(), "verbose_name_plural": CATALOGUE_NAME_PLURAL}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # A row's role heading has to agree with the number of names under it,
+        # and no template-level ``{% regroup %}`` can turn that count into the
+        # right plural form in a language declaring more than two. Iterating
+        # the page caches it in place, so these are the objects the template
+        # goes on to render, and the grouping reads the queryset's prefetch
+        # rather than querying per row.
+        for page_item in context["object_list"]:
+            page_item.contributor_groups = contributor_groups(page_item)
+
+        return context
+
 
 class ItemDetailView(MVPDetailView):
     """The reference page — FR-019, FR-025, FR-027."""
 
     model = Item
     template_name = "literature/ui/item_detail.html"
+
+    # The breadcrumb's own text, which otherwise derives from the model's
+    # verbose_name_plural and would read "Items" beside a page titled
+    # "Publications".
+    list_view_title = CATALOGUE_TITLE
 
     # Reverses the breadcrumb's list link. The default False leaves it
     # href-less: PageObjectMixin.get_breadcrumbs() calls resolve_crud_url("list")
@@ -73,6 +113,7 @@ class ItemDetailView(MVPDetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["scalar_fields"] = list(scalar_fields(self.object))
+        context["contributor_groups"] = contributor_groups(self.object)
 
         # Whether an identifier may be rendered as a link is decided here,
         # against a scheme allowlist, and never in the template: a template
@@ -123,7 +164,7 @@ class ContributorDetailView(ItemListView):
 
     def get_breadcrumbs(self):
         return [
-            {"text": Item._meta.verbose_name_plural.title(), "href": reverse("literature:item-list")},
+            {"text": CATALOGUE_TITLE, "href": reverse("literature:item-list")},
             {"text": self.get_page_title()},
         ]
 
