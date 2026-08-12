@@ -3,7 +3,7 @@
   "feature": "006-browse-reference-catalogue",
   "branch": "006-browse-reference-catalogue",
   "repo": "FAIR-DM/django-literature",
-  "state": "PR_READY",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "INTAKE",
@@ -49,6 +49,11 @@
       "state": "PR_READY",
       "at": "2026-08-11T21:15:00Z",
       "note": "S6 exit green: 3 correctness findings and 1 security finding, all verified and remedied (RC-001/RS-001 in 5911cad, RC-002 and RC-003 in df55bcb); review report posted on PR #55. PR body rewritten to contract, marked ready for review at 4cf18c4, all checks green."
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-12T08:26:59Z",
+      "note": "PR #55 merged; approved by SamuelJennings"
     }
   ],
   "gates": {
@@ -69,8 +74,8 @@
       "at": "2026-08-11T14:20:00Z"
     },
     "merge": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-12T08:26:29Z"
     }
   },
   "stories": [
