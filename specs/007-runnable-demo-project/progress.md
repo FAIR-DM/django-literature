@@ -223,3 +223,105 @@ printed address) and against `demo/settings.py`'s `DEBUG`/`SECRET_KEY`/`DATABASE
 match what is documented.
 Next: full suite, pre-commit, completion report.
 Watch: none.
+
+## 2026-08-12T11:55Z · Implementer US2 · T011
+
+Did: Wrote `tests/test_demo/test_seed.py`, `TestSeedCatalogue` — one test per research.md R8 shape
+(item-type spread, 8+ contributors, exactly-2 contributors, one contributor under two roles across
+two references, year-only date, full date, date range, 2+ identifier types with a DOI, exactly one
+bare reference, total above `paginate_by`). Reads `demo/seed/catalogue.json` as plain JSON — no
+Django app registry beyond what pytest-django already set up, no database, no subprocess. The one
+exception is `paginate_by`, read from `literature.ui.views.ItemListView.paginate_by` at collection
+time rather than hard-coded (T011-paginate) — confirmed via
+`poetry run python -c "...ItemListView.paginate_by..."` under `tests.settings` before writing the
+test: 24. Role, date-slot and identifier-type vocabularies come from `literature.choices`
+(`NameRole`, `DateType`, `IdentifierType`) rather than being retyped, so the test can't drift from
+the package's own source of truth the way a hand-typed list could.
+Verified: RED observed against the placeholder catalogue —
+`poetry run pytest tests/test_demo/test_seed.py -v` → 6 failed, 4 passed. Failures, all for the
+expected reason (the placeholder is four entries with three item types and no sparse/paginate/date-
+range shape):
+```
+FAILED ...test_covers_at_least_ten_distinct_item_types - AssertionError: assert 3 >= 10
+FAILED ...test_a_contributor_is_credited_on_two_references_under_two_different_roles - AssertionError: no contributor is credited under two different roles across two references
+FAILED ...test_has_a_year_only_date - AssertionError: assert 'year' in {'other'}
+FAILED ...test_has_a_date_range - AssertionError: assert 'range' in {'other'}
+FAILED ...test_has_exactly_one_reference_with_no_contributors_dates_or_identifiers - assert 0 == 1
+FAILED ...test_has_enough_references_to_paginate - AssertionError: assert 4 > 24
+```
+The four that passed against the placeholder (8+ contributors via Vaswani, exactly-2 via
+Watson/Crick, a full date, 2+ identifier types with a DOI) are shapes T007's placeholder happened
+to already carry; T012's curated catalogue must keep them true, not just make the other six pass.
+Next: T012 — curate `demo/seed/catalogue.json` to turn all ten green.
+Watch: none.
+
+## 2026-08-12T12:10Z · Implementer US2 · T012
+
+Did: Replaced the four-entry placeholder in `demo/seed/catalogue.json` with 28 curated CSL JSON
+entries. 22 sourced live via DOI content negotiation
+(`curl -sLH 'Accept: application/vnd.citationstyles.csl+json' https://doi.org/<doi>`) against
+Crossref and DataCite (Zenodo, PANGAEA); 6 books/webpages that carry no DOI in the wild (a classic
+text, two trade books, a PEP, a blog post, an encyclopedia entry) were hand-assembled from public
+bibliographic records (Open Library ISBN lookups, the live PEP 8 and SEP pages) rather than
+invented. Every entry got an explicit readable `citation-key` — Crossref returns `id` as the bare
+DOI, and the converter falls back `citation-key` → `id` (converters.py:311-330), so without this
+every sourced entry's citation key would be its DOI rather than an AuthorYear form. Two Crossref
+data-quality issues found and corrected, recorded as decisions.md D10: Crossref's CSL export
+returns its own internal type slugs (`journal-article`, `proceedings-article`, `monograph`,
+`book-chapter`) rather than the matching CSL JSON 1.0.2 values for several types, and one Zenodo
+software record duplicated a contributor and used unsplit full names in `family` (corrected to
+`literal`).
+13 distinct item types: article-journal, book, chapter, classic, dataset, entry-encyclopedia,
+paper-conference, post-weblog, report, review-book, software, thesis, webpage. Vaswani et al.
+2017 ("Attention Is All You Need") carries 8 authors; Watson & Crick 1953, among others, carries
+exactly 2. Douglas Hofstadter is credited as author on Hofstadter1979 (Gödel, Escher, Bach) and as
+translator on Sagan2009 (That Mad Ache, Françoise Sagan) — one contributor, two references, two
+roles. PANGAEA.734969 and the Iseli2014 thesis carry year-only `issued` dates; Watson & Crick 1953
+carries a full date; Vaswani2017 carries an `event-date` range (NeurIPS 2017, Dec 4–9). Identifier
+types present: DOI (22 entries), ISBN (2), URL (4). `Beowulf` is the one bare entry — no
+contributors, no dates, no identifiers, a real anonymous work for which none of the three is
+actually known. 28 > 24 (`paginate_by`).
+Verified: `poetry run pytest tests/test_demo/test_seed.py -v` → 10 passed (T011 green).
+`poetry run pytest tests/test_demo/test_commands.py -v` → 5 passed, including
+`TestSeedDemo::test_loads_the_catalogue`, which asserts `item_count == len(catalogue)` against a
+scratch database — proves every one of the 28 entries imports cleanly through
+`from_csl_json_list`, not just that the file parses. Confirmed by hand too:
+`DEMO_DB_PATH=/tmp/dl-demo-t012/db.sqlite3 poetry run python manage.py seed_demo` →
+`seed_demo loaded 28 references from .../demo/seed/catalogue.json`, scratch directory removed
+after. `poetry run ruff check tests/test_demo/test_seed.py` → all checks passed (catalogue.json is
+JSON, not Python — the pre-commit `ruff` hook is `types: [python]` and does not touch it; a plain
+`ruff check demo/seed/catalogue.json` misparses JSON as a Python module and is not a real signal,
+noted here so it isn't repeated).
+Next: T013 — confirm by hand that the reference page, the contributor page, the list's second
+page, and the sparse reference all render over the curated catalogue.
+Watch: none.
+
+## 2026-08-12T12:25Z · Implementer US2 · T013
+
+Did: Confirmed by hand that the curated catalogue renders correctly across the four pages T013
+names. Scratch database at `/tmp/dl-demo-t013/db.sqlite3` (removed afterward):
+`DEMO_DB_PATH=... poetry run python manage.py migrate --noinput -v 0`, then `seed_demo` → "loaded
+28 references", then `runserver 127.0.0.1:8766 --noreload` in the background (8000 was already in
+use locally).
+Verified (all four via `curl`, status and rendered content, not status alone):
+- List page 1 — `GET /catalogue/` → 200, 24 item links (`/catalogue/5/` … `/catalogue/28/`),
+  pagination control offering `?page=1` and `?page=2`.
+- List page 2 — `GET /catalogue/?page=2` → 200, the remaining 4 items (Shannon, Cerf & Kahn among
+  them) — 28 total across the two pages, matching `len(catalogue)`.
+- Reference page — `GET /catalogue/2/` (Watson & Crick 1953, `pk=2`) → 200, title, both authors,
+  and the DOI all present in the body; "Contributors", "Dates" and "Identifiers" section headings
+  all present.
+- Contributor page — `GET /catalogue/contributors/68/` (Douglas Hofstadter, `pk=68` — found via
+  `Name.objects.filter(family="Hofstadter").first()`) → 200, both "Gödel, Escher, Bach" (author)
+  and "That Mad Ache" (translator) listed — the two-roles-two-references shape from T012 actually
+  reachable by browsing, not just present in the seed file.
+- Sparse reference — `GET /catalogue/23/` (Beowulf, `pk=23` — found via
+  `Item.objects.get(citation_key="Beowulf").pk`) → 200, title renders, and none of "Contributors",
+  "Dates" or "Identifiers" appears in the body — confirmed against `literature/ui/item_detail.html`,
+  whose three sections are each gated on `{% if %}` (`contributor_groups`, `object.item_dates.all`,
+  `identifiers`) and so are omitted rather than rendered empty.
+Server killed and the scratch database directory removed; `git status` clean afterward, no
+`.sqlite3` tracked.
+Next: full suite (`poetry run pytest -q`) and `poetry run pre-commit run --all-files` before the
+story completion report.
+Watch: none.

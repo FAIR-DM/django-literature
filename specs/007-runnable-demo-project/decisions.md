@@ -199,3 +199,47 @@ on the absence of a message alone — a request that dies before reaching a temp
 either, which is how the first draft of that test passed against the unfixed code.
 
 **ADR**: none.
+
+## D10 — Crossref's CSL content-negotiation export carries its own type slugs, not CSL JSON 1.0.2 values
+
+**Ambiguity**: T012 asked for the curated catalogue to be sourced live via DOI content negotiation
+(`curl -sLH 'Accept: application/vnd.citationstyles.csl+json' https://doi.org/<doi>`), which the
+brief and the rituals both name as the intended path over hand-writing records. Fetching real
+Crossref-registered DOIs this way returns `"type"` values that are Crossref's own internal
+taxonomy — `journal-article`, `proceedings-article`, `monograph`, `book-chapter` — not the matching
+CSL JSON 1.0.2 values `literature.choices.ItemType` accepts (`article-journal`, `paper-conference`,
+`book`, `chapter`). The response's `Content-Type` header does read
+`application/vnd.citationstyles.csl+json`, and every other field (title, author, issued,
+container-title, DOI) is standard CSL; only `type` carries the mismatch. `from_csl_json_list` would
+skip every one of these entries with a `ValidationError` and log them as unrecognised, which
+`seed_demo` (T008) turns into a non-zero exit — the catalogue would fail to load at all rather than
+merely mis-render.
+
+**Chosen**: normalise `type` against `literature.choices.ItemType` after fetching, keeping every
+other field from the negotiated response unedited. The mapping used:
+`journal-article` → `article-journal`, `proceedings-article` → `paper-conference`,
+`monograph` → `book`, `book-chapter` → `chapter`. DataCite-registered DOIs (the Zenodo and PANGAEA
+entries) did not need this — their `type` values (`dataset`, `software`, `thesis`) already match
+CSL JSON 1.0.2 directly. One Zenodo software record (`Montani2023`, spaCy) also carried a
+duplicated contributor and unsplit full names under `family` rather than `literal` — corrected the
+same way, by editing the fetched data rather than discarding the record.
+
+**Why defensible**: the alternative was to treat every Crossref-sourced record as unusable and
+fall back to hand-writing CSL JSON from scratch, which is the very practice T012's "source real
+CSL JSON rather than writing records by hand" instruction exists to avoid — the risk it guards
+against is invented bibliographic *facts* (a title, an author, a date that doesn't correspond to a
+real work), not a container-level classification field that Crossref's own transform endpoint gets
+wrong. Every substantive fact in each corrected entry — title, authorship, venue, date, identifier
+— is exactly what the DOI resolved to; only the CSL type slug was rewritten to the value CSL JSON
+1.0.2 (and this package) actually defines, checked against `ItemType.values` for every entry before
+the file was committed.
+
+**Watch**: a handful of entries have no DOI at all — a classic text with no assigned identifier
+(the catalogue's intentionally bare reference), two trade books whose publishers didn't register a
+DOI, a PEP, a blog post, and an encyclopedia entry. These were assembled from public bibliographic
+records (Open Library ISBN lookups for the books, the live pages for the PEP and the encyclopedia
+entry) rather than DOI content negotiation, since content negotiation has nothing to return for a
+work that was never assigned a DOI.
+
+**ADR**: none — the correction is local to this feature's seed data and does not change any
+package behaviour.
