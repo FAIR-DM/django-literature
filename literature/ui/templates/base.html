@@ -1,17 +1,19 @@
 {% extends "mvp/base.html" %}
-{# A stop-gap, not a template of ours to fill in.
+{% comment %}
+  A stop-gap, not a template of ours to fill in.
 
-   django-mvp routes every packaged page through `base.html` — `page_view.html`
-   extends it, and `list_view.html` and `detail_view.html` extend that in turn.
-   The name belongs to the host project, and django-mvp ships no default for it,
-   so an installable app cannot reach the packaged chain in a project that has
-   not written one.
+  django-mvp routes every packaged page through `base.html` — `page_view.html`
+  extends it, and `list_view.html` and `detail_view.html` extend that in turn.
+  The name belongs to the host project, and django-mvp ships no default for it,
+  so an installable app cannot reach the packaged chain in a project that has
+  not written one.
 
-   This file is that default, and nothing else: it forwards to `mvp/base.html`
-   and defines no block, so a project that ships its own `base.html` overrides
-   it completely and loses nothing. A project's own template directory is
-   searched before any app's, so a project-level `base.html` always wins; the
-   only case this file takes over is a project that has none, which is the case
-   it exists for.
+  This file is that default, and nothing else: it forwards to `mvp/base.html`
+  and defines no block, so a project that ships its own `base.html` overrides
+  it completely and loses nothing. A project's own template directory is
+  searched before any app's, so a project-level `base.html` always wins; the
+  only case this file takes over is a project that has none, which is the case
+  it exists for.
 
-   It is deleted the moment django-mvp ships a default of its own (django-mvp#219). #}
+  It is deleted the moment django-mvp ships a default of its own (django-mvp#219).
+{% endcomment %}

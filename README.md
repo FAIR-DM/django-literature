@@ -214,9 +214,48 @@ urlpatterns = [
 The routes are namespaced `literature`, so a template reverses them as `{% url 'literature:item-list' %}`
 and `{% url 'literature:item-detail' pk=item.pk %}`.
 
+One route the shell expects is the project's own. django-mvp's mobile navigation carries a Home
+item pointing at a view named `home`, and the shell renders that navigation on every page, so a
+project without a route of that name gets a reversal warning on each render and a Home button that
+goes nowhere. Point it wherever your project's front door is:
+
+```python
+# urls.py
+from django.views.generic import RedirectView
+
+urlpatterns = [
+    # ...
+    path("", RedirectView.as_view(pattern_name="literature:item-list"), name="home"),
+]
+```
+
 That is every step. Once the URLs are included, the catalogue list, the reference page and the
 contributor page are live. No view, template, URL pattern, or line of styling is left for the host
 to write.
+
+### Try it: the demo project
+
+The repository carries a runnable demo of everything above, wired the same way this section
+documents. From a fresh clone, with dependencies installed:
+
+```bash
+poetry install --extras ui
+python manage.py migrate
+python manage.py seed_demo
+python manage.py runserver
+```
+
+`migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
+`runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
+reference page and a contributor page are all live and populated.
+
+`seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
+again returns the demo to the same seeded state whatever state it was in before — including
+discarding anything you added through the admin. Once seeded, `runserver` on its own is enough for
+subsequent runs.
+
+The demo is not a production configuration: `DEBUG` is on, the database is a local SQLite file, and
+the secret key is a throwaway value committed in `demo/settings.py`. Do not deploy it as-is.
 
 ---
 

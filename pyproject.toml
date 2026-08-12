@@ -204,9 +204,13 @@ repository = "https://github.com/FAIR-DM/django-literature"
 # boundary as its subject, test_packaging.py takes pyproject.toml, and
 # test_boot.py takes the core booting with the UI app absent — none of the four
 # mirrors a Python module.
+# tests/test_demo/ is declared once, as a directory prefix: its subject is the
+# demo project, which lives outside the literature/ source tree the mirror
+# rule is defined against (plan.md D-9).
 non-mirror-paths = [
     "tests/test_ui/test_architecture.py",
     "tests/test_ui/test_boot.py",
     "tests/test_ui/test_packaging.py",
     "tests/test_ui/test_templates.py",
+    "tests/test_demo/",
 ]

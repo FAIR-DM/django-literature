@@ -18,8 +18,10 @@
       {% endfor %}
     </c-text>
   {% endif %}
-  {# The contributor page's credit row is this row plus its own roles line (FR-034), so it extends
-     this template and fills the block rather than restating the card. #}
+  {% comment %}
+    The contributor page's credit row is this row plus its own roles line (FR-034), so it extends
+    this template and fills the block rather than restating the card.
+  {% endcomment %}
   {% block credited_roles %}{% endblock %}
   {% for item_date in object.item_dates.all %}
     {% if item_date.date_type == "issued" %}

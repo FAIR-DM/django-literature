@@ -1,5 +1,7 @@
-{# One date, rendered at the precision stored (FR-013): a range keeps both ends, a single
-   date keeps its own partial precision, and a date the store only holds as free text falls
-   back to that. Included by both the catalogue row and the reference page so the two cannot
-   drift apart (RC-002). #}
+{% comment %}
+  One date, rendered at the precision stored (FR-013): a range keeps both ends, a single
+  date keeps its own partial precision, and a date the store only holds as free text falls
+  back to that. Included by both the catalogue row and the reference page so the two cannot
+  drift apart (RC-002).
+{% endcomment %}
 {% if item_date.end %}{{ item_date.begin }} &ndash; {{ item_date.end }}{% elif item_date.begin %}{{ item_date.begin }}{% elif item_date.literal %}{{ item_date.literal }}{% endif %}
