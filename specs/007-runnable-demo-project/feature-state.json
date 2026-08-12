@@ -43,6 +43,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-12T10:40:00Z",
       "note": "US1 dispatched (sonnet, worktree dl-us1-fs007); plan notification sent carrying the design-review verdict"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-12T10:48:00Z",
+      "note": "US1 done: T001-T010 verified independently (forge verify: lint/typecheck/test/build green, conformance red on tests/test_demo/ — expected, T018 declares the non-mirror path; tamper-check clean; pre-commit green); merged 007-us1 into 007-runnable-demo-project"
     }
   ],
   "gates": {
@@ -73,7 +78,7 @@
       "priority": "P1",
       "issue": 59,
       "worktree": "/home/sam/projects/fairdm/dl-us1-fs007",
-      "status": "in_progress",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
