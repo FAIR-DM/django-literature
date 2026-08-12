@@ -209,3 +209,17 @@ passed.
 Next: T010 (README documentation).
 Watch: the `Could not reverse URL for view 'home'` warning noted at T005 also appears here — same
 pre-existing concern, not new to this task.
+
+## 2026-08-12T11:50Z · Implementer US1 · T010
+
+Did: Added a "Try it: the demo project" subsection to README.md, right after the front-end install
+steps and before "Quick Start": the one command (`python manage.py demo`), what it does (creates
+the database, migrates, loads the seed, starts the server), what to expect (the address to open and
+that the three page kinds are live and populated), that re-running returns the demo to the seeded
+state, and a plain statement that the demo is not a production configuration (DEBUG on, SQLite file,
+throwaway secret key) — FR-008.
+Verified: read the new section back against T009's actual behaviour (migrate, seed_demo, runserver,
+printed address) and against `demo/settings.py`'s `DEBUG`/`SECRET_KEY`/`DATABASES` values — all
+match what is documented.
+Next: full suite, pre-commit, completion report.
+Watch: none.
