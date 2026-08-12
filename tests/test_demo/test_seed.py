@@ -98,10 +98,7 @@ class TestSeedCatalogue:
 
     def test_has_a_year_only_date(self, catalogue):
         precisions = {
-            _date_precision(entry[date_key])
-            for entry in catalogue
-            for date_key in _DATE_KEYS
-            if date_key in entry
+            _date_precision(entry[date_key]) for entry in catalogue for date_key in _DATE_KEYS if date_key in entry
         }
         assert "year" in precisions
 
@@ -118,10 +115,7 @@ class TestSeedCatalogue:
 
     def test_has_a_date_range(self, catalogue):
         precisions = {
-            _date_precision(entry[date_key])
-            for entry in catalogue
-            for date_key in _DATE_KEYS
-            if date_key in entry
+            _date_precision(entry[date_key]) for entry in catalogue for date_key in _DATE_KEYS if date_key in entry
         }
         assert "range" in precisions
 
