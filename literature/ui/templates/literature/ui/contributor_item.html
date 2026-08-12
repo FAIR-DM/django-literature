@@ -1,7 +1,9 @@
 {% extends "literature/ui/item_list_item.html" %}
 {% load i18n %}
-{# FR-034: a credit row carries the catalogue row's content. Extending the catalogue row is what
-   keeps that true — the two cannot drift apart — and the roles line is all this page adds. #}
+{% comment %}
+  FR-034: a credit row carries the catalogue row's content. Extending the catalogue row is what
+  keeps that true — the two cannot drift apart — and the roles line is all this page adds.
+{% endcomment %}
 {% block credited_roles %}
   {% if object.credited_roles %}
     <c-text size="sm" muted>

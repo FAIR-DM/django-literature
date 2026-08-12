@@ -32,7 +32,8 @@ class TestPassthroughBaseTemplate:
         # A block here would be content a host silently inherits and cannot see.
         # Everything outside the extends tag and its explanatory comment must be
         # whitespace, so overriding this file costs a host nothing.
-        source = re.sub(r"\{#.*?#\}", "", self._source(), flags=re.DOTALL)
+        source = _DJANGO_BLOCK_COMMENT_RE.sub("", self._source())
+        source = _DJANGO_COMMENT_RE.sub("", source)
         source = source.replace('{% extends "mvp/base.html" %}', "")
         assert source.strip() == ""
 
@@ -365,7 +366,21 @@ READER_FACING_ATTRIBUTES = ("title", "label", "text", "heading", "message", "pla
 
 _BLOCKTRANSLATE_RE = re.compile(r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL)
 _TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}")
-_DJANGO_COMMENT_RE = re.compile(r"\{#.*?#\}", re.DOTALL)
+#: ``{# … #}`` is a SINGLE-LINE comment. Django's own lexer compiles
+#: ``({%.*?%}|{{.*?}}|{#.*?#})`` without ``re.DOTALL``, so a ``{#`` whose ``#}``
+#: sits on a later line is never tokenised as a comment and the whole block is
+#: emitted to the page as literal text. This regex deliberately mirrors that —
+#: matching with ``re.DOTALL`` here is what let four multi-line ``{# … #}``
+#: blocks ship and render to readers while this guard stayed green, because the
+#: guard held the same wrong belief the templates did.
+_DJANGO_COMMENT_RE = re.compile(r"\{#[^\n]*?#\}")
+#: ``{% comment %}…{% endcomment %}`` is the multi-line form and is genuinely
+#: never rendered. Stripped before the generic tag regex, which would otherwise
+#: remove the two tags and leave their prose behind as residue.
+_DJANGO_BLOCK_COMMENT_RE = re.compile(
+    r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}",
+    re.DOTALL,
+)
 _DJANGO_TAG_RE = re.compile(r"\{%.*?%\}", re.DOTALL)
 _DJANGO_VAR_RE = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 _HTML_TAG_RE = re.compile(r"<[^>]*>", re.DOTALL)
@@ -386,10 +401,14 @@ def reader_visible_residue(source: str) -> str:
     reader-facing) is removed with its tag rather than surfacing as residue.
     What remains still carries structural punctuation — ``:``, ``,``,
     ``&middot;``, ``&ndash;`` — because none of it is filtered by name; see
-    :func:`has_unwrapped_reader_text`. ``{# … #}`` comments go first: the
-    template engine never renders them, so their prose is not text a reader
-    sees and translating it would be meaningless."""
-    text = _DJANGO_COMMENT_RE.sub(" ", source)
+    :func:`has_unwrapped_reader_text`. Comments go first: the template engine
+    never renders them, so their prose is not text a reader sees and
+    translating it would be meaningless. Both comment forms are stripped, and
+    only the forms Django actually treats as comments — a multi-line
+    ``{# … #}`` is not one, so its prose survives here and is reported as
+    reader-facing text, which is exactly what it becomes on the page."""
+    text = _DJANGO_BLOCK_COMMENT_RE.sub(" ", source)
+    text = _DJANGO_COMMENT_RE.sub(" ", text)
     text = _BLOCKTRANSLATE_RE.sub(" ", text)
     text = _TRANSLATE_TAG_RE.sub(" ", text)
     text = _DJANGO_TAG_RE.sub(" ", text)
@@ -448,6 +467,17 @@ class TestI18nGuard:
 
     def test_ignores_prose_inside_a_template_comment(self):
         assert not has_unwrapped_reader_text("{# a note to the next reader of this file #}")
+
+    def test_ignores_prose_inside_a_block_comment(self):
+        assert not has_unwrapped_reader_text("{% comment %}\n  a note\n  over several lines\n{% endcomment %}")
+
+    def test_detects_prose_in_a_multiline_single_line_comment(self):
+        # Django's lexer has no re.DOTALL, so this is not a comment at all: the
+        # whole block reaches the page as literal text. Four of these shipped and
+        # rendered "FR-034", "RC-002" and a paragraph about date precision next to
+        # the reader's data. The guard missed them because it stripped `{# … #}`
+        # with re.DOTALL, believing what the templates believed.
+        assert has_unwrapped_reader_text("{# a note\n   spanning two lines #}")
 
     def test_accepts_the_same_string_wrapped_in_blocktranslate(self):
         assert not has_unwrapped_reader_text(
