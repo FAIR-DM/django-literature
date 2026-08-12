@@ -378,3 +378,36 @@ assertion catches the edit that would change it.
 configuration ever changes, this check is the one to repeat.
 
 **ADR:** none — a verification method applied once at convergence, not a rule anything follows.
+
+## D14 — The composite `demo` command is removed; the documented path is three stock commands
+**Ambiguity**: None at specification time. FR-003 asked for "one documented command", and T009
+delivered `demo/management/commands/demo.py` wrapping `migrate`, `seed_demo` and `runserver`.
+
+**Chosen**: The command is deleted. The documented path is `python manage.py migrate`, then
+`python manage.py seed_demo`, then `python manage.py runserver`. The maintainer's instruction,
+2026-08-12, after running the demo: the wrapper is unnecessary overhead, and asking someone to run
+the seed command explicitly before serving is not too much.
+
+**Why defensible**: the wrapper carried no logic of its own beyond ordering three stock commands
+and turning off the autoreloader. Against that, it cost a file, a test class, a line in the CI
+workflow and a name that collides with the project package. It also hid the destructive step: a
+reader who runs `manage.py demo` has no reason to expect their admin edits to be discarded,
+whereas `seed_demo` says what it does at the point they type it. The one-command promise was a
+convenience the specification inferred from the issue's phrasing, not a requirement the issue
+defended, and the maintainer owns that call.
+
+**Consequences applied**: `spec.md` FR-003, FR-004, SC-001, User Story 1's narrative, independent
+test and scenarios 1, 3 and 5 are refined in place with a dated note; the clarification-scan answer
+that restated the one-command reading is struck through rather than deleted. The missing-`ui`-extra
+guarantee moves off the deleted command's test onto `migrate` — the guard was always in
+`demo/settings.py` (D8), so it holds for every step rather than for one composite command. The
+held-back CI workflow patch runs the three commands in place of the one. The README's demo section
+documents the sequence and states that `seed_demo` is destructive.
+
+**What this gives up, recorded honestly**: the design review's SPEC-001 finding was that no check
+ever ran the single documented command. That finding dissolves rather than regresses — there is no
+composite command left to go untested — but the shape of the risk survives: the CI guard now runs
+the same three commands the README lists, and if the README and the workflow drift apart nothing
+notices. SC-010 is the standing check on that, and it is a human reading rather than a machine one.
+
+**ADR:** none — a product call on one project's demo, inherited by nothing.

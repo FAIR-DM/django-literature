@@ -231,16 +231,21 @@ class TestSeedDemo:
         assert _inspect(db_path)["citation_keys"] == ["Alpha2020"]
 
 
-class TestDemoCommand:
-    """``python manage.py demo`` — plan.md D-2, the one documented command (FR-003)."""
+class TestMissingUIExtra:
+    """The demo says so plainly when the ``ui`` extra was never installed.
+
+    The subject is the import guard in ``demo/settings.py``, so this holds for every
+    step of the documented sequence rather than for one composite command. It is
+    checked against ``migrate``, the first step someone runs (decisions.md D14).
+    """
 
     def test_fails_with_a_plain_message_when_the_ui_extra_is_missing(self, tmp_path):
         # django.setup() populates every INSTALLED_APPS entry before any management
         # command's handle() runs (django.core.management.ManagementUtility.execute()),
         # so a missing UI dependency can only be caught before that point — in
-        # demo/settings.py itself, not in demo.py (decisions.md D8). Shadow the real
-        # "mvp" package with a stub that fails to import, to simulate the ui extra
-        # never having been installed.
+        # demo/settings.py itself (decisions.md D8). Shadow the real "mvp" package
+        # with a stub that fails to import, to simulate the ui extra never having
+        # been installed.
         stub_dir = tmp_path / "stub"
         stub_dir.mkdir()
         (stub_dir / "mvp.py").write_text("raise ImportError(\"No module named 'mvp'\")\n")
@@ -251,7 +256,7 @@ class TestDemoCommand:
         env["PYTHONPATH"] = str(stub_dir) + os.pathsep + env.get("PYTHONPATH", "")
 
         result = subprocess.run(  # noqa: S603 — fixed interpreter, literal args, no user input
-            [sys.executable, str(_MANAGE_PY), "demo"],
+            [sys.executable, str(_MANAGE_PY), "migrate"],
             capture_output=True,
             text=True,
             check=False,

@@ -22,7 +22,7 @@
 Resolved from the intake session's context rather than escalated. Fuller rationale is in `decisions.md`.
 
 - Q: The store carries 45 CSL item types, which a catalogue of twenty to thirty items cannot hold one of each. Does the seed catalogue have to cover every type? → A: No. It carries a representative range — the types a research literature collection actually contains — and coverage of all 45 stays where it already lives, in the test suite, which FS-006's SC-008 already requires to render every one of them. A demo that exists to be looked at is not the right place to assert an exhaustive matrix, and making it one would trade the curated set the intake session asked for against a checklist nobody reads.
-- Q: Does "one documented command" include installing the project's dependencies? → A: No. Installing dependencies is the step a clone of any Python project already requires and the repository already documents. The promise begins after it: from there, one command creates the database, loads the seed catalogue and serves the front end, with nothing else to run and nothing else to read.
+- Q: Does "one documented command" include installing the project's dependencies? → A: No. Installing dependencies is the step a clone of any Python project already requires and the repository already documents. The promise begins after it: from there, ~~one command creates the database, loads the seed catalogue and serves the front end~~ *(refined 2026-08-12 — the composite command was removed at the maintainer's instruction; the documented path is `migrate`, `seed_demo`, `runserver`, see decisions.md D14)*, with nothing else to run and nothing else to read. The part this answer settles — that dependency installation is a precondition rather than part of the demo's own steps — is unchanged.
 - Q: What must the guard actually confirm, given "its pages still render"? → A: That every page the front end serves is reached through the demo project's own URL configuration over the seeded catalogue, responds successfully, and carries content from the seed rather than an empty shell. A page that returns a success code while rendering nothing of the catalogue is a page that has broken in the way this guard exists to catch.
 - Q: Does starting the demo require creating an account, and does the admin the demo already mounts stay? → A: No account, and yes it stays. The front end's pages are open, which FS-006 already settled, so browsing needs no sign-in and the documented start creates no user. The admin stays mounted as it is today for anyone who wants to poke at the data, and reaching it is not part of the documented path.
 - Q: Does the repository keep a pre-built demo database? → A: No. The repository holds the reference data as source, and the start command builds the database from it. A committed database is a binary nobody can review, drifts from the migrations silently, and would make the seed catalogue two things that can disagree.
@@ -31,19 +31,19 @@ Resolved from the intake session's context rather than escalated. Fuller rationa
 
 ### User Story 1 - Start the demo and browse real references (Priority: P1)
 
-Someone has found the package and wants to know what it does before reading any of it. They clone the repository, install its dependencies the way the repository already documents, and run one command. The command builds a database, loads the catalogue, and serves the front end. They open the address it prints and browse a populated catalogue — a list of references, a page for any one of them, a page for any contributor named on it. Nothing else is run and nothing else is read.
+Someone has found the package and wants to know what it does before reading any of it. They clone the repository, install its dependencies the way the repository already documents, and follow three documented steps: build the database, load the catalogue, serve the site. They open the address and browse a populated catalogue — a list of references, a page for any one of them, a page for any contributor named on it. Each step is a stock Django command doing the obvious thing, and nothing beyond them is run or read.
 
 **Why this priority**: It is the whole of what the issue asks for on the evaluation side, and every other story here depends on the demo existing. Delivered alone it replaces the only way to see the front end today, which is to build a project around it by hand.
 
-**Independent Test**: From a fresh clone on a machine holding no prior state, follow the documented steps and confirm a served front end over a populated catalogue is reached with one command after dependency installation.
+**Independent Test**: From a fresh clone on a machine holding no prior state, follow the documented steps and confirm a served front end over a populated catalogue is reached by following them, with nothing to work out.
 
 **Acceptance Scenarios**:
 
-1. **Given** a fresh clone with dependencies installed and no database present, **When** the documented command is run, **Then** the database is created, the seed catalogue is loaded, the server starts, and the catalogue list renders the seeded references.
+1. **Given** a fresh clone with dependencies installed and no database present, **When** the documented steps are run in order, **Then** the database is created, the seed catalogue is loaded, the server starts, and the catalogue list renders the seeded references.
 2. **Given** the demo running, **When** a reader follows a reference from the list, **Then** that reference's page renders its record, and a contributor named on it leads to that contributor's page.
-3. **Given** a demo whose database already exists and has been changed, **When** the documented command is run again, **Then** the catalogue returns to exactly the seeded state.
+3. **Given** a demo whose database already exists and has been changed, **When** the seed step is run again, **Then** the catalogue returns to exactly the seeded state.
 4. **Given** the demo running, **When** a reader browses any of its pages, **Then** nothing asks them to sign in and no account was created to start it.
-5. **Given** someone reading the repository for the first time, **When** they look for how to run the demo, **Then** the command and what to expect from it are documented in one place.
+5. **Given** someone reading the repository for the first time, **When** they look for how to run the demo, **Then** the steps and what to expect from them are documented in one place.
 
 ---
 
@@ -115,8 +115,8 @@ A project installing the package gets the package. The demo project, its setting
 
 - **FR-001**: The repository MUST carry a demo project that installs the front end and serves it.
 - **FR-002**: The demo project MUST wire the front end the way the repository documents a host project should wire it, so what it demonstrates is the documented install path rather than an arrangement peculiar to itself.
-- **FR-003**: One documented command MUST take a clone with dependencies installed to a served front end — creating the database, applying migrations, loading the seed catalogue and starting the server — with no further step to run.
-- **FR-004**: Running that command MUST return the demo to the seeded state whatever state it was in beforehand, including a database left behind by an earlier run.
+- **FR-003**: A documented sequence of stock Django commands MUST take a clone with dependencies installed to a served front end — applying migrations, loading the seed catalogue and starting the server — with no step left for the reader to work out and nothing beyond those commands to run. *(Refined 2026-08-12: was "one documented command", delivered as a `demo` management command wrapping the three. Removed at the maintainer's instruction — see decisions.md D14.)*
+- **FR-004**: Running the seed step MUST return the demo to the seeded state whatever state it was in beforehand, including a database left behind by an earlier run.
 - **FR-005**: Starting the demo MUST create no user account, and browsing its pages MUST require no sign-in.
 - **FR-006**: The demo MUST serve every page the front end offers — the catalogue list, a reference's page and a contributor's page — each reachable by browsing from the address the command prints.
 - **FR-007**: The demo MUST NOT depend on a database file kept in the repository. The reference data is the source of truth and the database is built from it.
@@ -170,7 +170,7 @@ This feature persists nothing in the package and adds no model. The entities it 
 
 ### Measurable Outcomes
 
-- **SC-001**: Someone who has never seen the repository reaches a served, populated catalogue from a fresh clone by following what is written down, running one command after installing dependencies, with no step they had to work out for themselves.
+- **SC-001**: Someone who has never seen the repository reaches a served, populated catalogue from a fresh clone by following what is written down, with no step they had to work out for themselves.
 - **SC-002**: The demo starts on a machine holding no prior state — no database, no account, no manual configuration.
 - **SC-003**: Every page the front end serves is reachable by browsing from the demo's entry point, with no address typed by hand.
 - **SC-004**: The seeded catalogue shows a spread on its face: references of clearly different item types, a contributor credited on more than one of them, dates at three precisions, identifiers of more than one type, and one reference with nothing but its own fields.

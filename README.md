@@ -240,14 +240,19 @@ documents. From a fresh clone, with dependencies installed:
 
 ```bash
 poetry install --extras ui
-python manage.py demo
+python manage.py migrate
+python manage.py seed_demo
+python manage.py runserver
 ```
 
-That one command creates the database, applies migrations, loads a small catalogue of real
-references, and starts the server. It prints the address to open — `http://127.0.0.1:8000/catalogue/`
-— where the catalogue list, a reference page and a contributor page are all live and populated.
-Running the command again returns the demo to that same seeded state, whatever state it was in
-before.
+`migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
+`runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
+reference page and a contributor page are all live and populated.
+
+`seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
+again returns the demo to the same seeded state whatever state it was in before — including
+discarding anything you added through the admin. Once seeded, `runserver` on its own is enough for
+subsequent runs.
 
 The demo is not a production configuration: `DEBUG` is on, the database is a local SQLite file, and
 the secret key is a throwaway value committed in `demo/settings.py`. Do not deploy it as-is.

@@ -457,3 +457,23 @@ insertions and 0 deletions, and all four pre-existing assertions in `TestDjangoM
 untouched.
 Next: S5 (ADR verdicts) and PR review.
 Watch: none.
+
+## 2026-08-12 — SCOPE AMENDMENT: the composite `demo` command is removed
+
+Sam's instruction after running the demo locally: `demo/management/commands/demo.py` is
+unnecessary overhead, and asking someone to run `seed_demo` explicitly before serving is not too
+much. Recorded as decisions.md D14.
+
+Applied: the command is deleted; `spec.md` FR-003, FR-004, SC-001, US-1's narrative, independent
+test and scenarios 1, 3 and 5 are refined in place with dated notes, and the clarification-scan
+answer that restated the one-command reading is struck through rather than removed; `tasks.md`
+T009 is struck through and T016 and T010 refined; `README.md` documents `migrate`, `seed_demo`,
+`runserver` and states that `seed_demo` is destructive; the held-back CI workflow patch runs the
+three commands in place of the one. The missing-`ui`-extra guarantee moves onto `migrate` — the
+guard was always in `demo/settings.py` (D8), so it covers every step rather than one command.
+
+Verified: the documented sequence run end to end against a scratch database, then `demo/smoke.py`
+against it — "OK: walked the demo catalogue, its second page, a reference and a contributor".
+`forge verify` green on lint, typecheck, tests and build.
+
+Sam gated this himself in session, so it needs no separate re-gate.
