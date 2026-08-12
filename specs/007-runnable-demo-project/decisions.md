@@ -112,3 +112,29 @@ list of guesses about that set which goes stale silently. Arming the check as re
 branch ruleset is the maintainer's action, noted as an assumption rather than delivered here.
 
 **ADR:** none.
+
+## D7 — `seed_demo` reads its catalogue path from `DEMO_SEED_PATH`, mirroring T001's `DEMO_DB_PATH`
+**Ambiguity**: tasks.md T006 requires a test proving that running `seed_demo` "against a catalogue
+holding different items leaves only the seeded ones" — i.e. the test must run the command twice
+against two different catalogue contents. `seed_demo` (T008) always loads a fixed file,
+`demo/seed/catalogue.json`. Overwriting that tracked file from a test, even temporarily, mutates a
+repository file mid-run with no safe rollback if the test aborts, and neither `tasks.md` nor
+`plan.md` names a parameter for the catalogue path.
+
+**Chosen**: `seed_demo` reads its catalogue path from the `DEMO_SEED_PATH` environment variable,
+defaulting to `demo/seed/catalogue.json` — the same shape T001 already established for
+`DEMO_DB_PATH`, for the identical reason: a destructive command needs a way for a test to point it
+at a scratch file instead of the tracked one. With no variable set, `python manage.py seed_demo`
+and `python manage.py demo` behave exactly as if the path were hardcoded.
+
+**Why defensible**: This is a narrower instance of the exact problem T001 already solved for the
+database file, solved the same way, so it introduces no new pattern. It touches only
+`demo/management/commands/seed_demo.py` (T008's own file) and costs the production path nothing —
+the default is unchanged. The alternative (mutating and restoring `demo/seed/catalogue.json` inside
+the test) was rejected because a test that dies mid-run would leave the tracked seed file
+corrupted, which is worse than one extra environment variable.
+
+**Revisit if**: a later story gives `seed_demo` a `--file` CLI argument for a different reason: at
+that point `DEMO_SEED_PATH` should be folded into it rather than the project carrying both.
+
+**ADR**: none.
