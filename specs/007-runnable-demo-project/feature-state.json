@@ -47,7 +47,7 @@
     {
       "state": "IMPLEMENT",
       "at": "2026-08-12T10:48:00Z",
-      "note": "US1 done: T001-T010 verified independently (forge verify: lint/typecheck/test/build green, conformance red on tests/test_demo/ \u2014 expected, T018 declares the non-mirror path; tamper-check clean; pre-commit green); merged 007-us1 into 007-runnable-demo-project"
+      "note": "US1 done: T001-T010 verified independently (forge verify: lint/typecheck/test/build green, conformance red on tests/test_demo/ — expected, T018 declares the non-mirror path; tamper-check clean; pre-commit green); merged 007-us1 into 007-runnable-demo-project"
     },
     {
       "state": "IMPLEMENT",
@@ -56,8 +56,18 @@
     },
     {
       "state": "IMPLEMENT",
+      "at": "2026-08-12T11:30:00Z",
+      "note": "US1 method audit closed: US1 was produced without craft-tdd/craft-increments loaded; re-dispatched as a method-led audit-and-repair pass over the existing commits rather than a redo. Gate: forge check-receipts --role implementer -> exit 0; receipts craft-tdd/2026-08-05/eae3b6c7, craft-increments/2026-08-05/d3dce07f. Findings: method holds on all 8 audited areas; no repairs required. Verification at tip b21e5f1: 1334 passed, pre-commit all hooks passed. Caveat: produced without the method, audited under it — a green gate here is weaker evidence than a method-led build. (Recorded here at US3 convergence: this was carried in a non-schema story key, which made the ledger fail its own schema check from the US1 audit until now; prose belongs in state_history.)"
+    },
+    {
+      "state": "IMPLEMENT",
       "at": "2026-08-12T11:50:00Z",
       "note": "US2 done: T011-T013 merged. Receipt gate green (craft-tdd, craft-increments). Re-verified by orchestrator on the merged branch: pytest 1344 passed, pre-commit all hooks green, tamper-check clean, catalogue 28 entries / 13 item types all valid against literature.choices.ItemType, and a scratch migrate+seed_demo+runserver served 24 items on page 1, 4 on page 2, and the Watson-Crick detail page with Contributors/Dates/Identifiers. Test-first ordering confirmed from the commit graph (de339c0 test precedes d35b73e catalogue)."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-12T12:20:00Z",
+      "note": "US3 done: T014-T018 merged as d85bd7b, ledger 9a3a14b, pushed as fairdm-bot. Receipt gate green (craft-tdd craft-tdd/2026-08-05/eae3b6c7, craft-increments craft-increments/2026-08-05/d3dce07f). Re-verified by the orchestrator on the merged branch: forge verify green on conformance/lint/typecheck/test/build, pytest 1344 passed, pre-commit all hooks green, tamper-check clean (0 flags), actionlint clean on demo.yml. D11 amended at convergence: the implementer's demo/settings.py-scoped search found no break that fails the guard while the suite stays green, because US1's D9 test renders /catalogue/ under demo.settings. Widening by one file does: removing call_command(\"seed_demo\") from the demo command turns the guard red (/catalogue/ 200, 'no reference link ... the seed did not load') with the full suite at 1344 passed. Observed directly, reverted, recorded as a D11 addendum. D12 records the workflow-file hold-back: the app installation lacks the workflows permission, so .github/workflows/demo.yml is filtered off the branch and kept as T016-demo-guard-workflow.patch for a maintainer push, as FS-006 T005 was."
     }
   ],
   "gates": {
@@ -150,13 +160,13 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "tests_added": [
-              "tests/test_demo/test_commands.py::TestSeedDemo"
-            ],
             "commands": [
               "poetry run pytest tests/test_demo/test_commands.py -q"
             ],
-            "verified_by_ci": false
+            "verified_by_ci": false,
+            "tests": [
+              "tests/test_demo/test_commands.py::TestSeedDemo"
+            ]
           }
         },
         {
@@ -175,13 +185,13 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "tests_added": [
-              "tests/test_demo/test_commands.py::TestSeedDemo::test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds"
-            ],
             "commands": [
               "poetry run pytest tests/test_demo/test_commands.py -q"
             ],
-            "verified_by_ci": false
+            "verified_by_ci": false,
+            "tests": [
+              "tests/test_demo/test_commands.py::TestSeedDemo::test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds"
+            ]
           }
         },
         {
@@ -189,14 +199,14 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "tests_added": [
-              "tests/test_demo/test_commands.py::TestDemoCommand"
-            ],
             "commands": [
               "poetry run pytest tests/test_demo/test_commands.py -q",
               "DEMO_DB_PATH=/tmp/dl-demo-t009/db.sqlite3 poetry run python manage.py demo"
             ],
-            "verified_by_ci": false
+            "verified_by_ci": false,
+            "tests": [
+              "tests/test_demo/test_commands.py::TestDemoCommand"
+            ]
           }
         },
         {
@@ -207,22 +217,7 @@
             "verified_by_ci": false
           }
         }
-      ],
-      "method_audit": {
-        "reason": "US1 was produced without craft-tdd/craft-increments loaded; re-dispatched as a method-led audit-and-repair pass over the existing commits rather than a redo.",
-        "receipts": [
-          "craft-tdd/2026-08-05/eae3b6c7",
-          "craft-increments/2026-08-05/d3dce07f"
-        ],
-        "gate": "forge check-receipts --role implementer -> exit 0",
-        "findings": "method holds on all 8 audited areas; no repairs required",
-        "caveat": "produced without the method, audited under it \u2014 a green gate here is weaker evidence than a method-led build",
-        "verification": {
-          "full_suite": "1334 passed",
-          "pre_commit": "all hooks passed",
-          "tip": "b21e5f1"
-        }
-      }
+      ]
     },
     {
       "id": "US2",
@@ -237,13 +232,13 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "tests_added": [
-              "tests/test_demo/test_seed.py::TestSeedCatalogue"
-            ],
             "commands": [
               "poetry run pytest tests/test_demo/test_seed.py -v"
             ],
-            "verified_by_ci": false
+            "verified_by_ci": false,
+            "tests": [
+              "tests/test_demo/test_seed.py::TestSeedCatalogue"
+            ]
           }
         },
         {
@@ -276,34 +271,66 @@
       "id": "US3",
       "priority": "P3",
       "issue": 61,
-      "worktree": null,
-      "status": "todo",
+      "worktree": "/home/sam/projects/fairdm/dl-us3-fs007",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T014",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run python demo/smoke.py http://127.0.0.1:8000",
+              "poetry run ruff check demo/smoke.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T015",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run python demo/smoke.py http://127.0.0.1:8000"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T016",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "/tmp/actionlint .github/workflows/demo.yml"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T017",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run python demo/smoke.py http://127.0.0.1:8000",
+              "poetry run pytest -q"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T018",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "engineering-org/kit/forge conformance --repo /home/sam/projects/fairdm/dl-us3-fs007"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },
