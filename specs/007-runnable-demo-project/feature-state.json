@@ -1,0 +1,224 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "007-runnable-demo-project",
+  "branch": "007-runnable-demo-project",
+  "repo": "FAIR-DM/django-literature",
+  "state": "DESIGN_REVIEW",
+  "state_history": [
+    {
+      "state": "INTAKE",
+      "at": "2026-08-12T08:40:00Z",
+      "note": "grilled from issue #46; two questions, both confirmed"
+    },
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-12T09:00:00Z",
+      "note": "spec.md + decisions.md; 4 stories, 25 FR, 10 SC"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-12T09:30:00Z",
+      "note": "epic #46 promoted, stories #59-#62, draft PR #63"
+    },
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-12T09:50:00Z",
+      "note": "approved by Sam in session, no changes"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-12T10:05:00Z",
+      "note": "plan.md + research.md + tasks.md; analyze closed three coverage gaps"
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-12T10:07:00Z"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-12T09:50:00Z",
+      "self_resolved": [
+        "D1 seed covers a representative range of item types, not all 45",
+        "D2 one command begins after dependency installation",
+        "D3 the guard asserts on rendered content, not a status code",
+        "D4 no committed database; the reference data is the source",
+        "D5 no account created and nothing signs in; the admin mount stays",
+        "D6 the check reports on every pull request rather than filtering by path"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 59,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T002",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T003",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T004",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T005",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T006",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T007",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T008",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T009",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T010",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 60,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T011",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T012",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T013",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 61,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T014",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T015",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T016",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T017",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T018",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 62,
+      "worktree": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T019",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T020",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 4000000
+    }
+  },
+  "pr": {
+    "number": 63,
+    "draft": true
+  }
+}
