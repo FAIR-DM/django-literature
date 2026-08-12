@@ -23,7 +23,7 @@ _BODY_EXCERPT_LIMIT = 500
 
 _ITEM_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/)"[^>]*>(?P<text>[^<]+)<')
 _CONTRIBUTOR_LINK_RE = re.compile(r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<')
-_SECOND_PAGE_LINK_RE = re.compile(r'href="\?page=2"')
+_SECOND_PAGE_LINK = 'href="?page=2"'
 
 
 class SmokeCheckFailed(Exception):
@@ -43,7 +43,7 @@ class DemoWalk:
         if not item_links:
             self._fail(list_url, 200, "no reference link on the catalogue list — the seed did not load", list_body)
 
-        if not _SECOND_PAGE_LINK_RE.search(list_body):
+        if _SECOND_PAGE_LINK not in list_body:
             self._fail(list_url, 200, "no second-page link on the catalogue list", list_body)
         second_page_url = f"{list_url}?page=2"
         second_page_body = self._get(second_page_url)

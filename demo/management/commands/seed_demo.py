@@ -12,6 +12,11 @@ from literature.models import Item, Name
 _DEFAULT_SEED_PATH = Path(__file__).resolve().parent.parent.parent / "seed" / "catalogue.json"
 
 
+def _key_of(entry):
+    """The citation key a loaded Item would carry, as the converter reads it."""
+    return entry.get("citation-key") or entry.get("id")
+
+
 class Command(BaseCommand):
     help = (
         "Delete every Item and every Name, then reload the demo catalogue from "
@@ -36,9 +41,7 @@ class Command(BaseCommand):
             # raising, so a half-loaded catalogue must be caught here (FR-020).
             loaded_keys = {item.citation_key for item in loaded}
             missing = [
-                entry.get("citation-key") or entry.get("id") or "<unidentified entry>"
-                for entry in entries
-                if (entry.get("citation-key") or entry.get("id")) not in loaded_keys
+                _key_of(entry) or "<unidentified entry>" for entry in entries if _key_of(entry) not in loaded_keys
             ]
             raise CommandError(
                 f"seed_demo loaded {len(loaded)} of {len(entries)} entries from {seed_path}; "

@@ -41,7 +41,7 @@ who has their own way of doing it. What the issue is actually asking for is that
 or *unsequenced* step stands between a clone and a served page, and that holds: after the install
 every project already performs, there is exactly one thing to run and one address to open.
 
-**ADR:** none.
+**ADR:** none — a scope boundary for one feature's documentation, inherited by nothing.
 
 ## D3 — The guard asserts on rendered content, not on a status code
 **Ambiguity**: "Its pages still render" admits a weak reading — every page returns a success
@@ -60,7 +60,8 @@ nobody doubts, rather than on the demo's ability to show a catalogue, which is t
 breaks. This is the general shape of a gate that must be tested against the defect it exists to
 catch, which SC-007 makes an explicit obligation rather than an intention.
 
-**ADR:** none.
+**ADR:** docs/adr/0018-a-guard-asserts-on-content-not-on-a-status-code.md — every later feature
+that extends the demo guard inherits this, so it outlives the feature that found it.
 
 ## D4 — No committed database
 **Ambiguity**: A demo project can ship a pre-built database so that starting it is instant, and the
@@ -77,7 +78,8 @@ guard would then have to choose which one it trusts. Building from source on sta
 seconds and removes the whole class of problem. It is also what makes FR-004's promise — that
 running the command returns the demo to the seeded state — implementable at all.
 
-**ADR:** none.
+**ADR:** docs/adr/0019-the-repository-holds-data-as-source-never-as-a-built-database.md — it
+constrains what the repository may carry, not just what this feature builds.
 
 ## D5 — The demo stays open and creates no account; the admin stays as it is
 **Ambiguity**: The demo project mounts Django's admin today. Whether the documented start should
@@ -94,7 +96,7 @@ even in a project explicitly labelled as not production. Leaving the admin mount
 was already true before this feature, and gives anyone who wants to alter the demo's data a way to
 do it without the demo advertising it.
 
-**ADR:** none.
+**ADR:** none — it restates FS-006's access decision for the demo, deciding nothing new.
 
 ## D6 — The guard reports on every pull request rather than filtering by path
 **Ambiguity**: The repository's other workflows filter by path on pushes to the default branch. The
@@ -111,7 +113,8 @@ end, the seed data, the dependency lock, the documented install steps — and a 
 list of guesses about that set which goes stale silently. Arming the check as required in the
 branch ruleset is the maintainer's action, noted as an assumption rather than delivered here.
 
-**ADR:** none.
+**ADR:** none — a single workflow's trigger configuration, changeable without consequence
+elsewhere.
 
 ## D7 — `seed_demo` reads its catalogue path from `DEMO_SEED_PATH`, mirroring T001's `DEMO_DB_PATH`
 **Ambiguity**: tasks.md T006 requires a test proving that running `seed_demo` "against a catalogue
@@ -137,7 +140,8 @@ corrupted, which is worse than one extra environment variable.
 **Revisit if**: a later story gives `seed_demo` a `--file` CLI argument for a different reason: at
 that point `DEMO_SEED_PATH` should be folded into it rather than the project carrying both.
 
-**ADR**: none.
+**ADR:** none — an implementation detail of one management command, mirroring a convention the
+sibling command already set.
 
 ## D8 — The missing-'ui'-extra guard lives in `demo/settings.py`, not in `demo.py`
 **Ambiguity**: T009 asks `python manage.py demo` to "fail with a plain message naming the missing
@@ -166,7 +170,8 @@ requires the `ui` apps to be unconditional in `INSTALLED_APPS`: no command works
 (e.g. a future core-only demo mode) — at that point the apps and the guard both need to become
 conditional together, not just the guard.
 
-**ADR**: none.
+**ADR:** none — where one guard lives inside one project's settings module; nothing downstream
+inherits it.
 
 ## D9 — The demo declares a `home` route, and the README documents that the shell needs one
 **Ambiguity**: T001–T004 wire the demo to the front end "exactly as README.md documents it" and
@@ -198,7 +203,8 @@ only an explicit check catches a regression. The third test asserts on a rendere
 on the absence of a message alone — a request that dies before reaching a template logs no warning
 either, which is how the first draft of that test passed against the unfixed code.
 
-**ADR**: none.
+**ADR:** none — the route is a fact about the demo project, and the documentation gap it exposed
+is fixed in place rather than governed.
 
 ## D10 — Crossref's CSL content-negotiation export carries its own type slugs, not CSL JSON 1.0.2 values
 
@@ -241,8 +247,8 @@ records (Open Library ISBN lookups for the books, the live pages for the PEP and
 entry) rather than DOI content negotiation, since content negotiation has nothing to return for a
 work that was never assigned a DOI.
 
-**ADR**: none — the correction is local to this feature's seed data and does not change any
-package behaviour.
+**ADR:** none — a data-curation note about one upstream export format, already covered as a
+principle by ADR-0010.
 
 ## D11 — T017's chosen break also turns a pre-existing test red, and the demo's shell offers no narrower one
 
@@ -284,7 +290,7 @@ just to make the report read clean.
 `test_urls.py`'s render-any-page assertion already covers it before treating the guard's catch as
 novel.
 
-**ADR**: none.
+**ADR:** none — evidence recorded for one task's acceptance, superseded by its own addendum.
 
 ### D11 addendum — a break that does satisfy both clauses (added at convergence)
 
@@ -327,7 +333,7 @@ gates. Widening the permission to land a guard would defeat the guard.
 and verified; the workflow that runs it in CI arrives with the maintainer's push, and arming it as
 a required check in the branch ruleset is a repository-settings action either way.
 
-**ADR**: none — this is a repeat of a recorded standing policy, not a new decision.
+**ADR:** none — this is a repeat of a recorded standing policy, not a new decision.
 
 ## D13 — FR-024 is a closed set, not a list of forbidden package names
 
@@ -348,7 +354,8 @@ to the assertion. That is the intended cost — it makes widening the package's 
 a deliberate, reviewed edit rather than a line nobody notices in a diff. The class name and
 docstring say so, so the failure is self-explaining.
 
-**ADR**: none — a test-design choice inside one story, not a standing decision.
+**ADR:** none — a test-design choice inside one story, with no consequence outside the module
+it lives in.
 
 ## D14 — the `packages` declaration is verified as a proxy, and the proxy was checked
 
@@ -370,4 +377,4 @@ assertion catches the edit that would change it.
 **Consequence**: SC-009 is demonstrated rather than inferred. If the build backend or its
 configuration ever changes, this check is the one to repeat.
 
-**ADR**: none.
+**ADR:** none — a verification method applied once at convergence, not a rule anything follows.
