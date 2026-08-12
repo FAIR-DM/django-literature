@@ -243,3 +243,45 @@ work that was never assigned a DOI.
 
 **ADR**: none — the correction is local to this feature's seed data and does not change any
 package behaviour.
+
+## D11 — T017's chosen break also turns a pre-existing test red, and the demo's shell offers no narrower one
+
+**Ambiguity**: tasks.md T014 names removing `EASY_ICONS` from `demo/settings.py` as "the cheapest
+real example" to prove the guard against (plan.md D-8), and its acceptance criterion is that "the
+full test suite still passes" while the guard fails. Making the break and running the suite shows
+that is not so: `tests/test_demo/test_urls.py::TestDemoUrls::test_no_page_render_logs_a_menu_reversal_failure`
+(landed by D9, part of US1) also spawns a subprocess under `demo.settings` and asserts a real
+`Client().get("/catalogue/", ...)` returns 200 without exception — the same call `EASY_ICONS`'s
+removal breaks, for the same reason (icons render in the shell chrome on every page). That test
+goes red alongside the guard; the suite is not fully green while the break is in place.
+
+I looked for a `demo/settings.py`-only break that the guard's content checks would catch but that
+test would not, and could not find one. Every setting that affects rendering visibly enough for
+`demo/smoke.py` to notice — `INSTALLED_APPS`, `MIDDLEWARE`, `TEMPLATES`, `ROOT_URLCONF`,
+`EASY_ICONS`, `FLEX_MENUS`, `SITE_ID` — is consumed by `mvp/base.html`'s shell chrome (nav, icons,
+site name), which every page renders identically, including the catalogue list `test_urls.py`
+already exercises. A setting that does not touch the shell (`TIME_ZONE`, `USE_I18N`,
+`DEFAULT_AUTO_FIELD`) does not break visibly either, so it would not turn the guard red. T017 is
+licensed to edit `demo/settings.py` only, so a break isolated to a page `test_urls.py` does not
+visit (a reference or contributor page) was not available within scope.
+
+**Chosen**: Run T017 with the named break anyway, capture both real outcomes — the guard's failing
+output and the suite's `1 failed, 1343 passed` — and record the overlap here rather than picking a
+break that avoids it artificially or silently reporting a fully-green suite that was not observed.
+Reverted immediately; verified with `git diff`/`git status` before moving on.
+
+**Why defensible**: SC-007's demonstration is still real — a wiring break that leaves every
+existing fixture untouched (`tests.settings` never loads `demo`, D-10) does fail the guard, which
+is the capability SC-007 asks for. What's false is the narrower T017 wording that the *whole* suite
+stays green for *this specific* break: one pre-existing test happens to render the same page
+through the same subprocess mechanism, for a different stated reason (catching a menu-reversal
+warning, not settings drift), and catches this break as a side effect. That is a fact about the
+current test suite's coverage, not a defect introduced by this story, and prohibits me from
+"fixing" it by editing that test (out of scope, not authored here) or by picking a different break
+just to make the report read clean.
+
+**Watch**: if a future story adds a `demo/settings.py`-only break scenario, check whether
+`test_urls.py`'s render-any-page assertion already covers it before treating the guard's catch as
+novel.
+
+**ADR**: none.
