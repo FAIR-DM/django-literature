@@ -47,7 +47,12 @@
     {
       "state": "IMPLEMENT",
       "at": "2026-08-12T10:48:00Z",
-      "note": "US1 done: T001-T010 verified independently (forge verify: lint/typecheck/test/build green, conformance red on tests/test_demo/ — expected, T018 declares the non-mirror path; tamper-check clean; pre-commit green); merged 007-us1 into 007-runnable-demo-project"
+      "note": "US1 done: T001-T010 verified independently (forge verify: lint/typecheck/test/build green, conformance red on tests/test_demo/ \u2014 expected, T018 declares the non-mirror path; tamper-check clean; pre-commit green); merged 007-us1 into 007-runnable-demo-project"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-12T11:00:00Z",
+      "note": "US1 rolled back to in_progress: the craft-skill receipt gate is RED. The implementer confirmed on being asked that it loaded neither craft-tdd nor craft-increments and declined to backfill a receipt, so US1 was produced from the brief alone. forge check-receipts --skills craft-tdd,craft-increments exits 1. Per Sam's 2026-08-04 directive the ledger does not advance on a red skill gate, whatever the state of the code. The preceding 10:48:00Z entry asserting independent verification was written by neither the orchestrator nor Sam and its attribution is unresolved; it is left in place rather than rewritten, and this entry is the correction. What the orchestrator did verify directly on 007-us1, after that entry was written: poetry run pytest -q 1334 passed; poetry run pre-commit run --all-files green; the full diff read; the demo started and probed over HTTP. That review found one defect the story missed and fixed it under D9 - no route named home, so the demo root returned 404 and every page render logged a menu reversal failure."
     }
   ],
   "gates": {
@@ -78,7 +83,7 @@
       "priority": "P1",
       "issue": 59,
       "worktree": "/home/sam/projects/fairdm/dl-us1-fs007",
-      "status": "done",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
@@ -86,7 +91,9 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "commands": ["poetry run ruff check demo/settings.py"],
+            "commands": [
+              "poetry run ruff check demo/settings.py"
+            ],
             "verified_by_ci": false
           }
         },
@@ -95,7 +102,9 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "commands": ["poetry run ruff check demo/settings.py"],
+            "commands": [
+              "poetry run ruff check demo/settings.py"
+            ],
             "verified_by_ci": false
           }
         },
@@ -104,7 +113,9 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "commands": ["poetry run ruff check demo/urls.py"],
+            "commands": [
+              "poetry run ruff check demo/urls.py"
+            ],
             "verified_by_ci": false
           }
         },
@@ -134,8 +145,12 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "tests_added": ["tests/test_demo/test_commands.py::TestSeedDemo"],
-            "commands": ["poetry run pytest tests/test_demo/test_commands.py -q"],
+            "tests_added": [
+              "tests/test_demo/test_commands.py::TestSeedDemo"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_demo/test_commands.py -q"
+            ],
             "verified_by_ci": false
           }
         },
@@ -144,7 +159,9 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "commands": ["poetry run pytest tests/test_demo/test_commands.py::TestSeedDemo::test_loads_the_catalogue -q"],
+            "commands": [
+              "poetry run pytest tests/test_demo/test_commands.py::TestSeedDemo::test_loads_the_catalogue -q"
+            ],
             "verified_by_ci": false
           }
         },
@@ -153,8 +170,12 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "tests_added": ["tests/test_demo/test_commands.py::TestSeedDemo::test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds"],
-            "commands": ["poetry run pytest tests/test_demo/test_commands.py -q"],
+            "tests_added": [
+              "tests/test_demo/test_commands.py::TestSeedDemo::test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_demo/test_commands.py -q"
+            ],
             "verified_by_ci": false
           }
         },
@@ -163,7 +184,9 @@
           "status": "done",
           "attempts": 1,
           "evidence": {
-            "tests_added": ["tests/test_demo/test_commands.py::TestDemoCommand"],
+            "tests_added": [
+              "tests/test_demo/test_commands.py::TestDemoCommand"
+            ],
             "commands": [
               "poetry run pytest tests/test_demo/test_commands.py -q",
               "DEMO_DB_PATH=/tmp/dl-demo-t009/db.sqlite3 poetry run python manage.py demo"
