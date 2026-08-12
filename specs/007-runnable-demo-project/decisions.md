@@ -308,3 +308,23 @@ exactly the drift the whole story exists for — a demo that no longer shows any
 test passes. D11's finding about `EASY_ICONS` stands as recorded and remains true; the correction is
 to the choice of break, not to the child's reading of the overlap. `tasks.md` T017's named example
 is superseded by this one.
+
+## D12 — the guard's workflow file cannot land on this branch
+
+**Ambiguity**: US3 delivers `.github/workflows/demo.yml`, and the branch is pushed by an app
+installation that does not hold the `workflows` permission. GitHub rejects the push outright:
+`refusing to allow a GitHub App to create or update workflow .github/workflows/demo.yml`.
+
+**Chosen**: The file is kept off the branch and applied separately under maintainer credentials.
+It is written, `actionlint`-clean and simulated end to end locally, and is preserved verbatim as a
+patch outside the repository. FS-006's CI change (its T005) was handled the same way.
+
+**Why defensible**: the automation's lack of `workflows` write is deliberate — workflow files
+define the checks that gate its own work, so an identity that can rewrite them can disable its own
+gates. Widening the permission to land a guard would defeat the guard.
+
+**Consequence for this PR**: SC-007's demonstration and the guard script itself are on the branch
+and verified; the workflow that runs it in CI arrives with the maintainer's push, and arming it as
+a required check in the branch ruleset is a repository-settings action either way.
+
+**ADR**: none — this is a repeat of a recorded standing policy, not a new decision.
