@@ -63,3 +63,54 @@ run the pull request head's own code; `tests/test_demo/` is declared once as a n
 its real reason; and T020 was dropped as work to remove.
 
 Ledger and `forge stage-exit --stage S3R` green.
+
+## 2026-08-12T10:30Z · Implementer US1 · T001
+
+Did: Added `"demo"` to `INSTALLED_APPS` in `demo/settings.py`, wired the README's ten front-end
+app entries in stated order (`literature`, `django.contrib.sites`, `django.contrib.staticfiles`,
+`django_cotton`, `easy_icons`, `flex_menu`, `mvp`, `crispy_forms`, `crispy_tailwind`,
+`literature.ui`), set `SITE_ID = 1`, added `django.contrib.sites.middleware.CurrentSiteMiddleware`
+to `MIDDLEWARE`, and made the SQLite path read `DEMO_DB_PATH` from the environment, defaulting to
+`BASE_DIR / "demo" / "db.sqlite3"`.
+Verified: `python3 -c "import demo.settings as s; ..."` — confirmed `INSTALLED_APPS` order,
+`SITE_ID == 1`, `CurrentSiteMiddleware` present, default DB path unchanged with no env var set, and
+`DEMO_DB_PATH=/tmp/scratch.sqlite3` overrides it. `poetry run ruff check demo/settings.py` — All
+checks passed.
+Next: T002 (EASY_ICONS, FLEX_MENUS, mvp_config context processor).
+Watch: no automated pytest exists for `demo/settings.py` in this story — `demo` is deliberately not
+in `tests.settings.INSTALLED_APPS` (plan.md D-10), so Phase 1 wiring is verified by manual import
+checks here and by T005's manual server run, not a committed test file.
+
+## 2026-08-12T10:35Z · Implementer US1 · T002
+
+Did: Added `EASY_ICONS` (default renderer over `mvp.utils.BS5_ICONS`), `FLEX_MENUS` (`sidebar` and
+`dock` renderers) and `mvp.context_processors.mvp_config` to
+`TEMPLATES[0]["OPTIONS"]["context_processors"]` in `demo/settings.py`, each with a comment naming
+the failure it prevents, copied from `tests/settings.py`'s reasoning. `STATIC_URL` already existed
+from the original demo project; added the same explanatory comment.
+Verified: `python3 -c "import demo.settings as s; ..."` — confirmed `EASY_ICONS`, `FLEX_MENUS` and
+the context processor list. `poetry run ruff check demo/settings.py` — All checks passed.
+Next: T003 (urls.py).
+Watch: none.
+
+## 2026-08-12T10:40Z · Implementer US1 · T003
+
+Did: Added `path("catalogue/", include("literature.ui.urls"))` to `demo/urls.py`, keeping the
+existing `admin/` mount.
+Verified: `DEMO_DB_PATH=/tmp/scratch2.sqlite3 DJANGO_SETTINGS_MODULE=demo.settings poetry run
+python3 -c "django.setup(); print([str(p.pattern) for p in get_resolver().url_patterns])"` →
+`['admin/', 'catalogue/']`, proving the full settings+urls wiring boots and resolves in a fresh
+interpreter. `poetry run ruff check demo/urls.py` — All checks passed.
+Next: T004 (README comparison).
+Watch: none.
+
+## 2026-08-12T10:42Z · Implementer US1 · T004
+
+Did: Compared README.md lines 93-220 against the wiring T001-T003 produced: the ten
+`INSTALLED_APPS` entries and their order, `mvp` before `crispy_tailwind`, `STATIC_URL`,
+`EASY_ICONS`, `FLEX_MENUS`, `TEMPLATES` context processor, `SITE_ID`, `CurrentSiteMiddleware`, and
+the `catalogue/` URL include all match the README exactly. Nothing was missing or wrong.
+Verified: manual line-by-line comparison of `demo/settings.py` and `demo/urls.py` against
+README.md:93-220; no diff found.
+Next: T005 (manual server run).
+Watch: none — no README edit made, per the task's own "if nothing was missing, say so" branch.
