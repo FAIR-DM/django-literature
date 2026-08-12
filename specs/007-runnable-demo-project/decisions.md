@@ -167,3 +167,35 @@ requires the `ui` apps to be unconditional in `INSTALLED_APPS`: no command works
 conditional together, not just the guard.
 
 **ADR**: none.
+
+## D9 — The demo declares a `home` route, and the README documents that the shell needs one
+**Ambiguity**: T001–T004 wire the demo to the front end "exactly as README.md documents it" and
+T004 asks for the README to be corrected for anything that wiring showed to be missing. Following
+the README exactly produces a demo whose root address returns 404 and which writes
+`Could not reverse URL for view 'home' in menu item 'home'` to stderr on every page render. The
+US1 report flagged the warning as a non-blocking concern for triage rather than treating it as
+the drift T004 exists to catch.
+
+**Chosen**: `demo/urls.py` declares `path("", RedirectView.as_view(pattern_name="literature:item-list"),
+name="home")`, and README.md's front-end install steps gain the `home` route as a documented step
+before the section's "That is every step" claim. `tests/test_demo/test_urls.py` covers all three
+observable halves: `home` reverses, the root redirects to the catalogue, and a real page render
+logs no reversal failure.
+
+**Why defensible**: django-mvp's `MobileFooterMenu` declares a menu item with `view_name="home"`
+(`mvp/menus.py:146`), and the shell renders the sidebar and dock on every page it serves. Every
+project using the shell therefore has to supply that route, which makes its absence from the
+README's install steps a documentation defect rather than a demo-only omission — precisely the
+demo-versus-documentation drift SC-010 names, found the way SC-010 predicts it would be, by wiring
+a real project against the documented path. Leaving it as a triage note would have shipped a demo
+whose first-tried address 404s and whose navigation carries a dead button, and left the next
+project following the README to rediscover both. `tests/urls.py` has the same gap, which is why
+the suite stayed green throughout: it renders pages under a URLconf that also never declares
+`home`, so no existing test could have caught this.
+
+**Watch**: the reversal warning is written to stderr by django-flex-menus and fails no render, so
+only an explicit check catches a regression. The third test asserts on a rendered 200 rather than
+on the absence of a message alone — a request that dies before reaching a template logs no warning
+either, which is how the first draft of that test passed against the unfixed code.
+
+**ADR**: none.
