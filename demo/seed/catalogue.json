@@ -1,15 +1,15 @@
 [
   {
-    "id": "Shannon1948",
+    "citation-key": "Shannon1948",
     "type": "article-journal",
     "title": "A Mathematical Theory of Communication",
     "author": [
       {
         "family": "Shannon",
-        "given": "Claude E."
+        "given": "C. E."
       }
     ],
-    "container-title": "The Bell System Technical Journal",
+    "container-title": "Bell System Technical Journal",
     "volume": "27",
     "issue": "3",
     "page": "379-423",
@@ -24,7 +24,7 @@
     "DOI": "10.1002/j.1538-7305.1948.tb01338.x"
   },
   {
-    "id": "WatsonCrick1953",
+    "citation-key": "WatsonCrick1953",
     "type": "article-journal",
     "title": "Molecular Structure of Nucleic Acids: A Structure for Deoxyribose Nucleic Acid",
     "author": [
@@ -53,29 +53,112 @@
     "DOI": "10.1038/171737a0"
   },
   {
-    "id": "Darwin1859",
-    "type": "book",
-    "title": "On the Origin of Species by Means of Natural Selection",
+    "citation-key": "CerfKahn1974",
+    "type": "article-journal",
+    "title": "A Protocol for Packet Network Intercommunication",
     "author": [
       {
-        "family": "Darwin",
-        "given": "Charles"
+        "family": "Cerf",
+        "given": "V."
+      },
+      {
+        "family": "Kahn",
+        "given": "R."
       }
     ],
-    "publisher": "John Murray",
-    "publisher-place": "London",
+    "container-title": "IEEE Transactions on Communications",
     "issued": {
       "date-parts": [
         [
-          1859,
-          11,
-          24
+          1974,
+          5
         ]
       ]
-    }
+    },
+    "DOI": "10.1109/tcom.1974.1092259"
   },
   {
-    "id": "Vaswani2017",
+    "citation-key": "BrinPage1998",
+    "type": "article-journal",
+    "title": "The anatomy of a large-scale hypertextual Web search engine",
+    "author": [
+      {
+        "family": "Brin",
+        "given": "Sergey"
+      },
+      {
+        "family": "Page",
+        "given": "Lawrence"
+      }
+    ],
+    "container-title": "Computer Networks and ISDN Systems",
+    "issued": {
+      "date-parts": [
+        [
+          1998,
+          4
+        ]
+      ]
+    },
+    "DOI": "10.1016/s0169-7552(98)00110-x"
+  },
+  {
+    "citation-key": "Newman2003",
+    "type": "article-journal",
+    "title": "The Structure and Function of Complex Networks",
+    "author": [
+      {
+        "family": "Newman",
+        "given": "M. E. J."
+      }
+    ],
+    "container-title": "SIAM Review",
+    "issued": {
+      "date-parts": [
+        [
+          2003,
+          1,
+          1
+        ]
+      ]
+    },
+    "DOI": "10.1137/s003614450342480"
+  },
+  {
+    "citation-key": "He2016",
+    "type": "paper-conference",
+    "title": "Deep Residual Learning for Image Recognition",
+    "author": [
+      {
+        "family": "He",
+        "given": "Kaiming"
+      },
+      {
+        "family": "Zhang",
+        "given": "Xiangyu"
+      },
+      {
+        "family": "Ren",
+        "given": "Shaoqing"
+      },
+      {
+        "family": "Sun",
+        "given": "Jian"
+      }
+    ],
+    "container-title": "2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)",
+    "issued": {
+      "date-parts": [
+        [
+          2016,
+          6
+        ]
+      ]
+    },
+    "DOI": "10.1109/cvpr.2016.90"
+  },
+  {
+    "citation-key": "Vaswani2017",
     "type": "paper-conference",
     "title": "Attention Is All You Need",
     "author": [
@@ -116,11 +199,575 @@
     "issued": {
       "date-parts": [
         [
-          2017,
-          12
+          2017
         ]
       ]
     },
-    "URL": "https://arxiv.org/abs/1706.03762"
+    "event-date": {
+      "date-parts": [
+        [
+          2017,
+          12,
+          4
+        ],
+        [
+          2017,
+          12,
+          9
+        ]
+      ]
+    },
+    "DOI": "10.48550/ARXIV.1706.03762"
+  },
+  {
+    "citation-key": "Lee2008",
+    "type": "article-journal",
+    "title": "Measurement of the Elastic Properties and Intrinsic Strength of Monolayer Graphene",
+    "author": [
+      {
+        "family": "Lee",
+        "given": "Changgu"
+      },
+      {
+        "family": "Wei",
+        "given": "Xiaoding"
+      },
+      {
+        "family": "Kysar",
+        "given": "Jeffrey W."
+      },
+      {
+        "family": "Hone",
+        "given": "James"
+      }
+    ],
+    "container-title": "Science",
+    "issued": {
+      "date-parts": [
+        [
+          2008,
+          7,
+          18
+        ]
+      ]
+    },
+    "DOI": "10.1126/science.1157996"
+  },
+  {
+    "citation-key": "Sanger1977",
+    "type": "article-journal",
+    "title": "A new method for sequencing DNA.",
+    "author": [
+      {
+        "family": "Maxam",
+        "given": "A M"
+      },
+      {
+        "family": "Gilbert",
+        "given": "W"
+      }
+    ],
+    "container-title": "Proceedings of the National Academy of Sciences",
+    "issued": {
+      "date-parts": [
+        [
+          1977,
+          2
+        ]
+      ]
+    },
+    "DOI": "10.1073/pnas.74.2.560"
+  },
+  {
+    "citation-key": "Li2009",
+    "type": "article-journal",
+    "title": "The Sequence Alignment/Map format and SAMtools",
+    "author": [
+      {
+        "family": "Li",
+        "given": "Heng"
+      },
+      {
+        "family": "Handsaker",
+        "given": "Bob"
+      },
+      {
+        "family": "Wysoker",
+        "given": "Alec"
+      },
+      {
+        "family": "Fennell",
+        "given": "Tim"
+      },
+      {
+        "family": "Ruan",
+        "given": "Jue"
+      },
+      {
+        "family": "Homer",
+        "given": "Nils"
+      },
+      {
+        "family": "Marth",
+        "given": "Gabor"
+      },
+      {
+        "family": "Abecasis",
+        "given": "Goncalo"
+      },
+      {
+        "family": "Durbin",
+        "given": "Richard"
+      }
+    ],
+    "container-title": "Bioinformatics",
+    "issued": {
+      "date-parts": [
+        [
+          2009,
+          6,
+          8
+        ]
+      ]
+    },
+    "DOI": "10.1093/bioinformatics/btp352"
+  },
+  {
+    "citation-key": "Ship2010",
+    "type": "dataset",
+    "title": "Physical oceanography during POLARSTERN cruise ANT-II/3",
+    "author": [
+      {
+        "family": "Rohardt",
+        "given": "Gerd"
+      }
+    ],
+    "issued": {
+      "date-parts": [
+        [
+          2010
+        ]
+      ]
+    },
+    "publisher": "PANGAEA",
+    "DOI": "10.1594/PANGAEA.734969"
+  },
+  {
+    "citation-key": "Montani2023",
+    "type": "software",
+    "title": "explosion/spaCy: v3.7.2: Fixes for APIs and requirements",
+    "author": [
+      {
+        "literal": "Ines Montani"
+      },
+      {
+        "literal": "Matthew Honnibal"
+      },
+      {
+        "literal": "Adriane Boyd"
+      },
+      {
+        "literal": "Sofie Van Landeghem"
+      },
+      {
+        "literal": "Henning Peters"
+      }
+    ],
+    "issued": {
+      "date-parts": [
+        [
+          2023,
+          10,
+          16
+        ]
+      ]
+    },
+    "publisher": "Zenodo",
+    "DOI": "10.5281/ZENODO.1212303"
+  },
+  {
+    "citation-key": "InPhyT2022",
+    "type": "software",
+    "title": "InPhyT/COVID19-Italy-Integrated-Surveillance-Data: v35.0.0",
+    "author": [
+      {
+        "family": "Monticone",
+        "given": "Pietro"
+      }
+    ],
+    "issued": {
+      "date-parts": [
+        [
+          2022,
+          9,
+          14
+        ]
+      ]
+    },
+    "publisher": "Zenodo",
+    "DOI": "10.5281/ZENODO.7080346"
+  },
+  {
+    "citation-key": "LeCun2015",
+    "type": "article-journal",
+    "title": "Deep learning",
+    "author": [
+      {
+        "family": "LeCun",
+        "given": "Yann"
+      },
+      {
+        "family": "Bengio",
+        "given": "Yoshua"
+      },
+      {
+        "family": "Hinton",
+        "given": "Geoffrey"
+      }
+    ],
+    "container-title": "Nature",
+    "issued": {
+      "date-parts": [
+        [
+          2015,
+          5,
+          27
+        ]
+      ]
+    },
+    "DOI": "10.1038/nature14539"
+  },
+  {
+    "citation-key": "Shen2016",
+    "type": "article-journal",
+    "title": "SeqKit: A Cross-Platform and Ultrafast Toolkit for FASTA/Q File Manipulation",
+    "author": [
+      {
+        "family": "Shen",
+        "given": "Wei"
+      },
+      {
+        "family": "Le",
+        "given": "Shuai"
+      },
+      {
+        "family": "Li",
+        "given": "Yan"
+      },
+      {
+        "family": "Hu",
+        "given": "Fuquan"
+      }
+    ],
+    "container-title": "PLOS ONE",
+    "issued": {
+      "date-parts": [
+        [
+          2016,
+          10,
+          5
+        ]
+      ]
+    },
+    "DOI": "10.1371/journal.pone.0163962"
+  },
+  {
+    "citation-key": "Pavel2018",
+    "type": "paper-conference",
+    "title": "Creating Crowdsourced Research Talks at Scale",
+    "author": [
+      {
+        "family": "Vaish",
+        "given": "Rajan"
+      },
+      {
+        "family": "Goyal",
+        "given": "Shirish"
+      },
+      {
+        "family": "Saberi",
+        "given": "Amin"
+      },
+      {
+        "family": "Goel",
+        "given": "Sharad"
+      }
+    ],
+    "container-title": "Proceedings of the 2018 World Wide Web Conference on World Wide Web - WWW '18",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "DOI": "10.1145/3178876.3186031"
+  },
+  {
+    "citation-key": "HornJohnson1985",
+    "type": "book",
+    "title": "Matrix Analysis",
+    "author": [
+      {
+        "family": "Horn",
+        "given": "Roger A."
+      },
+      {
+        "family": "Johnson",
+        "given": "Charles R."
+      }
+    ],
+    "publisher": "Cambridge University Press",
+    "issued": {
+      "date-parts": [
+        [
+          1985,
+          12,
+          27
+        ]
+      ]
+    },
+    "DOI": "10.1017/cbo9780511810817"
+  },
+  {
+    "citation-key": "Zonta2022",
+    "type": "chapter",
+    "title": "Sensor data analysis, reduction, and fusion for assessing and monitoring civil infrastructures",
+    "author": [
+      {
+        "family": "Zonta",
+        "given": "D."
+      }
+    ],
+    "container-title": "Sensor Technologies for Civil Infrastructures",
+    "publisher": "Elsevier",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "DOI": "10.1016/b978-0-08-102696-0.00020-8"
+  },
+  {
+    "citation-key": "West2011",
+    "type": "report",
+    "title": "2011 River Corridor Closure Contractor Revegetation and Mitigation Monitoring Report",
+    "author": [
+      {
+        "family": "West",
+        "given": "W."
+      },
+      {
+        "family": "Lucas",
+        "given": "J."
+      },
+      {
+        "family": "Gano",
+        "given": "K."
+      }
+    ],
+    "publisher": "Office of Scientific and Technical Information (OSTI)",
+    "issued": {
+      "date-parts": [
+        [
+          2011,
+          11,
+          14
+        ]
+      ]
+    },
+    "DOI": "10.2172/1083995"
+  },
+  {
+    "citation-key": "Iseli2014",
+    "type": "thesis",
+    "title": "Gewalt an Schulen - Relevanz der Persönlichkeitsfaktoren von Lehrpersonen für die schulische Gewaltprävention",
+    "author": [
+      {
+        "family": "Iseli",
+        "given": "Katja"
+      }
+    ],
+    "publisher": "University of Hildesheim",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "DOI": "10.25528/403",
+    "URL": "https://hilpub.uni-hildesheim.de/handle/ubhi/16094"
+  },
+  {
+    "citation-key": "AMS1960",
+    "type": "review-book",
+    "title": "Book Review: The theory of groups",
+    "container-title": "Bulletin of the American Mathematical Society",
+    "issued": {
+      "date-parts": [
+        [
+          1960,
+          5,
+          1
+        ]
+      ]
+    },
+    "DOI": "10.1090/s0002-9904-1960-10414-4"
+  },
+  {
+    "citation-key": "Kim2019",
+    "type": "article-journal",
+    "title": "Performance, Presentations, and Rhetoric: Incorporating Rhetorical Theory into a Postgraduate Academic Communication Skills Course for EFL Learners",
+    "author": [
+      {
+        "family": "Carter",
+        "given": "Tyler"
+      }
+    ],
+    "publisher": "Zenodo",
+    "issued": {
+      "date-parts": [
+        [
+          2019,
+          12,
+          31
+        ]
+      ]
+    },
+    "DOI": "10.5281/ZENODO.3597389"
+  },
+  {
+    "citation-key": "Beowulf",
+    "type": "classic",
+    "title": "Beowulf"
+  },
+  {
+    "citation-key": "VanRossum2001",
+    "type": "webpage",
+    "title": "PEP 8 – Style Guide for Python Code",
+    "author": [
+      {
+        "given": "Guido",
+        "family": "van Rossum"
+      },
+      {
+        "given": "Barry",
+        "family": "Warsaw"
+      },
+      {
+        "given": "Alyssa",
+        "family": "Coghlan"
+      }
+    ],
+    "publisher": "Python Software Foundation",
+    "issued": {
+      "date-parts": [
+        [
+          2001,
+          7,
+          5
+        ]
+      ]
+    },
+    "URL": "https://peps.python.org/pep-0008/"
+  },
+  {
+    "citation-key": "Spolsky2002",
+    "type": "post-weblog",
+    "title": "The Law of Leaky Abstractions",
+    "author": [
+      {
+        "given": "Joel",
+        "family": "Spolsky"
+      }
+    ],
+    "container-title": "Joel on Software",
+    "issued": {
+      "date-parts": [
+        [
+          2002,
+          11,
+          11
+        ]
+      ]
+    },
+    "URL": "https://www.joelonsoftware.com/2002/11/11/the-law-of-leaky-abstractions/"
+  },
+  {
+    "citation-key": "OppyDowe2003",
+    "type": "entry-encyclopedia",
+    "title": "The Turing Test",
+    "author": [
+      {
+        "given": "Graham",
+        "family": "Oppy"
+      },
+      {
+        "given": "David",
+        "family": "Dowe"
+      }
+    ],
+    "container-title": "Stanford Encyclopedia of Philosophy",
+    "issued": {
+      "date-parts": [
+        [
+          2003,
+          4,
+          9
+        ]
+      ]
+    },
+    "URL": "https://plato.stanford.edu/entries/turing-test/"
+  },
+  {
+    "citation-key": "Hofstadter1979",
+    "type": "book",
+    "title": "Gödel, Escher, Bach: An Eternal Golden Braid",
+    "author": [
+      {
+        "given": "Douglas R.",
+        "family": "Hofstadter"
+      }
+    ],
+    "publisher": "Basic Books",
+    "publisher-place": "New York",
+    "issued": {
+      "date-parts": [
+        [
+          1979
+        ]
+      ]
+    },
+    "ISBN": "9780465026562"
+  },
+  {
+    "citation-key": "Sagan2009",
+    "type": "book",
+    "title": "That Mad Ache",
+    "author": [
+      {
+        "given": "Françoise",
+        "family": "Sagan"
+      }
+    ],
+    "translator": [
+      {
+        "given": "Douglas R.",
+        "family": "Hofstadter"
+      }
+    ],
+    "publisher": "Basic Books",
+    "publisher-place": "New York",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "ISBN": "9780465010981"
   }
 ]

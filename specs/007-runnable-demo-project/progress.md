@@ -254,3 +254,44 @@ Watson/Crick, a full date, 2+ identifier types with a DOI) are shapes T007's pla
 to already carry; T012's curated catalogue must keep them true, not just make the other six pass.
 Next: T012 — curate `demo/seed/catalogue.json` to turn all ten green.
 Watch: none.
+
+## 2026-08-12T12:10Z · Implementer US2 · T012
+
+Did: Replaced the four-entry placeholder in `demo/seed/catalogue.json` with 28 curated CSL JSON
+entries. 22 sourced live via DOI content negotiation
+(`curl -sLH 'Accept: application/vnd.citationstyles.csl+json' https://doi.org/<doi>`) against
+Crossref and DataCite (Zenodo, PANGAEA); 6 books/webpages that carry no DOI in the wild (a classic
+text, two trade books, a PEP, a blog post, an encyclopedia entry) were hand-assembled from public
+bibliographic records (Open Library ISBN lookups, the live PEP 8 and SEP pages) rather than
+invented. Every entry got an explicit readable `citation-key` — Crossref returns `id` as the bare
+DOI, and the converter falls back `citation-key` → `id` (converters.py:311-330), so without this
+every sourced entry's citation key would be its DOI rather than an AuthorYear form. Two Crossref
+data-quality issues found and corrected, recorded as decisions.md D10: Crossref's CSL export
+returns its own internal type slugs (`journal-article`, `proceedings-article`, `monograph`,
+`book-chapter`) rather than the matching CSL JSON 1.0.2 values for several types, and one Zenodo
+software record duplicated a contributor and used unsplit full names in `family` (corrected to
+`literal`).
+13 distinct item types: article-journal, book, chapter, classic, dataset, entry-encyclopedia,
+paper-conference, post-weblog, report, review-book, software, thesis, webpage. Vaswani et al.
+2017 ("Attention Is All You Need") carries 8 authors; Watson & Crick 1953, among others, carries
+exactly 2. Douglas Hofstadter is credited as author on Hofstadter1979 (Gödel, Escher, Bach) and as
+translator on Sagan2009 (That Mad Ache, Françoise Sagan) — one contributor, two references, two
+roles. PANGAEA.734969 and the Iseli2014 thesis carry year-only `issued` dates; Watson & Crick 1953
+carries a full date; Vaswani2017 carries an `event-date` range (NeurIPS 2017, Dec 4–9). Identifier
+types present: DOI (22 entries), ISBN (2), URL (4). `Beowulf` is the one bare entry — no
+contributors, no dates, no identifiers, a real anonymous work for which none of the three is
+actually known. 28 > 24 (`paginate_by`).
+Verified: `poetry run pytest tests/test_demo/test_seed.py -v` → 10 passed (T011 green).
+`poetry run pytest tests/test_demo/test_commands.py -v` → 5 passed, including
+`TestSeedDemo::test_loads_the_catalogue`, which asserts `item_count == len(catalogue)` against a
+scratch database — proves every one of the 28 entries imports cleanly through
+`from_csl_json_list`, not just that the file parses. Confirmed by hand too:
+`DEMO_DB_PATH=/tmp/dl-demo-t012/db.sqlite3 poetry run python manage.py seed_demo` →
+`seed_demo loaded 28 references from .../demo/seed/catalogue.json`, scratch directory removed
+after. `poetry run ruff check tests/test_demo/test_seed.py` → all checks passed (catalogue.json is
+JSON, not Python — the pre-commit `ruff` hook is `types: [python]` and does not touch it; a plain
+`ruff check demo/seed/catalogue.json` misparses JSON as a Python module and is not a real signal,
+noted here so it isn't repeated).
+Next: T013 — confirm by hand that the reference page, the contributor page, the list's second
+page, and the sparse reference all render over the curated catalogue.
+Watch: none.
