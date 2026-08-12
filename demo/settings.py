@@ -1,9 +1,25 @@
 """Django settings for the demo / dev server."""
 
 import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# django.setup() imports every INSTALLED_APPS entry before any management command
+# runs (django.core.management.ManagementUtility.execute() calls it ahead of
+# fetch_command()), so a missing 'ui' extra dependency has to be caught here, at
+# settings-module load, or it surfaces as a raw traceback from deep inside
+# whichever of mvp/django_cotton/etc. is missing (decisions.md D8).
+try:
+    import mvp  # noqa: F401
+except ImportError:
+    sys.stderr.write(
+        "The demo needs the front end's dependencies, which are not installed. "
+        "Install them with: pip install django-literature[ui] "
+        "(or poetry install --extras ui).\n"
+    )
+    sys.exit(1)
 
 SECRET_KEY = "django-insecure-demo-secret-key-do-not-use-in-production"
 

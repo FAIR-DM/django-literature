@@ -15,12 +15,14 @@ to overwrite the tracked ``demo/seed/catalogue.json``.
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _REAL_CATALOGUE = _REPO_ROOT / "demo" / "seed" / "catalogue.json"
+_MANAGE_PY = _REPO_ROOT / "manage.py"
 
 # Force, not setdefault: pytest-django exports DJANGO_SETTINGS_MODULE=tests.settings
 # into the environment, and this subprocess inherits it by default.
@@ -133,3 +135,37 @@ class TestSeedDemo:
         assert result.returncode != 0
         assert "Bad2020" in result.stderr
         assert "1" in result.stderr and "2" in result.stderr
+
+
+class TestDemoCommand:
+    """``python manage.py demo`` — plan.md D-2, the one documented command (FR-003)."""
+
+    def test_fails_with_a_plain_message_when_the_ui_extra_is_missing(self, tmp_path):
+        # django.setup() populates every INSTALLED_APPS entry before any management
+        # command's handle() runs (django.core.management.ManagementUtility.execute()),
+        # so a missing UI dependency can only be caught before that point — in
+        # demo/settings.py itself, not in demo.py (decisions.md D8). Shadow the real
+        # "mvp" package with a stub that fails to import, to simulate the ui extra
+        # never having been installed.
+        stub_dir = tmp_path / "stub"
+        stub_dir.mkdir()
+        (stub_dir / "mvp.py").write_text("raise ImportError(\"No module named 'mvp'\")\n")
+
+        env = os.environ.copy()
+        env["DJANGO_SETTINGS_MODULE"] = "demo.settings"
+        env["DEMO_DB_PATH"] = str(tmp_path / "db.sqlite3")
+        env["PYTHONPATH"] = str(stub_dir) + os.pathsep + env.get("PYTHONPATH", "")
+
+        result = subprocess.run(  # noqa: S603 — fixed interpreter, literal args, no user input
+            [sys.executable, str(_MANAGE_PY), "demo"],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=_REPO_ROOT,
+            env=env,
+        )
+
+        assert result.returncode != 0
+        assert "Traceback" not in result.stderr
+        assert "ui" in result.stderr.lower()
+        assert "pip install django-literature[ui]" in result.stderr

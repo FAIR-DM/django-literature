@@ -138,3 +138,32 @@ corrupted, which is worse than one extra environment variable.
 that point `DEMO_SEED_PATH` should be folded into it rather than the project carrying both.
 
 **ADR**: none.
+
+## D8 — The missing-'ui'-extra guard lives in `demo/settings.py`, not in `demo.py`
+**Ambiguity**: T009 asks `python manage.py demo` to "fail with a plain message naming the missing
+extra when literature.ui is not installed, rather than dying inside Django's app loading," and
+names `demo/management/commands/demo.py` as the file to write.
+
+**Chosen**: The guard is a `try/except ImportError` around `import mvp` at the top of
+`demo/settings.py`, printing a one-line message and calling `sys.exit(1)` — not code inside
+`demo.py`'s `handle()`.
+
+**Why defensible**: `django.core.management.ManagementUtility.execute()` calls `django.setup()` —
+which imports every `INSTALLED_APPS` entry, including `mvp`, `django_cotton`, `easy_icons`,
+`flex_menu`, `crispy_forms` and `crispy_tailwind` — unconditionally, before `fetch_command()` even
+locates and imports `demo.py`. I read the installed Django 5.2 source
+(`django/core/management/__init__.py:353-417`) to confirm this ordering. A missing dependency
+therefore crashes before any code in `demo.py` runs; nothing written there can intercept it. The
+only point early enough is settings-module load, which `execute()` reaches (via
+`settings.INSTALLED_APPS`) before calling `django.setup()`. `mvp` is the canary because it is the
+first `ui`-only package the front end genuinely needs (README.md) and is a hard dependency of every
+other one; catching it there is the earliest point at which a plain, one-line message can be shown
+instead of a raw `ModuleNotFoundError` traceback surfacing from deep inside app loading. This
+guard applies to every management command, not just `demo` — which is correct given T001 already
+requires the `ui` apps to be unconditional in `INSTALLED_APPS`: no command works without them.
+
+**Revisit if**: `demo/settings.py` ever needs to run without the `ui` extra for a legitimate reason
+(e.g. a future core-only demo mode) — at that point the apps and the guard both need to become
+conditional together, not just the guard.
+
+**ADR**: none.
