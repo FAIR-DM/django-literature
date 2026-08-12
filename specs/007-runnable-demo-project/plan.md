@@ -82,11 +82,18 @@ means the demo exercises an import path every time it starts.
 ### D-2 — Two commands, not one
 
 - `python manage.py seed_demo` — clears the catalogue and loads `demo/seed/catalogue.json`.
-  Idempotent by construction: it deletes every `Item` first, so loading twice leaves one catalogue
-  (FR-016), and running it against a database in any state returns the seeded state (FR-004).
-  Deletion is scoped to the package's own models and cascades from `Item`.
+  Idempotent by construction: it deletes every `Item` and every `Name` first, so loading twice
+  leaves one catalogue (FR-016), and running it against a database in any state returns the seeded
+  state (FR-004). Deletion is scoped to the package's own models. `Name` has to be named
+  explicitly — it is shared between items, so it is not reachable from `Item`'s cascade, and the
+  converter reuses rows with `get_or_create`, which would leave every contributor ever loaded
+  behind. It fails non-zero when fewer items load than the file holds, because
+  `from_csl_json_list` skips an invalid entry with a warning and returns the survivors, and a
+  half-loaded catalogue that reports success defeats the whole guard (FR-020).
 - `python manage.py demo` — the documented one command (FR-003). Runs `migrate`, calls
-  `seed_demo`, then `runserver`.
+  `seed_demo`, then `runserver` with the autoreloader off. The reloader relaunches `manage.py demo`
+  verbatim in a child process, so leaving it on re-runs the destructive seed at every start and
+  every file save.
 
 The split exists because the guard has to seed without starting a server. A guard that instead
 reached inside the human-facing command would break every time that command changed, which inverts
@@ -97,9 +104,12 @@ Both live in `demo/management/commands/`, which requires adding `demo` to the de
 
 ### D-3 — The demo's settings are the README's install steps
 
-`demo/settings.py` gains exactly what the README documents at lines 93–220 — the nine app entries
-in the stated order, `SITE_ID`, `CurrentSiteMiddleware`, the URL include — plus `STATIC_URL`,
-`EASY_ICONS` and `FLEX_MENUS`, each of which a front-end page genuinely needs (research R2). Where
+`demo/settings.py` gains exactly what the README documents at lines 93–220 — the ten app entries
+in the stated order, `SITE_ID`, `CurrentSiteMiddleware`, the `mvp.context_processors.mvp_config`
+context processor, the URL include — plus `STATIC_URL`, `EASY_ICONS` and `FLEX_MENUS`, each of
+which a front-end page genuinely needs (research R2). It also reads its SQLite path from an
+environment variable, defaulting to the current fixed path, so the demo's own tests can run against
+a scratch file rather than deleting the developer's demo data. Where
 the demo needs something the README does not tell a host to set, the README is corrected in this
 PR. That is what makes SC-010 a check rather than a hope.
 
@@ -108,9 +118,19 @@ already has (decisions D5).
 
 ### D-4 — The guard starts a real server and speaks HTTP
 
-A new workflow, `.github/workflows/demo.yml`, installs with `--extras ui`, runs `migrate` and
-`seed_demo` against a scratch database, starts the demo's server, and runs a smoke script that
-requests each page and asserts on its content.
+A new workflow, `.github/workflows/demo.yml`, installs with `--extras ui`, starts the demo by
+running `python manage.py demo` in the background, and runs a smoke script that requests each page
+and asserts on its content.
+
+It starts the demo through the documented command rather than composing `migrate` and `seed_demo`
+itself, because that command is the artefact FR-003, SC-001 and SC-002 are about: composing its
+steps in the workflow would leave a regression in it caught by nothing. `seed_demo` remains a
+separate command — the split in D-2 exists so the guard *can* seed without a server, and it stays
+the subject of the demo's command tests.
+
+The job runs the pull request head's own code, which the repository's other workflows do not, so it
+declares `permissions: contents: read`, inherits no secrets, and triggers on `pull_request` rather
+than `pull_request_target`.
 
 Real HTTP rather than Django's test client, because FR-021 makes the guard's subject the project an
 evaluator actually runs and the test client stops short of the server starting and static files
@@ -122,7 +142,11 @@ and `build.yml` and the reason recorded in their comments.
 ### D-5 — The smoke path browses, it does not reverse detail URLs
 
 The smoke script knows one address: the catalogue list. From there it follows a link to a reference
-page, and from that page a link to a contributor page — the way a reader reaches them.
+page, and from that page a link to a contributor page — the way a reader reaches them. It tries the
+list's references in order until one yields a contributor link, because the list is ordered
+`-created` and FR-014 requires one reference in the seed with no contributors at all; assuming the
+first reference has one would make the guard fail on a healthy demo depending on the seed file's
+order.
 
 The obvious alternative is to boot Django, reverse `literature:item-detail` and
 `literature:contributor-detail`, and look up primary keys. It is rejected because SC-003 requires
@@ -137,6 +161,11 @@ catalogue renders a successful empty-state page, so a status-only check passes o
 failure this guard exists to catch (`decisions.md` D3, FR-019). The pages walked are the catalogue
 list, its second page, one reference page, and one contributor page.
 
+A failure reports the URL, the status code and a bounded excerpt of the body rather than the whole
+response. The demo runs with `DEBUG = True` by design (FR-008), so an unbounded body would put
+Django's technical-500 page — settings, installed apps, local variables, request environment — into
+a public CI log on every red run.
+
 ### D-6 — Curating the catalogue is a task with stated criteria, not a judgement call in code
 
 Research R8 turns each of FR-010 through FR-015 into a shape the catalogue must contain. The seed
@@ -150,6 +179,10 @@ the built sdist confirms it (research R7). US-4's work is to assert it, in
 `tests/test_ui/test_packaging.py`, which already exists for assertions whose subject is
 `pyproject.toml` and is already declared as a non-mirror path.
 
+A second assertion, that no SQLite file is tracked by git under `demo/`, was planned and dropped at
+the design review: its subject is not `pyproject.toml`, it needs a git index to run, and
+`.gitignore` covers the pattern at any depth already.
+
 ### D-8 — The guard is proven by reinstating the defect
 
 SC-007 requires the guard to catch a class of breakage the test suite cannot. That is demonstrated
@@ -157,13 +190,17 @@ once, deliberately: break the demo's own wiring, observe the guard fail and the 
 The evidence is recorded in the PR rather than left as a claim, because a gate that has never been
 seen to fail is a gate nobody has tested.
 
-### D-9 — Two new test modules cannot mirror a source module
+### D-9 — The demo's test directory is declared once, and honestly
 
-`tests/test_demo/test_seed.py` takes `demo/seed/catalogue.json` as its subject and
-`tests/test_demo/test_commands.py` takes the demo's management commands. Neither mirrors a
-module under `literature/`, so both are declared under `[tool.forge.conformance]`
-`non-mirror-paths` with the commit that creates them, following the pattern the four existing
-entries set.
+`tests/test_demo/` is declared as a single `non-mirror-paths` prefix under
+`[tool.forge.conformance]`, with the commit that creates it, following the pattern the four
+existing entries set.
+
+The reason stated is the true one: its subject is the demo project, which lives outside the
+`literature/` tree the mirror rule is defined against. Declaring the two files separately on the
+usual ground — that no source module exists to mirror — would be false for `test_commands.py`,
+whose subject *is* two Python modules this feature creates, and constitution Article XIV makes that
+declaration a review failure in its own right.
 
 ### D-10 — How the demo's own tests run, given that pytest is bound to the suite's settings
 

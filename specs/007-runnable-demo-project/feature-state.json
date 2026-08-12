@@ -33,6 +33,11 @@
     {
       "state": "DESIGN_REVIEW",
       "at": "2026-08-12T10:07:00Z"
+    },
+    {
+      "state": "planned",
+      "at": "2026-08-12",
+      "note": "Design review applied: 13 findings, 2 blocking (SPEC-001 the documented command was unexercised, SPEC-002 a partial seed passed silently). T020 dropped."
     }
   ],
   "gates": {
@@ -188,11 +193,6 @@
       "tasks": [
         {
           "id": "T019",
-          "status": "todo",
-          "attempts": 0
-        },
-        {
-          "id": "T020",
           "status": "todo",
           "attempts": 0
         }
