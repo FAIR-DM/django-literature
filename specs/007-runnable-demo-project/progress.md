@@ -185,3 +185,27 @@ Destructive: anything entered through the admin is lost." `poetry run ruff check
 tests/test_demo/` — All checks passed.
 Next: T009 (demo command).
 Watch: none.
+
+## 2026-08-12T11:45Z · Implementer US1 · T009
+
+Did: Created `demo/management/commands/demo.py`: calls `migrate`, then `seed_demo`, prints the
+address to open, then `runserver` with `use_reloader=False`. Also added a guard in
+`demo/settings.py` (`try: import mvp / except ImportError: sys.stderr.write(...); sys.exit(1)`) —
+`django.setup()` imports every `INSTALLED_APPS` entry before any management command's `handle()`
+runs (verified by reading `django/core/management/__init__.py:353-417` in the installed Django 5.2
+source), so a missing `ui`-extra dependency can only be caught this early, not inside `demo.py`.
+Recorded as decisions.md D8.
+Verified: wrote a failing test first
+(`TestDemoCommand::test_fails_with_a_plain_message_when_the_ui_extra_is_missing`, shadows the real
+`mvp` package with a stub via `PYTHONPATH` and runs `manage.py demo` as a real subprocess) — RED
+with a full Python traceback ending in the stub's `ImportError` before the guard existed. After
+implementing: `poetry run pytest tests/test_demo/test_commands.py -q` → 5 passed. Manual happy-path
+check: `DEMO_DB_PATH=/tmp/dl-demo-t009/db.sqlite3 poetry run python manage.py demo` (backgrounded)
+→ migrate applied all app migrations, `curl http://127.0.0.1:8000/catalogue/` → `HTTP 200` with
+"Shannon", "Watson", "Darwin" and "Vaswani" all present in the body — the seed loaded and served.
+Process killed and scratch DB directory removed afterward; `git status` clean, no `.sqlite3`
+tracked. `poetry run ruff check demo/settings.py demo/management/commands/demo.py` — All checks
+passed.
+Next: T010 (README documentation).
+Watch: the `Could not reverse URL for view 'home'` warning noted at T005 also appears here — same
+pre-existing concern, not new to this task.
