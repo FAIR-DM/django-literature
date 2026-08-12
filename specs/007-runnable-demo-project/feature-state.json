@@ -3,7 +3,7 @@
   "feature": "007-runnable-demo-project",
   "branch": "007-runnable-demo-project",
   "repo": "FAIR-DM/django-literature",
-  "state": "PR_READY",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "INTAKE",
@@ -83,6 +83,11 @@
       "state": "PR_READY",
       "at": "2026-08-12T16:10:00Z",
       "note": "PR #63 out of draft, review summary commented as fairdm-bot. stage-exit S6 green on all six checks. Outstanding for Sam: land T016-demo-guard-workflow.patch (bot has no workflows permission) and arm the demo check as required in ruleset 19620991."
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-12T14:19:04Z",
+      "note": "PR #63 merged; approved by SamuelJennings"
     }
   ],
   "gates": {
@@ -103,8 +108,8 @@
       "at": "2026-08-12T10:40:00Z"
     },
     "merge": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-12T14:11:57Z"
     }
   },
   "stories": [
@@ -384,7 +389,7 @@
       "max": 2
     },
     "review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 1
     },
     "design_review_cycles": {

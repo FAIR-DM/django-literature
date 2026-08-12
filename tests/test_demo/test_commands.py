@@ -236,7 +236,7 @@ class TestMissingUIExtra:
 
     The subject is the import guard in ``demo/settings.py``, so this holds for every
     step of the documented sequence rather than for one composite command. It is
-    checked against ``migrate``, the first step someone runs (decisions.md D14).
+    checked against ``migrate``, the first step someone runs (decisions.md D15).
     """
 
     def test_fails_with_a_plain_message_when_the_ui_extra_is_missing(self, tmp_path):
