@@ -214,6 +214,21 @@ urlpatterns = [
 The routes are namespaced `literature`, so a template reverses them as `{% url 'literature:item-list' %}`
 and `{% url 'literature:item-detail' pk=item.pk %}`.
 
+One route the shell expects is the project's own. django-mvp's mobile navigation carries a Home
+item pointing at a view named `home`, and the shell renders that navigation on every page, so a
+project without a route of that name gets a reversal warning on each render and a Home button that
+goes nowhere. Point it wherever your project's front door is:
+
+```python
+# urls.py
+from django.views.generic import RedirectView
+
+urlpatterns = [
+    # ...
+    path("", RedirectView.as_view(pattern_name="literature:item-list"), name="home"),
+]
+```
+
 That is every step. Once the URLs are included, the catalogue list, the reference page and the
 contributor page are live. No view, template, URL pattern, or line of styling is left for the host
 to write.
