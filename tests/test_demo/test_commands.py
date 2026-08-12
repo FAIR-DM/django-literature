@@ -50,16 +50,21 @@ print("RESULT_JSON:" + json.dumps({{
 """
 
 
-def _run_seed_demo(db_path: Path, seed_path: Path) -> dict:
-    """Run ``seed_demo`` in a fresh subprocess against ``db_path``, seeded from ``seed_path``."""
+def _run_seed_demo_raw(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
+    """Run ``seed_demo`` in a fresh subprocess, returning the raw completed process."""
     script = _SEED_DEMO_SCRIPT.format(db_path=str(db_path), seed_path=str(seed_path))
-    result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
+    return subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,
         check=False,
         cwd=_REPO_ROOT,
     )
+
+
+def _run_seed_demo(db_path: Path, seed_path: Path) -> dict:
+    """Run ``seed_demo`` in a fresh subprocess against ``db_path``, seeded from ``seed_path``."""
+    result = _run_seed_demo_raw(db_path, seed_path)
     assert result.returncode == 0, result.stderr
     for line in result.stdout.splitlines():
         if line.startswith("RESULT_JSON:"):
@@ -107,3 +112,24 @@ class TestSeedDemo:
 
         assert result["item_count"] == 2
         assert result["citation_keys"] == ["Beta2021", "Gamma2022"]
+
+    def test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds(self, tmp_path):
+        db_path = tmp_path / "db.sqlite3"
+        catalogue = tmp_path / "catalogue.json"
+        catalogue.write_text(
+            json.dumps(
+                [
+                    {"citation-key": "Good2020", "type": "book", "title": "Good"},
+                    # "not-a-real-type" is not a recognised CSL JSON item type, so
+                    # from_csl_json_list skips this entry and logs a warning
+                    # (literature/converters.py) — seed_demo must not report success.
+                    {"citation-key": "Bad2020", "type": "not-a-real-type", "title": "Bad"},
+                ]
+            )
+        )
+
+        result = _run_seed_demo_raw(db_path, catalogue)
+
+        assert result.returncode != 0
+        assert "Bad2020" in result.stderr
+        assert "1" in result.stderr and "2" in result.stderr
