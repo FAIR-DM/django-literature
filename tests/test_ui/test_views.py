@@ -5,13 +5,24 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """
 
+import re
+
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from literature.choices import DateType, ItemType, NameRole
+from literature.models import Item
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
+
+
+def anchor_tag(content, href):
+    """The opening ``<a>`` tag addressing ``href``, so a test can assert on the
+    classes it carries rather than only on the presence of the URL."""
+    match = re.search(rf"<a\b[^>]*href=\"{re.escape(href)}\"[^>]*>", content)
+    assert match, f"no anchor addressing {href}"
+    return match.group(0)
 
 
 class TestItemListView:
@@ -106,6 +117,102 @@ class TestItemListView:
         assert response.status_code == 200
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
+
+
+class TestCatalogueListReadability:
+    """Issue #65 — what the catalogue list and its rows say at a glance.
+
+    Nothing here changes what the page reports, only how readably it reports
+    it, so every test asserts on presentation over data the existing
+    ``TestItemListView`` cases already prove is present.
+    """
+
+    def test_the_page_is_titled_for_what_it_holds_not_for_the_model(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Publications" in content
+        assert "Items" not in content
+
+    def test_the_position_line_names_the_collection_the_same_way_the_heading_does(self, client, db):
+        # django-mvp writes this line from the model's verbose_name_plural, so
+        # retitling the page alone left it reading "Showing 1-24 of 28 items"
+        # directly under a heading that said Publications.
+        ItemFactory.create_batch(30)
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "of 30 publications" in content
+        assert "of 30 items" not in content
+
+    def test_the_model_keeps_its_own_name(self, db):
+        # The heading is the view's to choose. Renaming the model to reach it
+        # would rename it in the admin, in every error message and in the
+        # migration state, for a word on one page.
+        assert str(Item._meta.verbose_name_plural) == "items"
+
+    def test_the_item_type_badge_carries_the_primary_colour(self, client, db):
+        ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert re.search(r'class="badge badge-primary[^"]*">\s*Journal Article\s*<', content)
+
+    def test_contributor_names_link_to_their_page(self, client, db):
+        # The reference page has carried this link since FR-022; the row showed
+        # the same names as plain text, so a reader could not tell from the
+        # catalogue that a contributor had a page at all.
+        item_name = ItemNameFactory(role=NameRole.AUTHOR)
+        content = client.get(reverse("literature:item-list")).content.decode()
+        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert f'href="{contributor_url}"' in content
+
+    def test_a_contributor_link_underlines_on_hover(self, client, db):
+        item_name = ItemNameFactory(role=NameRole.AUTHOR)
+        content = client.get(reverse("literature:item-list")).content.decode()
+        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert "link-hover" in anchor_tag(content, contributor_url)
+
+    def test_the_title_link_underlines_on_hover(self, client, db):
+        item = ItemFactory(title="A Followable Title")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        item_url = reverse("literature:item-detail", kwargs={"pk": item.pk})
+        assert "link-hover" in anchor_tag(content, item_url)
+
+    def test_a_role_heading_pluralises_with_the_names_under_it(self, client, db):
+        item = ItemFactory()
+        for _ in range(3):
+            ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Authors:" in content
+        assert "Author:" not in content
+
+    def test_a_role_heading_stays_singular_for_one_name(self, client, db):
+        ItemNameFactory(role=NameRole.AUTHOR)
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Author:" in content
+
+    def test_the_citation_key_is_labelled(self, client, db):
+        # Given a title, so the row's fallback does not also print the key
+        # (the fallback is the row's heading, and is not what this labels).
+        ItemFactory(title="A Titled Reference", citation_key="Labelled2026")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Cite key" in content
+        assert content.index("Cite key") < content.index("Labelled2026")
+
+    def test_a_row_shows_a_snippet_of_the_abstract(self, client, db):
+        ItemFactory(abstract="Sediment cores record the drainage history of the basin.")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Sediment cores record the drainage history of the basin." in content
+
+    def test_a_long_abstract_is_cut_to_a_snippet(self, client, db):
+        ItemFactory(abstract=" ".join(f"word{n}" for n in range(60)))
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "word0" in content
+        assert "word59" not in content
+
+    def test_a_row_carrying_no_abstract_leaves_no_empty_paragraph_behind(self, client, db):
+        # The snippet is a paragraph; rendered unconditionally it would leave an
+        # empty one on every row of a catalogue imported without abstracts,
+        # which is most of them.
+        item = ItemFactory(abstract="")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert re.search(r"<p[^>]*>\s*</p>", content) is None
+        assert item.citation_key in content
 
 
 class TestItemDetailView:
@@ -236,6 +343,37 @@ class TestItemDetailView:
         assert f'href="{contributor_url}"' in content
 
 
+class TestReferencePageReadability:
+    """Issue #65 — the reference page's share of the same pass."""
+
+    def test_the_breadcrumb_back_to_the_catalogue_reads_the_same_as_the_catalogue(self, client, db):
+        item = ItemFactory()
+        content = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk})).content.decode()
+        catalogue_url = reverse("literature:item-list")
+        assert re.search(rf'href="{re.escape(catalogue_url)}"[^>]*>\s*Publications', content)
+        assert "Items" not in content
+
+    def test_a_contributor_link_underlines_on_hover(self, client, db):
+        item = ItemFactory()
+        item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        content = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk})).content.decode()
+        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert "link-hover" in anchor_tag(content, contributor_url)
+
+    def test_a_role_heading_pluralises_with_the_names_under_it(self, client, db):
+        item = ItemFactory()
+        for _ in range(2):
+            ItemNameFactory(item=item, role=NameRole.EDITOR)
+        content = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk})).content.decode()
+        assert ">Editors</h6>" in content
+
+    def test_a_role_heading_stays_singular_for_one_name(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, role=NameRole.EDITOR)
+        content = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk})).content.decode()
+        assert ">Editor</h6>" in content
+
+
 class TestContributorDetailView:
     """The contributor page — FR-032 through FR-038."""
 
@@ -286,6 +424,14 @@ class TestContributorDetailView:
         contributor = NameFactory()
         response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
         assert f'href="{reverse("literature:item-list")}"' in response.content.decode()
+
+    def test_breadcrumb_to_the_catalogue_reads_as_the_catalogue_page_is_titled(self, client, db):
+        # Issue #65. This breadcrumb builds its own text rather than inheriting
+        # the list view's, so a heading changed in one place and not the other
+        # would have the same link read two ways in one journey.
+        contributor = NameFactory()
+        content = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})).content.decode()
+        assert re.search(rf'href="{re.escape(reverse("literature:item-list"))}"[^>]*>\s*Publications', content)
 
     def test_item_held_under_two_roles_appears_once_carrying_both(self, client, db):
         contributor = NameFactory()

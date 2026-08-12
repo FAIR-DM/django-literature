@@ -5,13 +5,13 @@
     {% for label, value in scalar_fields %}<c-data-field label="{{ label }}" value="{{ value }}" />{% endfor %}
   </c-grid>
 
-  {% regroup object.item_names.all by get_role_display as contributor_groups %}
+  {# Built by the view so the role heading can pluralise — literature/ui/contributors.py. #}
   {% if contributor_groups %}
     <c-section title="{% translate "Contributors" %}">
       <c-grid cols="1" md="2" gap="4">
         {% for group in contributor_groups %}
-          <c-data-field label="{{ group.grouper }}">
-            {% for item_name in group.list %}<a href="{% url 'literature:contributor-detail' pk=item_name.name.pk %}">{{ item_name.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+          <c-data-field label="{{ group.label }}">
+            {% for name in group.names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}
           </c-data-field>
         {% endfor %}
       </c-grid>
