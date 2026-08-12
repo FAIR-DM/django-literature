@@ -38,7 +38,14 @@ class Command(BaseCommand):
             Name.objects.all().delete()
 
             seed_path = Path(os.environ.get("DEMO_SEED_PATH", str(_DEFAULT_SEED_PATH)))
-            with seed_path.open() as f:
+            # encoding="utf-8" is not optional here. Without it Python uses the
+            # locale's preferred encoding, so the same file loads differently on
+            # different machines: the catalogue holds a German thesis title, Gödel
+            # and Françoise Sagan, and on a cp1252 locale every one of those arrives
+            # as mojibake ("GÃ¶del") and is stored that way. JSON is UTF-8 by
+            # specification (RFC 8259 §8.1), so the file's encoding is a fact about
+            # the format rather than a property of whoever opens it.
+            with seed_path.open(encoding="utf-8") as f:
                 entries = json.load(f)
 
             loaded = from_csl_json_list(entries)

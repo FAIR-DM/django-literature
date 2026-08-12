@@ -59,7 +59,7 @@ def _date_precision(date_variable):
 
 @pytest.fixture(scope="module")
 def catalogue():
-    return json.loads(_CATALOGUE_PATH.read_text())
+    return json.loads(_CATALOGUE_PATH.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")

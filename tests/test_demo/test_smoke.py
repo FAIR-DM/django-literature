@@ -85,7 +85,7 @@ class TestPatternPrefix:
         # them. Read the demo's URLconf as text: importing it evaluates
         # admin.site.urls against the suite's app registry, which is the coupling
         # FR-021 forbids.
-        source = _DEMO_URLS.read_text()
+        source = _DEMO_URLS.read_text(encoding="utf-8")
 
         assert re.search(r'path\(\s*"catalogue/",\s*include\(\s*"literature\.ui\.urls"\s*\)', source)
 

@@ -112,14 +112,46 @@ def _run_seed_demo(db_path: Path, seed_path: Path) -> dict:
     return _read_result_json(result)
 
 
+def _run_seed_demo_strict_encoding(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
+    """Run ``seed_demo`` with every implicit text encoding escalated to an error.
+
+    ``-X warn_default_encoding`` makes CPython emit an ``EncodingWarning`` wherever
+    text I/O falls back to ``locale.getpreferredencoding()``, and turning that
+    warning into an error is what makes the check independent of the locale the
+    suite happens to run under. Asserting the titles come back correct would not
+    work: on a UTF-8 machine they do so whether or not the encoding was named.
+    """
+    script = _SEED_DEMO_SCRIPT.format(db_path=str(db_path), seed_path=str(seed_path))
+    env = os.environ.copy()
+    env["PYTHONWARNINGS"] = "error::EncodingWarning"
+    return subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
+        [sys.executable, "-X", "warn_default_encoding", "-c", script],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=_REPO_ROOT,
+        env=env,
+    )
+
+
 class TestSeedDemo:
     """``python manage.py seed_demo`` — plan.md D-2."""
 
     def test_loads_the_catalogue(self, tmp_path):
         result = _run_seed_demo(tmp_path / "db.sqlite3", _REAL_CATALOGUE)
-        catalogue = json.loads(_REAL_CATALOGUE.read_text())
+        catalogue = json.loads(_REAL_CATALOGUE.read_text(encoding="utf-8"))
         assert result["item_count"] == len(catalogue)
         assert result["item_count"] > 0
+
+    def test_names_every_text_encoding_it_opens_a_file_with(self, tmp_path):
+        # The catalogue holds Gödel, a German thesis title and Françoise Sagan. An
+        # open() that does not name its encoding uses the locale's, so on a cp1252
+        # machine every one of those loads as mojibake ("GÃ¶del") and is stored that
+        # way — while the same command on a UTF-8 machine, and in CI, is perfectly
+        # fine. Escalating EncodingWarning to an error catches the whole class here
+        # rather than leaving it to whoever runs the demo on a different locale.
+        result = _run_seed_demo_strict_encoding(tmp_path / "db.sqlite3", _REAL_CATALOGUE)
+        assert result.returncode == 0, f"implicit text encoding on the seed path:\n{result.stderr}"
 
     def test_running_twice_leaves_the_same_number_not_double(self, tmp_path):
         db_path = tmp_path / "db.sqlite3"
