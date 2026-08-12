@@ -83,7 +83,7 @@
       "priority": "P1",
       "issue": 59,
       "worktree": "/home/sam/projects/fairdm/dl-us1-fs007",
-      "status": "in_progress",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -202,7 +202,22 @@
             "verified_by_ci": false
           }
         }
-      ]
+      ],
+      "method_audit": {
+        "reason": "US1 was produced without craft-tdd/craft-increments loaded; re-dispatched as a method-led audit-and-repair pass over the existing commits rather than a redo.",
+        "receipts": [
+          "craft-tdd/2026-08-05/eae3b6c7",
+          "craft-increments/2026-08-05/d3dce07f"
+        ],
+        "gate": "forge check-receipts --role implementer -> exit 0",
+        "findings": "method holds on all 8 audited areas; no repairs required",
+        "caveat": "produced without the method, audited under it \u2014 a green gate here is weaker evidence than a method-led build",
+        "verification": {
+          "full_suite": "1334 passed",
+          "pre_commit": "all hooks passed",
+          "tip": "b21e5f1"
+        }
+      }
     },
     {
       "id": "US2",
