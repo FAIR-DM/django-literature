@@ -1,0 +1,126 @@
+[
+  {
+    "id": "Shannon1948",
+    "type": "article-journal",
+    "title": "A Mathematical Theory of Communication",
+    "author": [
+      {
+        "family": "Shannon",
+        "given": "Claude E."
+      }
+    ],
+    "container-title": "The Bell System Technical Journal",
+    "volume": "27",
+    "issue": "3",
+    "page": "379-423",
+    "issued": {
+      "date-parts": [
+        [
+          1948,
+          7
+        ]
+      ]
+    },
+    "DOI": "10.1002/j.1538-7305.1948.tb01338.x"
+  },
+  {
+    "id": "WatsonCrick1953",
+    "type": "article-journal",
+    "title": "Molecular Structure of Nucleic Acids: A Structure for Deoxyribose Nucleic Acid",
+    "author": [
+      {
+        "family": "Watson",
+        "given": "J. D."
+      },
+      {
+        "family": "Crick",
+        "given": "F. H. C."
+      }
+    ],
+    "container-title": "Nature",
+    "volume": "171",
+    "issue": "4356",
+    "page": "737-738",
+    "issued": {
+      "date-parts": [
+        [
+          1953,
+          4,
+          25
+        ]
+      ]
+    },
+    "DOI": "10.1038/171737a0"
+  },
+  {
+    "id": "Darwin1859",
+    "type": "book",
+    "title": "On the Origin of Species by Means of Natural Selection",
+    "author": [
+      {
+        "family": "Darwin",
+        "given": "Charles"
+      }
+    ],
+    "publisher": "John Murray",
+    "publisher-place": "London",
+    "issued": {
+      "date-parts": [
+        [
+          1859,
+          11,
+          24
+        ]
+      ]
+    }
+  },
+  {
+    "id": "Vaswani2017",
+    "type": "paper-conference",
+    "title": "Attention Is All You Need",
+    "author": [
+      {
+        "family": "Vaswani",
+        "given": "Ashish"
+      },
+      {
+        "family": "Shazeer",
+        "given": "Noam"
+      },
+      {
+        "family": "Parmar",
+        "given": "Niki"
+      },
+      {
+        "family": "Uszkoreit",
+        "given": "Jakob"
+      },
+      {
+        "family": "Jones",
+        "given": "Llion"
+      },
+      {
+        "family": "Gomez",
+        "given": "Aidan N."
+      },
+      {
+        "family": "Kaiser",
+        "given": "Lukasz"
+      },
+      {
+        "family": "Polosukhin",
+        "given": "Illia"
+      }
+    ],
+    "container-title": "Advances in Neural Information Processing Systems 30 (NeurIPS 2017)",
+    "issued": {
+      "date-parts": [
+        [
+          2017,
+          12
+        ]
+      ]
+    },
+    "URL": "https://arxiv.org/abs/1706.03762"
+  }
+]

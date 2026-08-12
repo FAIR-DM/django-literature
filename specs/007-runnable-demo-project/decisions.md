@@ -112,3 +112,58 @@ list of guesses about that set which goes stale silently. Arming the check as re
 branch ruleset is the maintainer's action, noted as an assumption rather than delivered here.
 
 **ADR:** none.
+
+## D7 — `seed_demo` reads its catalogue path from `DEMO_SEED_PATH`, mirroring T001's `DEMO_DB_PATH`
+**Ambiguity**: tasks.md T006 requires a test proving that running `seed_demo` "against a catalogue
+holding different items leaves only the seeded ones" — i.e. the test must run the command twice
+against two different catalogue contents. `seed_demo` (T008) always loads a fixed file,
+`demo/seed/catalogue.json`. Overwriting that tracked file from a test, even temporarily, mutates a
+repository file mid-run with no safe rollback if the test aborts, and neither `tasks.md` nor
+`plan.md` names a parameter for the catalogue path.
+
+**Chosen**: `seed_demo` reads its catalogue path from the `DEMO_SEED_PATH` environment variable,
+defaulting to `demo/seed/catalogue.json` — the same shape T001 already established for
+`DEMO_DB_PATH`, for the identical reason: a destructive command needs a way for a test to point it
+at a scratch file instead of the tracked one. With no variable set, `python manage.py seed_demo`
+and `python manage.py demo` behave exactly as if the path were hardcoded.
+
+**Why defensible**: This is a narrower instance of the exact problem T001 already solved for the
+database file, solved the same way, so it introduces no new pattern. It touches only
+`demo/management/commands/seed_demo.py` (T008's own file) and costs the production path nothing —
+the default is unchanged. The alternative (mutating and restoring `demo/seed/catalogue.json` inside
+the test) was rejected because a test that dies mid-run would leave the tracked seed file
+corrupted, which is worse than one extra environment variable.
+
+**Revisit if**: a later story gives `seed_demo` a `--file` CLI argument for a different reason: at
+that point `DEMO_SEED_PATH` should be folded into it rather than the project carrying both.
+
+**ADR**: none.
+
+## D8 — The missing-'ui'-extra guard lives in `demo/settings.py`, not in `demo.py`
+**Ambiguity**: T009 asks `python manage.py demo` to "fail with a plain message naming the missing
+extra when literature.ui is not installed, rather than dying inside Django's app loading," and
+names `demo/management/commands/demo.py` as the file to write.
+
+**Chosen**: The guard is a `try/except ImportError` around `import mvp` at the top of
+`demo/settings.py`, printing a one-line message and calling `sys.exit(1)` — not code inside
+`demo.py`'s `handle()`.
+
+**Why defensible**: `django.core.management.ManagementUtility.execute()` calls `django.setup()` —
+which imports every `INSTALLED_APPS` entry, including `mvp`, `django_cotton`, `easy_icons`,
+`flex_menu`, `crispy_forms` and `crispy_tailwind` — unconditionally, before `fetch_command()` even
+locates and imports `demo.py`. I read the installed Django 5.2 source
+(`django/core/management/__init__.py:353-417`) to confirm this ordering. A missing dependency
+therefore crashes before any code in `demo.py` runs; nothing written there can intercept it. The
+only point early enough is settings-module load, which `execute()` reaches (via
+`settings.INSTALLED_APPS`) before calling `django.setup()`. `mvp` is the canary because it is the
+first `ui`-only package the front end genuinely needs (README.md) and is a hard dependency of every
+other one; catching it there is the earliest point at which a plain, one-line message can be shown
+instead of a raw `ModuleNotFoundError` traceback surfacing from deep inside app loading. This
+guard applies to every management command, not just `demo` — which is correct given T001 already
+requires the `ui` apps to be unconditional in `INSTALLED_APPS`: no command works without them.
+
+**Revisit if**: `demo/settings.py` ever needs to run without the `ui` extra for a legitimate reason
+(e.g. a future core-only demo mode) — at that point the apps and the guard both need to become
+conditional together, not just the guard.
+
+**ADR**: none.

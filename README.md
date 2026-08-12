@@ -218,6 +218,25 @@ That is every step. Once the URLs are included, the catalogue list, the referenc
 contributor page are live. No view, template, URL pattern, or line of styling is left for the host
 to write.
 
+### Try it: the demo project
+
+The repository carries a runnable demo of everything above, wired the same way this section
+documents. From a fresh clone, with dependencies installed:
+
+```bash
+poetry install --extras ui
+python manage.py demo
+```
+
+That one command creates the database, applies migrations, loads a small catalogue of real
+references, and starts the server. It prints the address to open — `http://127.0.0.1:8000/catalogue/`
+— where the catalogue list, a reference page and a contributor page are all live and populated.
+Running the command again returns the demo to that same seeded state, whatever state it was in
+before.
+
+The demo is not a production configuration: `DEBUG` is on, the database is a local SQLite file, and
+the secret key is a throwaway value committed in `demo/settings.py`. Do not deploy it as-is.
+
 ---
 
 ## Quick Start
