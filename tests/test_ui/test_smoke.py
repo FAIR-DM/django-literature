@@ -75,8 +75,17 @@ class TestSettings:
     def test_root_urlconf_is_the_ui_wired_urls_module(self):
         assert settings.ROOT_URLCONF == "tests.urls"
 
-    def test_crispy_is_not_configured(self):
-        assert "crispy_forms" not in settings.INSTALLED_APPS
-        assert "crispy_tailwind" not in settings.INSTALLED_APPS
+    def test_crispy_is_configured_for_the_packaged_list_template(self):
+        # django-mvp's ``list_view.html`` loads ``crispy_forms_tags``, and a tag
+        # library resolves only from an installed app. Both arrive with
+        # django-mvp as hard dependencies, so this costs no extra install.
+        assert "crispy_forms" in settings.INSTALLED_APPS
+        assert "crispy_tailwind" in settings.INSTALLED_APPS
+
+    def test_mvp_precedes_crispy_tailwind(self):
+        # django-mvp overrides crispy-tailwind's help-text template, and the
+        # first app to declare a template path wins.
+        apps = settings.INSTALLED_APPS
+        assert apps.index("mvp") < apps.index("crispy_tailwind")
         assert not hasattr(settings, "CRISPY_TEMPLATE_PACK")
         assert not hasattr(settings, "CRISPY_ALLOWED_TEMPLATE_PACKS")

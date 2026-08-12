@@ -5,41 +5,69 @@ from pathlib import Path
 
 import pytest
 
-TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates" / "literature" / "ui"
+APP_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
+TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
 TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html"))
-
-# django-mvp's own packaged chain (research R2, plan.md D-1) — the app must
-# never reach any of these, since a host that has not written its own
-# base.html would get TemplateDoesNotExist through the packaged chain, and a
-# top-level base.html of our own would hijack the host's shell.
-FORBIDDEN_REFERENCES = ["page_view.html", "list_view.html", "detail_view.html"]
+PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
 
-class TestBaseTemplate:
-    """``literature/ui/templates/literature/ui/base.html`` — plan.md D-1."""
+class TestPassthroughBaseTemplate:
+    """``literature/ui/templates/base.html`` — D20.
+
+    django-mvp routes every packaged page through the unqualified ``base.html``,
+    a name that belongs to the host project, and ships no default for it. This
+    app ships one so the packaged chain resolves in a project that has written
+    none. It is a stop-gap for django-mvp#219, and the tests below are what keep
+    it from becoming anything more.
+    """
 
     @staticmethod
     def _source() -> str:
-        return (TEMPLATES_DIR / "base.html").read_text()
+        return PASSTHROUGH_BASE.read_text()
 
-    def test_extends_mvp_base_directly(self):
+    def test_forwards_to_the_packaged_shell(self):
         assert '{% extends "mvp/base.html" %}' in self._source()
 
-    def test_references_none_of_the_packaged_view_chain(self):
-        source = self._source()
-        for forbidden in FORBIDDEN_REFERENCES:
-            assert forbidden not in source
+    def test_defines_nothing_of_its_own(self):
+        # A block here would be content a host silently inherits and cannot see.
+        # Everything outside the extends tag and its explanatory comment must be
+        # whitespace, so overriding this file costs a host nothing.
+        source = re.sub(r"\{#.*?#\}", "", self._source(), flags=re.DOTALL)
+        source = source.replace('{% extends "mvp/base.html" %}', "")
+        assert source.strip() == ""
 
-    def test_does_not_extend_or_include_the_unqualified_base_template(self):
-        source = self._source()
-        assert '"base.html"' not in source
-        assert "'base.html'" not in source
+    def test_a_project_template_directory_wins_over_it(self, tmp_path, settings):
+        # The politeness guarantee: DIRS is searched before any app, so a
+        # project that has its own base.html keeps it. This app only fills the
+        # gap for a project with none.
+        (tmp_path / "base.html").write_text("the project's own shell")
+        settings.TEMPLATES = [
+            {**settings.TEMPLATES[0], "DIRS": [str(tmp_path)]},
+        ]
+        from django.template.loader import get_template
 
-    def test_renders_the_page_wrapper_class(self):
-        assert '<c-page class="{{ page.class }}">' in self._source()
+        assert get_template("base.html").origin.name == str(tmp_path / "base.html")
 
-    def test_renders_the_breadcrumbs_region(self):
-        assert "<c-breadcrumbs" in self._source()
+    def test_the_app_fills_the_gap_when_a_project_has_none(self, settings):
+        settings.TEMPLATES = [{**settings.TEMPLATES[0], "DIRS": []}]
+        from django.template.loader import get_template
+
+        assert get_template("base.html").origin.name == str(PASSTHROUGH_BASE)
+
+
+class TestPackagedChain:
+    """The app's pages render through django-mvp's own view templates (D20)."""
+
+    def test_the_reference_page_extends_the_packaged_detail_template(self):
+        source = (TEMPLATES_DIR / "item_detail.html").read_text()
+        assert '{% extends "detail_view.html" %}' in source
+
+    def test_no_page_template_of_our_own_stands_in_for_a_packaged_one(self):
+        # The catalogue list and the contributor page render through
+        # ``list_view.html``; neither has a template here.
+        assert not (TEMPLATES_DIR / "base.html").exists()
+        assert not (TEMPLATES_DIR / "item_list.html").exists()
+        assert not (TEMPLATES_DIR / "contributor_detail.html").exists()
 
 
 # ---------------------------------------------------------------------------

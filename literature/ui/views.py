@@ -21,7 +21,10 @@ class ItemListView(MVPListView):
     """The catalogue list — FR-012, FR-014, FR-015, FR-018, FR-027, FR-029."""
 
     model = Item
-    template_name = "literature/ui/item_list.html"
+    # No ``template_name``: the page renders through django-mvp's own
+    # ``list_view.html``, which the package reaches via the pass-through
+    # ``base.html`` this app ships until django-mvp carries a default of its
+    # own. Only the card is ours.
     list_item_template = "literature/ui/item_list_item.html"
 
     # Out of scope here (#49) — set explicitly so a later template change

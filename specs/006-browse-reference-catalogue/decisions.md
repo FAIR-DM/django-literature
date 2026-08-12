@@ -384,7 +384,7 @@ empty state.
 
 **ADR:** none — a view composed from the app's own catalogue view, inside this app.
 
-## D19 — The two page templates are recorded as stand-ins, not accepted as ours
+## D19 — The two page templates are recorded as stand-ins, not accepted as ours *(superseded by D20, 2026-08-12)*
 
 **Ambiguity**: raised at the merge gate — `literature/ui/base.html` reproduces django-mvp's
 `page_view.html`, and `item_list.html` reproduces the body of its `list_view.html`, so the app looks
@@ -412,3 +412,35 @@ fails at render on `base.html` alone.
 there. The exit is upstream and filed, not a promise to remember.
 
 **ADR:** none — a temporary stand-in tracked in the specification, with a filed exit.
+
+## D20 — The app ships a pass-through `base.html` and uses django-mvp's own page templates
+
+**Supersedes D19.** D19 kept two page templates of our own and named the upstream chain unreachable.
+The maintainer's ruling at the merge gate: django-mvp routes everything through `base.html`
+deliberately, so asking it for a package-qualified chain is the wrong request — the right one is a
+default `base.html`, which he is raising upstream himself. Meanwhile this app supplies that default.
+
+**Chosen**: `literature/ui/templates/base.html` holds a single `{% extends "mvp/base.html" %}` and
+nothing else. `literature/ui/base.html` and `literature/ui/item_list.html` are deleted. The catalogue
+list and the contributor page render through django-mvp's `list_view.html`, and the reference page
+extends `detail_view.html` instead of a base of ours. `crispy_forms` and `crispy_tailwind` join the
+documented `INSTALLED_APPS`, because `list_view.html` loads `crispy_forms_tags`; both are django-mvp's
+own hard dependencies, so nothing extra is installed.
+
+**Why defensible**: the duplication D19 recorded as debt is gone rather than tracked — around thirty
+lines that would have drifted from django-mvp are now django-mvp's to maintain, and any improvement
+to its list or detail page arrives here on a version bump. The objection D19 raised against this
+shape, that a top-level `base.html` displaces the host's, is answered by what the file is rather than
+by argument: a project's own template directory is searched before any app's, so a project that has a
+`base.html` keeps it, and the file defines no block, so a project that overrides it inherits nothing
+invisible. Both properties are held by tests, not by comments.
+
+**Cost named**: the app now claims the `base.html` name for a project that has none, which is
+documented in the README under its own heading rather than left for a reader to discover. The
+counted line above a list reads "Showing 1-1 of 1 items", django-mvp's own wording keyed on the
+model's plural, where our template said "references".
+
+**Exit**: delete the file when django-mvp ships a default `base.html` (django-mvp#219). Nothing else
+changes when it does.
+
+**ADR:** none — a stop-gap with a filed exit, recorded in the specification's Component gaps.

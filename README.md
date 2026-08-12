@@ -115,9 +115,26 @@ INSTALLED_APPS = [
     "easy_icons",
     "flex_menu",
     "mvp",
+    "crispy_forms",
+    "crispy_tailwind",
     "literature.ui",
 ]
 ```
+
+`mvp` comes before `crispy_tailwind` because django-mvp overrides one of crispy-tailwind's
+templates and the first app to declare a template path wins. Both crispy apps arrive with django-mvp
+as hard dependencies, so listing them installs nothing extra.
+
+### The `base.html` this app ships
+
+django-mvp's packaged pages extend a template named `base.html`, which is the shell a project
+writes for itself. Until django-mvp ships a default of its own, `literature.ui` carries one: a
+single line forwarding to `mvp/base.html`, with no blocks of its own.
+
+A project that has its own `base.html` keeps it — a project's template directory is searched before
+any app's — and a project that has none gets a working shell instead of `TemplateDoesNotExist`. If
+you want the pages inside your own layout, write `base.html` in your project and it takes over with
+nothing else to change.
 
 The UI app is built on [django-mvp](https://github.com/django-mvp), which needs a few settings of
 its own before a page renders. `mvp/base.html`, the shell every page extends, loads its stylesheet

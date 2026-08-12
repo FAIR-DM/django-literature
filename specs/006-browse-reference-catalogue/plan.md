@@ -133,6 +133,12 @@ is already inside the `literature` namespace.
 
 ### D-1 — Templates extend `mvp/base.html` through our own base, never `base.html`
 
+> **Superseded at the merge gate by decisions.md D20 (2026-08-12).** The app now ships a
+> pass-through `base.html` — one `{% extends "mvp/base.html" %}`, no blocks — and its pages render
+> through django-mvp's own `list_view.html` and `detail_view.html`. The base of our own described
+> below, and the `item_list.html` that extended it, are deleted. The reasoning is kept because it is
+> what the reversal answers.
+
 Established in research R2. `literature/ui/templates/literature/ui/base.html` extends
 `mvp/base.html` and fills `{% block content %}` with the chrome the packaged `page_view.html` would
 have supplied, composed from published components:

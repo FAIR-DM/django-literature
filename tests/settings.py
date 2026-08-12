@@ -13,7 +13,12 @@ INSTALLED_APPS = [
     "django_cotton",
     "easy_icons",
     "flex_menu",
+    # ``mvp`` before ``crispy_tailwind``: django-mvp ships an override of
+    # crispy-tailwind's help-text template, and the first app to declare a
+    # template path wins (django-mvp's getting-started guide).
     "mvp",
+    "crispy_forms",
+    "crispy_tailwind",
     "literature.ui",
 ]
 

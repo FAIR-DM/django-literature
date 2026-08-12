@@ -202,14 +202,13 @@ This feature persists nothing and adds no model. The entities it introduces are 
 
 Empty at specification time. FR-009 requires that any component built locally because django-mvp has none is recorded here, with the upstream request it was filed under, so it can be removed when a django-mvp release carries the component.
 
-Two page templates stand in for django-mvp's own, filed upstream as django-mvp#219:
+One file stands in for something django-mvp does not yet ship, filed upstream as django-mvp#219:
 
-- `literature/ui/base.html` composes the page frame (breadcrumb toolbar, title, content region) that django-mvp's `page_view.html` already composes.
-- `literature/ui/item_list.html` carries the body of django-mvp's `list_view.html`.
+- `literature/ui/templates/base.html` — a single `{% extends "mvp/base.html" %}` and nothing else.
 
-One thing keeps both out of reach: `page_view.html` extends the unqualified `base.html`, which django-mvp does not ship. That name belongs to the host project, so extending the packaged chain means every host writes a template before a page renders, and SC-002 rules that out. Shipping a top-level `base.html` of our own would resolve for the whole project and displace the host's. `list_view.html` compiles cleanly once django-mvp's own documented apps are installed and fails at render for the same single reason.
+django-mvp routes every packaged page through the unqualified `base.html`: `page_view.html` extends it, and `list_view.html` and `detail_view.html` extend that in turn. The name belongs to the host project and django-mvp ships no default for it, so without this file the packaged chain raises `TemplateDoesNotExist` in a project that has written none — and SC-002 rules out asking a host to write one. With it, the app's pages render through django-mvp's own view templates, which is the arrangement this feature wants: no page template of ours to drift from the package.
 
-Both are retired by a package-qualified chain upstream (`mvp/page_view.html` extending `mvp/base.html`), which is what django-mvp#219 asks for. Neither defines a component: both compose django-mvp's own.
+The stand-in is polite by construction, and two tests hold that line: it defines no block, so a project inherits nothing invisible from it, and a project's own `base.html` wins because a project's template directory is searched before any app's. It is deleted when django-mvp ships a default, which is what django-mvp#219 asks for. It defines no component.
 
 ## Success Criteria *(mandatory)*
 
