@@ -3,7 +3,7 @@
   "feature": "007-runnable-demo-project",
   "branch": "007-runnable-demo-project",
   "repo": "FAIR-DM/django-literature",
-  "state": "IMPLEMENT",
+  "state": "CONVERGE",
   "state_history": [
     {
       "state": "INTAKE",
@@ -68,6 +68,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-12T12:20:00Z",
       "note": "US3 done: T014-T018 merged as d85bd7b, ledger 9a3a14b, pushed as fairdm-bot. Receipt gate green (craft-tdd craft-tdd/2026-08-05/eae3b6c7, craft-increments craft-increments/2026-08-05/d3dce07f). Re-verified by the orchestrator on the merged branch: forge verify green on conformance/lint/typecheck/test/build, pytest 1344 passed, pre-commit all hooks green, tamper-check clean (0 flags), actionlint clean on demo.yml. D11 amended at convergence: the implementer's demo/settings.py-scoped search found no break that fails the guard while the suite stays green, because US1's D9 test renders /catalogue/ under demo.settings. Widening by one file does: removing call_command(\"seed_demo\") from the demo command turns the guard red (/catalogue/ 200, 'no reference link ... the seed did not load') with the full suite at 1344 passed. Observed directly, reverted, recorded as a D11 addendum. D12 records the workflow-file hold-back: the app installation lacks the workflows permission, so .github/workflows/demo.yml is filtered off the branch and kept as T016-demo-guard-workflow.patch for a maintainer push, as FS-006 T005 was."
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-12T15:20:00Z",
+      "note": "All four stories done. ADR gate green: D3 and D4 graduated to ADR-0018 and ADR-0019, twelve declined with reasons. Cleanup pass applied inside the feature diff. No migrations in this feature."
     }
   ],
   "gates": {
