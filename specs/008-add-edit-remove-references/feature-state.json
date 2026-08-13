@@ -1,0 +1,538 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "008-add-edit-remove-references",
+  "branch": "008-add-edit-remove-references",
+  "repo": "FAIR-DM/django-literature",
+  "state": "PR_READY",
+  "state_history": [
+    {
+      "state": "INTAKE",
+      "at": "2026-08-13T12:40:00Z",
+      "note": "grilled from issue #47; three questions, all answered by Sam; issue #69 filed on his instruction"
+    },
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-13T13:00:00Z",
+      "note": "spec.md + decisions.md; 4 stories, 34 FR, 6 SC; FR-004 rewritten after checking CSL publishes no type-to-field mapping"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-13T13:15:00Z",
+      "note": "epic #47 promoted, stories #70-#73, draft PR #74"
+    },
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-13T13:20:00Z",
+      "note": "approved by Sam in session, no changes"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-13T15:40:00Z",
+      "note": "plan.md + research.md + tasks.md; group-level mapping (D-1), visibility-only scoping (D-3)"
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-13T16:30:00Z",
+      "note": "one reviewer, three lenses, one round; 13 findings, 3 verified high (show_*_action flags, default_next preempting success_url, unseeded Alpine scope); all applied as plan/tasks edits; security lens clean; receipts green; budget spent"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T16:45:00Z",
+      "note": "plan notification sent carrying the design-review verdict; US1 (T001-T013, foundational spine included) next. OpenClaw gateway MCP unreachable this session, so subagents run through the harness rather than sessions_spawn and are not dashboard-visible."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T18:10:00Z",
+      "note": "US1 done and merged into the feature branch. Receipts green both dispatches. Independent verification at the story tip: forge verify all steps passed (conformance/lint/typecheck/test/build), tamper-check 4 flags all triaged as expected additions to pre-existing test files plus T001's Article I amendment recorded in plan D-5, no deletions anywhere. One re-plan spent: the orchestrator's own read of the mapping found article-journal resolving to a form with no container_title, caused by criterion C2 being written as though its four examples were exhaustive; C2 corrected in plan D-1, C2a added, T030 dispatched and the assignment re-derived."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T20:15:00Z",
+      "note": "US2 done and merged. Receipts green. Independent verification: forge verify all steps passed, tamper-check 2 flags, both additions to test files US1 authored (a parametrize list gaining ItemUpdateView and a docstring US2's own work made inaccurate) - strengthening, no assertion weakened or removed. One accepted deviation, D13: show_delete_action stays unset on ItemDetailView until US3 registers the route, because setting it with no route raises NoReverseMatch on every reference page. First attempt at this story was killed mid-bearings by an account session limit having written nothing; re-dispatched clean."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T22:05:00Z",
+      "note": "US3 done and merged. The implementer reported T020 BLOCKED, correctly: the delete confirmation could not render because CRISPY_ALLOWED_TEMPLATE_PACKS was unset, and every fix was outside its scope. Reproduced independently (get_template on cotton/form/render.html raises with no request or form involved), fixed on the feature branch, plan D-5 corrected - its claim that the allowlist is only consulted for an explicit pack argument came from the design review and was wrong. Story unblocked by merging the fix down; T020's own code needed no change. Verification after: forge verify all green, 1470 tests. tamper-check 3 flags: two additions to earlier stories' test files (a parametrize list and a widened import, no assertion touched), and one weakening_patterns_added which is a FALSE POSITIVE - WEAKEN_RE matched the prose comment '# asserts the guarantee rather than any code that implements it'. Worth a kit proposal at S8."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T23:40:00Z",
+      "note": "US4 tasks T021-T026 done and merged; T027 (humanizer) and T028 (feature-wide verify) are the orchestrator's and remain. Guard proven by reinstating three defects against a live demo server - wrong success_url, a field dropped from the rendered form, and a delete that does not delete - each failing the guard by name and reverted. Verification: forge verify all green, 1479 tests, literature/ untouched by the diff. tamper-check 1 flag: the walk's two pre-existing login-redirect tests now monkeypatch OpenerDirector.open rather than urlopen, because the write pass needs one shared cookie-carrying opener; names, fixtures and assertions unchanged (D16)."
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-14T00:30:00Z",
+      "note": "S5: no migrations introduced, so no consolidation. Cleanup pass applied (craft-simplify, receipt craft-simplify/2026-08-04/69038ce1): two cross-story duplications folded together, one stale docstring corrected, no abstraction added, test count unchanged at 1479. ADR graduation: 16 decisions verdicted, 4 graduated to docs/adr/0020-0023; 0023 supersedes 0001 (batch-scoped citation-key de-duplication), marked in place. Humanizer pass applied to README, CHANGELOG, docs/index, docs/field-groups and the four new ADRs. Feature-wide gates: forge verify all green, tamper-check 7 flags all triaged - six are additions to pre-existing test files, and the only two assertions removed anywhere in the feature are the two crispy-settings absence assertions dropped under the Article I decision in plan D-5; the two weakening_patterns_added hits are FALSE POSITIVES, WEAKEN_RE matching prose comments containing the words 'assert each was absent' and 'asserts the guarantee'. Kit proposal for S8."
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-14T02:00:00Z",
+      "note": "S6: one reviewer, correctness + spec + security lenses (security run because this is the package's first write path). Receipts green. Three findings, all verified by the orchestrator against the running code and all fixed. RV-001 HIGH is the finding of the run: the JSON seeding Alpine's scope carried |safe into a double-quoted attribute, so the first quote closed the attribute and the remaining JSON parsed as 205 junk attribute names - reproduced with HTMLParser, 206 attributes on the element and x-init truncated at the first brace. The whole type-scoping mechanism was inert in a browser and four stories of tests passed because they assert substrings of the raw body. RV-002 MEDIUM: CharField strips by default, so an unchanged save rewrote any stored value with leading or trailing whitespace, breaking SC-003's byte-identical claim; the SC-003 test had been shaped around it. RV-003 LOW: the demo's form reader accumulated every form on the page rather than the first. Each fix carries a test proven against the reinstated defect. Security lens otherwise clean: CSRF present on all three forms, the field allowlist structurally excludes the four non-form fields, ?next and ?back both host-validated upstream, nothing user-controlled reaching an href."
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-14T02:40:00Z",
+      "note": "PR #74 body rewritten to contract and marked ready. Author app/fairdm-bot, last pusher fairdm-bot, mergeable. All seven ruleset-required checks green. 'Walk the demo' is RED and is not a required check: diagnosed as a pre-existing infrastructure defect this branch did not cause - demo.yml pins setup-poetry@v0.2.0, which gates the dependency install on a cache miss, and on a cache hit poetry then discards the restored venv as broken and rebuilds it empty. Fixed upstream at v0.3.2, whose install step is unconditional with a comment describing this exact failure; the repo's other workflows were moved to v0.3.2 and demo.yml was written just after and kept the old pin. Filed as issue #75 with the one-line fix. Not fixable here: workflow files need a token the bot deliberately does not hold."
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-13T13:20:00Z",
+      "self_resolved": [
+        "D1 the type-to-field mapping is authored and owned by the package; nothing publishable exists",
+        "D2 categories and custom stay off the form and must survive a save untouched",
+        "D3 changing an item type never discards values that no longer apply",
+        "D4 no access control; the write pages are open as the read pages are",
+        "D5 citation-key collisions are not handled at all; the import path's de-duplication is issue #69",
+        "D6 removal acts on one reference per confirmation",
+        "D7 a reference with no contributors, dates or identifiers is valid"
+      ]
+    },
+    "plan": {
+      "approved_by": "notified",
+      "at": "2026-08-13T16:45:00Z"
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    },
+    "design_review": {
+      "approved_by": "design-reviewer",
+      "at": "2026-08-13T16:30:00Z",
+      "self_resolved": []
+    }
+  },
+  "stories": [
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 70,
+      "status": "done",
+      "replans": 1,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_smoke.py::TestSettings::test_mvp_precedes_crispy_tailwind"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_smoke.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fieldgroups.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fieldgroups.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fieldgroups.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fieldgroups.py -q",
+              "poetry run ruff check literature/ui/fieldgroups.py"
+            ]
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_forms.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_forms.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_forms.py",
+              "tests/test_ui/test_fieldgroups.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_forms.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_urls.py::TestCreateRouteReverses",
+              "tests/test_ui/test_urls.py::TestCRUDViewsReverse"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_urls.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -q"
+            ]
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemCreateView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemCreateView -q"
+            ]
+          }
+        },
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemCreateView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemCreateView -q"
+            ]
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemCreateView",
+              "tests/test_ui/test_templates.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/ -q"
+            ]
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemListView -q"
+            ]
+          }
+        },
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCreatePageRendersTheTailwindPack"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/ -q"
+            ]
+          }
+        },
+        {
+          "id": "T030",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fieldgroups.py::TestCorrectedC2Criterion"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fieldgroups.py -q",
+              "poetry run pytest tests/test_ui/ -q"
+            ]
+          }
+        }
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us1-fs008"
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 71,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T029",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us2-fs008"
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 72,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us3-fs008"
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 73,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_demo/test_smoke.py::TestSharedOpener",
+              "tests/test_demo/test_smoke.py::TestCreateLinkPattern",
+              "tests/test_demo/test_smoke.py::TestEditLinkPattern",
+              "tests/test_demo/test_smoke.py::TestDeleteLinkPattern",
+              "tests/test_demo/test_smoke.py::TestFormFields"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_demo/test_smoke.py -q",
+              "poetry run python demo/smoke.py http://127.0.0.1:8000"
+            ]
+          }
+        },
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "poetry run python demo/smoke.py http://127.0.0.1:8000 (x3 defect drills against literature/ui/views.py, each reverted; recorded verbatim in progress.md)"
+            ]
+          }
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "poetry run python demo/smoke.py http://127.0.0.1:8000"
+            ]
+          }
+        },
+        {
+          "id": "T024",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "poetry run pre-commit run --files README.md demo/settings.py"
+            ]
+          }
+        },
+        {
+          "id": "T025",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "poetry run pre-commit run --files docs/field-groups.md docs/index.md"
+            ]
+          }
+        },
+        {
+          "id": "T026",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [],
+            "commands": [
+              "poetry run pre-commit run --files CHANGELOG.md"
+            ]
+          }
+        },
+        {
+          "id": "T027",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T028",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": true
+          }
+        }
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us4-fs008"
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 1,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 1,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 4000000
+    }
+  },
+  "pr": {
+    "number": 74,
+    "draft": false
+  }
+}

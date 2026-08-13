@@ -22,6 +22,19 @@ INSTALLED_APPS = [
     "literature.ui",
 ]
 
+# crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
+# with no default, so leaving this unset is an AttributeError on the first form
+# render rather than a fallback to another pack (plan.md D-5).
+CRISPY_TEMPLATE_PACK = "tailwind"
+
+# And the allowlist has to name it too. The {% crispy %} tag validates the pack
+# at TEMPLATE-COMPILE time against CRISPY_ALLOWED_TEMPLATE_PACKS, whose default
+# is ("uni_form", "bootstrap3", "bootstrap4") — so every template carrying the
+# tag fails to compile, whether or not the tag is given an explicit pack and
+# whether or not that branch is the one taken at runtime. django-mvp's own demo
+# sets both settings together for the same reason (plan.md D-5).
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
+
 TEMPLATES[0]["OPTIONS"]["context_processors"] = [  # noqa: F405
     *TEMPLATES[0]["OPTIONS"]["context_processors"],  # noqa: F405
     "mvp.context_processors.mvp_config",

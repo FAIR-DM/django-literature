@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "demo",
-    # The front end, wired exactly as README.md documents at lines 93-220 (plan.md D-3).
+    # The front end, wired exactly as README.md documents at lines 93-245 (plan.md D-3).
     "literature",
     "django.contrib.sites",
     "django.contrib.staticfiles",
@@ -59,6 +59,19 @@ INSTALLED_APPS = [
     "crispy_tailwind",
     "literature.ui",
 ]
+
+# crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
+# with no default, so leaving this unset is an AttributeError on the first form
+# render rather than a fallback to another pack (plan.md D-5).
+CRISPY_TEMPLATE_PACK = "tailwind"
+
+# And the allowlist has to name it too. The {% crispy %} tag validates the pack
+# at TEMPLATE-COMPILE time against CRISPY_ALLOWED_TEMPLATE_PACKS, whose default
+# is ("uni_form", "bootstrap3", "bootstrap4") — so every template carrying the
+# tag fails to compile, whether or not the tag is given an explicit pack and
+# whether or not that branch is the one taken at runtime. django-mvp's own demo
+# sets both settings together for the same reason (plan.md D-5).
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

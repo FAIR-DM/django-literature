@@ -5,7 +5,9 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """
 
+import json
 import re
+from html.parser import HTMLParser
 
 import pytest
 from django.db import connection
@@ -13,7 +15,9 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from literature.choices import DateType, ItemType, NameRole
-from literature.models import Item
+from literature.converters import from_csl_json, to_csl_json
+from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
+from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
 
 
@@ -23,6 +27,39 @@ def anchor_tag(content, href):
     match = re.search(rf"<a\b[^>]*href=\"{re.escape(href)}\"[^>]*>", content)
     assert match, f"no anchor addressing {href}"
     return match.group(0)
+
+
+def _rendered_form_post_data(client, url, **overrides):
+    """Build a POST body from a rendered page's own form at ``url``.
+
+    Every field starts at what the form (bound or unbound) actually
+    initialises it to, and whatever the Save button's own ``name``/``value``
+    pair is is carried exactly as the page emits it — never assembled from a
+    bare hand-typed dict. A bare dict would miss both, and would pass a
+    round-trip or redirect-target assertion even against a view that dropped
+    a field, or reverted ``{% block actions %}`` to the stock button that
+    posts ``default_next=list`` (plan.md D-3), the rendered page actually
+    posts.
+    """
+    response = client.get(url)
+    form = response.context["form"]
+    data = {name: (form[name].value() or "") for name in form.fields}
+    content = response.content.decode()
+    submit_button = re.search(r'<button[^>]*type="submit"[^>]*name="([^"]+)"[^>]*value="([^"]+)"', content)
+    if submit_button:
+        data[submit_button.group(1)] = submit_button.group(2)
+    data.update(overrides)
+    return data
+
+
+def update_page_post_data(client, item, **overrides):
+    """Build a POST body from the rendered edit page's own bound form (T009)."""
+    return _rendered_form_post_data(client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides)
+
+
+def create_page_post_data(client, **overrides):
+    """Build a POST body from the rendered create page's own form (T011)."""
+    return _rendered_form_post_data(client, reverse("literature:item-create"), **overrides)
 
 
 class TestItemListView:
@@ -117,6 +154,13 @@ class TestItemListView:
         assert response.status_code == 200
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
+
+    def test_the_add_link_renders_and_points_at_the_create_page(self, client, db):
+        # directory = ["create"] alone renders nothing without
+        # show_create_action set (plan.md D-6) — this is the entry point
+        # US-1's acceptance scenario 1 starts from.
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert f'href="{reverse("literature:item-create")}"' in content
 
 
 class TestCatalogueListReadability:
@@ -213,6 +257,192 @@ class TestCatalogueListReadability:
         content = client.get(reverse("literature:item-list")).content.decode()
         assert re.search(r"<p[^>]*>\s*</p>", content) is None
         assert item.citation_key in content
+
+
+class TestItemCreateView:
+    """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
+
+    def test_page_renders_and_the_type_select_carries_the_alpine_scoping(self, client, db):
+        response = client.get(reverse("literature:item-create"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'x-model="form.itemType"' in content
+        assert 'x-init="form.itemType = $el.value"' in content
+
+    def test_with_no_type_chosen_every_group_but_the_type_fields_own_is_guarded(self, client, db):
+        # FR-002 — with no type chosen, only the type field itself has no
+        # x-show guard; every one of the thirteen groups does, so nothing
+        # else on a blank page shows.
+        content = client.get(reverse("literature:item-create")).content.decode()
+        for group in FieldGroups.GROUPS:
+            assert f"includes('{group}')" in content
+        assert content.count("x-show=") == len(FieldGroups.GROUPS)
+
+    def test_posting_a_valid_form_stores_exactly_what_was_posted(self, client, db):
+        data = create_page_post_data(
+            client, type=ItemType.ARTICLE_JOURNAL, citation_key="Doe2024", title="A Handwritten Reference"
+        )
+        client.post(reverse("literature:item-create"), data)
+        item = Item.objects.get(citation_key="Doe2024")
+        assert item.type == ItemType.ARTICLE_JOURNAL
+        assert item.title == "A Handwritten Reference"
+
+    def test_posting_a_valid_form_redirects_to_the_new_items_detail_page(self, client, db):
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="Redirect2024")
+        response = client.post(reverse("literature:item-create"), data)
+        item = Item.objects.get(citation_key="Redirect2024")
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-detail", kwargs={"pk": item.pk})
+
+    def test_posting_without_a_type_stores_nothing_and_names_the_field(self, client, db):
+        data = create_page_post_data(client, type="", citation_key="NoType2024")
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert not Item.objects.filter(citation_key="NoType2024").exists()
+        assert "type" in response.context["form"].errors
+
+    def test_posting_without_a_citation_key_stores_nothing_and_names_the_field(self, client, db):
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="")
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert Item.objects.count() == 0
+        assert "citation_key" in response.context["form"].errors
+
+    def test_a_duplicate_citation_key_is_stored_unchanged_with_no_warning(self, client, db):
+        # FR-007 — citation_key is not globally unique; a colliding key is a
+        # fact the store holds, never a validation error.
+        # citation_key deliberately avoids the word "duplicate" itself, so the
+        # no-warning assertion below cannot pass by accident on the key's own text.
+        ItemFactory(citation_key="Repeated2024")
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="Repeated2024")
+        response = client.post(reverse("literature:item-create"), data, follow=True)
+        assert Item.objects.filter(citation_key="Repeated2024").count() == 2
+        content = response.content.decode().lower()
+        assert "already exists" not in content
+        assert "duplicate" not in content
+
+    def test_a_created_items_detail_page_renders_with_no_contributors_dates_or_identifiers(self, client, db):
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="Bare2024")
+        response = client.post(reverse("literature:item-create"), data, follow=True)
+        assert response.status_code == 200
+        assert response.context["contributor_groups"] == []
+        assert response.context["identifiers"] == []
+
+
+class TestItemUpdateView:
+    """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
+
+    def test_saving_an_unchanged_form_leaves_every_stored_field_identical(self, client, db):
+        # SC-003 — the whole no-loss guarantee, and the most valuable test in
+        # the feature. A value in every scalar field the form carries, plus
+        # the two JSON fields it never carries (categories, custom — D-4),
+        # must survive an unchanged round trip through the rendered edit
+        # form. created/modified are auto_now_add/auto_now and change on
+        # every save by design (DR-010), so they are excluded on purpose,
+        # not by oversight.
+        from literature.ui.forms import FORM_FIELDS
+
+        values = {}
+        for name in FORM_FIELDS:
+            if name == "type":
+                continue
+            field = Item._meta.get_field(name)
+            # Underscore-joined, not space-joined: Django's CharField strips
+            # surrounding whitespace by default, and a value truncated to a
+            # short max_length (e.g. "language", "year_suffix" at 10) could
+            # otherwise land mid-space and silently lose it on the POST
+            # round trip for a reason unrelated to what this test checks.
+            raw = f"value_for_{name}"
+            values[name] = raw[: field.max_length] if field.max_length else raw
+        values["type"] = ItemType.ARTICLE_JOURNAL
+        values["categories"] = ["cat-a", "cat-b"]
+        values["custom"] = {"foo": "bar"}
+
+        item = ItemFactory(**values)
+
+        def snapshot():
+            return {
+                field.name: getattr(item, field.name)
+                for field in Item._meta.get_fields()
+                if hasattr(field, "attname") and not field.primary_key and field.name not in ("created", "modified")
+            }
+
+        before = snapshot()
+
+        data = update_page_post_data(client, item)
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302
+
+        item.refresh_from_db()
+        assert snapshot() == before
+
+    def test_a_populated_field_outside_the_types_own_groups_is_forced_visible(self, client, db):
+        # FR-010 — "legal" is not one of ARTICLE_JOURNAL's own groups
+        # (container, numbering), so a value already stored in it has to be
+        # forced visible rather than left behind the type guard.
+        assert "legal" not in FieldGroups.TYPE_GROUPS[ItemType.ARTICLE_JOURNAL]
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, authority="Held Authority")
+        response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert 'id="id_authority"' in content
+        forced_groups = json.loads(response.context["forced_groups_json"])
+        assert "legal" in forced_groups
+
+    def test_changing_the_item_type_on_post_retains_values_in_groups_the_new_type_does_not_use(self, client, db):
+        # FR-014 — WEBPAGE's own groups are just "container"; "legal" is not
+        # among them, so authority must still round-trip unchanged.
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, authority="Held Authority")
+        data = update_page_post_data(client, item, type=ItemType.WEBPAGE)
+        client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        item.refresh_from_db()
+        assert item.type == ItemType.WEBPAGE
+        assert item.authority == "Held Authority"
+
+    def test_the_type_select_renders_the_items_stored_type_as_selected(self, client, db):
+        # The failure T006's x-init prevents: without it x-model would
+        # deselect the stored type at Alpine's own initialisation, but the
+        # server-rendered HTML this test reads is unaffected by that bug —
+        # this asserts the bound ModelForm renders the right initial option
+        # regardless.
+        item = ItemFactory(type=ItemType.BOOK)
+        content = client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode()
+        assert re.search(rf'<option value="{re.escape(item.type)}"[^>]*selected', content)
+
+    def test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged(
+        self, client, populated_item
+    ):
+        # FR-012 — ItemForm carries none of these; the guarantee is that a
+        # save through it never touches them at all.
+        item = populated_item
+
+        def rows():
+            return (
+                [(row.pk, row.name_id, row.role, row.order) for row in item.item_names.all()],
+                [(row.pk, row.date_type, row.begin, row.end) for row in item.item_dates.all()],
+                [(row.pk, row.type, row.value) for row in item.item_identifiers.all()],
+            )
+
+        before = rows()
+        data = update_page_post_data(client, item)
+        client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert rows() == before
+
+
+class TestCreatePageRendersTheTailwindPack:
+    """plan.md D-5 — CRISPY_TEMPLATE_PACK = "tailwind" is a setting; this
+    asserts what the create page's own markup actually is, not the setting's
+    value. A test on the setting alone would pass even if something between
+    the setting and the page (a missing app, an overridden template) left a
+    different pack's markup on the wire."""
+
+    def test_a_text_input_carries_the_tailwind_packs_label_markup(self, client, db):
+        content = client.get(reverse("literature:item-create")).content.decode()
+        # crispy_tailwind's field.html wraps every label in this exact,
+        # hard-coded class string; the pack this repo carried before D-5
+        # (bootstrap4-shaped markup) uses "form-label"/"form-control" instead.
+        assert 'class="block text-gray-700 text-sm font-bold mb-2"' in content
+        assert "form-label" not in content
+        assert "form-control" not in content
 
 
 class TestItemDetailView:
@@ -342,6 +572,27 @@ class TestItemDetailView:
         contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
         assert f'href="{contributor_url}"' in content
 
+    def test_the_edit_action_renders_and_points_at_the_update_page(self, client, db):
+        # DR-001 — directory alone renders nothing without show_update_action
+        # (plan.md D-6, D-8). ItemDeleteView is US-3's own task, so no
+        # Delete action assertion belongs here yet.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' in content
+
+    def test_the_delete_action_renders_and_points_at_the_delete_page(self, client, db):
+        # T018 named this assertion; US2 could not write it because turning
+        # show_delete_action on before its route existed would have raised
+        # NoReverseMatch on every reference page (decisions.md D13).
+        # ItemDeleteView and its route are US-3's own task.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        delete_url = reverse("literature:item-delete", kwargs={"pk": item.pk})
+        assert f'href="{delete_url}"' in content
+
 
 class TestReferencePageReadability:
     """Issue #65 — the reference page's share of the same pass."""
@@ -372,6 +623,88 @@ class TestReferencePageReadability:
         ItemNameFactory(item=item, role=NameRole.EDITOR)
         content = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk})).content.decode()
         assert ">Editor</h6>" in content
+
+
+class TestItemDeleteView:
+    """Remove a reference that does not belong — US-3 (FR-017 through FR-020)."""
+
+    def test_get_renders_a_confirmation_naming_the_reference_and_deletes_nothing(self, client, db):
+        item = ItemFactory(title="A Reference Marked For Removal")
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+        assert response.status_code == 200
+        assert "A Reference Marked For Removal" in response.content.decode()
+        assert Item.objects.filter(pk=item.pk).exists()
+
+    def test_declining_returns_to_the_references_own_page_and_the_item_still_exists(self, client, db):
+        # FR-018, US-3 scenario 2 — MVPDeleteView.get_back_url() falls back to
+        # the catalogue list, and the detail page's own delete link carries no
+        # ?back (only the update page's does), so declining would otherwise
+        # strand the reader on the catalogue instead of the reference they
+        # chose not to remove (plan.md D-7).
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+        detail_url = reverse("literature:item-detail", kwargs={"pk": item.pk})
+        assert response.context["back_url"] == detail_url
+        assert f'href="{detail_url}"' in response.content.decode()
+        assert Item.objects.filter(pk=item.pk).exists()
+
+    def test_an_inherited_back_parameter_is_honoured_ahead_of_the_reference_page(self, client, db):
+        # get_back_url() honours a validated ?back first (D-7) — only once
+        # that is absent does it fall through to the reference's own page.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": item.pk}), {"back": "/catalogue/"})
+        assert response.context["back_url"] == "/catalogue/"
+
+    def test_post_removes_the_item_with_its_names_dates_and_identifiers_and_redirects_to_the_catalogue(
+        self, client, populated_item
+    ):
+        item = populated_item
+        item_name_pk = item.item_names.get().pk
+        item_date_pk = item.item_dates.get().pk
+        item_identifier_pk = item.item_identifiers.get().pk
+
+        response = client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-list")
+        assert not Item.objects.filter(pk=item.pk).exists()
+        assert not ItemName.objects.filter(pk=item_name_pk).exists()
+        assert not ItemDate.objects.filter(pk=item_date_pk).exists()
+        assert not ItemIdentifier.objects.filter(pk=item_identifier_pk).exists()
+
+    def test_names_survive_deletion_whether_or_not_credited_elsewhere(self, client, db):
+        # FR-020 — nothing points from Item to Name directly, only ItemName
+        # rows cascade, so this is already true of the model; the test
+        # asserts the guarantee rather than any code that implements it
+        # (plan.md D-7). Covers both a contributor still credited elsewhere
+        # and one left credited on nothing, whose own page still has to
+        # render (FR-037/FR-038 rely on the Name row itself surviving).
+        item = ItemFactory()
+        other_item = ItemFactory()
+        shared_contributor = NameFactory()
+        solo_contributor = NameFactory()
+        ItemNameFactory(item=item, name=shared_contributor, role=NameRole.AUTHOR)
+        ItemNameFactory(item=other_item, name=shared_contributor, role=NameRole.EDITOR)
+        ItemNameFactory(item=item, name=solo_contributor, role=NameRole.AUTHOR)
+
+        client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+
+        assert Name.objects.filter(pk=shared_contributor.pk).exists()
+        assert Name.objects.filter(pk=solo_contributor.pk).exists()
+
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": solo_contributor.pk}))
+        assert response.status_code == 200
+        assert "Not credited on anything yet" in response.content.decode()
+
+    def test_removing_the_last_reference_leaves_the_catalogue_rendering_its_empty_state(self, client, db):
+        item = ItemFactory()
+        client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Nothing in the catalogue yet" in content
+
+    def test_unknown_pk_is_a_404(self, client, db):
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": 999999}))
+        assert response.status_code == 404
 
 
 class TestContributorDetailView:
@@ -528,3 +861,114 @@ class TestContributorDetailView:
         assert response.status_code == 200
 
         assert len(large_credit_list.captured_queries) == len(small_credit_list.captured_queries)
+
+
+class TestCSLRoundTrip:
+    """SC-006 — a reference entered by hand reaches the same CSL round-trip
+    fidelity standard as an imported one (Article IX). No new mechanism:
+    this exercises the create view (US-1) and the converters
+    (tests/test_converters.py's own subject) together, which nothing else
+    covers."""
+
+    def test_an_item_entered_through_the_create_view_round_trips_through_csl_json(self, client, db):
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="HandEntered2024",
+            title="A Representative Reference",
+            container_title="Journal of Testing",
+            volume="12",
+            issue="3",
+            page="100-110",
+            abstract="An abstract with representative content.",
+            language="en",
+        )
+        client.post(reverse("literature:item-create"), data)
+        original = Item.objects.get(citation_key="HandEntered2024")
+
+        original_csl = to_csl_json(original)
+        round_tripped = from_csl_json(original_csl)
+        round_tripped_csl = to_csl_json(round_tripped)
+
+        # "id" (citation_key) is expected to differ: from_csl_json dedupes
+        # against the original, which is still in the store — the guarantee
+        # is that every other CSL key round-trips unchanged.
+        assert round_tripped_csl == {**original_csl, "id": round_tripped_csl["id"]}
+
+
+class _AlpineScopeParser(HTMLParser):
+    """Capture the parsed ``x-init`` that seeds the form's Alpine scope.
+
+    Parsed, not grepped. The page carrying a substring proves nothing about
+    what a browser receives: a raw double quote inside a double-quoted
+    attribute closes it, so the JSON that follows becomes a run of junk
+    attribute names while every substring a test might look for is still
+    present in the body.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.attr_count: int | None = None
+        self.x_init: str | None = None
+
+    def handle_starttag(self, tag, attrs):
+        as_dict = dict(attrs)
+        if tag == "div" and "typeGroups" in (as_dict.get("x-init") or ""):
+            self.attr_count = len(attrs)
+            self.x_init = as_dict["x-init"]
+
+
+def _alpine_scope(body):
+    parser = _AlpineScopeParser()
+    parser.feed(body)
+    return parser
+
+
+class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
+    """The type scoping is inert unless the browser can read its own seed data.
+
+    Every other test of this page asserts on the response body as text, and a
+    malformed attribute leaves that text unchanged — which is how the page
+    shipped for four stories with its scoping expression truncated at the
+    first brace and every group permanently visible.
+    """
+
+    def test_the_create_pages_scope_element_carries_exactly_one_attribute(self, client, db):
+        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        assert parser.attr_count == 1, "the scope element gained attributes, which means the JSON broke out of x-init"
+
+    def test_the_create_pages_type_map_parses_and_covers_every_item_type(self, client, db):
+        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        assigned = parser.x_init.split("form.typeGroups = ", 1)[1].rsplit(";", 1)[0]
+        assert json.loads(assigned).keys() == {t.value for t in ItemType}
+
+    def test_the_edit_pages_forced_groups_parse(self, client, db):
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, scale="1:50000")
+        parser = _alpine_scope(client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode())
+        assert parser.attr_count == 1
+        assigned = parser.x_init.split("form.forcedGroups = ", 1)[1].strip()
+        assert "physical" in json.loads(assigned), "a populated off-type group must reach the browser as forced-visible"
+
+
+class TestSurroundingWhitespaceSurvivesACorrection:
+    """SC-003 promises a save that changes nothing leaves the record identical.
+
+    Django's ``CharField`` strips by default, and the CSL JSON import path
+    does not, so a stored value with edges is reachable and would come back
+    trimmed by a save the reader did not think changed anything.
+    """
+
+    def test_a_trailing_newline_and_padding_survive_an_unchanged_save(self, client, db):
+        item = ItemFactory(
+            type=ItemType.BOOK,
+            title="  Padded Title  ",
+            abstract="Line one\n\nLine two\n",
+        )
+        response = client.post(
+            reverse("literature:item-update", kwargs={"pk": item.pk}),
+            update_page_post_data(client, item),
+        )
+        assert response.status_code == 302
+        item.refresh_from_db()
+        assert item.title == "  Padded Title  "
+        assert item.abstract == "Line one\n\nLine two\n"

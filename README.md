@@ -93,7 +93,8 @@ python manage.py migrate
 ### Installing the front end
 
 `literature.ui` is a second, opt-in app that adds a catalogue list page, a reference page and a
-contributor page over whatever the core already stores. It is not required by the core and it is
+contributor page over whatever the core already stores, plus pages to add, edit and remove a
+reference by hand. It is not required by the core and it is
 not installed by default. It needs Python 3.12 or later and Django 5.2 or later, floors the core
 does not share, so a project on an older Python or Django keeps the core available and simply
 cannot resolve the extra.
@@ -124,6 +125,16 @@ INSTALLED_APPS = [
 `mvp` comes before `crispy_tailwind` because django-mvp overrides one of crispy-tailwind's
 templates and the first app to declare a template path wins. Both crispy apps arrive with django-mvp
 as hard dependencies, so listing them installs nothing extra.
+
+The add, edit and delete pages render through crispy-forms, which needs a template pack chosen
+before anything renders. With neither setting below in place, the first form page raises an error
+rather than falling back to a default:
+
+```python
+# settings.py
+CRISPY_TEMPLATE_PACK = "tailwind"
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
+```
 
 ### The `base.html` this app ships
 
@@ -233,6 +244,23 @@ That is every step. Once the URLs are included, the catalogue list, the referenc
 contributor page are live. No view, template, URL pattern, or line of styling is left for the host
 to write.
 
+### Adding, editing and removing a reference
+
+The catalogue list carries an Add action, and a reference page carries Edit and Delete actions.
+Between them, a reference can be entered by hand, corrected, and removed without leaving the front
+end. Each opens a route under the same `literature:` namespace: `literature:item-create`,
+`literature:item-update` and `literature:item-delete`.
+
+The form scopes itself to the reference's type: choosing a type reveals only the fields that kind
+of reference typically carries, with a toggle to show every field regardless. Nothing is ever
+dropped by choosing a narrower type: every field stays part of the form and keeps whatever value it
+already holds, whether or not its group is currently shown.
+
+These pages carry no permission check, the same as the read-only pages: anyone who can reach the
+catalogue can add, edit and remove a reference. That is intentional for a package built for one
+person managing their own library, and restricting these pages to particular users or groups is left
+to the host project to add, the same way it would guard any other view.
+
 ### Try it: the demo project
 
 The repository carries a runnable demo of everything above, wired the same way this section
@@ -247,7 +275,9 @@ python manage.py runserver
 
 `migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
 `runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
-reference page and a contributor page are all live and populated.
+reference page and a contributor page are all live and populated. The Add, Edit and Delete
+actions on those pages are live too, so you can enter, correct and remove a reference the same way a
+host project's own users would.
 
 `seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
 again returns the demo to the same seeded state whatever state it was in before — including

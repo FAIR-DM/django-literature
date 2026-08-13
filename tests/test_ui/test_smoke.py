@@ -87,5 +87,11 @@ class TestSettings:
         # first app to declare a template path wins.
         apps = settings.INSTALLED_APPS
         assert apps.index("mvp") < apps.index("crispy_tailwind")
-        assert not hasattr(settings, "CRISPY_TEMPLATE_PACK")
-        assert not hasattr(settings, "CRISPY_ALLOWED_TEMPLATE_PACKS")
+        # Both crispy settings are now set (plan.md D-5). This module used to
+        # assert each was absent, which was right while the package rendered no
+        # form and wrong the moment one rendered: CRISPY_TEMPLATE_PACK has no
+        # default and raises, and CRISPY_ALLOWED_TEMPLATE_PACKS is validated
+        # against at template-compile time, so leaving it unset stops every
+        # template carrying {% crispy %} from compiling at all. Both assertions
+        # are deliberately dropped rather than flipped — the Article I decision
+        # is plan.md D-5, and T013 already asserts the tailwind pack renders.

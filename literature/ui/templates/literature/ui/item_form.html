@@ -1,0 +1,73 @@
+{% extends "form_view.html" %}
+{% load i18n crispy_forms_tags %}
+{% comment %}
+Renders ItemForm group by group rather than through one <c-form.render />
+call (plan.md D-3): there is no fieldset, accordion or tabs component in
+django-mvp 0.17.0, so grouping is a <c-card> per group, each one shown or
+hidden by Alpine depending on the chosen item type.
+
+<c-form.render /> (cotton/form/render.html) dumps the *whole* form through
+crispy in one call whenever it is given a bound form object, and
+form_view.html's own <c-form :form-obj="form" ...> passes one unconditionally
+— so page.content is overridden here in full, not just formset/actions,
+and the <c-form> used below deliberately carries no :form-obj, which is what
+keeps <c-form.render /> from firing at all. cotton/form/index.html still
+opens the one x-data="{form: {}}" scope on the <form> element itself, so
+every value this template adds lives under form.* rather than declaring a
+second x-data (plan.md D-3) — a bare top-level variable set from x-init
+would not become reactive at all: Alpine's expression evaluator falls back
+to an implicit global the first time a name is written that is not already
+a property somewhere in scope.
+{% endcomment %}
+{% block page.content %}
+  <div class="w-full lg:max-w-4xl">
+    {% block before_form %}
+    {% endblock before_form %}
+    <c-form title="{{ page.title }}" icon="{{ page.icon }}" method="post" action="{{ request.path }}">
+      {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+      {% block formset %}
+        {# No |safe on either value. Both are JSON, so both contain double #}
+        {# quotes, and a raw double quote inside a double-quoted attribute #}
+        {# closes it — the browser then reads the rest of the JSON as a #}
+        {# string of junk attribute names and Alpine receives a truncated #}
+        {# expression. Autoescaping emits &quot;, which the HTML tokenizer #}
+        {# decodes back to a quote inside the attribute value, so Alpine #}
+        {# gets valid JavaScript. #}
+        <div x-init="form.showAll = false;
+                     form.typeGroups = {{ type_groups_json }};
+                     form.forcedGroups = {{ forced_groups_json|default:'[]' }}">
+          {# The type field renders unconditionally — with no type chosen yet, #}
+          {# nothing else on the page is guarded to show (FR-002, plan.md D-3). #}
+          <div class="mb-4">{{ type_field|as_crispy_field }}</div>
+
+          {% for group in field_groups %}
+            <div class="mb-4"
+                 x-show="form.showAll || (form.forcedGroups || []).includes('{{ group.key }}') || (form.typeGroups[form.itemType] || []).includes('{{ group.key }}')">
+              <c-card title="{{ group.label }}">
+                {% for field in group.fields %}{{ field|as_crispy_field }}{% endfor %}
+              </c-card>
+            </div>
+          {% endfor %}
+
+          {# <c-form.field> (django-mvp) supplies its own daisyUI classes — #}
+          {# this app's utility-class allowlist (T021, FR-008) covers only #}
+          {# literal Tailwind utility class attributes, never a hand-written #}
+          {# daisyUI component class. #}
+          <c-form.field type="checkbox" label="{% translate "Show every field" %}" x-model="form.showAll" />
+        </div>
+      {% endblock formset %}
+      {% block actions %}
+        {# The stock block (form_view.html) posts default_next=list on its #}
+        {# Save button, which NextURLMixin consults ahead of success_url — #}
+        {# every save would land on the catalogue rather than the reference #}
+        {# (plan.md D-3). This button carries no name/value pair, so nothing #}
+        {# overrides success_url = "detail". #}
+        <c-group breakpoint="md" wrap>
+          <c-button text="{% translate "Save" %}" type="submit" variant="primary" />
+        </c-group>
+      {% endblock actions %}
+    </c-form>
+    {% block after_form %}
+    {% endblock after_form %}
+  </div>
+{% endblock page.content %}
