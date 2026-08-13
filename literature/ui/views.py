@@ -2,7 +2,7 @@
 
 Filled in one class per story: ``ItemListView`` (US-1), ``ItemDetailView``
 (US-2), ``ContributorDetailView`` (US-4), ``ItemCreateView`` (US-1 again),
-``ItemUpdateView`` (US-2 again).
+``ItemUpdateView`` (US-2 again), ``ItemDeleteView`` (US-3).
 """
 
 import json
@@ -11,8 +11,9 @@ from functools import cached_property
 
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
-from mvp.views import MVPCreateView, MVPDetailView, MVPListView, MVPUpdateView
+from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPListView, MVPUpdateView
 
 from literature.choices import ItemType
 from literature.models import Item, ItemName, Name
@@ -230,17 +231,14 @@ class ItemDetailView(MVPDetailView):
     # regardless, and show_list_action gates whether that call is even attempted.
     show_list_action = True
 
-    # "delete" is named per plan.md D-6's table (matching MVPDetailView's
-    # own default directory), but show_delete_action is deliberately not set
-    # here: it defaults to False, so CRUDDirectoryMixin.resolve_crud_url()
-    # returns None for it before ever calling reverse() — show_action() is
-    # checked before the reverse() call, not after, so an unshown action's
-    # absent route is never dereferenced. ItemDeleteView and its route are
-    # US-3's own task (inherited_from_us1, D10); setting the flag here ahead
-    # of the route existing would turn every reference-page request into a
-    # NoReverseMatch.
+    # "delete" is named per plan.md D-6's table (matching MVPDetailView's own
+    # default directory). show_delete_action stayed unset through US-2
+    # (decisions.md D13) because ItemDeleteView and its route did not exist
+    # yet — turning the flag on ahead of the route would have turned every
+    # reference-page request into a NoReverseMatch. Both now exist (US-3).
     directory: list[str] = ["update", "delete"]
     show_update_action = True
+    show_delete_action = True
 
     # CRUD_VIEWS replaces the former two-key override (D-6, DR-006): every
     # view now shares the same namespaced mapping, so "every name in every
@@ -266,6 +264,59 @@ class ItemDetailView(MVPDetailView):
             identifier.href = web_url(identifier.value)
         context["identifiers"] = identifiers
         return context
+
+
+class ItemDeleteView(MVPDeleteView):
+    """Remove a reference that does not belong — US-3 (FR-017 through FR-020)."""
+
+    model = Item
+
+    # FR-019 — lists what cascades (the ItemName/ItemDate/ItemIdentifier rows
+    # that go with the reference) before the reader commits (plan.md D-7).
+    # require_confirmation stays off: typing a value to confirm is friction
+    # this feature has no case for. Name records are never listed here and
+    # are never touched by the cascade — nothing points from Item to Name
+    # directly, only ItemName rows do (FR-020, D-7).
+    show_related_objects = True
+
+    # Item has no get_absolute_url(), so success_url is mandatory (D-6); the
+    # "list" shorthand only resolves once show_list_action is set.
+    # show_detail_action is what get_back_url() below needs to resolve the
+    # "detail" shorthand.
+    success_url = "list"
+    show_list_action = True
+    show_detail_action = True
+    crud_views = CRUD_VIEWS
+
+    page_title = _("Delete %(verbose_name)s")
+    success_message = _("%(verbose_name)s deleted.")
+
+    def get_back_url(self) -> str:
+        """Decline and land back on the reference, not the catalogue.
+
+        ``MVPDeleteView.get_back_url()`` honours a validated ``?back`` from
+        the query string and otherwise falls back to the catalogue list. The
+        reference page's own delete link carries no ``?back`` (only the
+        update page's does), so that fallback would strand a decline on the
+        catalogue instead of the reference it was considering removing
+        (FR-018, plan.md D-7). Overridden to fall through to the ``detail``
+        shorthand instead — the object still exists at GET time, so its own
+        URL is always resolvable.
+        """
+        # Explicit annotations, not just style: MVPDeleteView ships no
+        # py.typed, so every attribute reached through it (self.request,
+        # resolve_crud_url(), super().get_back_url()) resolves to Any —
+        # mypy's warn_return_any would otherwise flag a plain "-> str" here.
+        candidate: str | None = self.request.GET.get("back")
+        if candidate and url_has_allowed_host_and_scheme(
+            url=candidate,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return candidate
+        detail_url: str | None = self.resolve_crud_url("detail")
+        fallback: str = super().get_back_url()
+        return detail_url or fallback
 
 
 class ContributorDetailView(ItemListView):

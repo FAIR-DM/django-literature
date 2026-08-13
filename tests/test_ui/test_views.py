@@ -15,7 +15,7 @@ from django.urls import reverse
 
 from literature.choices import DateType, ItemType, NameRole
 from literature.converters import from_csl_json, to_csl_json
-from literature.models import Item
+from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
 
@@ -593,6 +593,17 @@ class TestItemDetailView:
         update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
         assert f'href="{update_url}"' in content
 
+    def test_the_delete_action_renders_and_points_at_the_delete_page(self, client, db):
+        # T018 named this assertion; US2 could not write it because turning
+        # show_delete_action on before its route existed would have raised
+        # NoReverseMatch on every reference page (decisions.md D13).
+        # ItemDeleteView and its route are US-3's own task.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        delete_url = reverse("literature:item-delete", kwargs={"pk": item.pk})
+        assert f'href="{delete_url}"' in content
+
 
 class TestReferencePageReadability:
     """Issue #65 — the reference page's share of the same pass."""
@@ -623,6 +634,88 @@ class TestReferencePageReadability:
         ItemNameFactory(item=item, role=NameRole.EDITOR)
         content = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk})).content.decode()
         assert ">Editor</h6>" in content
+
+
+class TestItemDeleteView:
+    """Remove a reference that does not belong — US-3 (FR-017 through FR-020)."""
+
+    def test_get_renders_a_confirmation_naming_the_reference_and_deletes_nothing(self, client, db):
+        item = ItemFactory(title="A Reference Marked For Removal")
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+        assert response.status_code == 200
+        assert "A Reference Marked For Removal" in response.content.decode()
+        assert Item.objects.filter(pk=item.pk).exists()
+
+    def test_declining_returns_to_the_references_own_page_and_the_item_still_exists(self, client, db):
+        # FR-018, US-3 scenario 2 — MVPDeleteView.get_back_url() falls back to
+        # the catalogue list, and the detail page's own delete link carries no
+        # ?back (only the update page's does), so declining would otherwise
+        # strand the reader on the catalogue instead of the reference they
+        # chose not to remove (plan.md D-7).
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+        detail_url = reverse("literature:item-detail", kwargs={"pk": item.pk})
+        assert response.context["back_url"] == detail_url
+        assert f'href="{detail_url}"' in response.content.decode()
+        assert Item.objects.filter(pk=item.pk).exists()
+
+    def test_an_inherited_back_parameter_is_honoured_ahead_of_the_reference_page(self, client, db):
+        # get_back_url() honours a validated ?back first (D-7) — only once
+        # that is absent does it fall through to the reference's own page.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": item.pk}), {"back": "/catalogue/"})
+        assert response.context["back_url"] == "/catalogue/"
+
+    def test_post_removes_the_item_with_its_names_dates_and_identifiers_and_redirects_to_the_catalogue(
+        self, client, populated_item
+    ):
+        item = populated_item
+        item_name_pk = item.item_names.get().pk
+        item_date_pk = item.item_dates.get().pk
+        item_identifier_pk = item.item_identifiers.get().pk
+
+        response = client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-list")
+        assert not Item.objects.filter(pk=item.pk).exists()
+        assert not ItemName.objects.filter(pk=item_name_pk).exists()
+        assert not ItemDate.objects.filter(pk=item_date_pk).exists()
+        assert not ItemIdentifier.objects.filter(pk=item_identifier_pk).exists()
+
+    def test_names_survive_deletion_whether_or_not_credited_elsewhere(self, client, db):
+        # FR-020 — nothing points from Item to Name directly, only ItemName
+        # rows cascade, so this is already true of the model; the test
+        # asserts the guarantee rather than any code that implements it
+        # (plan.md D-7). Covers both a contributor still credited elsewhere
+        # and one left credited on nothing, whose own page still has to
+        # render (FR-037/FR-038 rely on the Name row itself surviving).
+        item = ItemFactory()
+        other_item = ItemFactory()
+        shared_contributor = NameFactory()
+        solo_contributor = NameFactory()
+        ItemNameFactory(item=item, name=shared_contributor, role=NameRole.AUTHOR)
+        ItemNameFactory(item=other_item, name=shared_contributor, role=NameRole.EDITOR)
+        ItemNameFactory(item=item, name=solo_contributor, role=NameRole.AUTHOR)
+
+        client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+
+        assert Name.objects.filter(pk=shared_contributor.pk).exists()
+        assert Name.objects.filter(pk=solo_contributor.pk).exists()
+
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": solo_contributor.pk}))
+        assert response.status_code == 200
+        assert "Not credited on anything yet" in response.content.decode()
+
+    def test_removing_the_last_reference_leaves_the_catalogue_rendering_its_empty_state(self, client, db):
+        item = ItemFactory()
+        client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Nothing in the catalogue yet" in content
+
+    def test_unknown_pk_is_a_404(self, client, db):
+        response = client.get(reverse("literature:item-delete", kwargs={"pk": 999999}))
+        assert response.status_code == 404
 
 
 class TestContributorDetailView:

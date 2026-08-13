@@ -61,6 +61,13 @@ class TestUpdateRouteReverses:
         assert reverse("literature:item-update", kwargs={"pk": 1}) == "/catalogue/1/update/"
 
 
+class TestDeleteRouteReverses:
+    """T020 — the delete flow's route, added by US-3 (plan.md D-6, D-8)."""
+
+    def test_item_delete_reverses(self):
+        assert reverse("literature:item-delete", kwargs={"pk": 1}) == "/catalogue/1/delete/"
+
+
 class TestCRUDViewsReverse:
     """plan.md D-6 — an action a view *shows* must have a resolvable route, or
     ``get_breadcrumbs()`` raises ``NoReverseMatch`` at render time instead of
@@ -81,7 +88,13 @@ class TestCRUDViewsReverse:
 
     @pytest.mark.parametrize(
         "view_class",
-        [views.ItemListView, views.ItemDetailView, views.ItemCreateView, views.ItemUpdateView],
+        [
+            views.ItemListView,
+            views.ItemDetailView,
+            views.ItemCreateView,
+            views.ItemUpdateView,
+            views.ItemDeleteView,
+        ],
         ids=lambda view_class: view_class.__name__,
     )
     def test_every_action_the_view_shows_reverses(self, view_class):
