@@ -419,7 +419,9 @@ class TestItemUpdateView:
         content = client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode()
         assert re.search(rf'<option value="{re.escape(item.type)}"[^>]*selected', content)
 
-    def test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged(self, client, populated_item):
+    def test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged(
+        self, client, populated_item
+    ):
         # FR-012 — ItemForm carries none of these; the guarantee is that a
         # save through it never touches them at all.
         item = populated_item
