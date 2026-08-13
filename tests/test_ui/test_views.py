@@ -5,6 +5,7 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """
 
+import json
 import re
 
 import pytest
@@ -379,6 +380,38 @@ class TestItemUpdateView:
 
         item.refresh_from_db()
         assert snapshot() == before
+
+    def test_a_populated_field_outside_the_types_own_groups_is_forced_visible(self, client, db):
+        # FR-010 — "legal" is not one of ARTICLE_JOURNAL's own groups
+        # (container, numbering), so a value already stored in it has to be
+        # forced visible rather than left behind the type guard.
+        assert "legal" not in FieldGroups.TYPE_GROUPS[ItemType.ARTICLE_JOURNAL]
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, authority="Held Authority")
+        response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert 'id="id_authority"' in content
+        forced_groups = json.loads(response.context["forced_groups_json"])
+        assert "legal" in forced_groups
+
+    def test_changing_the_item_type_on_post_retains_values_in_groups_the_new_type_does_not_use(self, client, db):
+        # FR-014 — WEBPAGE's own groups are just "container"; "legal" is not
+        # among them, so authority must still round-trip unchanged.
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, authority="Held Authority")
+        data = update_page_post_data(client, item, type=ItemType.WEBPAGE)
+        client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        item.refresh_from_db()
+        assert item.type == ItemType.WEBPAGE
+        assert item.authority == "Held Authority"
+
+    def test_the_type_select_renders_the_items_stored_type_as_selected(self, client, db):
+        # The failure T006's x-init prevents: without it x-model would
+        # deselect the stored type at Alpine's own initialisation, but the
+        # server-rendered HTML this test reads is unaffected by that bug —
+        # this asserts the bound ModelForm renders the right initial option
+        # regardless.
+        item = ItemFactory(type=ItemType.BOOK)
+        content = client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode()
+        assert re.search(rf'<option value="{re.escape(item.type)}"[^>]*selected', content)
 
 
 class TestCreatePageRendersTheTailwindPack:
