@@ -3,7 +3,7 @@
   "feature": "008-add-edit-remove-references",
   "branch": "008-add-edit-remove-references",
   "repo": "FAIR-DM/django-literature",
-  "state": "IMPLEMENT",
+  "state": "CONVERGE",
   "state_history": [
     {
       "state": "INTAKE",
@@ -59,6 +59,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-13T23:40:00Z",
       "note": "US4 tasks T021-T026 done and merged; T027 (humanizer) and T028 (feature-wide verify) are the orchestrator's and remain. Guard proven by reinstating three defects against a live demo server - wrong success_url, a field dropped from the rendered form, and a delete that does not delete - each failing the guard by name and reverted. Verification: forge verify all green, 1479 tests, literature/ untouched by the diff. tamper-check 1 flag: the walk's two pre-existing login-redirect tests now monkeypatch OpenerDirector.open rather than urlopen, because the write pass needs one shared cookie-carrying opener; names, fixtures and assertions unchanged (D16)."
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-14T00:30:00Z",
+      "note": "S5: no migrations introduced, so no consolidation. Cleanup pass applied (craft-simplify, receipt craft-simplify/2026-08-04/69038ce1): two cross-story duplications folded together, one stale docstring corrected, no abstraction added, test count unchanged at 1479. ADR graduation: 16 decisions verdicted, 4 graduated to docs/adr/0020-0023; 0023 supersedes 0001 (batch-scoped citation-key de-duplication), marked in place. Humanizer pass applied to README, CHANGELOG, docs/index, docs/field-groups and the four new ADRs. Feature-wide gates: forge verify all green, tamper-check 7 flags all triaged - six are additions to pre-existing test files, and the only two assertions removed anywhere in the feature are the two crispy-settings absence assertions dropped under the Article I decision in plan D-5; the two weakening_patterns_added hits are FALSE POSITIVES, WEAKEN_RE matching prose comments containing the words 'assert each was absent' and 'asserts the guarantee'. Kit proposal for S8."
     }
   ],
   "gates": {
@@ -416,7 +421,7 @@
         },
         {
           "id": "T027",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {

@@ -470,4 +470,3 @@ still expects the fetched body back unchanged.
 **Revisit if:** never, short of the walk dropping the shared-opener requirement entirely.
 
 **ADR:** none — a test mechanism this story's own design required; nothing downstream inherits it.
-
