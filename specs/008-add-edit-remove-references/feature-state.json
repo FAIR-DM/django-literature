@@ -79,63 +79,177 @@
       "tasks": [
         {
           "id": "T001",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_smoke.py::TestSettings::test_mvp_precedes_crispy_tailwind"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_smoke.py -q"
+            ]
+          }
         },
         {
           "id": "T002",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fieldgroups.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fieldgroups.py -q"
+            ]
+          }
         },
         {
           "id": "T003",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fieldgroups.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fieldgroups.py -q",
+              "poetry run ruff check literature/ui/fieldgroups.py"
+            ]
+          }
         },
         {
           "id": "T005",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_forms.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_forms.py -q"
+            ]
+          }
         },
         {
           "id": "T006",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_forms.py",
+              "tests/test_ui/test_fieldgroups.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_forms.py -q"
+            ]
+          }
         },
         {
           "id": "T007",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_urls.py::TestCreateRouteReverses",
+              "tests/test_ui/test_urls.py::TestCRUDViewsReverse"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -q"
+            ]
+          }
         },
         {
           "id": "T008",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_urls.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_urls.py -q"
+            ]
+          }
         },
         {
           "id": "T009",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemCreateView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemCreateView -q"
+            ]
+          }
         },
         {
           "id": "T010",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemCreateView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemCreateView -q"
+            ]
+          }
         },
         {
           "id": "T011",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemCreateView",
+              "tests/test_ui/test_templates.py"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/ -q"
+            ]
+          }
         },
         {
           "id": "T012",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemListView"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestItemListView -q"
+            ]
+          }
         },
         {
           "id": "T013",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCreatePageRendersTheTailwindPack"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/ -q"
+            ]
+          }
+        },
+        {
+          "id": "T030",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fieldgroups.py::TestCorrectedC2Criterion"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fieldgroups.py -q",
+              "poetry run pytest tests/test_ui/ -q"
+            ]
+          }
         }
       ]
     },

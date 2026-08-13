@@ -161,3 +161,117 @@ every field in `models.py` across all five models. `Item` declares 64, of which 
 Neither conclusion the figure was cited for changes at 60.
 
 **ADR:** none — this is a record of one review round, not a decision anything downstream inherits.
+
+## D9 — C4 and C5's sub-cases, T003 implementation note
+
+**Decision:** D-1's criteria 4 (`numbering`) and 5 (`original`) name no worked examples, unlike
+criteria 1–3. `literature/ui/fieldgroups.py` applies them through three stated sub-cases rather than
+a single per-type judgement call each: C4a (a periodical article, published with its own
+volume/issue/page — `article`, `article-journal`, `article-magazine`, `article-newspaper`), C4b
+(embedded in a paginated host — `chapter`, `entry`, `entry-dictionary`, `entry-encyclopedia`,
+`paper-conference`, `review`, `review-book`), C4c (identified by an official/report number — `bill`,
+`hearing`, `legal_case`, `legislation`, `regulation`, `treaty`, `patent`, `standard`, `report`). C5
+is applied only where republication or translation by a different publisher is ordinary for the type
+itself, not merely possible for an instance of it — `book` and `classic`.
+
+**Why:** naming the sub-case is what T003 asks the per-type comment to do ("naming the criterion
+that decided it"), and a bare "C4" or "C5" on nine and two types respectively would not distinguish
+why a periodical article and a legal filing both count as "numbered" for different reasons. The
+sub-cases are visible in `fieldgroups.py`'s own comment block above `TYPE_GROUPS`, so this entry
+records that they exist and why, not what they are — that would drift out of sync with the code.
+
+**Revisit if:** a type is added or reclassified and its C4/C5 status is unclear from the three
+sub-cases as stated — that is a sign the sub-cases themselves need a fourth case rather than a
+one-off exception on the new type.
+
+## D10 — T008 registers only the create route; update/delete wait for their own stories
+
+**Decision:** `tasks.md` T008 reads "Add the three routes to `literature/ui/urls.py`", and T007's own
+test asks that every action in every view's `crud_views` reverses. Taken literally, both would need
+`literature:item-update` and `literature:item-delete` registered now, alongside `literature:item-create`.
+This implementer's brief covers only Phase 1 and Phase 2 (US-1) — `ItemUpdateView` (T017) and
+`ItemDeleteView` (T020) are separate stories' own tasks, dispatched to their own worktrees. `path()`
+needs a real callable at import time, so registering those two routes now would mean either writing
+stub view classes for stories not in this brief, or the routes 500ing on import. Neither is this
+story's to do. `literature/ui/urls.py` gains only `add/ → item-create` here; T007's test (T007 in
+`tests/test_ui/test_urls.py`) checks, per view, every action the view's own `show_<action>_action`
+flags actually mark shown, rather than every key an eventually-shared `CRUD_VIEWS` dict happens to
+carry. `CRUD_VIEWS` itself (`literature/ui/views.py`) is still defined with all five actions, matching
+D-6's end state, and assigned to `ItemListView`/`ItemCreateView` now — safe, because neither view's
+code path ever calls `resolve_crud_url("update")` or `("delete")`.
+
+**Why defensible:** no functional guarantee is weakened. The specific failure D-6/T007 exist to
+prevent — an action a view *shows* with no resolvable route, raising `NoReverseMatch` inside
+`get_breadcrumbs()` — cannot occur from this story's diff, because nothing this story ships ever
+shows "update" or "delete". Building placeholder view classes to satisfy the literal test text would
+be scope creep into T017/T020, and duplicating work across worktrees is worse than a route arriving
+one story later than `tasks.md`'s single-session phrasing assumed.
+
+**Revisit if:** the US-2 or US-3 Implementer's brief does not already tell them to add their own route
+alongside their view — if it doesn't, that is a gap in their brief, not something to patch here.
+
+## D11 — `item_form.html` overrides `page.content` in full, not just `formset`/`actions`
+
+**Decision:** `form_view.html`'s own `{% block page.content %}` invokes `<c-form :form-obj="form"
+:formset="formset" ...>` unconditionally, and `cotton/form/index.html` renders `<c-form.render
+:form="form_obj" />` whenever `form_obj` is truthy — before `{{ slot }}` (which is where
+`{% block formset %}`'s content lands). That call dumps the *whole* form through crispy in one shot,
+which is exactly the mechanism plan.md D-3 says this template avoids ("rendering the form group by
+group rather than through one `c-form.render` call"). Overriding only `formset`/`actions` (the blocks
+`form_view.html` exposes) cannot prevent it — the auto-render sits outside every block `form_view.html`
+declares. `item_form.html` therefore overrides `{% block page.content %}` in full, invoking its own
+`<c-form title="..." icon="..." method="post" action="...">` **without** `:form-obj`, so
+`<c-form.render />` never fires, and puts the grouped markup in the default slot instead. `before_form`,
+`formset`, `actions` and `after_form` are re-declared as nested blocks inside this override, so a
+future template extending `item_form.html` still has the same seams to hook.
+
+Every value the grouped rendering needs (`showAll`, `typeGroups`, `forcedGroups`) is set as a property
+of `form` — `form.showAll`, not a bare `showAll` — because `cotton/form/index.html` opens exactly one
+`x-data="{form: {}}"` scope on the `<form>` element, and D-3 says no second scope is declared.
+Alpine's expression evaluator runs `x-init`/`x-model` bodies through a JS `with(scope) { ... }`; a bare
+identifier that is not already a property somewhere in that scope chain does not become a new
+reactive property on assignment — in non-strict mode it silently becomes an implicit global instead.
+`form.showAll = false` is a direct property write on an object (`form`) that already exists in scope,
+which does not depend on `with`'s binding-lookup at all, and reads back correctly through `x-model`
+and `x-show` because Alpine's reactive wrapper proxies nested objects on first access.
+
+**Why defensible:** verified directly, not assumed — `tests/test_ui/test_views.py::TestItemCreateView`
+posts through the rendered page and asserts on the response's actual behaviour (redirect target,
+stored values, guarded groups), which would not pass against a page silently double-rendering the
+form or a state variable that leaked to `window` instead of Alpine's reactive scope.
+
+**Revisit if:** django-mvp ships a version of `form_view.html` that gates `<c-form.render />` behind
+its own block, or exposes a `page.content` seam narrower than the whole block — either would let this
+template go back to overriding only `formset`/`actions`, which is less to keep in sync with upstream.
+
+## D12 — T030's re-derivation applies plan.md D-1's full itemized C2 evidence, not only the named defect list
+
+**Decision:** T030's defect paragraph names 11 types needing `container` plus `software` needing
+`publication`. Its own instruction, though, is to "re-run the whole per-type assignment against the
+corrected criteria... every type, not only the ones named above — the named ones are the symptom,
+the criterion misreading is the cause." Reading plan.md D-1 point 2 in full (not just the sentence
+quoted in the defect paragraph) surfaces the same misreading pattern in three more places: the
+paragraph's closing sentence names four clusters (`legal`/`review`/`event`/`physical`) the first
+pass evidently treated as the complete list, but the paragraph's itemized evidence ahead of that
+sentence separately states `chapter-number` names song, `number-of-volumes`/`ISBN` name "the
+book-like types", and `authority`/`jurisdiction`/`division` name patent *in addition to* the named
+legal-types cluster — patent itself is not one of legal_case/legislation/bill/hearing/regulation/
+treaty, so it needed the itemized reading and never got it. `song`, `book` and `patent` therefore
+gained `numbering`, `numbering` and `legal` respectively, on the same evidentiary basis as the
+container fix, with their own failing tests added first.
+
+**Why defensible:** this is the same defect, not a new one — a partial reading of the same paragraph
+of evidence, corrected by reading the whole of it, exactly as the task instructs. No group was
+removed, no existing test weakened, and each addition has its own red-then-green test naming the
+exact plan.md clause it rests on.
+
+**Consequence:** `book`'s resolved field count (36) exceeds the stated 16–35 plausibility band by
+one. That band is a check against Zotero's coverage, not a rule Zotero's schema is entitled to
+enforce here — Zotero's own schema does not surface an equivalent of `number-of-volumes` for its
+book type, so a set the criteria produce correctly can still sit outside a check built from a
+different source's coverage. Documented in place in `TYPE_GROUPS`' own comment rather than trimmed
+to fit the band.
+
+**Revisit if:** a later pass finds plan.md D-1's itemized list names still more types this
+re-derivation did not catch — check against the full text of point 2, not this decision's summary
+of it, since the summary is necessarily lossy.
