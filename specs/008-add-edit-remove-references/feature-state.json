@@ -54,6 +54,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-13T22:05:00Z",
       "note": "US3 done and merged. The implementer reported T020 BLOCKED, correctly: the delete confirmation could not render because CRISPY_ALLOWED_TEMPLATE_PACKS was unset, and every fix was outside its scope. Reproduced independently (get_template on cotton/form/render.html raises with no request or form involved), fixed on the feature branch, plan D-5 corrected - its claim that the allowlist is only consulted for an explicit pack argument came from the design review and was wrong. Story unblocked by merging the fix down; T020's own code needed no change. Verification after: forge verify all green, 1470 tests. tamper-check 3 flags: two additions to earlier stories' test files (a parametrize list and a widened import, no assertion touched), and one weakening_patterns_added which is a FALSE POSITIVE - WEAKEN_RE matched the prose comment '# asserts the guarantee rather than any code that implements it'. Worth a kit proposal at S8."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T23:40:00Z",
+      "note": "US4 tasks T021-T026 done and merged; T027 (humanizer) and T028 (feature-wide verify) are the orchestrator's and remain. Guard proven by reinstating three defects against a live demo server - wrong success_url, a field dropped from the rendered form, and a delete that does not delete - each failing the guard by name and reverted. Verification: forge verify all green, 1479 tests, literature/ untouched by the diff. tamper-check 1 flag: the walk's two pre-existing login-redirect tests now monkeypatch OpenerDirector.open rather than urlopen, because the write pass needs one shared cookie-carrying opener; names, fixtures and assertions unchanged (D16)."
     }
   ],
   "gates": {
@@ -419,7 +424,8 @@
           "status": "todo",
           "attempts": 0
         }
-      ]
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us4-fs008"
     }
   ],
   "budgets": {
