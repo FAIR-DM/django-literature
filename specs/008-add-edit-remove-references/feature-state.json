@@ -289,32 +289,74 @@
         {
           "id": "T014",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T015",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T016",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T017",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T018",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T029",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         }
       ],
       "worktree": "/home/sam/projects/fairdm/dl-us2-fs008"
@@ -329,12 +371,26 @@
         {
           "id": "T019",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T020",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         }
       ],
       "worktree": "/home/sam/projects/fairdm/dl-us3-fs008"
@@ -422,7 +478,14 @@
         {
           "id": "T027",
           "status": "done",
-          "attempts": 0
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T028",
