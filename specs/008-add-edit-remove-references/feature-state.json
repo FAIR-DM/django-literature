@@ -3,7 +3,7 @@
   "feature": "008-add-edit-remove-references",
   "branch": "008-add-edit-remove-references",
   "repo": "FAIR-DM/django-literature",
-  "state": "CONVERGE",
+  "state": "REVIEW",
   "state_history": [
     {
       "state": "INTAKE",
@@ -64,6 +64,11 @@
       "state": "CONVERGE",
       "at": "2026-08-14T00:30:00Z",
       "note": "S5: no migrations introduced, so no consolidation. Cleanup pass applied (craft-simplify, receipt craft-simplify/2026-08-04/69038ce1): two cross-story duplications folded together, one stale docstring corrected, no abstraction added, test count unchanged at 1479. ADR graduation: 16 decisions verdicted, 4 graduated to docs/adr/0020-0023; 0023 supersedes 0001 (batch-scoped citation-key de-duplication), marked in place. Humanizer pass applied to README, CHANGELOG, docs/index, docs/field-groups and the four new ADRs. Feature-wide gates: forge verify all green, tamper-check 7 flags all triaged - six are additions to pre-existing test files, and the only two assertions removed anywhere in the feature are the two crispy-settings absence assertions dropped under the Article I decision in plan D-5; the two weakening_patterns_added hits are FALSE POSITIVES, WEAKEN_RE matching prose comments containing the words 'assert each was absent' and 'asserts the guarantee'. Kit proposal for S8."
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-14T02:00:00Z",
+      "note": "S6: one reviewer, correctness + spec + security lenses (security run because this is the package's first write path). Receipts green. Three findings, all verified by the orchestrator against the running code and all fixed. RV-001 HIGH is the finding of the run: the JSON seeding Alpine's scope carried |safe into a double-quoted attribute, so the first quote closed the attribute and the remaining JSON parsed as 205 junk attribute names - reproduced with HTMLParser, 206 attributes on the element and x-init truncated at the first brace. The whole type-scoping mechanism was inert in a browser and four stories of tests passed because they assert substrings of the raw body. RV-002 MEDIUM: CharField strips by default, so an unchanged save rewrote any stored value with leading or trailing whitespace, breaking SC-003's byte-identical claim; the SC-003 test had been shaped around it. RV-003 LOW: the demo's form reader accumulated every form on the page rather than the first. Each fix carries a test proven against the reinstated defect. Security lens otherwise clean: CSRF present on all three forms, the field allowlist structurally excludes the four non-form fields, ?next and ?back both host-validated upstream, nothing user-controlled reaching an href."
     }
   ],
   "gates": {
@@ -502,7 +507,7 @@
       "max": 2
     },
     "review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 1
     },
     "design_review_cycles": {
