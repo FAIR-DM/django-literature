@@ -148,3 +148,120 @@ tests/test_ui/test_forms.py` — all checks passed.
 Next: T007, the URL-reversal tests for Phase 2.
 
 Watch: none.
+
+## 2026-08-13T15:50:00Z · Implementer US1 · T007
+
+Did: wrote `literature:item-create` reverses, and a per-view test that every action a view's own
+`show_<action>_action` flags mark as shown resolves through its `crud_views` (DR-006's iterate-the-
+views fix). Deviated from `tasks.md`'s literal text, which also asks for `literature:item-update` and
+`literature:item-delete` to reverse: `ItemUpdateView` (T017) and `ItemDeleteView` (T020) are separate
+stories' own tasks and do not exist in this worktree. Recorded as D10 in decisions.md.
+
+Verified: `poetry run pytest tests/test_ui/test_urls.py -q` — 1 error at collection,
+`AttributeError: module 'literature.ui.views' has no attribute 'ItemCreateView'` (right reason).
+
+Next: T008, the create route.
+
+Watch: whoever's brief adds `ItemUpdateView`/`ItemDeleteView` needs to add their own route
+alongside — flagged in this story's `concerns`.
+
+## 2026-08-13T15:58:00Z · Implementer US1 · T008
+
+Did: added `add/ → item-create` to `literature/ui/urls.py`. Per D10, `item-update`/`item-delete` are
+not registered here.
+
+Verified: `poetry run pytest tests/test_ui/test_urls.py -q` — still the same collection error as
+T007 (`ItemCreateView` still doesn't exist). Tree is not green after this commit alone by design —
+tasks.md's own checkpoint for this slice is T010 ("Make T009 pass"), not T008 in isolation.
+
+Next: T009, the failing `TestItemCreateView`.
+
+Watch: none.
+
+## 2026-08-13T16:20:00Z · Implementer US1 · T009
+
+Did: wrote `TestItemCreateView` in `tests/test_ui/test_views.py`, one test per US-1 acceptance
+scenario, plus `create_page_post_data()` — builds every POST in the class from the rendered create
+page's own form (including whatever the Save button's own name/value pair is) rather than a bare
+hand-typed dict, so a regression to django-mvp's stock `default_next=list` button would be caught by
+the redirect-target assertions rather than silently passing (plan.md D-3).
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemCreateView -q` — 1 error at
+collection, `AttributeError: module 'literature.ui.views' has no attribute 'ItemCreateView'`.
+
+Next: T010, `ItemCreateView` itself.
+
+Watch: none.
+
+## 2026-08-13T16:45:00Z · Implementer US1 · T010
+
+Did: wrote `ItemCreateView(MVPCreateView)` — `form_class=ItemForm`, `success_url="detail"`,
+`show_list_action`/`show_detail_action` both set (D-6), translated `page_title`/`success_message`
+using the catalogue's own vocabulary. Added the shared `CRUD_VIEWS` module constant (D-6, all five
+actions, `literature:` namespaced) and assigned it here and on `ItemListView` (see T012 below — the
+two changes landed in one commit since both are edits to the same file; noted as a one-task-one-commit
+deviation). Added `_field_group_context(form)`: pulls `type` out of `core` and returns every other
+group as a `{key, label, fields}` dict in a fixed order, plus `TYPE_GROUPS_JSON` computed once at
+import time.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemCreateView -q` — still failing at
+collection (template does not exist: T011 next). `literature.ui.views` now has `ItemCreateView`, so
+the failure moved from `AttributeError` to `TemplateDoesNotExist` once exercised.
+
+Next: T011, `item_form.html`.
+
+Watch: none.
+
+## 2026-08-13T17:15:00Z · Implementer US1 · T011
+
+Did: wrote `literature/ui/templates/literature/ui/item_form.html`. Overrides `{% block page.content
+%}` in full rather than only `formset`/`actions` — `form_view.html`'s own `<c-form :form-obj="form"
+...>` fires `<c-form.render />` unconditionally, which is the whole-form-through-one-crispy-call D-3
+says this template avoids, and no block `form_view.html` exposes wraps that call. Recorded as D11.
+The type field renders unconditionally, ahead of every group; each of the thirteen groups gets an
+`x-show` guard built from `TYPE_GROUPS_JSON`; every value lives under `form.*` (never a bare top-level
+Alpine variable — D11 explains why that would silently leak to `window` instead of becoming reactive).
+`{% block actions %}` carries one Save button with no `name`/`value` pair. The "Show every field"
+toggle uses `<c-form.field type="checkbox">` rather than hand-written daisyUI classes, to stay inside
+this app's own utility-class allowlist (`tests/test_ui/test_templates.py`, T021/FR-008) — the first
+attempt used raw `class="label"`/`class="checkbox"` and that pre-existing test caught it immediately.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemCreateView -q` — 8 passed. Full
+`tests/test_ui/` — 267 passed, including the utility-class allowlist test. `poetry run ruff check
+literature/ui/views.py literature/ui/urls.py tests/test_ui/test_views.py tests/test_ui/test_urls.py`
+— all checks passed (one import-order autofix in `literature/ui/views.py`).
+
+Next: T012's test (the view-side change already landed in this commit's predecessor), then T013.
+
+Watch: none.
+
+## 2026-08-13T17:20:00Z · Implementer US1 · T012
+
+Did: extended `TestItemListView` with a test that the catalogue's Add link renders and points at
+`item-create`. The view-side change (`directory = ["create"]`, `show_create_action = True`,
+`crud_views = CRUD_VIEWS` on `ItemListView`) landed already in T010's commit, since both were edits to
+`literature/ui/views.py` made in the same pass — a one-task-one-commit deviation, noted honestly
+rather than split after the fact by rewriting history.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemListView -q` — 12 passed
+(immediately, since the view-side change already existed).
+
+Next: T013, the tailwind-pack rendering test.
+
+Watch: none.
+
+## 2026-08-13T17:30:00Z · Implementer US1 · T013
+
+Did: wrote `TestCreatePageRendersTheTailwindPack`, asserting the create page's own HTML carries
+crispy_tailwind's exact label class string and neither of bootstrap4's `form-label`/`form-control`
+tokens (plan.md D-5).
+
+Verified: `poetry run pytest tests/test_ui/ -q` — 269 passed. `poetry run ruff check
+tests/test_ui/test_views.py` — all checks passed.
+
+Next: full-story verify (`poetry run pytest -q && poetry run pre-commit run --all-files`) and the
+completion report.
+
+Watch: the two recorded deviations (D10 — item-update/item-delete routes not registered; D11/commit
+bundling — T010 and T012's views.py edits landed in one commit) belong in the completion report's
+`deviations`/`concerns`, not silently absorbed.
