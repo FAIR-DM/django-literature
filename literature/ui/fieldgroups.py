@@ -89,22 +89,38 @@ GROUP_LABELS = {
 
 # --- Per-type assignment ---------------------------------------------------
 #
-# D-1's six criteria, applied in this order to every type below:
+# D-1's criteria, applied in this order to every type below:
 #
-#   C1  A group Appendix III names for that type.
-#   C2  A group whose fields Appendix IV defines in terms of that type.
-#   C3  `archive` for types whose subject is a held object.
-#   C4  `numbering` where the type is or sits inside a numbered sequence.
-#   C5  `original` where republication or translation is ordinary.
-#   C6  Otherwise: not used. Absence is the default.
+#   C1   A group Appendix III names for that type.
+#   C2   A group whose fields Appendix IV defines in terms of that type.
+#   C2a  A type that sits inside a container takes `container`, not
+#        `numbering` alone. Recording where an item appeared is what the
+#        container group is for, and a form offering a page range without
+#        the name of the thing the pages are in is not a usable form.
+#   C3   `archive` for types whose subject is a held object.
+#   C4   `numbering` where the type is or sits inside a numbered sequence.
+#   C5   `original` where republication or translation is ordinary.
+#   C6   Otherwise: not used. Absence is the default.
 #
 # C4 and C5 name no worked examples in plan.md — applying them is this task's
 # own judgement call, so each C4/C5 line below states the sub-case reasoned
 # from, not just the criterion number:
 #
 #   C4a  periodical article, published with a volume/issue/page of its own
-#   C4b  embedded in a paginated host (a chapter, an entry, a paper, a review)
+#   C4b  embedded in a paginated host (a chapter, an entry, a paper, a
+#        review) — paired with C2a below: the host itself is named via
+#        `container`, the position within it via `numbering`.
 #   C4c  a document identified by an official/report number
+#
+# Correction (T030): the first pass applied C2 as though the four clusters
+# named in plan.md D-1 point 2's closing sentence (legal/review/event/
+# physical) were the whole of it, and never reached C2a or the itemized
+# evidence the same paragraph states ahead of that sentence. Re-derived below
+# against the full itemized list: `container-title`'s own definition names
+# chapter, article-journal, song and speech; `version` names software;
+# `chapter-number` names chapter and song; `number-of-volumes` and `ISBN`
+# name the book-like types; `authority`/`jurisdiction`/`division` name patent
+# in addition to the named legal-types cluster.
 #
 # Thirteen of the 45 types are outside Zotero's 32-type coverage entirely
 # (research.md §1) and rest on the criteria alone, with no plausibility check
@@ -112,23 +128,40 @@ GROUP_LABELS = {
 # pamphlet, performance, periodical, regulation, review, review-book, treaty.
 # Every other type's resolved field count (core + general + its extra groups,
 # 11 baseline) is checked against Zotero's covered-type band (16-35, median
-# 24); nine sit genuinely below it, each with a stated reason rather than a
-# forced fit.
+# 24); nine sit genuinely below it, and book alone sits genuinely above it —
+# each with a stated reason rather than a forced fit.
 TYPE_GROUPS: dict[str, frozenset[str]] = {
-    # C4a — periodical article: volume, issue, page. 23 fields, in-band.
+    # C4a — periodical article: volume, issue, page. CSL's bare "article" is
+    # the generic/unspecified variant — no host is named for it the way one
+    # is for its journal/magazine/newspaper siblings below — so it stays at
+    # numbering alone. 23 fields, in-band.
     ItemType.ARTICLE: frozenset({"numbering"}),
-    ItemType.ARTICLE_JOURNAL: frozenset({"numbering"}),
-    ItemType.ARTICLE_MAGAZINE: frozenset({"numbering"}),
-    ItemType.ARTICLE_NEWSPAPER: frozenset({"numbering"}),
+    # C2 (`container-title`'s definition names "the journal title for a
+    # journal article") + C2a (a journal article is paginated inside the
+    # journal that carries it) + C4a. 28 fields, in-band.
+    ItemType.ARTICLE_JOURNAL: frozenset({"container", "numbering"}),
+    # C2a (paginated inside the magazine that carries it) + C4a. 28 fields, in-band.
+    ItemType.ARTICLE_MAGAZINE: frozenset({"container", "numbering"}),
+    # C2 (`section` names article-newspaper) + C2a (paginated inside the
+    # newspaper that carries it) + C4a. 28 fields, in-band.
+    ItemType.ARTICLE_NEWSPAPER: frozenset({"container", "numbering"}),
     # C2 (legal) + C4c (a bill carries a bill number). 27 fields, in-band.
     ItemType.BILL: frozenset({"legal", "numbering"}),
     # C1 ("container-title... interpreted as" book) + C1 (medium statement) +
-    # C5 (translated/republished editions are ordinary for a book). 24 fields, in-band.
-    ItemType.BOOK: frozenset({"container", "publication", "original"}),
+    # C2 (`number-of-volumes` and `ISBN` name "the book-like types") +
+    # C5 (translated/republished editions are ordinary for a book). 36
+    # fields, above Zotero's 35-field ceiling: CSL's own text names
+    # `number-of-volumes` for book directly, and Zotero's schema — which
+    # sets the plausibility ceiling, not a rule — has no field of its own
+    # that surfaces it for its book type, so the criterion legitimately
+    # produces a set the check cannot bound.
+    ItemType.BOOK: frozenset({"container", "publication", "original", "numbering"}),
     # C1 (container-title statement) + C1 (genre statement). 22 fields, in-band.
     ItemType.BROADCAST: frozenset({"container", "publication"}),
-    # C4b — a chapter is paginated inside its book and numbered within it. 23 fields, in-band.
-    ItemType.CHAPTER: frozenset({"numbering"}),
+    # C2 (`container-title`'s definition names "the book title for a book
+    # chapter") + C2a (a chapter is paginated inside its book, so container
+    # names the book) + C4b (numbered and paginated within it). 28 fields, in-band.
+    ItemType.CHAPTER: frozenset({"container", "numbering"}),
     # C3 (a classic text is a held/canonical object) + C5 (translated and
     # re-edited across centuries by different publishers is ordinary for a
     # classic). Not in Zotero's 32. 17 fields.
@@ -147,11 +180,12 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
     # band: "document" has no criterion-evidenced shape of its own, so it
     # stays at the baseline rather than borrowing one.
     ItemType.DOCUMENT: frozenset(),
-    # C4b — an entry is paginated inside the reference work that holds it.
-    # Not in Zotero's 32. 23 fields.
-    ItemType.ENTRY: frozenset({"numbering"}),
-    ItemType.ENTRY_DICTIONARY: frozenset({"numbering"}),
-    ItemType.ENTRY_ENCYCLOPEDIA: frozenset({"numbering"}),
+    # C2a — an entry is paginated inside the reference work that holds it,
+    # so container names that work, paired with C4b's numbering within it.
+    # Not in Zotero's 32. 28 fields.
+    ItemType.ENTRY: frozenset({"container", "numbering"}),
+    ItemType.ENTRY_DICTIONARY: frozenset({"container", "numbering"}),
+    ItemType.ENTRY_ENCYCLOPEDIA: frozenset({"container", "numbering"}),
     # C2 (event fields Appendix IV defines in terms of event). Not in
     # Zotero's 32. 13 fields.
     ItemType.EVENT: frozenset({"event"}),
@@ -188,11 +222,15 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
     ItemType.MUSICAL_SCORE: frozenset(),
     # C3 (a pamphlet is a held object). Not in Zotero's 32. 15 fields.
     ItemType.PAMPHLET: frozenset({"archive"}),
-    # C2 (event) + C4b (a conference paper is paginated inside its
-    # proceedings). 25 fields, in-band.
-    ItemType.PAPER_CONFERENCE: frozenset({"event", "numbering"}),
-    # C4c (a patent carries an official patent number). 23 fields, in-band.
-    ItemType.PATENT: frozenset({"numbering"}),
+    # C2 (event) + C2a (a conference paper is paginated inside its
+    # proceedings, so container names them) + C4b (paginated within it). 30
+    # fields, in-band.
+    ItemType.PAPER_CONFERENCE: frozenset({"container", "event", "numbering"}),
+    # C4c (a patent carries an official patent number) + C2 (`authority`,
+    # `jurisdiction` and `division` name "patent and the legal types" —
+    # patent itself is not in the named legal-types cluster, so this needed
+    # the itemized reading rather than the cluster shorthand). 27 fields, in-band.
+    ItemType.PATENT: frozenset({"legal", "numbering"}),
     # C2 (event). Not in Zotero's 32. 13 fields.
     ItemType.PERFORMANCE: frozenset({"event"}),
     # C6 — a periodical (the publication itself, not an article within it)
@@ -215,19 +253,23 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
     # C1 (container-title statement) + C4c (a report carries a report
     # number). 28 fields, in-band.
     ItemType.REPORT: frozenset({"container", "numbering"}),
-    # C2 (review fields Appendix IV defines in terms of review) + C4b (a
-    # review is paginated inside the periodical that carries it). Not in
-    # Zotero's 32. 25 fields.
-    ItemType.REVIEW: frozenset({"review", "numbering"}),
-    ItemType.REVIEW_BOOK: frozenset({"review", "numbering"}),
-    # C6 — no criterion names a group for software; its version concept has
-    # no Appendix III/IV language tying `publication` specifically to this
-    # type the way it does for book/figure/graphic. 11 fields, below band.
-    ItemType.SOFTWARE: frozenset(),
-    # C1 (container-title statement — a song on an album). 16 fields, in-band (at the floor).
-    ItemType.SONG: frozenset({"container"}),
-    # C2 (event) + C1 (genre statement). 19 fields, in-band.
-    ItemType.SPEECH: frozenset({"event", "publication"}),
+    # C2 (review fields Appendix IV defines in terms of review) + C2a (a
+    # review is paginated inside the periodical that carries it, so
+    # container names that periodical) + C4b (paginated within it). Not in
+    # Zotero's 32. 30 fields.
+    ItemType.REVIEW: frozenset({"container", "review", "numbering"}),
+    ItemType.REVIEW_BOOK: frozenset({"container", "review", "numbering"}),
+    # C2 (`version` names software, and `version` sits in `publication`).
+    # 17 fields, in-band.
+    ItemType.SOFTWARE: frozenset({"publication"}),
+    # C1 (container-title statement — a song on an album) + C2
+    # (`chapter-number` names chapter and song, standing in for a song's
+    # track number within its album). 28 fields, in-band.
+    ItemType.SONG: frozenset({"container", "numbering"}),
+    # C2 (event) + C1 (genre statement) + C2 (`container-title`'s own
+    # definition names "the session title for multi-part presentation at a
+    # conference"). 24 fields, in-band.
+    ItemType.SPEECH: frozenset({"container", "event", "publication"}),
     # C4c (a standard carries an official standard number). 23 fields, in-band.
     ItemType.STANDARD: frozenset({"numbering"}),
     # C1 (genre statement). 17 fields, in-band.
