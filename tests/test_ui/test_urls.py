@@ -54,6 +54,13 @@ class TestCreateRouteReverses:
         assert reverse("literature:item-create") == "/catalogue/add/"
 
 
+class TestUpdateRouteReverses:
+    """T017 — the update flow's route, added by US-2 (plan.md D-6, D-8)."""
+
+    def test_item_update_reverses(self):
+        assert reverse("literature:item-update", kwargs={"pk": 1}) == "/catalogue/1/update/"
+
+
 class TestCRUDViewsReverse:
     """plan.md D-6 — an action a view *shows* must have a resolvable route, or
     ``get_breadcrumbs()`` raises ``NoReverseMatch`` at render time instead of
@@ -62,18 +69,19 @@ class TestCRUDViewsReverse:
     DR-006 fixed: a partial per-view override could pass a hand-picked
     subset while still breaking on the action it left out.
 
-    ``ItemUpdateView`` and ``ItemDeleteView`` are a separate story's own
-    tasks and do not exist in this worktree, so ``update``/``delete`` are not
-    asserted here — neither view built in this story ever calls
-    ``resolve_crud_url("update")`` or ``resolve_crud_url("delete")``, so the
-    two routes' absence carries no NoReverseMatch risk for what this story
-    ships. Whichever task adds each of those views is expected to register
-    its own route alongside it.
+    ``ItemDeleteView`` is a separate story's own task (US-3) and does not
+    exist in this worktree, so ``delete`` is not asserted here — no view
+    built by this story sets ``show_delete_action``, so
+    ``resolve_crud_url("delete")`` is never actually called
+    (``CRUDDirectoryMixin.show_action()`` is checked before the ``reverse()``
+    call, not after), and the route's absence carries no NoReverseMatch risk
+    for what this story ships. Whichever task adds ``ItemDeleteView`` is
+    expected to register its own route alongside it.
     """
 
     @pytest.mark.parametrize(
         "view_class",
-        [views.ItemListView, views.ItemDetailView, views.ItemCreateView],
+        [views.ItemListView, views.ItemDetailView, views.ItemCreateView, views.ItemUpdateView],
         ids=lambda view_class: view_class.__name__,
     )
     def test_every_action_the_view_shows_reverses(self, view_class):

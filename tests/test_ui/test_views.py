@@ -5,6 +5,7 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """
 
+import json
 import re
 
 import pytest
@@ -13,6 +14,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from literature.choices import DateType, ItemType, NameRole
+from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item
 from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
@@ -24,6 +26,28 @@ def anchor_tag(content, href):
     match = re.search(rf"<a\b[^>]*href=\"{re.escape(href)}\"[^>]*>", content)
     assert match, f"no anchor addressing {href}"
     return match.group(0)
+
+
+def update_page_post_data(client, item, **overrides):
+    """Build a POST body from the rendered edit page's own bound form.
+
+    Same technique as ``create_page_post_data`` (T009): every field starts at
+    what the bound ``ItemForm`` actually initialises it to from the stored
+    instance, and whatever the Save button's own ``name``/``value`` pair is
+    (there is none — item_form.html's block carries neither) is carried
+    exactly as the page emits it. A hand-typed dict would miss both, and
+    would pass a round-trip assertion even against a view that dropped a
+    field the rendered page actually posts.
+    """
+    response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+    form = response.context["form"]
+    data = {name: (form[name].value() or "") for name in form.fields}
+    content = response.content.decode()
+    submit_button = re.search(r'<button[^>]*type="submit"[^>]*name="([^"]+)"[^>]*value="([^"]+)"', content)
+    if submit_button:
+        data[submit_button.group(1)] = submit_button.group(2)
+    data.update(overrides)
+    return data
 
 
 def create_page_post_data(client, **overrides):
@@ -316,6 +340,105 @@ class TestItemCreateView:
         assert response.context["identifiers"] == []
 
 
+class TestItemUpdateView:
+    """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
+
+    def test_saving_an_unchanged_form_leaves_every_stored_field_identical(self, client, db):
+        # SC-003 — the whole no-loss guarantee, and the most valuable test in
+        # the feature. A value in every scalar field the form carries, plus
+        # the two JSON fields it never carries (categories, custom — D-4),
+        # must survive an unchanged round trip through the rendered edit
+        # form. created/modified are auto_now_add/auto_now and change on
+        # every save by design (DR-010), so they are excluded on purpose,
+        # not by oversight.
+        from literature.ui.forms import FORM_FIELDS
+
+        values = {}
+        for name in FORM_FIELDS:
+            if name == "type":
+                continue
+            field = Item._meta.get_field(name)
+            # Underscore-joined, not space-joined: Django's CharField strips
+            # surrounding whitespace by default, and a value truncated to a
+            # short max_length (e.g. "language", "year_suffix" at 10) could
+            # otherwise land mid-space and silently lose it on the POST
+            # round trip for a reason unrelated to what this test checks.
+            raw = f"value_for_{name}"
+            values[name] = raw[: field.max_length] if field.max_length else raw
+        values["type"] = ItemType.ARTICLE_JOURNAL
+        values["categories"] = ["cat-a", "cat-b"]
+        values["custom"] = {"foo": "bar"}
+
+        item = ItemFactory(**values)
+
+        def snapshot():
+            return {
+                field.name: getattr(item, field.name)
+                for field in Item._meta.get_fields()
+                if hasattr(field, "attname") and not field.primary_key and field.name not in ("created", "modified")
+            }
+
+        before = snapshot()
+
+        data = update_page_post_data(client, item)
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302
+
+        item.refresh_from_db()
+        assert snapshot() == before
+
+    def test_a_populated_field_outside_the_types_own_groups_is_forced_visible(self, client, db):
+        # FR-010 — "legal" is not one of ARTICLE_JOURNAL's own groups
+        # (container, numbering), so a value already stored in it has to be
+        # forced visible rather than left behind the type guard.
+        assert "legal" not in FieldGroups.TYPE_GROUPS[ItemType.ARTICLE_JOURNAL]
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, authority="Held Authority")
+        response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        assert 'id="id_authority"' in content
+        forced_groups = json.loads(response.context["forced_groups_json"])
+        assert "legal" in forced_groups
+
+    def test_changing_the_item_type_on_post_retains_values_in_groups_the_new_type_does_not_use(self, client, db):
+        # FR-014 — WEBPAGE's own groups are just "container"; "legal" is not
+        # among them, so authority must still round-trip unchanged.
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, authority="Held Authority")
+        data = update_page_post_data(client, item, type=ItemType.WEBPAGE)
+        client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        item.refresh_from_db()
+        assert item.type == ItemType.WEBPAGE
+        assert item.authority == "Held Authority"
+
+    def test_the_type_select_renders_the_items_stored_type_as_selected(self, client, db):
+        # The failure T006's x-init prevents: without it x-model would
+        # deselect the stored type at Alpine's own initialisation, but the
+        # server-rendered HTML this test reads is unaffected by that bug —
+        # this asserts the bound ModelForm renders the right initial option
+        # regardless.
+        item = ItemFactory(type=ItemType.BOOK)
+        content = client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode()
+        assert re.search(rf'<option value="{re.escape(item.type)}"[^>]*selected', content)
+
+    def test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged(
+        self, client, populated_item
+    ):
+        # FR-012 — ItemForm carries none of these; the guarantee is that a
+        # save through it never touches them at all.
+        item = populated_item
+
+        def rows():
+            return (
+                [(row.pk, row.name_id, row.role, row.order) for row in item.item_names.all()],
+                [(row.pk, row.date_type, row.begin, row.end) for row in item.item_dates.all()],
+                [(row.pk, row.type, row.value) for row in item.item_identifiers.all()],
+            )
+
+        before = rows()
+        data = update_page_post_data(client, item)
+        client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert rows() == before
+
+
 class TestCreatePageRendersTheTailwindPack:
     """plan.md D-5 — CRISPY_TEMPLATE_PACK = "tailwind" is a setting; this
     asserts what the create page's own markup actually is, not the setting's
@@ -459,6 +582,16 @@ class TestItemDetailView:
         content = response.content.decode()
         contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
         assert f'href="{contributor_url}"' in content
+
+    def test_the_edit_action_renders_and_points_at_the_update_page(self, client, db):
+        # DR-001 — directory alone renders nothing without show_update_action
+        # (plan.md D-6, D-8). ItemDeleteView is US-3's own task, so no
+        # Delete action assertion belongs here yet.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' in content
 
 
 class TestReferencePageReadability:
@@ -646,3 +779,36 @@ class TestContributorDetailView:
         assert response.status_code == 200
 
         assert len(large_credit_list.captured_queries) == len(small_credit_list.captured_queries)
+
+
+class TestCSLRoundTrip:
+    """SC-006 — a reference entered by hand reaches the same CSL round-trip
+    fidelity standard as an imported one (Article IX). No new mechanism:
+    this exercises the create view (US-1) and the converters
+    (tests/test_converters.py's own subject) together, which nothing else
+    covers."""
+
+    def test_an_item_entered_through_the_create_view_round_trips_through_csl_json(self, client, db):
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="HandEntered2024",
+            title="A Representative Reference",
+            container_title="Journal of Testing",
+            volume="12",
+            issue="3",
+            page="100-110",
+            abstract="An abstract with representative content.",
+            language="en",
+        )
+        client.post(reverse("literature:item-create"), data)
+        original = Item.objects.get(citation_key="HandEntered2024")
+
+        original_csl = to_csl_json(original)
+        round_tripped = from_csl_json(original_csl)
+        round_tripped_csl = to_csl_json(round_tripped)
+
+        # "id" (citation_key) is expected to differ: from_csl_json dedupes
+        # against the original, which is still in the store — the guarantee
+        # is that every other CSL key round-trips unchanged.
+        assert round_tripped_csl == {**original_csl, "id": round_tripped_csl["id"]}
