@@ -49,6 +49,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-13T20:15:00Z",
       "note": "US2 done and merged. Receipts green. Independent verification: forge verify all steps passed, tamper-check 2 flags, both additions to test files US1 authored (a parametrize list gaining ItemUpdateView and a docstring US2's own work made inaccurate) - strengthening, no assertion weakened or removed. One accepted deviation, D13: show_delete_action stays unset on ItemDetailView until US3 registers the route, because setting it with no route raises NoReverseMatch on every reference page. First attempt at this story was killed mid-bearings by an account session limit having written nothing; re-dispatched clean."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T22:05:00Z",
+      "note": "US3 done and merged. The implementer reported T020 BLOCKED, correctly: the delete confirmation could not render because CRISPY_ALLOWED_TEMPLATE_PACKS was unset, and every fix was outside its scope. Reproduced independently (get_template on cotton/form/render.html raises with no request or form involved), fixed on the feature branch, plan D-5 corrected - its claim that the allowlist is only consulted for an explicit pack argument came from the design review and was wrong. Story unblocked by merging the fix down; T020's own code needed no change. Verification after: forge verify all green, 1470 tests. tamper-check 3 flags: two additions to earlier stories' test files (a parametrize list and a widened import, no assertion touched), and one weakening_patterns_added which is a FALSE POSITIVE - WEAKEN_RE matched the prose comment '# asserts the guarantee rather than any code that implements it'. Worth a kit proposal at S8."
     }
   ],
   "gates": {
@@ -308,20 +313,21 @@
       "id": "US3",
       "priority": "P3",
       "issue": 72,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T019",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T020",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         }
-      ]
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us3-fs008"
     },
     {
       "id": "US4",
