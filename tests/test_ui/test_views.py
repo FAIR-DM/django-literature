@@ -316,6 +316,23 @@ class TestItemCreateView:
         assert response.context["identifiers"] == []
 
 
+class TestCreatePageRendersTheTailwindPack:
+    """plan.md D-5 — CRISPY_TEMPLATE_PACK = "tailwind" is a setting; this
+    asserts what the create page's own markup actually is, not the setting's
+    value. A test on the setting alone would pass even if something between
+    the setting and the page (a missing app, an overridden template) left a
+    different pack's markup on the wire."""
+
+    def test_a_text_input_carries_the_tailwind_packs_label_markup(self, client, db):
+        content = client.get(reverse("literature:item-create")).content.decode()
+        # crispy_tailwind's field.html wraps every label in this exact,
+        # hard-coded class string; the pack this repo carried before D-5
+        # (bootstrap4-shaped markup) uses "form-label"/"form-control" instead.
+        assert 'class="block text-gray-700 text-sm font-bold mb-2"' in content
+        assert "form-label" not in content
+        assert "form-control" not in content
+
+
 class TestItemDetailView:
     """The reference page — FR-019 through FR-026."""
 
