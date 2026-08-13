@@ -413,6 +413,23 @@ class TestItemUpdateView:
         content = client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode()
         assert re.search(rf'<option value="{re.escape(item.type)}"[^>]*selected', content)
 
+    def test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged(self, client, populated_item):
+        # FR-012 — ItemForm carries none of these; the guarantee is that a
+        # save through it never touches them at all.
+        item = populated_item
+
+        def rows():
+            return (
+                [(row.pk, row.name_id, row.role, row.order) for row in item.item_names.all()],
+                [(row.pk, row.date_type, row.begin, row.end) for row in item.item_dates.all()],
+                [(row.pk, row.type, row.value) for row in item.item_identifiers.all()],
+            )
+
+        before = rows()
+        data = update_page_post_data(client, item)
+        client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert rows() == before
+
 
 class TestCreatePageRendersTheTailwindPack:
     """plan.md D-5 — CRISPY_TEMPLATE_PACK = "tailwind" is a setting; this
