@@ -229,19 +229,24 @@ class ItemDetailView(MVPDetailView):
     # href-less: PageObjectMixin.get_breadcrumbs() calls resolve_crud_url("list")
     # regardless, and show_list_action gates whether that call is even attempted.
     show_list_action = True
-    directory: list[str] = []
 
-    # MVPDetailView.crud_views is MVP_CONFIG["view_names"] itself — a dict
-    # shared process-wide. Building a new one here (rather than assigning
-    # into it) avoids reconfiguring django-mvp for every other view.
-    # The plain entries carry no namespace ('{model_name}-list'), so
-    # resolve_crud_url's plain reverse('item-list') raises NoReverseMatch
-    # under this app's namespaced urls.py (app_name = "literature").
-    crud_views = {
-        **MVPDetailView.crud_views,
-        "list": "literature:{model_name}-list",
-        "detail": "literature:{model_name}-detail",
-    }
+    # "delete" is named per plan.md D-6's table (matching MVPDetailView's
+    # own default directory), but show_delete_action is deliberately not set
+    # here: it defaults to False, so CRUDDirectoryMixin.resolve_crud_url()
+    # returns None for it before ever calling reverse() — show_action() is
+    # checked before the reverse() call, not after, so an unshown action's
+    # absent route is never dereferenced. ItemDeleteView and its route are
+    # US-3's own task (inherited_from_us1, D10); setting the flag here ahead
+    # of the route existing would turn every reference-page request into a
+    # NoReverseMatch.
+    directory: list[str] = ["update", "delete"]
+    show_update_action = True
+
+    # CRUD_VIEWS replaces the former two-key override (D-6, DR-006): every
+    # view now shares the same namespaced mapping, so "every name in every
+    # view's crud_views reverses" no longer depends on which keys a partial
+    # per-view override happened to name.
+    crud_views = CRUD_VIEWS
 
     def get_queryset(self):
         return super().get_queryset().prefetch_related("item_names__name", "item_dates", "item_identifiers")
