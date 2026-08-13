@@ -470,3 +470,48 @@ blocked in the completion report, with decisions.md D14 as the full record.
 Watch: `test_smoke.py`'s `assert not hasattr(settings, "CRISPY_ALLOWED_TEMPLATE_PACKS")` and plan.md
 D-5's mistaken claim both need attention once the settings fix is scoped to a session that can touch
 them — flagged in `concerns`.
+
+## 2026-08-13T21:10:00Z · Implementer US4 · T021 — DONE
+
+Did: extended `demo/smoke.py`'s write pass (plan.md D-9). Added `_FormFieldParser`
+(`html.parser.HTMLParser`) and `_form_fields()`, which read the first `<form>` on a page into a
+name→value dict the same way a browser's own submission would — an unnamed control (the "Show every
+field" toggle) posts nothing, a `<select>`'s value is its `selected` option or otherwise its first
+(browser default), a `<textarea>`'s value is its text content minus the one leading newline the HTML
+spec has every browser strip. `DemoWalk.__init__` now builds `self.opener` via
+`urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))`,
+reused for every request the walk makes — a CSRF cookie set while GETting a form page has to still
+be attached when the walk POSTs back to it. `_get` now reads through `self.opener` instead of a bare
+`urllib.request.urlopen`; a new `_post` builds the request with a `Referer` header and the same
+opener; both delegate to a new `_fetch` that carries the existing login-redirect and error handling.
+Added `_CREATE_LINK_RE`, `_EDIT_LINK_RE`, `_DELETE_LINK_RE` and `DemoWalk._walk_write_pass`, called
+from `run()` after the read walk: follows the catalogue's own Add link, creates a reference, follows
+to its own page, follows its Edit link, corrects the title while posting the whole scraped form back
+unchanged otherwise, follows its Delete link, and confirms the catalogue no longer lists it. Every
+step asserts on content (the created/corrected title appears, the citation key survives the edit, the
+catalogue's own link list changes), never a bare status code (ADR-0018), and the create/edit steps
+also assert the redirect landed on the reference's own page rather than the catalogue.
+
+Added to `tests/test_demo/test_smoke.py`: `TestSharedOpener` (the opener carries exactly one
+`HTTPCookieProcessor`), `TestCreateLinkPattern`/`TestEditLinkPattern`/`TestDeleteLinkPattern` (each
+regex against markup the front end really renders, mirroring the existing `TestItemLinkPattern`), and
+`TestFormFields` (csrf token captured, a populated edit form's stored values captured, a textarea's
+content captured, the unnamed toggle excluded, the delete confirmation carrying only the token).
+Updated `TestUnauthenticatedWalk`'s two tests to monkeypatch `urllib.request.OpenerDirector.open`
+instead of the now-unused `urllib.request.urlopen` — see decisions.md D16 for why changing this
+pre-existing test is in scope.
+
+Verified: `poetry run pytest tests/test_demo/test_smoke.py -q` — RED first (`ImportError: cannot
+import name '_CREATE_LINK_RE'`, the right reason — the symbols did not exist yet), then GREEN, 18
+passed, after one further fix (a raw parsed textarea value carried the widget template's leading
+newline; stripped once in `_FormFieldParser`). `poetry run pytest tests/test_demo/ -q` — 40 passed.
+
+Verified live, against a demo server built and seeded exactly as `.github/workflows/demo.yml` does
+(`DEMO_DB_PATH` pointed at a scratch file, `migrate`, `seed_demo`, `runserver --noreload`, polled
+until `/catalogue/` answered): `poetry run python demo/smoke.py http://127.0.0.1:8000` →
+`OK: walked the demo catalogue, its second page, a reference and a contributor, and
+created/corrected/removed a reference, at http://127.0.0.1:8000`, exit 0.
+
+Next: T022, prove the guard by breaking each flow in turn.
+
+Watch: none.

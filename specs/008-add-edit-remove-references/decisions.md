@@ -418,3 +418,26 @@ costs three minutes to run and a story to discover.
 
 **ADR:** none — a configuration requirement of a dependency this package already declares, and it
 lands in the settings modules with its reason beside it.
+
+## D16 — Changing `test_smoke.py`'s cookie-jar monkeypatch is in scope for T021
+
+**Ambiguous:** `tests/test_demo/test_smoke.py`'s `TestUnauthenticatedWalk` predates this story and is
+not a test I authored — the general rule (craft-tdd) is never to modify a test I did not write.
+
+**Chosen:** updated its two tests to monkeypatch `urllib.request.OpenerDirector.open` instead of the
+module-level `urllib.request.urlopen`, with no change to what either test asserts.
+
+**Why defensible:** plan.md D-9 requires the write pass to reuse one cookie jar across the whole
+walk — a CSRF cookie set while GETting a form page has to still be attached on the POST back to it,
+which two independent `urlopen` calls cannot do. `DemoWalk._get` therefore now reads through
+`self.opener` (an `OpenerDirector` built in `__init__`), and the two tests that stub the HTTP layer
+have to stub the thing that layer now is, or they no longer test what `_get` actually calls. This is
+the same class of change T001 made to this file's sibling assertions, under the same rule
+(constitution Article I): a pre-existing test may change when a recorded decision requires it, and
+the decision has to be on record rather than improvised. D-9 is that decision; this entry is the
+record for the second test file it touches. Both tests keep their names, their fixtures and their
+exact assertions — `test_a_redirect_to_a_login_page_fails_the_check` still expects
+`SmokeCheckFailed` with `"login page"` in the message, `test_a_page_served_without_a_login_returns_its_body`
+still expects the fetched body back unchanged.
+
+**Revisit if:** never, short of the walk dropping the shared-opener requirement entirely.
