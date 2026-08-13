@@ -265,3 +265,31 @@ completion report.
 Watch: the two recorded deviations (D10 — item-update/item-delete routes not registered; D11/commit
 bundling — T010 and T012's views.py edits landed in one commit) belong in the completion report's
 `deviations`/`concerns`, not silently absorbed.
+
+## 2026-08-13T15:20:00Z · Implementer (corrective) · T030
+
+Did: extended `tests/test_ui/test_fieldgroups.py` with `TestCorrectedC2Criterion` — `container` in
+`groups_for()` for the 17 types the base branch's corrected plan.md D-1 (C2, C2a) names, plus
+`publication` for software. Ran and watched all 12 fail for the right reason (missing group
+membership), committed the failing test. Then re-ran the full itemized C2 evidence in plan.md D-1
+point 2 against every type rather than just the 11 named in the defect paragraph, per the task's
+"re-derive each entry" instruction, and found three more gaps the same criterion-misreading pattern
+produced: `song` missing `numbering` (chapter-number), `book` missing `numbering`
+(number-of-volumes/ISBN), `patent` missing `legal` (authority/jurisdiction/division — patent sits
+outside the named legal-types cluster). Added three more failing tests for those, watched them fail,
+committed. Then rewrote `TYPE_GROUPS` entries for all 16 affected types plus `software`, keeping one
+comment line per type naming its criterion(s) and field count. `book` now resolves to 36 fields,
+one above the stated 16–35 plausibility band; documented why in the entry's comment (CSL's own text
+names `number-of-volumes` for book directly, and Zotero's schema — which sets the ceiling, not a
+rule — has nothing equivalent for its own book type).
+
+Verified: `poetry run pytest tests/test_ui/test_fieldgroups.py -q` — 32 passed. `poetry run pytest
+tests/test_ui/ -q` — 290 passed (269 baseline + 21 new). Field counts in every touched comment
+checked against `FieldGroups.groups_for()` output directly, not computed by hand.
+
+Next: nothing — this closes T030. Full-story verify (`poetry run pytest -q && poetry run pre-commit
+run --all-files`) still to run before the completion report.
+
+Watch: the three additional corrections (song, book, patent) are outside the defect paragraph's
+named list but inside T030's own instruction to re-derive against the full itemized evidence, not
+patch the named symptoms only — flagged in the completion report's `deviations` for visibility.

@@ -236,6 +236,20 @@
               "poetry run pytest tests/test_ui/ -q"
             ]
           }
+        },
+        {
+          "id": "T030",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_fieldgroups.py::TestCorrectedC2Criterion"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_fieldgroups.py -q",
+              "poetry run pytest tests/test_ui/ -q"
+            ]
+          }
         }
       ]
     },

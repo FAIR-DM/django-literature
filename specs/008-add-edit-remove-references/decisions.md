@@ -243,3 +243,35 @@ form or a state variable that leaked to `window` instead of Alpine's reactive sc
 **Revisit if:** django-mvp ships a version of `form_view.html` that gates `<c-form.render />` behind
 its own block, or exposes a `page.content` seam narrower than the whole block — either would let this
 template go back to overriding only `formset`/`actions`, which is less to keep in sync with upstream.
+
+## D12 — T030's re-derivation applies plan.md D-1's full itemized C2 evidence, not only the named defect list
+
+**Decision:** T030's defect paragraph names 11 types needing `container` plus `software` needing
+`publication`. Its own instruction, though, is to "re-run the whole per-type assignment against the
+corrected criteria... every type, not only the ones named above — the named ones are the symptom,
+the criterion misreading is the cause." Reading plan.md D-1 point 2 in full (not just the sentence
+quoted in the defect paragraph) surfaces the same misreading pattern in three more places: the
+paragraph's closing sentence names four clusters (`legal`/`review`/`event`/`physical`) the first
+pass evidently treated as the complete list, but the paragraph's itemized evidence ahead of that
+sentence separately states `chapter-number` names song, `number-of-volumes`/`ISBN` name "the
+book-like types", and `authority`/`jurisdiction`/`division` name patent *in addition to* the named
+legal-types cluster — patent itself is not one of legal_case/legislation/bill/hearing/regulation/
+treaty, so it needed the itemized reading and never got it. `song`, `book` and `patent` therefore
+gained `numbering`, `numbering` and `legal` respectively, on the same evidentiary basis as the
+container fix, with their own failing tests added first.
+
+**Why defensible:** this is the same defect, not a new one — a partial reading of the same paragraph
+of evidence, corrected by reading the whole of it, exactly as the task instructs. No group was
+removed, no existing test weakened, and each addition has its own red-then-green test naming the
+exact plan.md clause it rests on.
+
+**Consequence:** `book`'s resolved field count (36) exceeds the stated 16–35 plausibility band by
+one. That band is a check against Zotero's coverage, not a rule Zotero's schema is entitled to
+enforce here — Zotero's own schema does not surface an equivalent of `number-of-volumes` for its
+book type, so a set the criteria produce correctly can still sit outside a check built from a
+different source's coverage. Documented in place in `TYPE_GROUPS`' own comment rather than trimmed
+to fit the band.
+
+**Revisit if:** a later pass finds plan.md D-1's itemized list names still more types this
+re-derivation did not catch — check against the full text of point 2, not this decision's summary
+of it, since the summary is necessarily lossy.
