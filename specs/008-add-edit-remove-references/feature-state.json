@@ -3,7 +3,7 @@
   "feature": "008-add-edit-remove-references",
   "branch": "008-add-edit-remove-references",
   "repo": "FAIR-DM/django-literature",
-  "state": "REVIEW",
+  "state": "PR_READY",
   "state_history": [
     {
       "state": "INTAKE",
@@ -69,6 +69,11 @@
       "state": "REVIEW",
       "at": "2026-08-14T02:00:00Z",
       "note": "S6: one reviewer, correctness + spec + security lenses (security run because this is the package's first write path). Receipts green. Three findings, all verified by the orchestrator against the running code and all fixed. RV-001 HIGH is the finding of the run: the JSON seeding Alpine's scope carried |safe into a double-quoted attribute, so the first quote closed the attribute and the remaining JSON parsed as 205 junk attribute names - reproduced with HTMLParser, 206 attributes on the element and x-init truncated at the first brace. The whole type-scoping mechanism was inert in a browser and four stories of tests passed because they assert substrings of the raw body. RV-002 MEDIUM: CharField strips by default, so an unchanged save rewrote any stored value with leading or trailing whitespace, breaking SC-003's byte-identical claim; the SC-003 test had been shaped around it. RV-003 LOW: the demo's form reader accumulated every form on the page rather than the first. Each fix carries a test proven against the reinstated defect. Security lens otherwise clean: CSRF present on all three forms, the field allowlist structurally excludes the four non-form fields, ?next and ?back both host-validated upstream, nothing user-controlled reaching an href."
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-14T02:40:00Z",
+      "note": "PR #74 body rewritten to contract and marked ready. Author app/fairdm-bot, last pusher fairdm-bot, mergeable. All seven ruleset-required checks green. 'Walk the demo' is RED and is not a required check: diagnosed as a pre-existing infrastructure defect this branch did not cause - demo.yml pins setup-poetry@v0.2.0, which gates the dependency install on a cache miss, and on a cache hit poetry then discards the restored venv as broken and rebuilds it empty. Fixed upstream at v0.3.2, whose install step is unconditional with a comment describing this exact failure; the repo's other workflows were moved to v0.3.2 and demo.yml was written just after and kept the old pin. Filed as issue #75 with the one-line fix. Not fixable here: workflow files need a token the bot deliberately does not hold."
     }
   ],
   "gates": {
@@ -404,7 +409,7 @@
       "id": "US4",
       "priority": "P4",
       "issue": 73,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -494,7 +499,7 @@
         },
         {
           "id": "T028",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         }
       ],
@@ -521,6 +526,6 @@
   },
   "pr": {
     "number": 74,
-    "draft": true
+    "draft": false
   }
 }
