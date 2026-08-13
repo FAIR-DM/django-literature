@@ -142,6 +142,13 @@ class TestItemListView:
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
 
+    def test_the_add_link_renders_and_points_at_the_create_page(self, client, db):
+        # directory = ["create"] alone renders nothing without
+        # show_create_action set (plan.md D-6) — this is the entry point
+        # US-1's acceptance scenario 1 starts from.
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert f'href="{reverse("literature:item-create")}"' in content
+
 
 class TestCatalogueListReadability:
     """Issue #65 — what the catalogue list and its rows say at a glance.
