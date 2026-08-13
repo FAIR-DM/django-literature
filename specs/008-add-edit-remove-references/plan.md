@@ -11,7 +11,8 @@ delete. All of it lives in `literature/ui/`, composed from django-mvp's `MVPCrea
 `MVPUpdateView` and `MVPDeleteView`, which already carry the form page, the delete confirmation, the
 success messages and the breadcrumb machinery.
 
-The one piece with real design content is the type scoping. `Item` has 89 fields and CSL publishes no
+The one piece with real design content is the type scoping. `Item` declares 64 fields, 60 of which
+reach the form, and CSL publishes no
 mapping from item type to applicable fields, so the package authors one. It is authored at the level
 of **field groups rather than individual fields** — around a dozen named groups, each type declaring
 which groups it uses — which turns a 45×70 matrix of contestable cells into 45 short lists, matches
@@ -44,7 +45,7 @@ easy-icons, flex-menu, Alpine.js. **No new runtime dependency.**
 enforced by `tests/test_ui/test_architecture.py` · every user-facing string translatable (Article
 VIII) · pages open, no auth (FR-024)
 
-**Scale/Scope**: 45 item types, 89 model fields, 4 user stories
+**Scale/Scope**: 45 item types, 64 declared `Item` fields (60 on the form), 4 user stories
 
 ## Constitution Check
 
@@ -140,23 +141,45 @@ knowledge.
 One `ItemForm(ModelForm)` with every scalar field. The template renders every group. Alpine hides
 the groups the current type does not use:
 
-- The `type` widget carries `x-model="form.itemType"` in its `attrs` — `cotton/form/index.html`
-  already opens `x-data="{form: {}}"` on the `<form>` element, so no extra scope is declared.
-- Each group's wrapper carries `x-show="showAll || groups.includes(form.itemType) || forced"`, driven
-  by a JSON map of type → groups rendered once into the page.
+- The `type` widget carries `x-model="form.itemType"` **and `x-init="form.itemType = $el.value"`** in
+  its `attrs`. `cotton/form/index.html` opens a literal `x-data="{form: {}}"` on the `<form>` element
+  — an empty object in a django-mvp file this feature does not write, so there is no seam to seed the
+  state from `self.object.type`. Without `x-init`, `x-model` writes its own undefined state onto the
+  select at initialisation and deselects the stored item type, which then fails validation on save
+  because `type` is required. The `x-init` reads the server-rendered value back into the scope. No
+  second `x-data` is declared.
+- Each group's wrapper carries
+  `x-show="showAll || forcedGroups.includes(group) || (typeGroups[form.itemType] || []).includes(group)"`,
+  driven by a JSON map of type → groups rendered once into the page. The `|| []` is load-bearing: on
+  a blank create page `form.itemType` is the empty string and a bare lookup would throw inside every
+  group's expression.
+- **With no item type chosen, nothing but the type field renders.** Choosing one reveals `core`,
+  `general` and that type's groups. This is FR-002 — the type is asked before anything else — and it
+  falls out of the same guard rather than needing a second page.
 - A "Show every field" toggle sets `showAll`.
 - Groups already holding a value are forced visible from the server via
   `groups_holding_values(item)`, which is what FR-010 and FR-014 ask for.
+- **`item_form.html` overrides `form_view.html`'s `{% block actions %}`** with a single translated
+  Save button. django-mvp's default block renders submit buttons carrying `default_next=list`, and
+  `NextURLMixin` consults `default_next` *before* `success_url` — so with the stock block every save
+  through the rendered page would land on the catalogue rather than the reference, silently breaking
+  FR-008 and FR-015. A test posting a bare field dict would not catch it, because only the rendered
+  button sends that parameter.
 
 **Why this shape and not per-type form classes:** a hidden input still holds its value and still
-posts it. A field the mapping does not offer therefore round-trips untouched, and changing an item
-type cannot discard anything, because the server never sees a narrower form. The alternative —
-building the form's field list from the type — makes every omitted field submit as absent, and on a
-`ModelForm` that means the value is left alone only by accident of `save()`'s field list. Making the
-guarantee structural is worth more than the smaller HTML payload, and SC-003's round trip is the test
-that proves it.
+posts it — Alpine's `x-show` sets `style.display` and leaves the element in the DOM. A field the
+mapping does not offer therefore round-trips untouched, and changing an item type cannot discard
+anything, because the server never sees a narrower form. The alternative — building the form's field
+list from the type — makes every omitted field submit as absent, and Django's `construct_instance()`
+assigns every declared field from `cleaned_data`, so an absent field is written as empty rather than
+left alone.
 
-The cost is honest: every form page carries all 89 fields' markup. For a form nobody submits at
+**The limit of the guarantee, stated honestly:** it is structural *for the rendered page*, not for
+the endpoint. Any POST that omits a field still blanks it, for exactly that `construct_instance`
+reason. That is why the demo guard has to post the whole form back with one field changed (D-9)
+rather than posting the field it means to change.
+
+The cost is honest: every form page carries all 60 fields' markup. For a form nobody submits at
 volume, that is the right trade.
 
 ### D-4 — `categories` and `custom` are excluded at the form, and the exclusion is tested
@@ -169,24 +192,57 @@ stored values before and after a save rather than asserting the form's field lis
 ### D-5 — `CRISPY_TEMPLATE_PACK` is unset in this repository, and this feature is where that starts mattering
 
 `crispy_tailwind` is installed in both `tests/settings.py` and `demo/settings.py`, but neither sets
-`CRISPY_TEMPLATE_PACK`, so crispy falls back to `bootstrap4`. Nothing has noticed because the package
-renders no form today. Both settings modules gain `CRISPY_TEMPLATE_PACK = "tailwind"`, and the README
-gains it in the install instructions, since a host copying those instructions hits the same latent
-defect. A rendered-page test asserts the tailwind pack's markup rather than the setting's value.
+`CRISPY_TEMPLATE_PACK`. crispy-forms 2.7's `get_template_pack()` is
+`getattr(settings, "CRISPY_TEMPLATE_PACK")` **with no default**, so the current state is an
+`AttributeError` on the first form render, not a silent fallback to another pack. Nothing has noticed
+because the package renders no form today. Both settings modules gain
+`CRISPY_TEMPLATE_PACK = "tailwind"`, and the README gains it in the install instructions, since a
+host copying those instructions hits the same latent defect. A rendered-page test asserts the
+tailwind pack's markup rather than the setting's value.
 
-### D-6 — `crud_views` is remapped on every view that shows an action, not only the new ones
+**This reverses a recorded FS-006 decision and amends one of its tests, deliberately.** FS-006 struck
+both crispy settings and its `tests/test_ui/test_smoke.py` asserts
+`not hasattr(settings, "CRISPY_TEMPLATE_PACK")`. That was correct while nothing rendered a form and
+is wrong the moment something does. Constitution Article I requires a recorded decision before a
+pre-existing test is changed: this paragraph is it. Only that one assertion is dropped; the
+`CRISPY_ALLOWED_TEMPLATE_PACKS` assertion beside it stays, because that setting is only consulted
+when the `{% crispy %}` tag is given an explicit pack argument, which `cotton/form/render.html` does
+not do.
 
-django-mvp resolves action URLs through a `crud_views` dict defaulting to unnamespaced names.
-`ItemDetailView` already overrides it for `list` and `detail` and sets `directory = []`. Showing the
-new actions means extending that dict with `create`, `update` and `delete` under the `literature:`
-namespace on the list view, the detail view and each new view, and setting `directory` accordingly.
+### D-6 — One shared `CRUD_VIEWS` map, and every action needs its `show_*_action` flag
 
-The failure mode is specific and worth naming in the task: an action that is *shown* with no
-resolvable route raises `NoReverseMatch`, and inside `get_breadcrumbs()` that is an uncaught 500 on
+django-mvp resolves action URLs through a `crud_views` dict defaulting to unnamespaced names, and
+under `app_name = "literature"` a plain `reverse("item-list")` raises `NoReverseMatch`. The
+established pattern in `views.py` spreads the shared default and overrides two keys, which leaves the
+other three unreversible. Rather than repeating a partial override on five views, `views.py` gains
+one module-level `CRUD_VIEWS` mapping all five actions under the `literature:` namespace, assigned on
+`ItemListView`, `ItemDetailView` and the three new views. That makes "every name in every view's
+`crud_views` reverses" a literally true assertion instead of one the partial overrides would fail.
+
+**`directory` alone shows nothing.** `CRUDDirectoryMixin` defaults every `show_<action>_action` to
+`False`, and `resolve_crud_url()` returns `None` before reversing when the flag is falsy, so
+`get_directory()` drops the entry. A view listing an action in `directory` without setting its flag
+renders no button at all. The repository already knows this — `views.py` sets `show_list_action =
+True` with a comment saying the default leaves it href-less — but the flag has to be set on each view
+for each action it shows:
+
+| View | `directory` | flags |
+|---|---|---|
+| `ItemListView` | `["create"]` | `show_create_action` |
+| `ItemDetailView` | `["update", "delete"]` | `show_update_action`, `show_delete_action` |
+| `ItemCreateView` | — | `show_list_action`, `show_detail_action` |
+| `ItemUpdateView` | — | `show_list_action`, `show_detail_action` |
+| `ItemDeleteView` | — | `show_list_action`, `show_detail_action` |
+
+The form views need `list` and `detail` resolvable because `get_breadcrumbs()` reverses them, and an
+action that is *shown* with no resolvable route raises `NoReverseMatch` there — an uncaught 500 on
 the form page rather than a missing button. A test reverses every name in every view's `crud_views`.
 
 `Item` has no `get_absolute_url()`, so `success_url` is mandatory on the create and update views;
-both use the `detail` CRUD shorthand, and the delete view uses `list`.
+both use the `detail` CRUD shorthand, and the delete view uses `list`. **The shorthand only resolves
+when its flag is set** — `get_success_url()` falls through to returning the raw string, so
+`success_url = "detail"` with `show_detail_action` unset redirects to the literal relative path
+`detail` and 404s.
 
 ### D-7 — The delete confirmation is django-mvp's, configured rather than written
 
@@ -200,14 +256,22 @@ the reference.
 the `ItemName` rows are what cascade. FR-020 is therefore already true of the model, and the test
 asserts it rather than the code implementing it.
 
+**Declining has to be pointed back at the reference.** `MVPDeleteView.get_back_url()` reads `?back`
+from the query string and otherwise falls back to the catalogue list, and the detail page's delete
+link carries no `?back` — only the *update* page's does. FR-018 requires returning to the reference,
+so `ItemDeleteView` overrides `get_back_url()` to resolve the `detail` shorthand, honouring an
+inherited `?back` first. The object still exists at that point, so its URL is available.
+
 ### D-8 — Entry points, and where each flow lands
 
-- Catalogue page: an "Add" action, from `directory = ["create"]`. The list view's `create_form_class`
-  stays unset, so the component renders a plain link to the create page rather than a modal — an
-  89-field form does not belong in a modal.
-- Reference page: Edit and Delete, from `directory = ["update", "delete"]`.
+- Catalogue page: an "Add" action, from `directory = ["create"]` **with `show_create_action = True`**.
+  The list view's `create_form_class` stays unset, so the component renders a plain link to the
+  create page rather than a modal — a thirteen-group form does not belong in a modal.
+- Reference page: Edit and Delete, from `directory = ["update", "delete"]` **with
+  `show_update_action` and `show_delete_action` set**.
 - Create and update land on the reference's page (`success_url = "detail"`); delete lands on the
-  catalogue (`success_url = "list"`).
+  catalogue (`success_url = "list"`). Both depend on the flags in D-6's table and on `item_form.html`
+  overriding the default actions block (D-3).
 
 ### D-9 — The demo guard walks the flows over the demo's own project
 
@@ -215,6 +279,13 @@ asserts it rather than the code implementing it.
 follow to its page, edit a field, confirm the change renders, delete it, confirm the catalogue no
 longer lists it. It runs against the demo project's own settings and URLs, as FS-007 settled, so a
 demo that has drifted from the package is caught there and not only in the suite.
+
+Two mechanics the existing walk does not have and the write pass needs. It reads pages with a bare
+`urllib.request.urlopen`, with no cookie jar and no CSRF token, and the demo runs
+`CsrfViewMiddleware` — so a POST as the module stands today returns 403. And per D-3's stated limit,
+each POST must carry the whole form back with one field changed, built by parsing the rendered form's
+field names rather than assembled by hand; posting only the changed field would blank the rest. Both
+stay inside the module's standard-library-only constraint.
 
 Proving the guard works means breaking each flow in turn and confirming the guard fails — the same
 method FS-007 used for its own guard (its D-8).

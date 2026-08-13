@@ -138,7 +138,9 @@ a later feature does not read the wrong source.
 
 - `literature/ui/` has no `forms.py`, no POST handler, no `<form>`, no CSRF token. Every view is a
   `ListView` or `DetailView` subclass. This feature writes the first write path in the package.
-- `Item` carries 89 model fields. `fields = "__all__"` is not a viable form.
+- `Item` declares 64 fields — 60 scalar, plus `categories`, `custom`, `created` and `modified`.
+  `fields = "__all__"` is not a viable form. (An earlier draft of this file said 89, which was a
+  count of every field in `models.py` across all five models rather than `Item`'s own.)
 - Six of those fields are processor-generated or cite-level rather than bibliographic —
   `citation_number`, `first_reference_note_number`, `year_suffix`, `citation_label`, `locator`, and
   arguably `citation_key` itself. A CSL processor assigns most of them. They are still storable and

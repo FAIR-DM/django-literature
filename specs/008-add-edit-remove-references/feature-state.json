@@ -3,7 +3,7 @@
   "feature": "008-add-edit-remove-references",
   "branch": "008-add-edit-remove-references",
   "repo": "FAIR-DM/django-literature",
-  "state": "PLAN",
+  "state": "DESIGN_REVIEW",
   "state_history": [
     {
       "state": "INTAKE",
@@ -29,6 +29,11 @@
       "state": "PLAN",
       "at": "2026-08-13T15:40:00Z",
       "note": "plan.md + research.md + tasks.md; group-level mapping (D-1), visibility-only scoping (D-3)"
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-13T16:30:00Z",
+      "note": "one reviewer, three lenses, one round; 13 findings, 3 verified high (show_*_action flags, default_next preempting success_url, unseeded Alpine scope); all applied as plan/tasks edits; security lens clean; receipts green; budget spent"
     }
   ],
   "gates": {
@@ -52,6 +57,11 @@
     "merge": {
       "approved_by": null,
       "at": null
+    },
+    "design_review": {
+      "approved_by": "design-reviewer",
+      "at": "2026-08-13T16:30:00Z",
+      "self_resolved": []
     }
   },
   "stories": [
@@ -74,11 +84,6 @@
         },
         {
           "id": "T003",
-          "status": "todo",
-          "attempts": 0
-        },
-        {
-          "id": "T004",
           "status": "todo",
           "attempts": 0
         },
@@ -158,6 +163,11 @@
         },
         {
           "id": "T018",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T029",
           "status": "todo",
           "attempts": 0
         }
@@ -242,7 +252,7 @@
       "max": 1
     },
     "design_review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 1
     },
     "tokens": {

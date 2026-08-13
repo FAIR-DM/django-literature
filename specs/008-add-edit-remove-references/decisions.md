@@ -118,12 +118,46 @@ Recorded here so they reach S3 without being mistaken for statements about what 
 - **Alpine.js is available and is the preferred mechanism for type scoping** (maintainer,
   2026-08-13). django-mvp ships it, so showing and hiding the form's field sets on a change of
   item type belongs in the browser rather than in a server round trip.
-- **The form stack is already present.** django-mvp ships create, update and delete view bases and
-  the demo already installs crispy-forms with the Tailwind template pack. FR-026's no-custom-
-  components rule points the same way: compose what is there.
+- **The form stack is already present.** django-mvp ships create, update and delete view bases, and
+  both settings modules already install crispy-forms and crispy-tailwind. FR-026's no-custom-
+  components rule points the same way: compose what is there. *(Corrected at S3R: the apps are
+  installed but `CRISPY_TEMPLATE_PACK` is not set, which raises `AttributeError` on the first form
+  render — see plan D-5.)*
 - **The detail view's inherited CRUD link names are currently unnamespaced.** `ItemDetailView`
   overrides `crud_views` with only `list` and `detail` under the `literature:` namespace, so any
   inherited create/update/delete link would fail to reverse. Wiring the new views is where that
   gets settled.
 - **The architecture test is a live constraint.** `tests/test_ui/test_architecture.py` asserts no
   core module imports `mvp`, `crispy_forms` or `literature.ui`. Form code lives in the UI app.
+
+## D8 — Design-review outcome (S3R, 2026-08-13)
+
+One reviewer, three lenses, one round. Thirteen findings, three verified high, all applied as edits
+to `plan.md` and `tasks.md`; the itemised list is at the end of `tasks.md`. Nothing was carried as a
+watch item, because every finding was cheap enough to fix at plan time — which is the stage working
+as intended.
+
+The three that would have cost a rework cycle if they had surfaced against a diff:
+
+- **Every `show_<action>_action` defaults to `False`.** Listing an action in `directory` renders no
+  button without its flag, and a CRUD shorthand in `success_url` silently degrades to a literal
+  relative redirect. Every entry point and every landing page in the plan depended on flags the plan
+  never mentioned.
+- **django-mvp's stock submit buttons post `default_next=list`, and that is consulted before
+  `success_url`.** Every save through the rendered page would have landed on the catalogue instead of
+  the reference. The tests as first written would not have caught it, because a test posting a bare
+  field dict never sends the parameter the button does.
+- **Nothing seeded the Alpine scope from the server.** `cotton/form/index.html` opens
+  `x-data="{form: {}}"` with an empty object, so `x-model` on the type select would have written
+  undefined over the stored item type on every edit page, and the group guard would have thrown on a
+  blank create page.
+
+The security lens produced no finding. The reviewer confirmed D-3's no-loss guarantee holds as a data
+claim and supplied the limit now written into D-3: it is structural for the rendered page, not for
+the endpoint, because any POST omitting a field still blanks it.
+
+It also caught that `plan.md` and `research.md` both said `Item` has 89 fields. That was a count of
+every field in `models.py` across all five models. `Item` declares 64, of which 60 reach the form.
+Neither conclusion the figure was cited for changes at 60.
+
+**ADR:** none — this is a record of one review round, not a decision anything downstream inherits.
