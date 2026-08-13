@@ -1,20 +1,24 @@
 """Views for the opt-in front end.
 
 Filled in one class per story: ``ItemListView`` (US-1), ``ItemDetailView``
-(US-2), ``ContributorDetailView`` (US-4).
+(US-2), ``ContributorDetailView`` (US-4), ``ItemCreateView`` (US-1 again).
 """
 
+import json
 from collections import defaultdict
 from functools import cached_property
 
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from mvp.views import MVPDetailView, MVPListView
+from mvp.views import MVPCreateView, MVPDetailView, MVPListView
 
+from literature.choices import ItemType
 from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups
+from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
+from literature.ui.forms import ItemForm
 from literature.ui.links import web_url
 
 #: What the catalogue calls itself, everywhere a reader is shown its name — the
@@ -28,6 +32,66 @@ CATALOGUE_TITLE = _("Publications")
 #: rather than ``CATALOGUE_TITLE.lower()``: lowercasing is an English habit and
 #: a language that capitalises its nouns would be served the wrong form.
 CATALOGUE_NAME_PLURAL = _("publications")
+
+#: One shared CRUD-action → namespaced-URL-name map for every view in this
+#: app (plan.md D-6). ``MVP_CONFIG["view_names"]``'s own default is
+#: unnamespaced (``"item-list"``, not ``"literature:item-list"``), and under
+#: this app's ``app_name = "literature"``, a bare ``reverse("item-list")``
+#: raises ``NoReverseMatch``. One dict, assigned on every view that carries
+#: it, is what makes "every name in every view's ``crud_views`` reverses" a
+#: literally true statement rather than depending on which keys a partial
+#: per-view override happened to name (DR-006).
+#:
+#: ``update`` and ``delete`` name routes that are not registered yet —
+#: ``ItemUpdateView`` and ``ItemDeleteView`` are separate stories' own tasks,
+#: each of which adds its own route alongside its view. Assigning this dict
+#: to ``ItemListView`` and ``ItemCreateView`` now is still safe: neither
+#: view's code path ever calls ``resolve_crud_url("update")`` or
+#: ``resolve_crud_url("delete")``.
+CRUD_VIEWS = {
+    "list": "literature:{model_name}-list",
+    "detail": "literature:{model_name}-detail",
+    "create": "literature:{model_name}-create",
+    "update": "literature:{model_name}-update",
+    "delete": "literature:{model_name}-delete",
+}
+
+#: Every ``ItemType`` value mapped to the group names its form shows by
+#: default, serialised once into every write page (plan.md D-3). Built at
+#: import time, not per-request: the mapping is a module-level constant
+#: (``literature/ui/fieldgroups.py``), so there is nothing request-specific
+#: to recompute.
+TYPE_GROUPS_JSON = json.dumps({item_type: sorted(FieldGroups.groups_for(item_type)) for item_type in ItemType.values})
+
+
+def _field_group_context(form):
+    """The write form's template context for group-by-group rendering (D-3).
+
+    The ``type`` field is pulled out of ``core`` and returned on its own: with
+    no item type chosen, nothing else on the page is guarded to show (FR-002),
+    so the type field is the one control that has to render unconditionally.
+    Every other group becomes a ``{key, label, fields}`` dict in a fixed
+    order — a Django template cannot index a dict by its own loop variable,
+    so the field list per group is resolved here rather than in
+    ``item_form.html``.
+    """
+    groups = []
+    for group, field_names in FieldGroups.GROUPS.items():
+        names = [name for name in field_names if name != "type"]
+        if not names:
+            continue
+        groups.append(
+            {
+                "key": group,
+                "label": FieldGroups.GROUP_LABELS[group],
+                "fields": [form[name] for name in names],
+            }
+        )
+    return {
+        "type_field": form["type"],
+        "field_groups": groups,
+        "type_groups_json": TYPE_GROUPS_JSON,
+    }
 
 
 class ItemListView(MVPListView):
@@ -45,7 +109,16 @@ class ItemListView(MVPListView):
     # cannot resurrect a control this feature excluded (plan.md D-2).
     search_fields = None
     order_by = None
-    directory: list[str] = []
+
+    # "create" alone in directory shows nothing without the matching
+    # show_create_action flag (plan.md D-6) — CRUDDirectoryMixin defaults
+    # every show_<action>_action to False and drops the entry silently.
+    # create_form_class stays unset on purpose: a thirteen-group form does
+    # not belong in the list component's modal (plan.md D-8), so the
+    # component instead renders a plain link to the create page.
+    directory: list[str] = ["create"]
+    show_create_action = True
+    crud_views = CRUD_VIEWS
 
     empty_state_heading = _("Nothing in the catalogue yet")
     empty_state_message = _("References imported or created will appear here.")
@@ -75,6 +148,32 @@ class ItemListView(MVPListView):
         for page_item in context["object_list"]:
             page_item.contributor_groups = contributor_groups(page_item)
 
+        return context
+
+
+class ItemCreateView(MVPCreateView):
+    """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
+
+    model = Item
+    form_class = ItemForm
+    template_name = "literature/ui/item_form.html"
+
+    # Item has no get_absolute_url(), so success_url is mandatory (D-6). The
+    # "detail" shorthand only resolves once show_detail_action is set —
+    # without it, get_success_url() falls through to the literal relative
+    # path "detail" and 404s. Both flags are also what get_breadcrumbs()
+    # needs to reverse "list" and "detail" without raising NoReverseMatch.
+    success_url = "detail"
+    show_list_action = True
+    show_detail_action = True
+    crud_views = CRUD_VIEWS
+
+    page_title = _("Add %(verbose_name)s")
+    success_message = _("%(verbose_name)s added to the catalogue.")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_field_group_context(context["form"]))
         return context
 
 
