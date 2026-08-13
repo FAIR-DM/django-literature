@@ -161,3 +161,25 @@ every field in `models.py` across all five models. `Item` declares 64, of which 
 Neither conclusion the figure was cited for changes at 60.
 
 **ADR:** none — this is a record of one review round, not a decision anything downstream inherits.
+
+## D9 — C4 and C5's sub-cases, T003 implementation note
+
+**Decision:** D-1's criteria 4 (`numbering`) and 5 (`original`) name no worked examples, unlike
+criteria 1–3. `literature/ui/fieldgroups.py` applies them through three stated sub-cases rather than
+a single per-type judgement call each: C4a (a periodical article, published with its own
+volume/issue/page — `article`, `article-journal`, `article-magazine`, `article-newspaper`), C4b
+(embedded in a paginated host — `chapter`, `entry`, `entry-dictionary`, `entry-encyclopedia`,
+`paper-conference`, `review`, `review-book`), C4c (identified by an official/report number — `bill`,
+`hearing`, `legal_case`, `legislation`, `regulation`, `treaty`, `patent`, `standard`, `report`). C5
+is applied only where republication or translation by a different publisher is ordinary for the type
+itself, not merely possible for an instance of it — `book` and `classic`.
+
+**Why:** naming the sub-case is what T003 asks the per-type comment to do ("naming the criterion
+that decided it"), and a bare "C4" or "C5" on nine and two types respectively would not distinguish
+why a periodical article and a legal filing both count as "numbered" for different reasons. The
+sub-cases are visible in `fieldgroups.py`'s own comment block above `TYPE_GROUPS`, so this entry
+records that they exist and why, not what they are — that would drift out of sync with the code.
+
+**Revisit if:** a type is added or reclassified and its C4/C5 status is unclear from the three
+sub-cases as stated — that is a sign the sub-cases themselves need a fourth case rather than a
+one-off exception on the new type.

@@ -73,3 +73,44 @@ failed (`test_mvp_precedes_crispy_tailwind`, `assert not True` on `hasattr(setti
 Next: T002, the failing structural test for the field-group partition.
 
 Watch: none.
+
+## 2026-08-13T14:45:00Z · Implementer US1 · T002
+
+Did: wrote `tests/test_ui/test_fieldgroups.py` — the partition of `Item`'s 60 form fields into
+groups, coverage of all 45 `ItemType` values (core/general always present, processor never), that
+every group a type names is real, the ArticleJournal ceiling (SC-002, DR-013), and the shape of
+`groups_holding_values()`.
+
+Verified: `poetry run pytest tests/test_ui/test_fieldgroups.py -q` — 1 error at collection,
+`ModuleNotFoundError: No module named 'literature.ui.fieldgroups'` (right reason: the module does
+not exist yet).
+
+Next: T003, the mapping itself.
+
+Watch: none.
+
+## 2026-08-13T15:05:00Z · Implementer US1 · T003
+
+Did: wrote `literature/ui/fieldgroups.py` — the thirteen groups exactly as plan.md D-1 tabulates
+them, translated group labels, and the `FieldGroups` class (`groups_for`, `fields_for`,
+`groups_holding_values`). Populated `TYPE_GROUPS` for all 45 types, applying D-1's six criteria in
+the stated order; C4 and C5 name no worked examples in the plan, so each use of them states which
+of three sub-cases it is (D9 in decisions.md). Every entry carries a one-line comment naming the
+criterion. Checked every type's resolved field count against research.md §1's Zotero band
+(16–35, median 24, 32 types covered): nine covered types resolve below it (`dataset`, `document`,
+`interview`, `manuscript`, `map`, `personal_communication`, `post`, `post-weblog`, `software`), each
+with a stated reason; the 13 types Zotero does not cover rest on the criteria alone. `titles` is
+assigned to no type at all — no criterion names it — recorded in the module docstring per T003's
+instruction to say so here: it is reachable only through the form's "Show every field" toggle, for
+every type.
+
+Verified: `poetry run pytest tests/test_ui/test_fieldgroups.py -q` — 11 passed. `poetry run ruff
+check literature/ui/fieldgroups.py tests/test_ui/test_fieldgroups.py` — all checks passed. Cross-
+checked every type's field count and Zotero-band annotation against the code with a one-off script
+(`FieldGroups.groups_for(t)` summed against `FieldGroups.GROUPS`), all 45 counts matched the
+comments written into `TYPE_GROUPS`.
+
+Next: T005, the failing form tests.
+
+Watch: the per-type judgement calls in `TYPE_GROUPS` (especially C4/C5) are the artefact most likely
+to draw review comment — each is commented, but they are editorial, not derivable.
