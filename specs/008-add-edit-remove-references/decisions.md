@@ -312,3 +312,35 @@ raises `NoReverseMatch` rather than dropping the link, so the misconfiguration s
 **Revisit if:** US-3 lands `ItemDeleteView` and its route — at that point `show_delete_action = True`
 becomes safe to set on `ItemDetailView`, and the Delete-action test tasks.md's T018 describes belongs
 there, not here.
+
+## D14 — The crispy allowlist, and why two stories passed over the same defect
+
+**Found by US-3, by reproduction rather than inference:** `get_template("cotton/form/render.html")`
+raises `TemplateSyntaxError: crispy tag's template_pack argument should be in ('uni_form',
+'bootstrap3', 'bootstrap4')` with no request, no view and no form involved.
+
+**Cause:** the `{% crispy %}` tag validates the resolved template pack against
+`CRISPY_ALLOWED_TEMPLATE_PACKS` when the template is *compiled*, not when it is rendered. The
+default allowlist does not contain `tailwind`, so every template carrying the tag fails to compile
+— whatever arguments the tag is given, and whichever branch of a surrounding `{% if %}` would run.
+
+**Why US-1 and US-2 did not hit it:** `item_form.html` overrides `page.content` in full and passes
+no `:form-obj`, precisely so `cotton/form/render.html` never fires. The create and update pages
+therefore never compile it. The delete page renders django-mvp's own `delete_view.html` unmodified,
+per D-7, and that is the first template in the feature to reach the tag.
+
+**Fixed on the feature branch rather than in the story**, because both settings modules are outside
+US-3's editable scope and writing a replacement delete template — the only in-scope alternative — is
+exactly what D-7 says not to do. `CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]` now sits beside
+`CRISPY_TEMPLATE_PACK` in `tests/settings.py` and `demo/settings.py`, matching what django-mvp's own
+demo does, and `tests/test_ui/test_smoke.py`'s second stale assertion is dropped under the same
+Article I decision as the first.
+
+**The part worth keeping.** The claim this corrects came from the design review and I wrote it
+into the plan without reproducing it. It was specific, plausible and cited real source lines, and it
+was wrong — the reviewer read the code path for an explicit pack argument and generalised. A design
+review is evidence, not a verdict, and a claim about *when* a check fires is exactly the kind that
+costs three minutes to run and a story to discover.
+
+**ADR:** none — a configuration requirement of a dependency this package already declares, and it
+lands in the settings modules with its reason beside it.

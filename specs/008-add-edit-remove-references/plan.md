@@ -216,14 +216,24 @@ because the package renders no form today. Both settings modules gain
 host copying those instructions hits the same latent defect. A rendered-page test asserts the
 tailwind pack's markup rather than the setting's value.
 
+**`CRISPY_ALLOWED_TEMPLATE_PACKS` has to be set too, and an earlier version of this paragraph said
+otherwise.** It claimed the allowlist is only consulted when the `{% crispy %}` tag is given an
+explicit pack argument. That is wrong, and US-3 proved it by reproduction: the tag validates the
+resolved pack against the allowlist **at template-compile time**, whose default is
+`("uni_form", "bootstrap3", "bootstrap4")`, so *any* template carrying the tag fails to compile
+under `tailwind` — regardless of the tag's arguments and regardless of which branch runs. It went
+unnoticed through US-1 and US-2 because `item_form.html` deliberately bypasses
+`cotton/form/render.html` entirely; the delete page, which renders django-mvp's own confirmation
+template unmodified, is the first thing to reach it. django-mvp's own demo sets both settings
+together, which is the corroboration this paragraph should have had the first time. Both settings
+modules set both values.
+
 **This reverses a recorded FS-006 decision and amends one of its tests, deliberately.** FS-006 struck
-both crispy settings and its `tests/test_ui/test_smoke.py` asserts
-`not hasattr(settings, "CRISPY_TEMPLATE_PACK")`. That was correct while nothing rendered a form and
-is wrong the moment something does. Constitution Article I requires a recorded decision before a
-pre-existing test is changed: this paragraph is it. Only that one assertion is dropped; the
-`CRISPY_ALLOWED_TEMPLATE_PACKS` assertion beside it stays, because that setting is only consulted
-when the `{% crispy %}` tag is given an explicit pack argument, which `cotton/form/render.html` does
-not do.
+both crispy settings and its `tests/test_ui/test_smoke.py` asserted each was absent. That was
+correct while nothing rendered a form and is wrong the moment something does. Constitution Article I
+requires a recorded decision before a pre-existing test is changed: this paragraph is it. Both
+assertions are dropped rather than flipped, because `T013` already asserts the tailwind pack's markup
+actually renders, which is the claim worth testing.
 
 ### D-6 — One shared `CRUD_VIEWS` map, and every action needs its `show_*_action` flag
 
