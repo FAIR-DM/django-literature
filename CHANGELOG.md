@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **An imported citation key is stored exactly as it was given.** Importing a reference whose key
+  the catalogue already held used to store it under a different key: `smith2020` became
+  `smith2020b`, so the key someone had written in their manuscript was no longer the key on the
+  record. Nothing rewrites a key now, and nothing warns about a collision. Two references may
+  share a key, and keeping keys apart is the reader's business, as it is in every other reference
+  manager.
+
+  A key may now use the whole 255-character column. Ten characters used to be held back to leave
+  room for a suffix, so a long key could be refused for want of space that nothing needed.
+
+  Code reading `Item.objects.get(citation_key=...)` should move to `filter()`: a duplicate key was
+  already possible through the interface's own forms, and is now possible through an import too.
+
 ### Added
 
 - **Adding, editing and removing a reference through the front end.** `literature.ui` gains three

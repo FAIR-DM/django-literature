@@ -890,10 +890,9 @@ class TestCSLRoundTrip:
         round_tripped = from_csl_json(original_csl)
         round_tripped_csl = to_csl_json(round_tripped)
 
-        # "id" (citation_key) is expected to differ: from_csl_json dedupes
-        # against the original, which is still in the store — the guarantee
-        # is that every other CSL key round-trips unchanged.
-        assert round_tripped_csl == {**original_csl, "id": round_tripped_csl["id"]}
+        # Every CSL key round-trips unchanged, "id" (citation_key) included: the original is
+        # still in the store and its key is stored again as given, not rewritten (ADR 0023).
+        assert round_tripped_csl == original_csl
 
 
 class _AlpineScopeParser(HTMLParser):

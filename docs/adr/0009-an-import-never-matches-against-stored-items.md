@@ -17,9 +17,15 @@ stored items and decide it has seen this reference before.
 **No import compares an incoming entry against anything already stored.** Importing the same file
 twice produces two sets of items.
 
-Batch-scoped de-duplication is unaffected and is not this: it resolves key collisions *inside one
+~~Batch-scoped de-duplication is unaffected and is not this: it resolves key collisions *inside one
 import* so a batch never writes two items with the same key (ADR-0001). It is a collision-resolution
-mechanism, not a matching one, and it never consults rows from an earlier import.
+mechanism, not a matching one, and it never consults rows from an earlier import.~~
+
+Superseded by [ADR 0023](0023-citation-key-uniqueness-is-the-readers-concern.md): key collisions
+are no longer resolved at all, so there is no longer a mechanism to distinguish from matching. The
+carve-out was also inaccurate while it stood — the collision check queried the whole catalogue, not
+the batch, which is the failure ADR 0023 records. Removing it leaves this decision holding without
+an exception: an import reads no stored row for any purpose.
 
 ## Consequences
 

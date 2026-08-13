@@ -25,16 +25,17 @@ avoid*). It is generic at an import site, but the `literature` app namespace car
 ### citation key
 
 The human-facing handle for an item (`Item.citation_key`), mapping to CSL `citation-key` (falling
-back to `id`). It is indexed but **not globally unique** — uniqueness is resolved *per import
-batch*: `from_csl_json` de-duplicates colliding keys by appending a suffix. Do not treat it as a
-primary key or a cross-batch stable identifier.
+back to `id`). It is indexed but **not unique**, and nothing in the package makes it so: a key is
+stored exactly as it is given, whether or not another item already carries it, and two items may
+share one (ADR 0023). Keeping keys distinct is the reader's business. Do not treat it as a primary
+key or as an identifier that addresses one item.
 
 ### minted citation key
 
 A citation key a format builds from an entry's own bibliographic content, for a source syntax that
 supplies no cite key of its own — RIS is the first format that needs one, since BibTeX's `ID` is
-always present. Deterministic: the same entry mints the same key on every import, before any
-batch-scoped de-duplication suffix is applied. An entry too sparse to mint from falls back to its
+always present. Deterministic: the same entry mints the same key on every import, and the minted
+key is what gets stored. An entry too sparse to mint from falls back to its
 own position in the file rather than failing. Distinct from a key the source stated outright — RIS's
 own `ID` tag, taken verbatim where present — which is not minted at all.
 
@@ -245,5 +246,5 @@ itself: "the catalogue list", "a catalogue holding no items".
   or it lands not at all. A spec that assumes a partly-imported entry can exist is wrong against the
   import contract.
 - Importing the same file twice creates duplicates. Matching an entry against records already stored
-  is deliberately out of scope; `citation_key` de-duplication remains batch-scoped as described
-  above.
+  is deliberately out of scope, and a `citation_key` the catalogue already holds is stored again as
+  given rather than resolved.

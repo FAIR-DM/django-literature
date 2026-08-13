@@ -1346,22 +1346,20 @@ class TestWrongFileEntirely:
 class TestCiteKeyCollision:
     """Two entries in one file under one cite key (D26).
 
-    The cite key is the handle an entry is reported against, and the value
-    the item stores. It cannot always be both: the catalogue resolves a
-    collision by suffixing, so the second entry's stored key differs from
-    the key its own report names. The report names what the file said.
+    The cite key is both the handle an entry is reported against and the value the item
+    stores, and the two always agree: a collision is stored as written rather than resolved
+    (ADR 0023). Two entries sharing a key are two references that share a key.
     """
 
     @pytest.mark.django_db
-    def test_both_entries_are_stored_and_both_report_the_key_the_file_wrote(self):
+    def test_both_entries_are_stored_and_both_keep_the_key_the_file_wrote(self):
         with fixture("duplicate_cite_keys.bib") as handle:
             result = BibTeXFormat().import_file(handle)
 
         assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
         assert [e.handle for e in result] == ["samekey", "samekey"]
-        stored = {e.item.citation_key for e in result.created}
-        assert len(stored) == 2, "a collision must not overwrite the first entry"
-        assert "samekey" in stored
+        assert [e.item.citation_key for e in result.created] == ["samekey", "samekey"]
+        assert Item.objects.count() == 2, "a collision must not overwrite the first entry"
 
 
 class TestVolume:

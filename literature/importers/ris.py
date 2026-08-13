@@ -802,12 +802,6 @@ _TITLE_WORD_RE: re.Pattern[str] = re.compile(r"[^\W\d_]+", re.UNICODE)
 #: punctuation in the source (``O'Brien``) does not leak into the key's shape.
 _KEY_COMPONENT_RE: re.Pattern[str] = re.compile(r"[^\w]+", re.UNICODE)
 
-#: Room reserved, out of ``Item.citation_key``'s ``max_length``, for the de-duplication suffix
-#: ``converters._generate_dedup_suffix`` appends when a minted or verbatim key collides within the
-#: batch (T015, FR-034). Real collisions mint short suffixes (T041's own sequence starts at a
-#: single letter); ten characters is headroom no ordinary run will exhaust.
-_CITATION_KEY_DEDUP_HEADROOM = 10
-
 
 def _citation_key_max_length() -> int:
     """``Item.citation_key``'s ``max_length``, read from the model rather than duplicated as a
@@ -868,7 +862,7 @@ def _mint_citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int)
 
 
 def _citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int) -> str:
-    """The citation key this entry carries or mints, before any batch de-duplication (FR-019
+    """The citation key this entry carries or mints, and the key it is stored under (FR-019
     through FR-021)."""
     stated = raw.first("ID")
     if stated:
@@ -1005,8 +999,8 @@ def _mapping_document() -> str:
         "otherwise a key is minted from the entry's own content — the first author's family name,",
         "the issued year, and the title's first significant word (skipping `a`/`an`/`the`), lowercased",
         "and run together with no separator. An entry missing any one of the three falls back to its",
-        "own position in the file instead, deterministically either way. What batch-scoped",
-        "de-duplication then stores may carry a suffix; the import result names the key as stored.",
+        "own position in the file instead, deterministically either way. The key is stored as it stands,",
+        "whether or not the catalogue already holds it, and the import result names the key as stored.",
         "",
         "## A note on producer fixtures",
         "",
@@ -1116,12 +1110,12 @@ class RISFormat(BibFormat):
         _preserve(result, _unmapped(raw, ref_type))
 
         key = _citation_key(raw, issued, raw.index)
-        limit = _citation_key_max_length() - _CITATION_KEY_DEDUP_HEADROOM
+        limit = _citation_key_max_length()
         if len(key) > limit:
             raise EntryError(
                 _(
-                    "This entry's citation key is {length} characters, which leaves no room for "
-                    "a de-duplication suffix within the {limit}-character limit."
+                    "This entry's citation key is {length} characters, which is longer than the "
+                    "{limit}-character limit."
                 ).format(length=len(key), limit=limit)
             )
         result["citation-key"] = key
@@ -1129,25 +1123,22 @@ class RISFormat(BibFormat):
         return result
 
     def handle_for(self, raw: RISEntry | str) -> str | None:
-        """The citation key this entry will carry — verbatim ``ID``, or minted — before any batch
-        de-duplication (FR-022). :meth:`entry_created` overrides the report for a stored entry to
-        the key **as stored**, suffix included; this is what a failed or skipped entry carries
-        instead, since neither reaches storage.
+        """The citation key this entry will carry — verbatim ``ID``, or minted (FR-022).
+        :meth:`entry_created` overrides the report for a stored entry to the key **as stored**;
+        this is what a failed or skipped entry carries instead, since neither reaches storage.
         """
         if isinstance(raw, str):
             return None
         return _citation_key(raw, _issued_date(raw), raw.index)
 
     def entry_created(self, *, index: int, handle: str | None, item: Any, dry_run: bool) -> EntryResult:
-        """Report the citation key **as stored**, suffix included, rather than the pre-dedup key
-        ``handle_for`` returned (T016, FR-022).
+        """Report the citation key **as stored**, read off the item rather than re-derived from
+        the entry (T016, FR-022), so the report cannot drift from what the store actually holds.
 
-        `handle_for` runs before `from_csl_json` resolves the batch's de-duplication, so it cannot
-        know a suffix the store step is about to append; `entry_created` is the documented
-        ``BibFormat`` override point that receives the stored ``item`` instead, on a dry run too
-        — the base drops the *report's* item for a dry run, since its rows do not survive the
-        rollback, but ``item`` itself is passed to this method regardless, which is what lets a
-        dry run still report the key it would have stored. No change to ``base.py``,
-        ``results.py`` or ``converters.py`` is needed for this (SC-009).
+        `entry_created` is the documented ``BibFormat`` override point that receives the stored
+        ``item``, on a dry run too — the base drops the *report's* item for a dry run, since its
+        rows do not survive the rollback, but ``item`` itself is passed to this method regardless,
+        which is what lets a dry run still report the key it would have stored. No change to
+        ``base.py``, ``results.py`` or ``converters.py`` is needed for this (SC-009).
         """
         return super().entry_created(index=index, handle=item.citation_key, item=item, dry_run=dry_run)

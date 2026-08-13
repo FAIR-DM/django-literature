@@ -9,8 +9,8 @@ Supersedes [ADR 0001](0001-citation-key-unique-per-import-batch.md).
 A citation key is stored exactly as it is given. Nothing warns about a collision, nothing refuses
 one, and nothing rewrites a key to make it distinct. Two references may carry the same key.
 
-The interface's create and edit forms behave this way today. The import path does not yet: it still
-resolves collisions by appending a numeric suffix, and bringing it into line is tracked separately.
+This holds everywhere a key is written: the interface's create and edit forms, and the import path,
+which was brought into line afterwards.
 
 ## Why
 

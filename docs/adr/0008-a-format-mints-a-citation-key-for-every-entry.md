@@ -29,9 +29,10 @@ format hands over a record that already carries one, by whatever route suits its
 - Where the entry is too sparse to mint from, its position in the file is the last resort, so no
   entry is ever refused for want of a key.
 
-A minted key is checked against the column's length limit before storage, with room left for the
-de-duplication suffix that batch collision resolution may add (ADR-0001), because the conversion
-does not validate that field.
+A minted key is checked against the column's length limit before storage, ~~with room left for the
+de-duplication suffix that batch collision resolution may add (ADR-0001)~~ — superseded by
+[ADR 0023](0023-citation-key-uniqueness-is-the-readers-concern.md): nothing appends a suffix any
+more, so the whole column is the key's to use.
 
 ## Consequences
 
