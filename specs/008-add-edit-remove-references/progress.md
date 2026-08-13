@@ -562,3 +562,25 @@ task touches no test file).
 Next: T023, confirm the documented start path reaches the new pages by following links only.
 
 Watch: none.
+
+## 2026-08-13T22:00:00Z · Implementer US4 · T023 — DONE
+
+Did: no code change — `_walk_write_pass` (T021) already reaches `add/`, a reference's `update/` and
+its `delete/` exclusively by following `_CREATE_LINK_RE`/`_EDIT_LINK_RE`/`_DELETE_LINK_RE` matches
+out of pages the walk fetched, the same discipline `_walk_to_contributor` already uses for the read
+side (SC-003 — no address typed by hand). `_fetch`'s login-redirect check
+(`if "login" in urllib.parse.urlparse(final_url).path.lower()`) runs on every GET and POST the walk
+makes, write pass included, so a redirect to a sign-in page anywhere in the new steps fails the walk
+the same way it already does for the read walk.
+
+Verified: the T021 and T022 live runs already recorded above are this task's evidence —
+`demo/smoke.py`'s successful runs reached `/catalogue/add/`, the created reference's `/catalogue/<pk>/`,
+its `/update/` and its `/delete/` with zero hand-typed addresses (the only literal `/add/`,
+`/update/` or `/delete/` text in `_walk_write_pass` is inside the three regex patterns it matches
+against, never built into an f-string address), and none of the eleven requests a full run makes
+(list, second page, item, contributor, add, create-POST, edit, edit-POST, delete, delete-POST,
+list-after-delete) hit the login-redirect check.
+
+Next: T024 (README), T025 (field-group docs), T026 (CHANGELOG).
+
+Watch: none.
