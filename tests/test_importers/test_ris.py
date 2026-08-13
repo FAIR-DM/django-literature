@@ -10,14 +10,12 @@ carries and ``constructed/`` for the one file per malformation.
 """
 
 import io
-import itertools
 import re
 from pathlib import Path
 
 import pytest
 from partial_date import PartialDate
 
-from literature.converters import _generate_dedup_suffix
 from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
@@ -726,48 +724,6 @@ class TestRegistration:
             result = get_format("ris")().import_file(handle)
         assert result.ok
         assert list(result) == []
-
-
-class TestGenerateDedupSuffix:
-    """Regression for the citation-key de-duplication ceiling (issue #41, T041).
-
-    ``_generate_dedup_suffix`` lives in ``literature/converters.py``, whose own mirror,
-    ``tests/test_converters.py``, is this feature's evidence that T005 was a move and T041 an
-    extension rather than a rewrite -- kept green and byte-for-byte unmodified (decisions.md D16).
-    So this narrow regression lives here instead: RIS's minting is what makes suffix collision the
-    normal case rather than the near-unreachable one BibTeX's own cite keys left it (plan.md "The
-    de-duplication ceiling"), which is the same reasoning that put the fix itself in this feature's
-    pull request. A dedicated ``tests/test_converters_dedup.py`` was tried first and rejected: the
-    repo's own conformance check is file-path-based (forgekit/conformance.py), and a second test
-    file for one source module fails it exactly as Article XIV's mirror rule says it should.
-
-    Tests the generator directly, not by driving hundreds of entries through ``from_csl_json``:
-    that route costs roughly one query per candidate suffix, and at the red step it hangs rather
-    than failing.
-    """
-
-    def test_first_701_values_are_unchanged(self):
-        """``tests/test_converters.py``'s own dedup tests pin the start of this sequence
-        (``test_deduplication_appends_b``, ``test_deduplication_wrap_around``) -- extending it
-        must not reorder what they already assert on.
-        """
-        singles = list("bcdefghijklmnopqrstuvwxyz")
-        alphabet = "abcdefghijklmnopqrstuvwxyz"
-        pairs = ["".join(combo) for combo in itertools.product(alphabet, repeat=2)]
-        expected = singles + pairs
-        assert len(expected) == 701
-
-        actual = list(itertools.islice(_generate_dedup_suffix("Smith2009"), 701))
-        assert actual == expected
-
-    def test_twenty_thousand_values_are_all_distinct(self):
-        """Past the 701st value the sequence used to repeat forever (issue #41): once every
-        two-letter suffix had been yielded, the outer ``while True`` started the two-letter
-        product over from ``aa`` again, so ``_resolve_citation_key`` never terminated past 701
-        collisions on the same base key.
-        """
-        values = list(itertools.islice(_generate_dedup_suffix("Smith2009"), 20_000))
-        assert len(values) == len(set(values))
 
 
 class TestReferenceTypeTable:
@@ -1522,12 +1478,19 @@ class TestCitationKeys:
         raw = entry(id="x" * 300)
         with pytest.raises(EntryError) as excinfo:
             RISFormat().to_csl_json(raw)
-        assert "245" in str(excinfo.value)
+        assert "255" in str(excinfo.value)
 
     def test_an_overlong_minted_key_fails_the_entry_naming_the_limit(self):
         raw = entry(au=f"{'x' * 300},", py="2024", ti="Title")
         with pytest.raises(EntryError):
             RISFormat().to_csl_json(raw)
+
+    def test_a_key_filling_the_column_is_accepted(self):
+        """The whole column is the key's to use. No room is held back for a suffix, because
+        nothing appends one any more (ADR 0023) — a 255-character key used to be refused.
+        """
+        key = "x" * 255
+        assert RISFormat().to_csl_json(entry(id=key))["citation-key"] == key
 
 
 def _ris_bytes(*entries):
@@ -1549,11 +1512,13 @@ class TestReportedHandleIsTheStoredKey:
         assert result.created[0].item.citation_key == "smith1"
 
     @pytest.mark.django_db
-    def test_a_colliding_key_is_reported_with_its_de_duplication_suffix(self):
-        """Two entries in the same file minting the same key (T041's own de-duplication)."""
+    def test_two_entries_sharing_a_key_both_keep_it(self):
+        """Two entries in the same file carrying the same key each store that key, and the
+        report names it for both — nothing is rewritten to keep them apart (ADR 0023).
+        """
         result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY, self._ONE_ENTRY))
-        assert [e.handle for e in result.created] == ["smith1", "smith1b"]
-        assert {item.citation_key for item in Item.objects.all()} == {"smith1", "smith1b"}
+        assert [e.handle for e in result.created] == ["smith1", "smith1"]
+        assert list(Item.objects.values_list("citation_key", flat=True)) == ["smith1", "smith1"]
 
     @pytest.mark.django_db
     def test_a_dry_run_still_reports_the_key_while_carrying_no_item(self):

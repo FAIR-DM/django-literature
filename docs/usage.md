@@ -110,9 +110,9 @@ csl = {
 item = from_csl_json(csl)
 ```
 
-`from_csl_json()` validates the record, resolves the citation key (deduplicating with a
-letter suffix if needed), creates all related `Name`, `ItemDate`, and `ItemIdentifier`
-records atomically, and calls `full_clean()` on every model object before saving.
+`from_csl_json()` validates the record, reads the citation key, creates all related `Name`,
+`ItemDate`, and `ItemIdentifier` records atomically, and calls `full_clean()` on every model
+object before saving.
 
 ### Validation errors
 
@@ -134,16 +134,16 @@ Common rejection reasons:
 - Both `citation-key` and `id` are absent or blank.
 - An identifier value fails format validation (e.g. malformed DOI).
 
-### Citation key deduplication
+### Citation keys are stored as given
 
-If an item with the same `citation_key` already exists, the importer automatically
-appends a letter suffix:
+A citation key is stored exactly as it arrives. If an item with the same key already exists,
+the new item is stored under that key too: nothing warns, nothing refuses, and nothing rewrites
+the key to keep the two apart. Existing records are never overwritten.
 
-```
-Smith2009 → Smith2009b → Smith2009c → … → Smith2009z → Smith2009aa → …
-```
-
-Existing records are **never** overwritten.
+Two references may therefore share a key. Keeping keys distinct is the reader's business, as it
+is in every other reference manager, and a key does not address one item — a reference is
+addressed by its primary key. `Item.objects.get(citation_key=...)` can raise
+`MultipleObjectsReturned`; use `filter()` where a duplicate is possible.
 
 ### Batch import
 
@@ -240,7 +240,7 @@ with_doi = Item.objects.filter(item_identifiers__type="DOI")
 ## Round-trip fidelity
 
 `to_csl_json()` followed by `from_csl_json()` produces a record with identical field
-values (aside from the standard citation-key deduplication suffix, if triggered):
+values, the citation key included:
 
 ```python
 from literature.converters import from_csl_json, to_csl_json

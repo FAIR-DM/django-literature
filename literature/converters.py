@@ -14,9 +14,7 @@ Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.j
 
 from __future__ import annotations
 
-import itertools
 import logging
-from collections.abc import Iterator
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -286,49 +284,16 @@ def to_csl_json(item: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _generate_dedup_suffix(base: str) -> Iterator[str]:
-    """Generate successive deduplication suffixes: b, c, ..., z, aa, ab, ..., zz, aaa, ...
+def _citation_key(data: dict) -> str:
+    """The citation key a CSL JSON dict carries: ``citation-key``, falling back to ``id``.
 
-    An odometer over increasing lengths, unbounded and never repeating (issue #41): past the
-    676th two-letter suffix this used to start the two-letter product over from 'aa' again, so
-    ``_resolve_citation_key`` never terminated past 701 items sharing one base key. The first 701
-    values (single letters, then every two-letter pair) are unchanged, since
-    ``tests/test_converters.py`` pins them.
+    Stored exactly as given, whether or not the store already holds it (ADR 0023). Raises
+    ValidationError if both are absent or empty.
     """
-    # Start at 'b' (ord 98), skip 'a' which would be confusingly close to base
-    chars = "bcdefghijklmnopqrstuvwxyz"
-    # Single-letter suffixes: b, c, ..., z
-    yield from chars
-    # Two-letter suffixes, then three, then four, ... — never repeating.
-    alphabet = "abcdefghijklmnopqrstuvwxyz"
-    length = 2
-    while True:
-        for combo in itertools.product(alphabet, repeat=length):
-            yield "".join(combo)
-        length += 1
-
-
-def _resolve_citation_key(data: dict) -> str:
-    """Extract and deduplicate the citation key from a CSL JSON dict.
-
-    Raises ValidationError if both citation-key and id are absent/empty.
-    """
-    from literature.models import Item
-
     raw_key = data.get("citation-key") or str(data.get("id", ""))
     if not raw_key:
         raise ValidationError(_("CSL JSON item missing both 'citation-key' and 'id' fields"))
-
-    # Check for conflicts and deduplicate
-    if not Item.objects.filter(citation_key=raw_key).exists():
-        return raw_key
-
-    gen = _generate_dedup_suffix(raw_key)
-    while True:
-        suffix = next(gen)
-        candidate = f"{raw_key}{suffix}"
-        if not Item.objects.filter(citation_key=candidate).exists():
-            return candidate
+    return raw_key
 
 
 def _import_name_variable(data: dict, item: Any, role: str, order: int) -> None:
@@ -417,13 +382,13 @@ def from_csl_json(data: dict) -> Any:
 
     Behavior:
         1. Validates ``type`` (required, must be in ItemType choices).
-        2. Resolves ``citation_key`` from ``citation-key`` → ``id`` fallback.
-        3. Deduplicates citation key by appending suffix b→c→…→z→aa→ab…
-        4. Maps all CSL JSON scalar fields to Django model fields.
-        5. Creates Name/ItemName records (find-or-create by composite key).
-        6. Creates ItemDate records (parse date-parts → PartialDate; fallback to raw_date_parts).
-        7. Creates ItemIdentifier records (known types top-level; unknown from custom with warning).
-        8. Calls full_clean() on every model instance before saving.
+        2. Reads ``citation_key`` from ``citation-key`` → ``id`` fallback, and stores it as
+           given — a key the store already holds is not rewritten (ADR 0023).
+        3. Maps all CSL JSON scalar fields to Django model fields.
+        4. Creates Name/ItemName records (find-or-create by composite key).
+        5. Creates ItemDate records (parse date-parts → PartialDate; fallback to raw_date_parts).
+        6. Creates ItemIdentifier records (known types top-level; unknown from custom with warning).
+        7. Calls full_clean() on every model instance before saving.
 
     CSL JSON mapping: top-level item object → Item + related records
     """
@@ -436,8 +401,8 @@ def from_csl_json(data: dict) -> Any:
     if csl_type not in ItemType.values:
         raise ValidationError(_("Unknown CSL JSON item type: '{type}'").format(type=csl_type))
 
-    # --- Resolve citation key ---
-    citation_key = _resolve_citation_key(data)
+    # --- Read the citation key ---
+    citation_key = _citation_key(data)
 
     # --- Build scalar field dict ---
     item_fields: dict[str, Any] = {
@@ -480,7 +445,7 @@ def from_csl_json(data: dict) -> Any:
 
     # --- Create Item ---
     item = Item(**item_fields)
-    item.full_clean(exclude=["citation_key"])  # citation_key is app-level unique, not DB unique
+    item.full_clean()
     item.save()
 
     # --- Names ---

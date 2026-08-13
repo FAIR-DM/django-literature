@@ -3,7 +3,7 @@
 Tests cover contract from contracts/csl-json.md:
 - to_csl_json(): serialization guarantees, blank field omission, name ordering,
   identifier placement, fixture round-trip, parametrized type round-trips
-- from_csl_json(): validation errors, citation-key resolution, deduplication,
+- from_csl_json(): validation errors, citation-key reading, keys stored as given,
   date round-trips, literal names, unknown identifiers
 - from_csl_json_list(): batch import with skip-on-error semantics
 - round trip: a fully populated item survives model -> CSL JSON -> model unchanged
@@ -123,10 +123,9 @@ class TestToCslJson:
         exported = to_csl_json(original)
         assert exported["type"] == item_type
 
-        # Re-import under a different key to avoid deduplication
-        exported["citation-key"] = f"RoundTrip2_{item_type}"
         reimported = from_csl_json(exported)
         assert reimported.type == item_type
+        assert reimported.citation_key == original.citation_key
 
     def test_date_year_only(self, item):
         """to_csl_json() exports year-only PartialDate as [[year]] date-parts."""
@@ -208,7 +207,7 @@ class TestToCslJson:
 
 @pytest.mark.django_db
 class TestFromCslJson:
-    """Import from CSL JSON to Item, with validation and deduplication."""
+    """Import from CSL JSON to Item, with validation, storing each key as given."""
 
     def test_missing_type_raises(self):
         """from_csl_json() raises ValidationError when 'type' is missing."""
@@ -235,21 +234,31 @@ class TestFromCslJson:
         item = from_csl_json({"type": "article-journal", "id": "FallbackId2024"})
         assert item.citation_key == "FallbackId2024"
 
-    def test_deduplication_appends_b(self):
-        """from_csl_json() appends 'b' suffix on first duplicate citation key."""
+    def test_a_key_already_in_the_store_is_stored_again_as_given(self):
+        """A collision changes nothing: the key given is the key stored (ADR 0023)."""
         ItemFactory(citation_key="Smith2009", type=ItemType.ARTICLE)
-        item = from_csl_json({"type": "article-journal", "citation-key": "Smith2009"})
-        assert item.citation_key == "Smith2009b"
-
-    def test_deduplication_wrap_around(self):
-        """from_csl_json() wraps around from 'z' to 'aa' after 25 suffixed keys."""
-        # Create base key and all single-letter suffixes b-z (25 items + 1 base = 26)
-        ItemFactory(citation_key="Smith2009", type=ItemType.ARTICLE)
-        for ch in "bcdefghijklmnopqrstuvwxyz":
-            ItemFactory(citation_key=f"Smith2009{ch}", type=ItemType.ARTICLE)
 
         item = from_csl_json({"type": "article-journal", "citation-key": "Smith2009"})
-        assert item.citation_key == "Smith2009aa"
+
+        assert item.citation_key == "Smith2009"
+        assert Item.objects.filter(citation_key="Smith2009").count() == 2
+
+    def test_a_key_longer_than_the_column_is_rejected(self):
+        """The key is validated like every other field now that nothing rewrites it: the
+        exclusion that used to skip it existed only for the removed uniqueness handling, so an
+        overlong key fails its entry cleanly instead of reaching the database.
+        """
+        with pytest.raises(ValidationError):
+            from_csl_json({"type": "article-journal", "citation-key": "x" * 256})
+
+    def test_a_key_repeated_many_times_never_acquires_a_suffix(self):
+        """Repeated collisions on one key stay that key, rather than walking a suffix
+        sequence — the store holds as many items under it as were given (ADR 0023).
+        """
+        for _ in range(5):
+            from_csl_json({"type": "article-journal", "citation-key": "Smith2009"})
+
+        assert list(Item.objects.values_list("citation_key", flat=True)) == ["Smith2009"] * 5
 
     def test_date_year_only(self):
         """from_csl_json() imports year-only date-parts correctly."""

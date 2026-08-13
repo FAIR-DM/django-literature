@@ -153,8 +153,8 @@ RIS supplies no cite key of its own. `ID` is taken verbatim where the entry carr
 otherwise a key is minted from the entry's own content — the first author's family name,
 the issued year, and the title's first significant word (skipping `a`/`an`/`the`), lowercased
 and run together with no separator. An entry missing any one of the three falls back to its
-own position in the file instead, deterministically either way. What batch-scoped
-de-duplication then stores may carry a suffix; the import result names the key as stored.
+own position in the file instead, deterministically either way. The key is stored as it stands,
+whether or not the catalogue already holds it, and the import result names the key as stored.
 
 ## A note on producer fixtures
 

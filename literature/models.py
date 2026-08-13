@@ -38,7 +38,7 @@ class Item(models.Model):
         max_length=255,
         db_index=True,
         verbose_name=_("citation key"),
-        help_text=_("CSL JSON: citation-key (or id fallback). Unique per import batch."),
+        help_text=_("CSL JSON: citation-key (or id fallback). Need not be unique."),
     )
     type = models.CharField(
         max_length=30,
