@@ -1,7 +1,8 @@
 """Views for the opt-in front end.
 
 Filled in one class per story: ``ItemListView`` (US-1), ``ItemDetailView``
-(US-2), ``ContributorDetailView`` (US-4), ``ItemCreateView`` (US-1 again).
+(US-2), ``ContributorDetailView`` (US-4), ``ItemCreateView`` (US-1 again),
+``ItemUpdateView`` (US-2 again).
 """
 
 import json
@@ -11,7 +12,7 @@ from functools import cached_property
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from mvp.views import MVPCreateView, MVPDetailView, MVPListView
+from mvp.views import MVPCreateView, MVPDetailView, MVPListView, MVPUpdateView
 
 from literature.choices import ItemType
 from literature.models import Item, ItemName, Name
@@ -64,7 +65,7 @@ CRUD_VIEWS = {
 TYPE_GROUPS_JSON = json.dumps({item_type: sorted(FieldGroups.groups_for(item_type)) for item_type in ItemType.values})
 
 
-def _field_group_context(form):
+def _field_group_context(form, forced_groups=frozenset()):
     """The write form's template context for group-by-group rendering (D-3).
 
     The ``type`` field is pulled out of ``core`` and returned on its own: with
@@ -74,6 +75,13 @@ def _field_group_context(form):
     order — a Django template cannot index a dict by its own loop variable,
     so the field list per group is resolved here rather than in
     ``item_form.html``.
+
+    ``forced_groups`` is the FR-010/FR-014 forced-visible set — group names
+    already holding a value on the object being edited, regardless of
+    whether the current item type would otherwise show them
+    (``FieldGroups.groups_holding_values``). The create view has none yet,
+    so its default is empty; ``item_form.html`` reads the key as
+    ``forced_groups_json`` and falls back to ``[]`` when it is absent.
     """
     groups = []
     for group, field_names in FieldGroups.GROUPS.items():
@@ -91,6 +99,7 @@ def _field_group_context(form):
         "type_field": form["type"],
         "field_groups": groups,
         "type_groups_json": TYPE_GROUPS_JSON,
+        "forced_groups_json": json.dumps(sorted(forced_groups)),
     }
 
 
@@ -174,6 +183,34 @@ class ItemCreateView(MVPCreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(_field_group_context(context["form"]))
+        return context
+
+
+class ItemUpdateView(MVPUpdateView):
+    """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
+
+    model = Item
+    form_class = ItemForm
+    template_name = "literature/ui/item_form.html"
+
+    # Same shorthand and same reasoning as ItemCreateView (D-6): Item has no
+    # get_absolute_url(), so success_url is mandatory, and the "detail"
+    # shorthand only resolves once show_detail_action is set. Both flags are
+    # also what get_breadcrumbs() needs to reverse "list" and "detail".
+    success_url = "detail"
+    show_list_action = True
+    show_detail_action = True
+    crud_views = CRUD_VIEWS
+
+    page_title = _("Edit %(verbose_name)s")
+    success_message = _("%(verbose_name)s updated.")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # groups_holding_values(self.object) is the forced-visible set
+        # FR-010/FR-014 ask for — a group the stored type would not
+        # otherwise show still renders when a value already lives in it.
+        context.update(_field_group_context(context["form"], FieldGroups.groups_holding_values(self.object)))
         return context
 
 

@@ -357,7 +357,12 @@ class TestItemUpdateView:
             if name == "type":
                 continue
             field = Item._meta.get_field(name)
-            raw = f"value for {name}"
+            # Underscore-joined, not space-joined: Django's CharField strips
+            # surrounding whitespace by default, and a value truncated to a
+            # short max_length (e.g. "language", "year_suffix" at 10) could
+            # otherwise land mid-space and silently lose it on the POST
+            # round trip for a reason unrelated to what this test checks.
+            raw = f"value_for_{name}"
             values[name] = raw[: field.max_length] if field.max_length else raw
         values["type"] = ItemType.ARTICLE_JOURNAL
         values["categories"] = ["cat-a", "cat-b"]
