@@ -18,6 +18,7 @@ usage
 :caption: Reference
 
 data-model
+field-groups
 bibtex-mapping
 ris-mapping
 api/index

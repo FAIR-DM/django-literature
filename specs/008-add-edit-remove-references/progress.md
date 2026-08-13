@@ -470,3 +470,117 @@ blocked in the completion report, with decisions.md D14 as the full record.
 Watch: `test_smoke.py`'s `assert not hasattr(settings, "CRISPY_ALLOWED_TEMPLATE_PACKS")` and plan.md
 D-5's mistaken claim both need attention once the settings fix is scoped to a session that can touch
 them — flagged in `concerns`.
+
+## 2026-08-13T21:10:00Z · Implementer US4 · T021 — DONE
+
+Did: extended `demo/smoke.py`'s write pass (plan.md D-9). Added `_FormFieldParser`
+(`html.parser.HTMLParser`) and `_form_fields()`, which read the first `<form>` on a page into a
+name→value dict the same way a browser's own submission would — an unnamed control (the "Show every
+field" toggle) posts nothing, a `<select>`'s value is its `selected` option or otherwise its first
+(browser default), a `<textarea>`'s value is its text content minus the one leading newline the HTML
+spec has every browser strip. `DemoWalk.__init__` now builds `self.opener` via
+`urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))`,
+reused for every request the walk makes — a CSRF cookie set while GETting a form page has to still
+be attached when the walk POSTs back to it. `_get` now reads through `self.opener` instead of a bare
+`urllib.request.urlopen`; a new `_post` builds the request with a `Referer` header and the same
+opener; both delegate to a new `_fetch` that carries the existing login-redirect and error handling.
+Added `_CREATE_LINK_RE`, `_EDIT_LINK_RE`, `_DELETE_LINK_RE` and `DemoWalk._walk_write_pass`, called
+from `run()` after the read walk: follows the catalogue's own Add link, creates a reference, follows
+to its own page, follows its Edit link, corrects the title while posting the whole scraped form back
+unchanged otherwise, follows its Delete link, and confirms the catalogue no longer lists it. Every
+step asserts on content (the created/corrected title appears, the citation key survives the edit, the
+catalogue's own link list changes), never a bare status code (ADR-0018), and the create/edit steps
+also assert the redirect landed on the reference's own page rather than the catalogue.
+
+Added to `tests/test_demo/test_smoke.py`: `TestSharedOpener` (the opener carries exactly one
+`HTTPCookieProcessor`), `TestCreateLinkPattern`/`TestEditLinkPattern`/`TestDeleteLinkPattern` (each
+regex against markup the front end really renders, mirroring the existing `TestItemLinkPattern`), and
+`TestFormFields` (csrf token captured, a populated edit form's stored values captured, a textarea's
+content captured, the unnamed toggle excluded, the delete confirmation carrying only the token).
+Updated `TestUnauthenticatedWalk`'s two tests to monkeypatch `urllib.request.OpenerDirector.open`
+instead of the now-unused `urllib.request.urlopen` — see decisions.md D16 for why changing this
+pre-existing test is in scope.
+
+Verified: `poetry run pytest tests/test_demo/test_smoke.py -q` — RED first (`ImportError: cannot
+import name '_CREATE_LINK_RE'`, the right reason — the symbols did not exist yet), then GREEN, 18
+passed, after one further fix (a raw parsed textarea value carried the widget template's leading
+newline; stripped once in `_FormFieldParser`). `poetry run pytest tests/test_demo/ -q` — 40 passed.
+
+Verified live, against a demo server built and seeded exactly as `.github/workflows/demo.yml` does
+(`DEMO_DB_PATH` pointed at a scratch file, `migrate`, `seed_demo`, `runserver --noreload`, polled
+until `/catalogue/` answered): `poetry run python demo/smoke.py http://127.0.0.1:8000` →
+`OK: walked the demo catalogue, its second page, a reference and a contributor, and
+created/corrected/removed a reference, at http://127.0.0.1:8000`, exit 0.
+
+Next: T022, prove the guard by breaking each flow in turn.
+
+Watch: none.
+
+## 2026-08-13T21:40:00Z · Implementer US4 · T022 — DONE
+
+Did: reinstated each of the three defects T021's write pass exists to catch, against the same live
+demo server, restarting it between each so the change takes effect (`runserver --noreload`), then
+reverted and confirmed `git diff --stat literature/` was empty before moving to the next. No other
+code change — this task's evidence is the three runs themselves, recorded below verbatim.
+
+**Run 1 — wrong `success_url`.** Changed `ItemCreateView.success_url` from `"detail"` to `"list"` in
+`literature/ui/views.py`. `poetry run python demo/smoke.py http://127.0.0.1:8000`:
+```
+FAILED: http://127.0.0.1:8000/catalogue/ [200]: creating a reference did not redirect to its own page (landed on http://127.0.0.1:8000/catalogue/)
+```
+Exit 1. Names the create flow precisely: it redirected to the catalogue instead of the new
+reference's own page. Reverted; `git diff --stat literature/ui/views.py` empty.
+
+**Run 2 — a form field silently dropped.** In `_field_group_context` (`literature/ui/views.py`),
+changed the group-field filter from `name != "type"` to also exclude `"citation_key"`, so the field
+stops rendering (and therefore stops posting) while `ItemForm` still declares it. `poetry run python
+demo/smoke.py http://127.0.0.1:8000`:
+```
+FAILED: http://127.0.0.1:8000/catalogue/32/update/ [200]: correcting a reference did not redirect to its own page (landed on http://127.0.0.1:8000/catalogue/32/update/)
+```
+Exit 1. Names the correction/edit flow: because `citation_key` is a required field, posting the form
+without it re-renders the edit page invalid rather than saving a blanked value — the guard still
+catches it and still names the broken flow, one step earlier than the no-loss assertion would have.
+Reverted; `git diff --stat literature/ui/views.py` empty.
+
+**Run 3 — a delete that does not delete.** Added a `form_valid` override to `ItemDeleteView`
+(`literature/ui/views.py`) that redirects to the success URL without calling `self.object.delete()`.
+`poetry run python demo/smoke.py http://127.0.0.1:8000`:
+```
+FAILED: http://127.0.0.1:8000/catalogue/ [200]: catalogue list still lists the deleted reference at /catalogue/33/
+```
+Exit 1. Names the delete flow: the confirmation "succeeded" but the reference is still listed.
+Reverted; `git diff --stat literature/` empty.
+
+**Final confirmation**, server restarted clean on the reverted tree: `poetry run python demo/smoke.py
+http://127.0.0.1:8000` → `OK: walked the demo catalogue, its second page, a reference and a
+contributor, and created/corrected/removed a reference, at http://127.0.0.1:8000`, exit 0.
+
+Verified: the three runs above, plus the final clean run. `poetry run pytest -q` unaffected (this
+task touches no test file).
+
+Next: T023, confirm the documented start path reaches the new pages by following links only.
+
+Watch: none.
+
+## 2026-08-13T22:00:00Z · Implementer US4 · T023 — DONE
+
+Did: no code change — `_walk_write_pass` (T021) already reaches `add/`, a reference's `update/` and
+its `delete/` exclusively by following `_CREATE_LINK_RE`/`_EDIT_LINK_RE`/`_DELETE_LINK_RE` matches
+out of pages the walk fetched, the same discipline `_walk_to_contributor` already uses for the read
+side (SC-003 — no address typed by hand). `_fetch`'s login-redirect check
+(`if "login" in urllib.parse.urlparse(final_url).path.lower()`) runs on every GET and POST the walk
+makes, write pass included, so a redirect to a sign-in page anywhere in the new steps fails the walk
+the same way it already does for the read walk.
+
+Verified: the T021 and T022 live runs already recorded above are this task's evidence —
+`demo/smoke.py`'s successful runs reached `/catalogue/add/`, the created reference's `/catalogue/<pk>/`,
+its `/update/` and its `/delete/` with zero hand-typed addresses (the only literal `/add/`,
+`/update/` or `/delete/` text in `_walk_write_pass` is inside the three regex patterns it matches
+against, never built into an f-string address), and none of the eleven requests a full run makes
+(list, second page, item, contributor, add, create-POST, edit, edit-POST, delete, delete-POST,
+list-after-delete) hit the login-redirect check.
+
+Next: T024 (README), T025 (field-group docs), T026 (CHANGELOG).
+
+Watch: none.

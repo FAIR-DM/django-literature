@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "demo",
-    # The front end, wired exactly as README.md documents at lines 93-220 (plan.md D-3).
+    # The front end, wired exactly as README.md documents at lines 93-245 (plan.md D-3).
     "literature",
     "django.contrib.sites",
     "django.contrib.staticfiles",
