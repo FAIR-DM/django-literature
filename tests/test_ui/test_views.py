@@ -14,6 +14,7 @@ from django.urls import reverse
 
 from literature.choices import DateType, ItemType, NameRole
 from literature.models import Item
+from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
 
 
@@ -23,6 +24,29 @@ def anchor_tag(content, href):
     match = re.search(rf"<a\b[^>]*href=\"{re.escape(href)}\"[^>]*>", content)
     assert match, f"no anchor addressing {href}"
     return match.group(0)
+
+
+def create_page_post_data(client, **overrides):
+    """Build a POST body from the rendered create page's own form.
+
+    Every field starts at what an unbound ``ItemForm`` actually initialises
+    it to, and whatever the Save button's own ``name``/``value`` pair is
+    (T011 renders one with neither) is carried exactly as the page emits it
+    — never assembled from a bare hand-typed dict. A bare dict omits
+    ``default_next`` regardless of what the rendered page's button does, so
+    it would pass a redirect-target assertion even against a view whose
+    ``{% block actions %}`` reverted to the stock button that posts
+    ``default_next=list`` (plan.md D-3).
+    """
+    response = client.get(reverse("literature:item-create"))
+    form = response.context["form"]
+    data = {name: (form[name].value() or "") for name in form.fields}
+    content = response.content.decode()
+    submit_button = re.search(r'<button[^>]*type="submit"[^>]*name="([^"]+)"[^>]*value="([^"]+)"', content)
+    if submit_button:
+        data[submit_button.group(1)] = submit_button.group(2)
+    data.update(overrides)
+    return data
 
 
 class TestItemListView:
@@ -213,6 +237,76 @@ class TestCatalogueListReadability:
         content = client.get(reverse("literature:item-list")).content.decode()
         assert re.search(r"<p[^>]*>\s*</p>", content) is None
         assert item.citation_key in content
+
+
+class TestItemCreateView:
+    """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
+
+    def test_page_renders_and_the_type_select_carries_the_alpine_scoping(self, client, db):
+        response = client.get(reverse("literature:item-create"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'x-model="form.itemType"' in content
+        assert 'x-init="form.itemType = $el.value"' in content
+
+    def test_with_no_type_chosen_every_group_but_the_type_fields_own_is_guarded(self, client, db):
+        # FR-002 — with no type chosen, only the type field itself has no
+        # x-show guard; every one of the thirteen groups does, so nothing
+        # else on a blank page shows.
+        content = client.get(reverse("literature:item-create")).content.decode()
+        for group in FieldGroups.GROUPS:
+            assert f"includes('{group}')" in content
+        assert content.count("x-show=") == len(FieldGroups.GROUPS)
+
+    def test_posting_a_valid_form_stores_exactly_what_was_posted(self, client, db):
+        data = create_page_post_data(
+            client, type=ItemType.ARTICLE_JOURNAL, citation_key="Doe2024", title="A Handwritten Reference"
+        )
+        client.post(reverse("literature:item-create"), data)
+        item = Item.objects.get(citation_key="Doe2024")
+        assert item.type == ItemType.ARTICLE_JOURNAL
+        assert item.title == "A Handwritten Reference"
+
+    def test_posting_a_valid_form_redirects_to_the_new_items_detail_page(self, client, db):
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="Redirect2024")
+        response = client.post(reverse("literature:item-create"), data)
+        item = Item.objects.get(citation_key="Redirect2024")
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-detail", kwargs={"pk": item.pk})
+
+    def test_posting_without_a_type_stores_nothing_and_names_the_field(self, client, db):
+        data = create_page_post_data(client, type="", citation_key="NoType2024")
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert not Item.objects.filter(citation_key="NoType2024").exists()
+        assert "type" in response.context["form"].errors
+
+    def test_posting_without_a_citation_key_stores_nothing_and_names_the_field(self, client, db):
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="")
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert Item.objects.count() == 0
+        assert "citation_key" in response.context["form"].errors
+
+    def test_a_duplicate_citation_key_is_stored_unchanged_with_no_warning(self, client, db):
+        # FR-007 — citation_key is not globally unique; a colliding key is a
+        # fact the store holds, never a validation error.
+        # citation_key deliberately avoids the word "duplicate" itself, so the
+        # no-warning assertion below cannot pass by accident on the key's own text.
+        ItemFactory(citation_key="Repeated2024")
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="Repeated2024")
+        response = client.post(reverse("literature:item-create"), data, follow=True)
+        assert Item.objects.filter(citation_key="Repeated2024").count() == 2
+        content = response.content.decode().lower()
+        assert "already exists" not in content
+        assert "duplicate" not in content
+
+    def test_a_created_items_detail_page_renders_with_no_contributors_dates_or_identifiers(self, client, db):
+        data = create_page_post_data(client, type=ItemType.ARTICLE_JOURNAL, citation_key="Bare2024")
+        response = client.post(reverse("literature:item-create"), data, follow=True)
+        assert response.status_code == 200
+        assert response.context["contributor_groups"] == []
+        assert response.context["identifiers"] == []
 
 
 class TestItemDetailView:
