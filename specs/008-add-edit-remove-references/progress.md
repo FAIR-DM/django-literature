@@ -406,3 +406,67 @@ Next: full-story verify (`poetry run pytest -q && poetry run pre-commit run --al
 completion report.
 
 Watch: nothing outstanding for US-2's own tasks.
+
+## 2026-08-13T19:05:00Z · Implementer US3 · T019
+
+Did: wrote `TestItemDeleteView` in `tests/test_ui/test_views.py` — one test per US-3 acceptance
+scenario: GET renders a confirmation naming the reference and deletes nothing; declining returns to
+the reference's own page with the item still present (FR-018, US-3 scenario 2, the one the first
+draft of this task missed); an inherited `?back` is honoured ahead of that fallback; POST removes the
+item together with its `ItemName`/`ItemDate`/`ItemIdentifier` rows and redirects to the catalogue;
+`Name` records survive whether or not credited elsewhere, including a contributor left credited on
+nothing whose own page still renders (FR-020); removing the last reference leaves the catalogue's
+empty state; an unknown pk answers 404. Widened the module's `literature.models` import to add
+`ItemDate`, `ItemIdentifier`, `ItemName`, `Name` for the cascade/survival assertions.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemDeleteView -q` — 7 failed, all
+`NoReverseMatch: Reverse for 'item-delete' not found` (right reason: neither the route nor the view
+exist yet). `poetry run ruff check tests/test_ui/test_views.py` — all checks passed.
+
+Next: T020, `ItemDeleteView` and its route.
+
+Watch: none.
+
+## 2026-08-13T19:25:00Z · Implementer US3 · T020 — BLOCKED
+
+Did: `ItemDeleteView(MVPDeleteView)` in `literature/ui/views.py` — `show_related_objects = True`
+(FR-019), `require_confirmation` left off (plan.md D-7), `success_url = "list"` with
+`show_list_action = True`, `show_detail_action = True`, `crud_views = CRUD_VIEWS`, translated
+`page_title`/`success_message`, and `get_back_url()` overridden to honour an inherited `?back` first
+and otherwise fall through to the `detail` shorthand rather than `MVPDeleteView`'s own catalogue-list
+fallback (FR-018, plan.md D-7). Registered `<int:pk>/delete/ → item-delete` in
+`literature/ui/urls.py`, updated its module docstring. Set `show_delete_action = True` on
+`ItemDetailView` (T018's deferred flag, decisions.md D13) and added
+`test_the_delete_action_renders_and_points_at_the_delete_page` to `TestItemDetailView` (T018's
+deferred test — the brief names this explicitly as US-3's to write). Added `TestDeleteRouteReverses`
+to `tests/test_ui/test_urls.py` (mirroring `TestUpdateRouteReverses`) and extended
+`TestCRUDViewsReverse`'s parametrize list with `views.ItemDeleteView` — additive to a shared test, not
+a modification of it.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemDeleteView tests/test_ui/test_views.py::TestItemDetailView tests/test_ui/test_urls.py -q`
+— 77 passed, 3 failed. The 3 failures are `TestItemDeleteView`'s three GET-rendering scenarios
+(confirmation renders and names the reference; decline returns to the reference; an inherited `?back`
+is honoured); all four POST/404/empty-state scenarios pass, as does everything else in scope,
+including the new detail-page delete-action test and both URL tests. Root-caused directly (not
+assumed) rather than re-edited on a guess: `DJANGO_SETTINGS_MODULE=tests.settings poetry run python -c
+"from django.template.loader import get_template; get_template('cotton/form/render.html')"` fails with
+the same `TemplateSyntaxError` on the template alone, no request or form involved. Recorded in full as
+decisions.md D14: django-mvp's `cotton/form/render.html` (which `delete_view.html` renders through
+unmodified, per D-7's "write no template") compiles a `{% crispy form %}` tag unconditionally at
+first-compile regardless of which `{% if form.helper %}` branch would run at render time, and that
+tag validates `CRISPY_TEMPLATE_PACK = "tailwind"` (plan.md D-5) against
+`CRISPY_ALLOWED_TEMPLATE_PACKS`, which is unset in both `tests/settings.py` and `demo/settings.py` and
+defaults to `("uni_form", "bootstrap3", "bootstrap4")` — a pack that is never in that tuple can never
+compile. Plan.md D-5's own claim that this setting "is only consulted when the `{% crispy %}` tag is
+given an explicit pack argument" is the mistake this surfaces; the probe above shows the default-pack
+path is validated identically. `poetry run ruff check literature/ui/views.py literature/ui/urls.py
+tests/test_ui/test_views.py tests/test_ui/test_urls.py` — all checks passed.
+
+Next: nothing further to attempt inside this story's scope — the fix is a settings change
+(`CRISPY_ALLOWED_TEMPLATE_PACKS`) in files this brief marks `must_not_touch`, and the one route that
+avoids it (a custom delete template) is exactly what D-7 and the brief say not to write. Reported
+blocked in the completion report, with decisions.md D14 as the full record.
+
+Watch: `test_smoke.py`'s `assert not hasattr(settings, "CRISPY_ALLOWED_TEMPLATE_PACKS")` and plan.md
+D-5's mistaken claim both need attention once the settings fix is scoped to a session that can touch
+them — flagged in `concerns`.

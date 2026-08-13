@@ -312,3 +312,76 @@ raises `NoReverseMatch` rather than dropping the link, so the misconfiguration s
 **Revisit if:** US-3 lands `ItemDeleteView` and its route — at that point `show_delete_action = True`
 becomes safe to set on `ItemDetailView`, and the Delete-action test tasks.md's T018 describes belongs
 there, not here.
+
+## D14 — T020 blocked: the delete confirmation page cannot render under the current settings
+
+**Decision:** `ItemDeleteView`, its route and `ItemDetailView.show_delete_action = True` are
+implemented exactly as T020 and plan.md D-7 specify. `TestItemDeleteView`'s three GET-rendering
+scenarios (confirmation renders, decline returns to the reference, an inherited `?back` is honoured)
+still fail — not from anything wrong in `ItemDeleteView`, but because django-mvp's `delete_view.html`
+cannot be compiled at all under this repository's current settings. `TestItemDeleteView`'s four other
+scenarios (POST removal and cascade, `Name` survival, empty-state, 404) and every other new/extended
+test (`TestItemDetailView`'s delete-action render test, `TestDeleteRouteReverses`,
+`TestCRUDViewsReverse` with `ItemDeleteView` added) pass, because none of them render that template.
+
+**Root cause, verified directly, not assumed:**
+
+```
+$ DJANGO_SETTINGS_MODULE=tests.settings poetry run python -c "
+from django.template.loader import get_template
+get_template('cotton/form/render.html')"
+django.template.exceptions.TemplateSyntaxError: crispy tag's template_pack argument
+should be in ('uni_form', 'bootstrap3', 'bootstrap4')
+```
+
+That call carries no view, no request, no form — the template alone fails to *compile*.
+`cotton/form/render.html` (installed `mvp` package) reads:
+
+```
+{% if form.helper %}
+  {% crispy form %}
+{% else %}
+  {{ form|crispy }}
+{% endif %}
+```
+
+Django's template parser compiles **both** branches of an `{% if %}` at first-compile time,
+regardless of which branch a given render will take — `do_if` calls `parser.parse(("elif", "else",
+"endif"))` immediately, which is what invokes crispy-forms' `{% crispy %}` tag compiler
+(`do_uni_form`) unconditionally. `do_uni_form` (`crispy_forms/templatetags/crispy_forms_tags.py:242`)
+initialises `template_pack` to `get_template_pack()` — this repo's `CRISPY_TEMPLATE_PACK = "tailwind"`
+(plan.md D-5) — whether or not the tag was given an explicit pack argument, and always validates it
+against `CRISPY_ALLOWED_TEMPLATE_PACKS`, which defaults to `("uni_form", "bootstrap3", "bootstrap4")`
+when unset. Neither `tests/settings.py` nor `demo/settings.py` sets it. `"tailwind"` is therefore
+never a valid pack, and the template cannot compile — not intermittently, not only when `form.helper`
+is truthy, always.
+
+**Why plan.md D-5's own text is what let this through:** D-5 states "the `CRISPY_ALLOWED_TEMPLATE_PACKS`
+assertion beside it stays, because that setting is only consulted when the `{% crispy %}` tag is given
+an explicit pack argument, which `cotton/form/render.html` does not do." That is the claim the probe
+above disproves: `do_uni_form` validates the *default* pack from `get_template_pack()` exactly the same
+way it validates an explicit one — the `if template_pack is not None` guard is true either way, since
+`template_pack` is seeded from `get_template_pack()` before any explicit-argument parsing runs. Nothing
+caught this at plan time because no page rendered a form through `<c-form :form-obj="...">` until now —
+`item_form.html` (US-1, D11) deliberately avoids that exact path for an unrelated reason (grouped
+rendering, D-3), and `delete_view.html` is the first template in this feature that does not.
+
+**Why this is not mine to fix:** the mechanical fix is `CRISPY_ALLOWED_TEMPLATE_PACKS = ("tailwind",)`
+(or a tuple including it) in `tests/settings.py` and `demo/settings.py` — both `must_not_touch` for this
+story, and `tests/test_ui/test_smoke.py` carries a pre-existing, not-mine-to-modify assertion
+(`assert not hasattr(settings, "CRISPY_ALLOWED_TEMPLATE_PACKS")`) that a same-file fix would have to
+contradict. The other route — writing `literature/ui/templates/literature/ui/item_delete.html` to route
+around the broken upstream template — is exactly what plan.md D-7 and this brief both say not to do
+("django-mvp's `delete_view.html` renders the whole confirmation page... Write no template"), and
+`literature/ui/templates/` is `must_not_touch` regardless. No attribute on `MVPDeleteView` changes which
+branch of `cotton/form/render.html` gets *compiled* — only which one runs, and the crash happens before
+either runs.
+
+**Consequence:** T020 ships `ItemDeleteView`, the route and the detail-page flag/test as specified, and
+is reported `blocked` rather than `done` — three of `TestItemDeleteView`'s seven scenarios stay red
+until a settings change lands that this story's scope cannot make.
+
+**Revisit if:** a follow-up (settings-scoped) change sets `CRISPY_ALLOWED_TEMPLATE_PACKS` to include
+`"tailwind"` in both settings modules, corrects plan.md D-5's mistaken claim, and updates
+`test_smoke.py`'s assertion under its own Article I decision record — at that point the three blocked
+scenarios need no further code change, only a re-run.
