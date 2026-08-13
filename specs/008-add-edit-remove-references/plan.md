@@ -108,9 +108,25 @@ rather than a judgement call inside a code review:
 
 1. A group Appendix III names for that type is used (`container` for book, broadcast,
    motion_picture, report, song, webpage; `publication` for the `medium` and `genre` statements).
-2. A group whose fields Appendix IV defines in terms of that type is used (`legal` for legal_case,
-   legislation, bill, hearing, regulation, treaty; `review` for review and review-book; `event` for
-   event, speech, paper-conference, performance; `physical` for map).
+2. A group whose fields Appendix IV defines in terms of that type is used. **Apply this against the
+   full list of type-bound variable definitions in `research.md` §1 — the examples here are
+   illustrations, not the whole set.** The ones that carry the most weight: `container-title`'s own
+   definition names "the book title for a book chapter, the journal title for a journal article, the
+   album title for a recording, the session title for multi-part presentation at a conference", which
+   is C2 evidence for `container` on chapter, article-journal, song and speech on the strength of
+   that one sentence; `version` names software; `section` names legislation and article-newspaper;
+   `chapter-number` names chapter and song; `issue` names the serial types; `number-of-volumes` and
+   `ISBN` name the book-like types; `scale` names map; `authority`, `jurisdiction` and `division`
+   name patent and the legal types; the `archive*` variables name the archival types. The cluster
+   assignments follow from the same reading: `legal` for legal_case, legislation, bill, hearing,
+   regulation and treaty; `review` for review and review-book; `event` for event, speech,
+   paper-conference and performance; `physical` for map.
+2a. **A type that sits inside a container takes `container`, not `numbering` alone.** Recording
+   where an item appeared is what the container group is for, and a form offering a page range
+   without the name of the thing the pages are in is not a usable form. This is the correction the
+   first pass at this mapping needed: it gave the journal article, the chapter, the dictionary entry,
+   the conference paper and the review their pagination and left out the journal, the book, the
+   reference work, the proceedings and the periodical.
 3. `archive` is used by the types whose subject is a held object — collection, manuscript, classic,
    pamphlet, figure, graphic, personal_communication.
 4. `numbering` is used where the type is or sits inside a numbered sequence.
