@@ -67,8 +67,11 @@ GROUPS: dict[str, tuple[str, ...]] = {
     ),
 }
 
-#: User-visible group headings (Article VIII).
-GROUP_LABELS: dict[str, str] = {
+#: User-visible group headings (Article VIII). Left for mypy to infer as
+#: ``dict[str, _StrPromise]``: ``gettext_lazy`` returns a lazy proxy, not a
+#: plain ``str``, and annotating this ``dict[str, str]`` is a type error even
+#: though every value renders as one wherever Django consumes it.
+GROUP_LABELS = {
     "core": _("Core"),
     "general": _("General"),
     "titles": _("Alternate titles"),

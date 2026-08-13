@@ -28,11 +28,7 @@ def _scalar_field_names():
     uses, so a field added to the model is picked up here the same way it
     would be picked up there.
     """
-    return {
-        field.name
-        for field in Item._meta.get_fields()
-        if hasattr(field, "attname") and not field.primary_key
-    }
+    return {field.name for field in Item._meta.get_fields() if hasattr(field, "attname") and not field.primary_key}
 
 
 class TestFieldPartition:

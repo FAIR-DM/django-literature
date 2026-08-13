@@ -20,11 +20,7 @@ EXCLUDED_FROM_FORM = frozenset({"categories", "custom", "created", "modified"})
 
 
 def _scalar_field_names():
-    return {
-        field.name
-        for field in Item._meta.get_fields()
-        if hasattr(field, "attname") and not field.primary_key
-    }
+    return {field.name for field in Item._meta.get_fields() if hasattr(field, "attname") and not field.primary_key}
 
 
 class TestItemFormFields:
