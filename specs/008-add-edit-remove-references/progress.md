@@ -58,3 +58,18 @@ Approved by Sam in session, 2026-08-13. Gate brief posted as a bot comment on ep
 risks: the package-owned type-to-field mapping joining the public surface, the openness of the new
 write pages, and the import path's contradictory citation-key de-duplication (#69). No conditions
 attached, no scope changes requested.
+
+## 2026-08-13T14:32:45Z · Implementer US1 · T001
+
+Did: set `CRISPY_TEMPLATE_PACK = "tailwind"` in `tests/settings.py` and `demo/settings.py`, each with
+a comment naming the `AttributeError` it prevents (plan.md D-5). Dropped the single
+`tests/test_ui/test_smoke.py:90` assertion that the setting was absent, replacing it with a comment
+citing D-5; left the `CRISPY_ALLOWED_TEMPLATE_PACKS` assertion beside it untouched.
+
+Verified: `poetry run pytest tests/test_ui/test_smoke.py -q` — before the test edit, 7 passed, 1
+failed (`test_mvp_precedes_crispy_tailwind`, `assert not True` on `hasattr(settings,
+"CRISPY_TEMPLATE_PACK")`, the expected failure). After the edit, 8 passed.
+
+Next: T002, the failing structural test for the field-group partition.
+
+Watch: none.
