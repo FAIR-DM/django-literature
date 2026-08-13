@@ -14,6 +14,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from literature.choices import DateType, ItemType, NameRole
+from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item
 from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
@@ -776,3 +777,36 @@ class TestContributorDetailView:
         assert response.status_code == 200
 
         assert len(large_credit_list.captured_queries) == len(small_credit_list.captured_queries)
+
+
+class TestCSLRoundTrip:
+    """SC-006 — a reference entered by hand reaches the same CSL round-trip
+    fidelity standard as an imported one (Article IX). No new mechanism:
+    this exercises the create view (US-1) and the converters
+    (tests/test_converters.py's own subject) together, which nothing else
+    covers."""
+
+    def test_an_item_entered_through_the_create_view_round_trips_through_csl_json(self, client, db):
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="HandEntered2024",
+            title="A Representative Reference",
+            container_title="Journal of Testing",
+            volume="12",
+            issue="3",
+            page="100-110",
+            abstract="An abstract with representative content.",
+            language="en",
+        )
+        client.post(reverse("literature:item-create"), data)
+        original = Item.objects.get(citation_key="HandEntered2024")
+
+        original_csl = to_csl_json(original)
+        round_tripped = from_csl_json(original_csl)
+        round_tripped_csl = to_csl_json(round_tripped)
+
+        # "id" (citation_key) is expected to differ: from_csl_json dedupes
+        # against the original, which is still in the store — the guarantee
+        # is that every other CSL key round-trips unchanged.
+        assert round_tripped_csl == {**original_csl, "id": round_tripped_csl["id"]}
