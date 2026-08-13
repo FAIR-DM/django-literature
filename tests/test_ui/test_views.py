@@ -580,6 +580,16 @@ class TestItemDetailView:
         contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
         assert f'href="{contributor_url}"' in content
 
+    def test_the_edit_action_renders_and_points_at_the_update_page(self, client, db):
+        # DR-001 — directory alone renders nothing without show_update_action
+        # (plan.md D-6, D-8). ItemDeleteView is US-3's own task, so no
+        # Delete action assertion belongs here yet.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' in content
+
 
 class TestReferencePageReadability:
     """Issue #65 — the reference page's share of the same pass."""
