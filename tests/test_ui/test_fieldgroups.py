@@ -84,6 +84,42 @@ class TestAssignmentCeiling:
         assert assigned_field_count < total_field_count / 2
 
 
+class TestCorrectedC2Criterion:
+    """C2a (plan.md D-1): a type that sits inside a container takes ``container``,
+    not ``numbering`` alone. The first pass at this mapping read C2 as though the
+    four clusters named in its parenthetical were the whole of it, so it read
+    ``numbering`` off the "paginated inside a host" reasoning and never reached
+    ``container`` for these types."""
+
+    @pytest.mark.parametrize(
+        "item_type",
+        [
+            ItemType.ARTICLE_JOURNAL,
+            ItemType.ARTICLE_MAGAZINE,
+            ItemType.ARTICLE_NEWSPAPER,
+            ItemType.CHAPTER,
+            ItemType.ENTRY,
+            ItemType.ENTRY_DICTIONARY,
+            ItemType.ENTRY_ENCYCLOPEDIA,
+            ItemType.PAPER_CONFERENCE,
+            ItemType.REVIEW,
+            ItemType.REVIEW_BOOK,
+            ItemType.BOOK,
+            ItemType.BROADCAST,
+            ItemType.MOTION_PICTURE,
+            ItemType.REPORT,
+            ItemType.SONG,
+            ItemType.SPEECH,
+            ItemType.WEBPAGE,
+        ],
+    )
+    def test_container_is_offered_to_types_naming_a_containing_work(self, item_type):
+        assert "container" in FieldGroups.groups_for(item_type)
+
+    def test_software_is_offered_publication_for_its_version_field(self):
+        assert "publication" in FieldGroups.groups_for(ItemType.SOFTWARE)
+
+
 class TestFieldsFor:
     def test_returns_the_fields_declared_for_the_named_group(self):
         assert FieldGroups.fields_for("core") == FieldGroups.GROUPS["core"]
