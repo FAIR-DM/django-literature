@@ -26,9 +26,16 @@ a property somewhere in scope.
     <c-form title="{{ page.title }}" icon="{{ page.icon }}" method="post" action="{{ request.path }}">
       {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
       {% block formset %}
+        {# No |safe on either value. Both are JSON, so both contain double #}
+        {# quotes, and a raw double quote inside a double-quoted attribute #}
+        {# closes it — the browser then reads the rest of the JSON as a #}
+        {# string of junk attribute names and Alpine receives a truncated #}
+        {# expression. Autoescaping emits &quot;, which the HTML tokenizer #}
+        {# decodes back to a quote inside the attribute value, so Alpine #}
+        {# gets valid JavaScript. #}
         <div x-init="form.showAll = false;
-                     form.typeGroups = {{ type_groups_json|safe }};
-                     form.forcedGroups = {{ forced_groups_json|default:'[]'|safe }}">
+                     form.typeGroups = {{ type_groups_json }};
+                     form.forcedGroups = {{ forced_groups_json|default:'[]' }}">
           {# The type field renders unconditionally — with no type chosen yet, #}
           {# nothing else on the page is guarded to show (FR-002, plan.md D-3). #}
           <div class="mb-4">{{ type_field|as_crispy_field }}</div>

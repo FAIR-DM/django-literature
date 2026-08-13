@@ -35,7 +35,7 @@ are on the form at all) belongs to exactly one of the following thirteen groups:
 |---|---|
 | Core | Type, citation key, title, abstract: shown for every reference, on every page |
 | General | Note, annotation, keywords, language, status, source, call number: shown for every reference |
-| Alternate titles | A short title, an original title, a part title, a volume title |
+| Alternate titles | A short title, an original title, a part title, a volume title. No item type offers this group by default, so these fields are reached through the toggle |
 | Container | The larger work a reference sits inside: a journal, a book, a collection |
 | Publication | Publisher, place, edition, medium, genre, version |
 | Original publication | The publisher and place of an earlier edition, for a republished or translated work |

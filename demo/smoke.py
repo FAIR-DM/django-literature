@@ -57,6 +57,10 @@ class _FormFieldParser(HTMLParser):
         super().__init__()
         self.fields: dict[str, str] = {}
         self._in_form = False
+        # Set once the first form closes, so a second form on the page
+        # contributes nothing. Without it this reads the union of every form,
+        # and the token it keeps is whichever came last.
+        self._first_form_done = False
         self._current_select: str | None = None
         self._selects_with_an_option_seen: set[str] = set()
         self._current_textarea: str | None = None
@@ -65,7 +69,8 @@ class _FormFieldParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attr_dict = dict(attrs)
         if tag == "form":
-            self._in_form = True
+            if not self._first_form_done:
+                self._in_form = True
             return
         if not self._in_form:
             return
@@ -106,6 +111,8 @@ class _FormFieldParser(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == "form":
+            if self._in_form:
+                self._first_form_done = True
             self._in_form = False
         elif tag == "select":
             self._current_select = None

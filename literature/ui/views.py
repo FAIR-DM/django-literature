@@ -44,12 +44,10 @@ CATALOGUE_NAME_PLURAL = _("publications")
 #: literally true statement rather than depending on which keys a partial
 #: per-view override happened to name (DR-006).
 #:
-#: ``update`` and ``delete`` name routes that are not registered yet —
-#: ``ItemUpdateView`` and ``ItemDeleteView`` are separate stories' own tasks,
-#: each of which adds its own route alongside its view. Assigning this dict
-#: to ``ItemListView`` and ``ItemCreateView`` now is still safe: neither
-#: view's code path ever calls ``resolve_crud_url("update")`` or
-#: ``resolve_crud_url("delete")``.
+#: All five actions are registered in ``urls.py``. A view still only reaches
+#: for the ones its own ``show_<action>_action`` flags switch on, so assigning
+#: the whole map everywhere costs nothing and removes the partial-override
+#: failure this dict exists to prevent.
 CRUD_VIEWS = {
     "list": "literature:{model_name}-list",
     "detail": "literature:{model_name}-detail",

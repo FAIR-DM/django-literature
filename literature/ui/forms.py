@@ -31,6 +31,20 @@ class ItemForm(forms.ModelForm):
     VIII), and ``ModelForm`` reads both by default.
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Django's CharField strips surrounding whitespace by default, which
+        # quietly rewrites a stored value on a save that changed nothing —
+        # an abstract ending in a newline loses it, a title stored with
+        # padding comes back trimmed. SC-003 promises a save with no changes
+        # leaves the record byte-identical, and the CSL JSON import path does
+        # not strip, so such values do reach the store. Turning it off here
+        # is what makes the promise true of every value rather than of the
+        # ones that happen not to have edges.
+        for field in self.fields.values():
+            if isinstance(field, forms.CharField):
+                field.strip = False
+
     class Meta:
         model = Item
         fields = FORM_FIELDS

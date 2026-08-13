@@ -7,6 +7,7 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 
 import json
 import re
+from html.parser import HTMLParser
 
 import pytest
 from django.db import connection
@@ -893,3 +894,81 @@ class TestCSLRoundTrip:
         # against the original, which is still in the store — the guarantee
         # is that every other CSL key round-trips unchanged.
         assert round_tripped_csl == {**original_csl, "id": round_tripped_csl["id"]}
+
+
+class _AlpineScopeParser(HTMLParser):
+    """Capture the parsed ``x-init`` that seeds the form's Alpine scope.
+
+    Parsed, not grepped. The page carrying a substring proves nothing about
+    what a browser receives: a raw double quote inside a double-quoted
+    attribute closes it, so the JSON that follows becomes a run of junk
+    attribute names while every substring a test might look for is still
+    present in the body.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.attr_count: int | None = None
+        self.x_init: str | None = None
+
+    def handle_starttag(self, tag, attrs):
+        as_dict = dict(attrs)
+        if tag == "div" and "typeGroups" in (as_dict.get("x-init") or ""):
+            self.attr_count = len(attrs)
+            self.x_init = as_dict["x-init"]
+
+
+def _alpine_scope(body):
+    parser = _AlpineScopeParser()
+    parser.feed(body)
+    return parser
+
+
+class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
+    """The type scoping is inert unless the browser can read its own seed data.
+
+    Every other test of this page asserts on the response body as text, and a
+    malformed attribute leaves that text unchanged — which is how the page
+    shipped for four stories with its scoping expression truncated at the
+    first brace and every group permanently visible.
+    """
+
+    def test_the_create_pages_scope_element_carries_exactly_one_attribute(self, client, db):
+        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        assert parser.attr_count == 1, "the scope element gained attributes, which means the JSON broke out of x-init"
+
+    def test_the_create_pages_type_map_parses_and_covers_every_item_type(self, client, db):
+        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        assigned = parser.x_init.split("form.typeGroups = ", 1)[1].rsplit(";", 1)[0]
+        assert json.loads(assigned).keys() == {t.value for t in ItemType}
+
+    def test_the_edit_pages_forced_groups_parse(self, client, db):
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, scale="1:50000")
+        parser = _alpine_scope(client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode())
+        assert parser.attr_count == 1
+        assigned = parser.x_init.split("form.forcedGroups = ", 1)[1].strip()
+        assert "physical" in json.loads(assigned), "a populated off-type group must reach the browser as forced-visible"
+
+
+class TestSurroundingWhitespaceSurvivesACorrection:
+    """SC-003 promises a save that changes nothing leaves the record identical.
+
+    Django's ``CharField`` strips by default, and the CSL JSON import path
+    does not, so a stored value with edges is reachable and would come back
+    trimmed by a save the reader did not think changed anything.
+    """
+
+    def test_a_trailing_newline_and_padding_survive_an_unchanged_save(self, client, db):
+        item = ItemFactory(
+            type=ItemType.BOOK,
+            title="  Padded Title  ",
+            abstract="Line one\n\nLine two\n",
+        )
+        response = client.post(
+            reverse("literature:item-update", kwargs={"pk": item.pk}),
+            update_page_post_data(client, item),
+        )
+        assert response.status_code == 302
+        item.refresh_from_db()
+        assert item.title == "  Padded Title  "
+        assert item.abstract == "Line one\n\nLine two\n"
