@@ -515,3 +515,50 @@ created/corrected/removed a reference, at http://127.0.0.1:8000`, exit 0.
 Next: T022, prove the guard by breaking each flow in turn.
 
 Watch: none.
+
+## 2026-08-13T21:40:00Z · Implementer US4 · T022 — DONE
+
+Did: reinstated each of the three defects T021's write pass exists to catch, against the same live
+demo server, restarting it between each so the change takes effect (`runserver --noreload`), then
+reverted and confirmed `git diff --stat literature/` was empty before moving to the next. No other
+code change — this task's evidence is the three runs themselves, recorded below verbatim.
+
+**Run 1 — wrong `success_url`.** Changed `ItemCreateView.success_url` from `"detail"` to `"list"` in
+`literature/ui/views.py`. `poetry run python demo/smoke.py http://127.0.0.1:8000`:
+```
+FAILED: http://127.0.0.1:8000/catalogue/ [200]: creating a reference did not redirect to its own page (landed on http://127.0.0.1:8000/catalogue/)
+```
+Exit 1. Names the create flow precisely: it redirected to the catalogue instead of the new
+reference's own page. Reverted; `git diff --stat literature/ui/views.py` empty.
+
+**Run 2 — a form field silently dropped.** In `_field_group_context` (`literature/ui/views.py`),
+changed the group-field filter from `name != "type"` to also exclude `"citation_key"`, so the field
+stops rendering (and therefore stops posting) while `ItemForm` still declares it. `poetry run python
+demo/smoke.py http://127.0.0.1:8000`:
+```
+FAILED: http://127.0.0.1:8000/catalogue/32/update/ [200]: correcting a reference did not redirect to its own page (landed on http://127.0.0.1:8000/catalogue/32/update/)
+```
+Exit 1. Names the correction/edit flow: because `citation_key` is a required field, posting the form
+without it re-renders the edit page invalid rather than saving a blanked value — the guard still
+catches it and still names the broken flow, one step earlier than the no-loss assertion would have.
+Reverted; `git diff --stat literature/ui/views.py` empty.
+
+**Run 3 — a delete that does not delete.** Added a `form_valid` override to `ItemDeleteView`
+(`literature/ui/views.py`) that redirects to the success URL without calling `self.object.delete()`.
+`poetry run python demo/smoke.py http://127.0.0.1:8000`:
+```
+FAILED: http://127.0.0.1:8000/catalogue/ [200]: catalogue list still lists the deleted reference at /catalogue/33/
+```
+Exit 1. Names the delete flow: the confirmation "succeeded" but the reference is still listed.
+Reverted; `git diff --stat literature/` empty.
+
+**Final confirmation**, server restarted clean on the reverted tree: `poetry run python demo/smoke.py
+http://127.0.0.1:8000` → `OK: walked the demo catalogue, its second page, a reference and a
+contributor, and created/corrected/removed a reference, at http://127.0.0.1:8000`, exit 0.
+
+Verified: the three runs above, plus the final clean run. `poetry run pytest -q` unaffected (this
+task touches no test file).
+
+Next: T023, confirm the documented start path reaches the new pages by following links only.
+
+Watch: none.
