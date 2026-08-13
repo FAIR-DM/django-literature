@@ -119,6 +119,25 @@ class TestCorrectedC2Criterion:
     def test_software_is_offered_publication_for_its_version_field(self):
         assert "publication" in FieldGroups.groups_for(ItemType.SOFTWARE)
 
+    def test_song_is_offered_numbering_for_its_chapter_number_field(self):
+        # plan.md D-1 point 2: "`chapter-number` names chapter and song" — the
+        # same itemized C2 evidence the original pass skipped for `container`
+        # was skipped here too, since `song` is not one of the four named
+        # clusters (legal/review/event/physical).
+        assert "numbering" in FieldGroups.groups_for(ItemType.SONG)
+
+    def test_book_is_offered_numbering_for_its_number_of_volumes_field(self):
+        # plan.md D-1 point 2: "`number-of-volumes` and `ISBN` name the
+        # book-like types."
+        assert "numbering" in FieldGroups.groups_for(ItemType.BOOK)
+
+    def test_patent_is_offered_legal_for_its_authority_and_jurisdiction_fields(self):
+        # plan.md D-1 point 2: "`authority`, `jurisdiction` and `division`
+        # name patent and the legal types" — patent is not itself one of the
+        # named "legal types" cluster (legal_case, legislation, bill,
+        # hearing, regulation, treaty), so this needed the itemized reading.
+        assert "legal" in FieldGroups.groups_for(ItemType.PATENT)
+
 
 class TestFieldsFor:
     def test_returns_the_fields_declared_for_the_named_group(self):
