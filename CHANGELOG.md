@@ -8,6 +8,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- **Adding, editing and removing a reference through the front end.** `literature.ui` gains three
+  pages, reachable from the catalogue list and a reference's own page: add a reference by hand,
+  correct one, and remove one behind a confirmation that lists what goes with it.
+
+  One form serves all three. It scopes itself to the chosen reference type — picking "Journal
+  Article" reveals a different set of fields than picking "Map" — with a toggle to show every field
+  regardless. Nothing is ever lost by narrowing or widening that view: every field stays part of the
+  form and keeps whatever value it already holds, whether or not its group is currently shown, and
+  correcting one field leaves every other field exactly as it was. The type-to-field mapping behind
+  this is the package's own, documented at `docs/field-groups.md`.
+
+  These pages carry no permission check, the same as the read-only ones — restricting them to
+  particular users is left to the host project. Installing them needs `CRISPY_TEMPLATE_PACK =
+  "tailwind"` and `CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]` in settings, now documented in
+  `README.md`'s install steps.
+
+  The bundled demo exercises all three pages: `demo/smoke.py`, the script that walks the demo as a
+  regression guard, now creates, corrects and removes a reference over HTTP as part of its walk.
+
 - A standard contract for importing bibliographic files, at `literature.importers`. A `BibFormat`
   subclass supplies two stages — turning a file into entries, and expressing one entry as CSL
   JSON — and gets the rest of the workflow for free: `import_file(file, dry_run=False)` returns a
