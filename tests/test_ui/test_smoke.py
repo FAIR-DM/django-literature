@@ -87,5 +87,12 @@ class TestSettings:
         # first app to declare a template path wins.
         apps = settings.INSTALLED_APPS
         assert apps.index("mvp") < apps.index("crispy_tailwind")
-        assert not hasattr(settings, "CRISPY_TEMPLATE_PACK")
+        # CRISPY_TEMPLATE_PACK is now set (plan.md D-5, T001): crispy-forms
+        # 2.7's get_template_pack() has no default, so leaving it unset was an
+        # AttributeError on the first form render, not a fallback to another
+        # pack. This feature is the first to render a form, so the assertion
+        # this settings module used to make (that the setting was absent) is
+        # deliberately dropped rather than flipped — Article I's decision is
+        # this comment plus plan.md D-5, not a new "is set" assertion here,
+        # since T013 already asserts the tailwind pack's markup renders.
         assert not hasattr(settings, "CRISPY_ALLOWED_TEMPLATE_PACKS")

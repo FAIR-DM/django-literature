@@ -22,6 +22,11 @@ INSTALLED_APPS = [
     "literature.ui",
 ]
 
+# crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
+# with no default, so leaving this unset is an AttributeError on the first form
+# render rather than a fallback to another pack (plan.md D-5).
+CRISPY_TEMPLATE_PACK = "tailwind"
+
 TEMPLATES[0]["OPTIONS"]["context_processors"] = [  # noqa: F405
     *TEMPLATES[0]["OPTIONS"]["context_processors"],  # noqa: F405
     "mvp.context_processors.mvp_config",
