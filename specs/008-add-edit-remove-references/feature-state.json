@@ -44,6 +44,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-13T18:10:00Z",
       "note": "US1 done and merged into the feature branch. Receipts green both dispatches. Independent verification at the story tip: forge verify all steps passed (conformance/lint/typecheck/test/build), tamper-check 4 flags all triaged as expected additions to pre-existing test files plus T001's Article I amendment recorded in plan D-5, no deletions anywhere. One re-plan spent: the orchestrator's own read of the mapping found article-journal resolving to a form with no container_title, caused by criterion C2 being written as though its four examples were exhaustive; C2 corrected in plan D-1, C2a added, T030 dispatched and the assignment re-derived."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T20:15:00Z",
+      "note": "US2 done and merged. Receipts green. Independent verification: forge verify all steps passed, tamper-check 2 flags, both additions to test files US1 authored (a parametrize list gaining ItemUpdateView and a docstring US2's own work made inaccurate) - strengthening, no assertion weakened or removed. One accepted deviation, D13: show_delete_action stays unset on ItemDetailView until US3 registers the route, because setting it with no route raises NoReverseMatch on every reference page. First attempt at this story was killed mid-bearings by an account session limit having written nothing; re-dispatched clean."
     }
   ],
   "gates": {
@@ -263,40 +268,41 @@
       "id": "US2",
       "priority": "P2",
       "issue": 71,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T014",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T015",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T016",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T017",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T018",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         },
         {
           "id": "T029",
-          "status": "todo",
+          "status": "done",
           "attempts": 0
         }
-      ]
+      ],
+      "worktree": "/home/sam/projects/fairdm/dl-us2-fs008"
     },
     {
       "id": "US3",
