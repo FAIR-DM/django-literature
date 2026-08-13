@@ -76,14 +76,11 @@ class TestCRUDViewsReverse:
     DR-006 fixed: a partial per-view override could pass a hand-picked
     subset while still breaking on the action it left out.
 
-    ``ItemDeleteView`` is a separate story's own task (US-3) and does not
-    exist in this worktree, so ``delete`` is not asserted here — no view
-    built by this story sets ``show_delete_action``, so
-    ``resolve_crud_url("delete")`` is never actually called
-    (``CRUDDirectoryMixin.show_action()`` is checked before the ``reverse()``
-    call, not after), and the route's absence carries no NoReverseMatch risk
-    for what this story ships. Whichever task adds ``ItemDeleteView`` is
-    expected to register its own route alongside it.
+    Every view that carries ``crud_views`` is in the list below, including
+    ``ItemDeleteView``. The check is deliberately driven by each view's own
+    ``show_<action>_action`` flags rather than by a fixed set of action names,
+    so a view that switches an action on without a route to match fails here
+    rather than at render time.
     """
 
     @pytest.mark.parametrize(

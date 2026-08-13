@@ -10,25 +10,9 @@ shape of the mapping, not whether a particular editorial call was right.
 import pytest
 
 from literature.choices import ItemType
-from literature.models import Item
 from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemFactory
-
-#: The four fields that are not on the form at all (D-4) and so are never
-#: assigned to a group. ``categories`` and ``custom`` are excluded because the
-#: form never carries them; ``created`` and ``modified`` because they are
-#: auto-managed timestamps, not CSL variables.
-EXCLUDED_FROM_FORM = frozenset({"categories", "custom", "created", "modified"})
-
-
-def _scalar_field_names():
-    """Every concrete, non-pk field ``Item`` declares, by name.
-
-    Mirrors the same walk ``literature/ui/fields.py``'s ``scalar_fields``
-    uses, so a field added to the model is picked up here the same way it
-    would be picked up there.
-    """
-    return {field.name for field in Item._meta.get_fields() if hasattr(field, "attname") and not field.primary_key}
+from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
 
 class TestFieldPartition:
@@ -36,7 +20,7 @@ class TestFieldPartition:
 
     def test_every_form_field_is_assigned_to_a_group(self):
         assigned = {name for fields in FieldGroups.GROUPS.values() for name in fields}
-        assert assigned == _scalar_field_names() - EXCLUDED_FROM_FORM
+        assert assigned == scalar_field_names() - EXCLUDED_FROM_FORM
 
     def test_no_field_belongs_to_two_groups(self):
         assigned = [name for fields in FieldGroups.GROUPS.values() for name in fields]

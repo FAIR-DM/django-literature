@@ -9,23 +9,14 @@ it already held (D-3).
 import pytest
 
 from literature.choices import ItemType
-from literature.models import Item
 from literature.ui.forms import ItemForm
 from tests.factories import ItemFactory
-
-#: The four fields ``ItemForm`` never declares (D-4) — ``categories`` and
-#: ``custom`` because they are not on the form at all, ``created`` and
-#: ``modified`` because they are auto-managed timestamps.
-EXCLUDED_FROM_FORM = frozenset({"categories", "custom", "created", "modified"})
-
-
-def _scalar_field_names():
-    return {field.name for field in Item._meta.get_fields() if hasattr(field, "attname") and not field.primary_key}
+from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
 
 class TestItemFormFields:
     def test_declares_every_scalar_field_of_item(self):
-        assert set(ItemForm().fields) == _scalar_field_names() - EXCLUDED_FROM_FORM
+        assert set(ItemForm().fields) == scalar_field_names() - EXCLUDED_FROM_FORM
 
     def test_declares_neither_categories_nor_custom_nor_the_auto_timestamps(self):
         fields = ItemForm().fields

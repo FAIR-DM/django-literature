@@ -28,18 +28,19 @@ def anchor_tag(content, href):
     return match.group(0)
 
 
-def update_page_post_data(client, item, **overrides):
-    """Build a POST body from the rendered edit page's own bound form.
+def _rendered_form_post_data(client, url, **overrides):
+    """Build a POST body from a rendered page's own form at ``url``.
 
-    Same technique as ``create_page_post_data`` (T009): every field starts at
-    what the bound ``ItemForm`` actually initialises it to from the stored
-    instance, and whatever the Save button's own ``name``/``value`` pair is
-    (there is none — item_form.html's block carries neither) is carried
-    exactly as the page emits it. A hand-typed dict would miss both, and
-    would pass a round-trip assertion even against a view that dropped a
-    field the rendered page actually posts.
+    Every field starts at what the form (bound or unbound) actually
+    initialises it to, and whatever the Save button's own ``name``/``value``
+    pair is is carried exactly as the page emits it — never assembled from a
+    bare hand-typed dict. A bare dict would miss both, and would pass a
+    round-trip or redirect-target assertion even against a view that dropped
+    a field, or reverted ``{% block actions %}`` to the stock button that
+    posts ``default_next=list`` (plan.md D-3), the rendered page actually
+    posts.
     """
-    response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+    response = client.get(url)
     form = response.context["form"]
     data = {name: (form[name].value() or "") for name in form.fields}
     content = response.content.decode()
@@ -48,29 +49,16 @@ def update_page_post_data(client, item, **overrides):
         data[submit_button.group(1)] = submit_button.group(2)
     data.update(overrides)
     return data
+
+
+def update_page_post_data(client, item, **overrides):
+    """Build a POST body from the rendered edit page's own bound form (T009)."""
+    return _rendered_form_post_data(client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides)
 
 
 def create_page_post_data(client, **overrides):
-    """Build a POST body from the rendered create page's own form.
-
-    Every field starts at what an unbound ``ItemForm`` actually initialises
-    it to, and whatever the Save button's own ``name``/``value`` pair is
-    (T011 renders one with neither) is carried exactly as the page emits it
-    — never assembled from a bare hand-typed dict. A bare dict omits
-    ``default_next`` regardless of what the rendered page's button does, so
-    it would pass a redirect-target assertion even against a view whose
-    ``{% block actions %}`` reverted to the stock button that posts
-    ``default_next=list`` (plan.md D-3).
-    """
-    response = client.get(reverse("literature:item-create"))
-    form = response.context["form"]
-    data = {name: (form[name].value() or "") for name in form.fields}
-    content = response.content.decode()
-    submit_button = re.search(r'<button[^>]*type="submit"[^>]*name="([^"]+)"[^>]*value="([^"]+)"', content)
-    if submit_button:
-        data[submit_button.group(1)] = submit_button.group(2)
-    data.update(overrides)
-    return data
+    """Build a POST body from the rendered create page's own form (T011)."""
+    return _rendered_form_post_data(client, reverse("literature:item-create"), **overrides)
 
 
 class TestItemListView:
