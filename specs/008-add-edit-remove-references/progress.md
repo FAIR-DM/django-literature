@@ -293,3 +293,116 @@ run --all-files`) still to run before the completion report.
 Watch: the three additional corrections (song, book, patent) are outside the defect paragraph's
 named list but inside T030's own instruction to re-derive against the full itemized evidence, not
 patch the named symptoms only — flagged in the completion report's `deviations` for visibility.
+
+## 2026-08-13T18:09:00Z · Implementer US2 · T014
+
+Did: added `update_page_post_data()` (same technique as US-1's `create_page_post_data` — GET the
+rendered page, read every field's bound-form value, carry the Save button's own name/value pair if
+it has one) and `TestItemUpdateView::test_saving_an_unchanged_form_leaves_every_stored_field_identical`
+— SC-003's round trip. Built an item with a value in every `ItemForm` field (via `FORM_FIELDS`) plus
+`categories` and `custom` (which the form never carries, D-4), GET the edit page, POST it back
+unchanged, and compare every concrete field on the model except `created`/`modified` (auto_now_add/
+auto_now, DR-010) before and after.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemUpdateView -q` — 1 failed,
+`NoReverseMatch: Reverse for 'item-update' not found` — the right reason, since neither the view nor
+the route exist yet.
+
+Next: T015.
+
+Watch: nothing.
+
+## 2026-08-13T18:12:00Z · Implementer US2 · T015
+
+Did: three more tests on `TestItemUpdateView` — a populated field outside the current type's own
+groups is present in the DOM (`id_authority`) and its group ("legal") is in `forced_groups_json`
+(FR-010); changing the item type on POST retains a value in a group the new type does not use
+(FR-014); the edit page's type `<select>` renders the item's stored type as the `selected` option
+(the failure US-1's T006 `x-init` guards against on the client, asserted here at the server-rendered
+HTML level).
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemUpdateView -q` — 4 failed, all
+`NoReverseMatch` on `literature:item-update` — same right reason as T014.
+
+Next: T016.
+
+Watch: nothing.
+
+## 2026-08-13T18:14:00Z · Implementer US2 · T016
+
+Did: `test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged` on
+`TestItemUpdateView`, using the `populated_item` fixture (`tests/test_ui/conftest.py`, US-1's). Saves
+through the update form and asserts the `ItemName`/`ItemDate`/`ItemIdentifier` rows are pk-for-pk,
+value-for-value unchanged — `ItemForm` carries none of them, so the guarantee is that a save never
+touches them at all (FR-012).
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemUpdateView::test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged -q`
+— 1 failed, `NoReverseMatch` on `literature:item-update` — same right reason.
+
+Next: T017, to make T014–T016 green.
+
+Watch: nothing.
+
+## 2026-08-13T18:20:00Z · Implementer US2 · T017
+
+Did: `ItemUpdateView(MVPUpdateView)` in `literature/ui/views.py` — `form_class = ItemForm`,
+`template_name = "literature/ui/item_form.html"` (both reused unchanged from US-1, per the brief),
+`success_url = "detail"`, `show_list_action = show_detail_action = True`, `crud_views = CRUD_VIEWS`,
+translated `page_title`/`success_message`. `_field_group_context()` gained an optional
+`forced_groups` parameter, defaulted to empty so `ItemCreateView`'s call site needs no change, and now
+always emits `forced_groups_json` (previously absent — `item_form.html` already defaulted the key to
+`[]` in the template, so this is not a behaviour change for the create page). `ItemUpdateView.get_context_data()`
+passes `FieldGroups.groups_holding_values(self.object)` as the forced set. Registered
+`<int:pk>/update/` → `item-update` in `literature/ui/urls.py`, updated its module docstring
+(item-update is no longer "not registered yet"; item-delete still is, naming US-3). Extended
+`tests/test_ui/test_urls.py`: a `TestUpdateRouteReverses` class (mirroring US-1's
+`TestCreateRouteReverses`) and added `views.ItemUpdateView` to `TestCRUDViewsReverse`'s parametrize
+list per plan.md D-6's "every name in every view's crud_views reverses" guarantee — its docstring
+already anticipated this ("whichever task adds each of those views is expected to register its own
+route alongside it"), so this extends rather than weakens that shared test.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemUpdateView -q` — 5 passed.
+`poetry run pytest tests/test_ui/test_views.py::TestItemCreateView tests/test_ui/test_urls.py -q` —
+16 passed (no regression from the `_field_group_context` signature change or the shared crud_views
+test extension). `poetry run pytest tests/test_ui/ -q` — 297 passed.
+
+Next: T018.
+
+Watch: the SC-003 test initially failed on `language`/`year_suffix` (max_length=10) because Django's
+`CharField` strips surrounding whitespace by default and a space-joined synthetic value could land
+mid-space after truncation — switched to underscore-joined synthetic values so truncation never
+introduces a strippable trailing space. Not a production defect, a test-data artifact; noted here
+rather than silently reworked.
+
+## 2026-08-13T18:35:00Z · Implementer US2 · T018
+
+Did: `test_the_edit_action_renders_and_points_at_the_update_page` on `TestItemDetailView` — asserts
+the reference page carries an `href` to the item's update URL. Watched it fail (the button's markup
+absent from the response) before implementing. Then on `ItemDetailView`: `directory = ["update",
+"delete"]` (per plan.md D-6's table, and matching `MVPDetailView`'s own default directory),
+`show_update_action = True`, `crud_views = CRUD_VIEWS` replacing the former two-key override.
+`show_delete_action` is deliberately **not** set — see `decisions.md` D13.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestItemDetailView tests/test_ui/test_views.py::TestReferencePageReadability -q`
+— 64 passed. `poetry run pytest tests/test_ui/ -q` — 298 passed.
+
+Next: T029.
+
+Watch: T018's tasks.md text also assigns `show_delete_action = True` and a Delete-action assertion;
+deferred per `decisions.md` D13 — flagged in the completion report's `deviations`.
+
+## 2026-08-13T18:45:00Z · Implementer US2 · T029
+
+Did: `TestCSLRoundTrip` in `tests/test_ui/test_views.py` — creates an item through the create view
+with a representative spread of scalar fields (title, container_title, volume, issue, page, abstract,
+language), calls `to_csl_json()` on the stored item, feeds the result through `from_csl_json()`, and
+asserts the two items' CSL JSON is equal except for `"id"` (citation_key), which `from_csl_json`'s own
+dedup logic is expected to change since the original item with that key is still in the store. No
+production code changed — SC-006 coverage over US-1's create view and the pre-existing converters.
+
+Verified: `poetry run pytest tests/test_ui/test_views.py::TestCSLRoundTrip -q` — 1 passed.
+
+Next: full-story verify (`poetry run pytest -q && poetry run pre-commit run --all-files`) and the
+completion report.
+
+Watch: nothing outstanding for US-2's own tasks.

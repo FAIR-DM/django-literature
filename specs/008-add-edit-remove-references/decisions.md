@@ -275,3 +275,40 @@ to fit the band.
 **Revisit if:** a later pass finds plan.md D-1's itemized list names still more types this
 re-derivation did not catch — check against the full text of point 2, not this decision's summary
 of it, since the summary is necessarily lossy.
+
+## D13 — T018 sets `show_update_action` but not `show_delete_action` on `ItemDetailView`
+
+**Decision:** tasks.md's T018 text reads `show_update_action = show_delete_action = True`. Only
+`show_update_action` was set. `directory` still names `["update", "delete"]`, matching tasks.md and
+`MVPDetailView`'s own default, and `crud_views = CRUD_VIEWS` still carries a `"delete"` key — neither
+of those two is the part left out.
+
+**Why:** the US2 task brief's `inherited_from_us1` is explicit that `item-delete` is US-3's own task,
+not this story's: "US1 deliberately did not register item-update or item-delete because their views
+did not exist... Registering item-update is yours; item-delete belongs to US3." `ItemDeleteView` does
+not exist in this worktree and no route named `literature:item-delete` is registered.
+`CRUDDirectoryMixin.resolve_crud_url()` (django-mvp) only calls Django's `reverse()` for an action
+once `show_action()` — reading `show_<action>_action` — returns `True`; it returns `None` first for
+every action whose flag is unset or falsy. Setting `show_delete_action = True` here, with no matching
+route, would make every single GET to the reference page raise `NoReverseMatch` from
+`ItemDetailView.get_context_data()` (`CRUDDirectoryMixin.get_directory()` iterates the whole
+`directory` list unconditionally) — not a partial degradation, a 500 on every existing
+`TestItemDetailView`/`TestReferencePageReadability` test and on the page itself. Leaving the flag
+unset costs nothing at this action's own call sites: `resolve_crud_url("delete")` still returns
+`None` safely (the `show_action()` check runs before `reverse()`, not after), so the key's presence
+in `crud_views`/`directory` is inert until US-3 sets the flag.
+
+**Consequence:** T018's own instruction to "Extend `TestItemDetailView` with a test that the Edit and
+Delete actions render and point at the right routes" is only partly done — one test was added,
+asserting the Edit action's href. No Delete-action test was added, since there is nothing for it to
+assert yet (the button does not render, correctly, because `show_delete_action` is unset).
+
+**Why defensible:** the brief that scopes this story's files and tasks is more specific than
+tasks.md's general text on exactly this point, and following tasks.md literally here would ship a
+broken reference page — verified, not assumed: `NoReverseMatch` is `CRUDDirectoryMixin`'s documented
+behaviour for a shown action with no matching route ("A shown action whose route does not exist
+raises `NoReverseMatch` rather than dropping the link, so the misconfiguration surfaces").
+
+**Revisit if:** US-3 lands `ItemDeleteView` and its route — at that point `show_delete_action = True`
+becomes safe to set on `ItemDetailView`, and the Delete-action test tasks.md's T018 describes belongs
+there, not here.
