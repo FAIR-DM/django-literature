@@ -1,6 +1,7 @@
 # ADR-0001 — citation_key is unique per import batch, not globally
 
-- **Status:** Accepted (confirmed by Sam 2026-07-23)
+- **Status:** Superseded by ADR 0023 (was: Accepted, confirmed 2026-07-23)
+- **Superseded by:** [ADR 0023](0023-citation-key-uniqueness-is-the-readers-concern.md): uniqueness is the reader's concern, and a key is now stored exactly as it is given.
 - **Context date:** observed in `literature/models.py` (`Item.citation_key`), `literature/converters.py` (`_resolve_citation_key`, `_generate_dedup_suffix`), spec 001
 
 ## Context

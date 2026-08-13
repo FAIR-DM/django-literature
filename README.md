@@ -127,7 +127,7 @@ templates and the first app to declare a template path wins. Both crispy apps ar
 as hard dependencies, so listing them installs nothing extra.
 
 The add, edit and delete pages render through crispy-forms, which needs a template pack chosen
-before anything renders — with neither setting below in place, the first form page raises an error
+before anything renders. With neither setting below in place, the first form page raises an error
 rather than falling back to a default:
 
 ```python
@@ -251,7 +251,7 @@ Between them, a reference can be entered by hand, corrected, and removed without
 end. Each opens a route under the same `literature:` namespace: `literature:item-create`,
 `literature:item-update` and `literature:item-delete`.
 
-The form scopes itself to the reference's type — choosing a type reveals only the fields that kind
+The form scopes itself to the reference's type: choosing a type reveals only the fields that kind
 of reference typically carries, with a toggle to show every field regardless. Nothing is ever
 dropped by choosing a narrower type: every field stays part of the form and keeps whatever value it
 already holds, whether or not its group is currently shown.
@@ -275,7 +275,7 @@ python manage.py runserver
 
 `migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
 `runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
-reference page and a contributor page are all live and populated — and the Add, Edit and Delete
+reference page and a contributor page are all live and populated. The Add, Edit and Delete
 actions on those pages are live too, so you can enter, correct and remove a reference the same way a
 host project's own users would.
 

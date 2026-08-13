@@ -42,6 +42,8 @@ artefact acceptable where a data constraint would not be.
 **Cost accepted:** the mapping joins the package's public surface and will attract issues arguing
 individual entries. Raised at the specification gate as the decision most worth vetoing.
 
+**ADR:** docs/adr/0020-the-item-type-field-mapping-is-ours.md
+
 ## D2 — `categories` and `custom` stay off the form and must survive it
 
 **Ambiguous:** both are scalar-ish fields on the item, so a form covering "the reference's own
@@ -56,6 +58,8 @@ form is not by itself a guarantee it survives — a form that rebuilds the recor
 updating it would drop them silently, and Article XI treats losing stored bibliographic content as
 the failure to design against.
 
+**ADR:** none — the preservation guarantee it states is recorded architecturally in ADR 0021; which two fields sit behind it is a detail of this form and nothing downstream inherits it.
+
 ## D3 — Changing an item type never discards values
 
 **Ambiguous:** if the form is scoped by type, what happens to populated fields when the type
@@ -68,6 +72,8 @@ Article XI exists to prevent. The person is better placed than the mapping to ju
 now-off-type value is wrong, and they cannot judge it if they cannot see it. This also protects
 imported data, which routinely carries fields the mapping would not have offered.
 
+**ADR:** docs/adr/0021-type-scoping-is-presentation-never-storage.md
+
 ## D4 — No access control, recorded as a decision rather than an omission
 
 **Settled at intake by the maintainer:** the write pages are open, exactly as the read pages are.
@@ -79,6 +85,8 @@ pages let an anonymous visitor see the catalogue; these let one empty it. The de
 too, and its guard asserts no page redirects to a login, so the openness is actively tested rather
 than merely untested. Access control for the front end currently has no issue and no roadmap item.
 Flagged at the gate.
+
+**ADR:** docs/adr/0022-the-front-ends-pages-are-open.md
 
 ## D5 — Citation-key collisions are not handled at all
 
@@ -93,6 +101,8 @@ de-duplication as a contract. Both are wrong under this posture and are tracked 
 which resolves separately. This feature does not depend on that landing first: the create form
 stores what it is given either way.
 
+**ADR:** docs/adr/0023-citation-key-uniqueness-is-the-readers-concern.md — which supersedes ADR 0001.
+
 ## D6 — One reference per removal
 
 **Ambiguous:** nothing in the request rules on acting over many references at once.
@@ -103,6 +113,8 @@ stores what it is given either way.
 failure mode — a mis-click removes a set rather than an item, and a confirmation page cannot name
 what is going in any useful way. No issue in R6 asks for it. It stays available as its own request
 if the need turns out to be real.
+
+**ADR:** none — one interaction on one page, reversible by adding the other; no future work is constrained by it.
 
 ## D7 — A reference with no contributors is valid
 
@@ -129,6 +141,8 @@ Recorded here so they reach S3 without being mistaken for statements about what 
   gets settled.
 - **The architecture test is a live constraint.** `tests/test_ui/test_architecture.py` asserts no
   core module imports `mvp`, `crispy_forms` or `literature.ui`. Form code lives in the UI app.
+
+**ADR:** none — a consequence of where #47 and #48 were split, and it stops being true when #48 lands.
 
 ## D8 — Design-review outcome (S3R, 2026-08-13)
 
@@ -184,6 +198,8 @@ records that they exist and why, not what they are — that would drift out of s
 sub-cases as stated — that is a sign the sub-cases themselves need a fourth case rather than a
 one-off exception on the new type.
 
+**ADR:** none — an implementation note on how one criterion was applied, superseded in substance by D12's re-derivation.
+
 ## D10 — T008 registers only the create route; update/delete wait for their own stories
 
 **Decision:** `tasks.md` T008 reads "Add the three routes to `literature/ui/urls.py`", and T007's own
@@ -209,6 +225,8 @@ one story later than `tasks.md`'s single-session phrasing assumed.
 
 **Revisit if:** the US-2 or US-3 Implementer's brief does not already tell them to add their own route
 alongside their view — if it doesn't, that is a gap in their brief, not something to patch here.
+
+**ADR:** none — sequencing between two stories in one feature, resolved before the feature ships.
 
 ## D11 — `item_form.html` overrides `page.content` in full, not just `formset`/`actions`
 
@@ -244,6 +262,8 @@ form or a state variable that leaked to `window` instead of Alpine's reactive sc
 its own block, or exposes a `page.content` seam narrower than the whole block — either would let this
 template go back to overriding only `formset`/`actions`, which is less to keep in sync with upstream.
 
+**ADR:** none — a template mechanic local to this page; ADR 0021 records the guarantee it serves.
+
 ## D12 — T030's re-derivation applies plan.md D-1's full itemized C2 evidence, not only the named defect list
 
 **Decision:** T030's defect paragraph names 11 types needing `container` plus `software` needing
@@ -275,6 +295,8 @@ to fit the band.
 **Revisit if:** a later pass finds plan.md D-1's itemized list names still more types this
 re-derivation did not catch — check against the full text of point 2, not this decision's summary
 of it, since the summary is necessarily lossy.
+
+**ADR:** none — the correction is recorded in plan D-1 and in the mapping's own comments; ADR 0020 states the resulting rule.
 
 ## D13 — T018 sets `show_update_action` but not `show_delete_action` on `ItemDetailView`
 
@@ -312,6 +334,8 @@ raises `NoReverseMatch` rather than dropping the link, so the misconfiguration s
 **Revisit if:** US-3 lands `ItemDeleteView` and its route — at that point `show_delete_action = True`
 becomes safe to set on `ItemDetailView`, and the Delete-action test tasks.md's T018 describes belongs
 there, not here.
+
+**ADR:** none — sequencing between two stories, resolved when US-3 registered the route.
 
 ## D14 — T020 blocked at the time of writing: the delete confirmation page could not render
 
@@ -385,6 +409,9 @@ until a settings change lands that this story's scope cannot make.
 `"tailwind"` in both settings modules, corrects plan.md D-5's mistaken claim, and updates
 `test_smoke.py`'s assertion under its own Article I decision record — at that point the three blocked
 scenarios need no further code change, only a re-run.
+
+**ADR:** none — a finding, resolved by D15; the resulting configuration requirement lives beside the setting itself.
+
 ## D15 — The crispy allowlist, and why two stories passed over the same defect
 
 *Resolves D14, which was written while the story was blocked and is left in place as the finding.*
@@ -441,3 +468,6 @@ exact assertions — `test_a_redirect_to_a_login_page_fails_the_check` still exp
 still expects the fetched body back unchanged.
 
 **Revisit if:** never, short of the walk dropping the shared-opener requirement entirely.
+
+**ADR:** none — a test mechanism this story's own design required; nothing downstream inherits it.
+
