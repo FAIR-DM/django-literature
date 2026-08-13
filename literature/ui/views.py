@@ -303,14 +303,20 @@ class ItemDeleteView(MVPDeleteView):
         shorthand instead — the object still exists at GET time, so its own
         URL is always resolvable.
         """
-        candidate = self.request.GET.get("back")
+        # Explicit annotations, not just style: MVPDeleteView ships no
+        # py.typed, so every attribute reached through it (self.request,
+        # resolve_crud_url(), super().get_back_url()) resolves to Any —
+        # mypy's warn_return_any would otherwise flag a plain "-> str" here.
+        candidate: str | None = self.request.GET.get("back")
         if candidate and url_has_allowed_host_and_scheme(
             url=candidate,
             allowed_hosts={self.request.get_host()},
             require_https=self.request.is_secure(),
         ):
             return candidate
-        return self.resolve_crud_url("detail") or super().get_back_url()
+        detail_url: str | None = self.resolve_crud_url("detail")
+        fallback: str = super().get_back_url()
+        return detail_url or fallback
 
 
 class ContributorDetailView(ItemListView):
