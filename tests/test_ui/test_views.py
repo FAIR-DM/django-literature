@@ -593,6 +593,17 @@ class TestItemDetailView:
         update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
         assert f'href="{update_url}"' in content
 
+    def test_the_delete_action_renders_and_points_at_the_delete_page(self, client, db):
+        # T018 named this assertion; US2 could not write it because turning
+        # show_delete_action on before its route existed would have raised
+        # NoReverseMatch on every reference page (decisions.md D13).
+        # ItemDeleteView and its route are US-3's own task.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        content = response.content.decode()
+        delete_url = reverse("literature:item-delete", kwargs={"pk": item.pk})
+        assert f'href="{delete_url}"' in content
+
 
 class TestReferencePageReadability:
     """Issue #65 — the reference page's share of the same pass."""
