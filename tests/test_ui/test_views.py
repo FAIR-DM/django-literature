@@ -26,6 +26,28 @@ def anchor_tag(content, href):
     return match.group(0)
 
 
+def update_page_post_data(client, item, **overrides):
+    """Build a POST body from the rendered edit page's own bound form.
+
+    Same technique as ``create_page_post_data`` (T009): every field starts at
+    what the bound ``ItemForm`` actually initialises it to from the stored
+    instance, and whatever the Save button's own ``name``/``value`` pair is
+    (there is none — item_form.html's block carries neither) is carried
+    exactly as the page emits it. A hand-typed dict would miss both, and
+    would pass a round-trip assertion even against a view that dropped a
+    field the rendered page actually posts.
+    """
+    response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+    form = response.context["form"]
+    data = {name: (form[name].value() or "") for name in form.fields}
+    content = response.content.decode()
+    submit_button = re.search(r'<button[^>]*type="submit"[^>]*name="([^"]+)"[^>]*value="([^"]+)"', content)
+    if submit_button:
+        data[submit_button.group(1)] = submit_button.group(2)
+    data.update(overrides)
+    return data
+
+
 def create_page_post_data(client, **overrides):
     """Build a POST body from the rendered create page's own form.
 
@@ -314,6 +336,49 @@ class TestItemCreateView:
         assert response.status_code == 200
         assert response.context["contributor_groups"] == []
         assert response.context["identifiers"] == []
+
+
+class TestItemUpdateView:
+    """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
+
+    def test_saving_an_unchanged_form_leaves_every_stored_field_identical(self, client, db):
+        # SC-003 — the whole no-loss guarantee, and the most valuable test in
+        # the feature. A value in every scalar field the form carries, plus
+        # the two JSON fields it never carries (categories, custom — D-4),
+        # must survive an unchanged round trip through the rendered edit
+        # form. created/modified are auto_now_add/auto_now and change on
+        # every save by design (DR-010), so they are excluded on purpose,
+        # not by oversight.
+        from literature.ui.forms import FORM_FIELDS
+
+        values = {}
+        for name in FORM_FIELDS:
+            if name == "type":
+                continue
+            field = Item._meta.get_field(name)
+            raw = f"value for {name}"
+            values[name] = raw[: field.max_length] if field.max_length else raw
+        values["type"] = ItemType.ARTICLE_JOURNAL
+        values["categories"] = ["cat-a", "cat-b"]
+        values["custom"] = {"foo": "bar"}
+
+        item = ItemFactory(**values)
+
+        def snapshot():
+            return {
+                field.name: getattr(item, field.name)
+                for field in Item._meta.get_fields()
+                if hasattr(field, "attname") and not field.primary_key and field.name not in ("created", "modified")
+            }
+
+        before = snapshot()
+
+        data = update_page_post_data(client, item)
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302
+
+        item.refresh_from_db()
+        assert snapshot() == before
 
 
 class TestCreatePageRendersTheTailwindPack:
