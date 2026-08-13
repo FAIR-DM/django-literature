@@ -114,3 +114,37 @@ Next: T005, the failing form tests.
 
 Watch: the per-type judgement calls in `TYPE_GROUPS` (especially C4/C5) are the artefact most likely
 to draw review comment — each is commented, but they are editorial, not derivable.
+
+## 2026-08-13T15:20:00Z · Implementer US1 · T005
+
+Did: wrote `tests/test_ui/test_forms.py` — `ItemForm` declares every one of `Item`'s 60 scalar
+fields and none of `categories`/`custom`/`created`/`modified`; `type` + `citation_key` alone make a
+valid form; either missing is invalid and names the field; a `citation_key` duplicating a stored
+item's is valid (FR-007) and the duplicate is stored unchanged.
+
+Verified: `poetry run pytest tests/test_ui/test_forms.py -q` — 1 error at collection,
+`ModuleNotFoundError: No module named 'literature.ui.forms'` (right reason: the module does not
+exist yet).
+
+Next: T006, `ItemForm` itself.
+
+Watch: none.
+
+## 2026-08-13T15:32:00Z · Implementer US1 · T006
+
+Did: wrote `literature/ui/forms.py` — `ItemForm(ModelForm)`, `Meta.fields` built from
+`fieldgroups.GROUPS`'s own partition (union of all thirteen groups) rather than a second hand-typed
+list, so the form's field set and the mapping cannot drift apart. The `type` widget's `attrs` carry
+both `x-model="form.itemType"` and `x-init="form.itemType = $el.value"` per plan.md D-3 —
+`cotton/form/index.html` opens `x-data="{form: {}}"` empty, so `x-init` is what reads the
+server-rendered value back into Alpine's scope. No label or help text is restated; both come from
+the model.
+
+Verified: `poetry run pytest tests/test_ui/test_forms.py -q` — 7 passed. Also ran
+`tests/test_ui/test_forms.py tests/test_ui/test_fieldgroups.py` together — 18 passed, confirming
+T006 did not disturb T002/T003. `poetry run ruff check literature/ui/forms.py
+tests/test_ui/test_forms.py` — all checks passed.
+
+Next: T007, the URL-reversal tests for Phase 2.
+
+Watch: none.
