@@ -155,7 +155,9 @@ class TestUnauthenticatedWalk:
     def test_a_redirect_to_a_login_page_fails_the_check(self, monkeypatch):
         monkeypatch.setattr(
             "urllib.request.OpenerDirector.open",
-            lambda self, url, timeout=None: _FakeResponse("<h1>Log in</h1>", "http://127.0.0.1:8000/accounts/login/?next=/"),
+            lambda self, url, timeout=None: _FakeResponse(
+                "<h1>Log in</h1>", "http://127.0.0.1:8000/accounts/login/?next=/"
+            ),
         )
         walk = DemoWalk("http://127.0.0.1:8000")
 

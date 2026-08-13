@@ -234,14 +234,24 @@ class DemoWalk:
         detail_body, detail_url = self._post(create_url, create_url, fields)
         item_path = urllib.parse.urlparse(detail_url).path
         if not re.fullmatch(r"/catalogue/\d+/", item_path):
-            self._fail(detail_url, 200, f"creating a reference did not redirect to its own page (landed on {detail_url})", detail_body)
+            self._fail(
+                detail_url,
+                200,
+                f"creating a reference did not redirect to its own page (landed on {detail_url})",
+                detail_body,
+            )
         if title not in detail_body:
             self._fail(detail_url, 200, f"created reference's page does not carry its own title {title!r}", detail_body)
 
         list_after_create = self._get(list_url)
         listed_paths = [path for path, _text in _ITEM_LINK_RE.findall(list_after_create)]
         if item_path not in listed_paths:
-            self._fail(list_url, 200, f"catalogue list does not list the just-created reference at {item_path}", list_after_create)
+            self._fail(
+                list_url,
+                200,
+                f"catalogue list does not list the just-created reference at {item_path}",
+                list_after_create,
+            )
 
         edit_match = _EDIT_LINK_RE.search(detail_body)
         if edit_match is None:
@@ -254,9 +264,19 @@ class DemoWalk:
         edit_fields["title"] = corrected_title
         updated_body, updated_url = self._post(edit_url, edit_url, edit_fields)
         if urllib.parse.urlparse(updated_url).path != item_path:
-            self._fail(updated_url, 200, f"correcting a reference did not redirect to its own page (landed on {updated_url})", updated_body)
+            self._fail(
+                updated_url,
+                200,
+                f"correcting a reference did not redirect to its own page (landed on {updated_url})",
+                updated_body,
+            )
         if corrected_title not in updated_body:
-            self._fail(updated_url, 200, f"corrected reference's page does not carry the new title {corrected_title!r}", updated_body)
+            self._fail(
+                updated_url,
+                200,
+                f"corrected reference's page does not carry the new title {corrected_title!r}",
+                updated_body,
+            )
         if citation_key not in updated_body:
             self._fail(
                 updated_url,
@@ -276,7 +296,9 @@ class DemoWalk:
         list_after_delete, _final_url = self._post(delete_url, delete_url, delete_fields)
         remaining_paths = [path for path, _text in _ITEM_LINK_RE.findall(list_after_delete)]
         if item_path in remaining_paths:
-            self._fail(list_url, 200, f"catalogue list still lists the deleted reference at {item_path}", list_after_delete)
+            self._fail(
+                list_url, 200, f"catalogue list still lists the deleted reference at {item_path}", list_after_delete
+            )
 
     def _get(self, url):
         """GET url, following redirects, and fail if any lands on a login page (FR-005, T015)."""
@@ -340,7 +362,9 @@ def main(argv):
     except SmokeCheckFailed as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
         return 1
-    print(f"OK: walked the demo catalogue, its second page, a reference and a contributor, and created/corrected/removed a reference, at {base_url}")
+    print(
+        f"OK: walked the demo catalogue, its second page, a reference and a contributor, and created/corrected/removed a reference, at {base_url}"
+    )
     return 0
 
 
