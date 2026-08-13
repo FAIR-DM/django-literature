@@ -3,7 +3,7 @@
   "feature": "008-add-edit-remove-references",
   "branch": "008-add-edit-remove-references",
   "repo": "FAIR-DM/django-literature",
-  "state": "DESIGN_REVIEW",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "INTAKE",
@@ -34,6 +34,11 @@
       "state": "DESIGN_REVIEW",
       "at": "2026-08-13T16:30:00Z",
       "note": "one reviewer, three lenses, one round; 13 findings, 3 verified high (show_*_action flags, default_next preempting success_url, unseeded Alpine scope); all applied as plan/tasks edits; security lens clean; receipts green; budget spent"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-13T16:45:00Z",
+      "note": "plan notification sent carrying the design-review verdict; US1 (T001-T013, foundational spine included) next. OpenClaw gateway MCP unreachable this session, so subagents run through the harness rather than sessions_spawn and are not dashboard-visible."
     }
   ],
   "gates": {
@@ -51,8 +56,8 @@
       ]
     },
     "plan": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "notified",
+      "at": "2026-08-13T16:45:00Z"
     },
     "merge": {
       "approved_by": null,
