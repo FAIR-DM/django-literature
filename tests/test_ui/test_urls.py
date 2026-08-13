@@ -7,6 +7,9 @@ import pytest
 from django.test import override_settings
 from django.urls import include, path, reverse
 
+from literature.models import Item
+from literature.ui import views
+
 URLS_PATH = Path(__file__).resolve().parents[2] / "literature" / "ui" / "urls.py"
 
 
@@ -42,3 +45,46 @@ class TestURLs:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported_roots.add(node.module.split(".")[0])
         assert "literature" not in imported_roots
+
+
+class TestCreateRouteReverses:
+    """T007/T008 — the create flow's route, added by US-1 (plan.md D-6, D-8)."""
+
+    def test_item_create_reverses(self):
+        assert reverse("literature:item-create") == "/catalogue/add/"
+
+
+class TestCRUDViewsReverse:
+    """plan.md D-6 — an action a view *shows* must have a resolvable route, or
+    ``get_breadcrumbs()`` raises ``NoReverseMatch`` at render time instead of
+    the button simply not appearing. Checking every ``show_<action>_action``
+    against ``crud_views`` (rather than listing action names by hand) is what
+    DR-006 fixed: a partial per-view override could pass a hand-picked
+    subset while still breaking on the action it left out.
+
+    ``ItemUpdateView`` and ``ItemDeleteView`` are a separate story's own
+    tasks and do not exist in this worktree, so ``update``/``delete`` are not
+    asserted here — neither view built in this story ever calls
+    ``resolve_crud_url("update")`` or ``resolve_crud_url("delete")``, so the
+    two routes' absence carries no NoReverseMatch risk for what this story
+    ships. Whichever task adds each of those views is expected to register
+    its own route alongside it.
+    """
+
+    @pytest.mark.parametrize(
+        "view_class",
+        [views.ItemListView, views.ItemDetailView, views.ItemCreateView],
+        ids=lambda view_class: view_class.__name__,
+    )
+    def test_every_action_the_view_shows_reverses(self, view_class):
+        model_meta = Item._meta
+        shown_actions = [
+            action for action in view_class.crud_views if getattr(view_class, f"show_{action}_action", False)
+        ]
+        assert shown_actions, f"{view_class.__name__} shows no CRUD action to test"
+        for action in shown_actions:
+            url_name = view_class.crud_views[action].format(
+                model_name=model_meta.model_name, app_name=model_meta.app_label
+            )
+            kwargs = {} if action in {"list", "create"} else {"pk": 1}
+            reverse(url_name, kwargs=kwargs)  # raises NoReverseMatch if the action is not registered
