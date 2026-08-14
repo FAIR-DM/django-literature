@@ -1,7 +1,7 @@
 [tool.poetry]
 # Source of truth for the release flow: tag-release cuts v<version> when no
 # matching tag exists on a main push touching this file.
-version = "0.1.8"
+version = "0.1.9"
 packages = [{ include = "literature" }]
 requires-poetry = '>=2.0,<3.0'
 
