@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [v0.1.9] - 2026-08-14
+
 ### Changed
 
 - **An imported citation key is stored exactly as it was given.** Importing a reference whose key
