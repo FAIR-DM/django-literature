@@ -33,7 +33,7 @@ LITERATURE_ROOT = Path(__file__).resolve().parents[2] / "literature"
 UI_ROOT = LITERATURE_ROOT / "ui"
 
 
-def _core_module_names():
+def core_module_names():
     """Every importable dotted module name under ``literature/``, excluding ``literature.ui``.
 
     Migration filenames such as ``0001_initial`` are not valid Python
@@ -51,7 +51,7 @@ def _core_module_names():
     return names
 
 
-_BOOT_SCRIPT_TEMPLATE = """
+BOOT_SCRIPT_TEMPLATE = """
 import importlib
 import os
 import sys
@@ -75,7 +75,7 @@ class TestCoreBootsWithNoUIAppInstalled:
     """FR-006, SC-009 — the core still boots and passes system checks with nothing UI installed."""
 
     def test_core_boots_checks_clean_and_imports_every_core_module(self):
-        script = _BOOT_SCRIPT_TEMPLATE.format(module_names=_core_module_names())
+        script = BOOT_SCRIPT_TEMPLATE.format(module_names=core_module_names())
         result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
             [sys.executable, "-c", script],
             capture_output=True,

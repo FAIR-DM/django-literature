@@ -44,7 +44,7 @@ def rendered_page_link(content, page_number):
     return match.group(1)
 
 
-def _rendered_form_post_data(client, url, **overrides):
+def rendered_form_post_data(client, url, **overrides):
     """Build a POST body from a rendered page's own form at ``url``.
 
     Every field starts at what the form (bound or unbound) actually
@@ -69,12 +69,12 @@ def _rendered_form_post_data(client, url, **overrides):
 
 def update_page_post_data(client, item, **overrides):
     """Build a POST body from the rendered edit page's own bound form (T009)."""
-    return _rendered_form_post_data(client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides)
+    return rendered_form_post_data(client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides)
 
 
 def create_page_post_data(client, **overrides):
     """Build a POST body from the rendered create page's own form (T011)."""
-    return _rendered_form_post_data(client, reverse("literature:item-create"), **overrides)
+    return rendered_form_post_data(client, reverse("literature:item-create"), **overrides)
 
 
 #: Both catalogue presentations, so a "both presentations owe this" test
@@ -1226,7 +1226,7 @@ class TestCSLRoundTrip:
         assert round_tripped_csl == original_csl
 
 
-class _AlpineScopeParser(HTMLParser):
+class AlpineScopeParser(HTMLParser):
     """Capture the parsed ``x-init`` that seeds the form's Alpine scope.
 
     Parsed, not grepped. The page carrying a substring proves nothing about
@@ -1248,8 +1248,8 @@ class _AlpineScopeParser(HTMLParser):
             self.x_init = as_dict["x-init"]
 
 
-def _alpine_scope(body):
-    parser = _AlpineScopeParser()
+def alpine_scope(body):
+    parser = AlpineScopeParser()
     parser.feed(body)
     return parser
 
@@ -1264,17 +1264,17 @@ class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
     """
 
     def test_the_create_pages_scope_element_carries_exactly_one_attribute(self, client, db):
-        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        parser = alpine_scope(client.get(reverse("literature:item-create")).content.decode())
         assert parser.attr_count == 1, "the scope element gained attributes, which means the JSON broke out of x-init"
 
     def test_the_create_pages_type_map_parses_and_covers_every_item_type(self, client, db):
-        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        parser = alpine_scope(client.get(reverse("literature:item-create")).content.decode())
         assigned = parser.x_init.split("form.typeGroups = ", 1)[1].rsplit(";", 1)[0]
         assert json.loads(assigned).keys() == {t.value for t in ItemType}
 
     def test_the_edit_pages_forced_groups_parse(self, client, db):
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, scale="1:50000")
-        parser = _alpine_scope(client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode())
+        parser = alpine_scope(client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode())
         assert parser.attr_count == 1
         assigned = parser.x_init.split("form.forcedGroups = ", 1)[1].strip()
         assert "physical" in json.loads(assigned), "a populated off-type group must reach the browser as forced-visible"

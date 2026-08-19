@@ -11,7 +11,7 @@ INIT_PATH = Path(__file__).resolve().parents[2] / "literature" / "ui" / "__init_
 # subprocess, never the pytest process itself: ``django.setup()`` only ever
 # runs once per interpreter, and the pytest session has already populated the
 # app registry from ``tests.settings`` before this test executes.
-_BOOT_SCRIPT = """
+BOOT_SCRIPT = """
 import django
 from django.conf import settings
 
@@ -38,7 +38,7 @@ class TestLiteratureUIConfig:
 
     def test_app_registry_populates_without_app_registry_not_ready(self):
         result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
-            [sys.executable, "-c", _BOOT_SCRIPT],
+            [sys.executable, "-c", BOOT_SCRIPT],
             capture_output=True,
             text=True,
             check=False,

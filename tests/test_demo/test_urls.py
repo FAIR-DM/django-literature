@@ -15,13 +15,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # django-mvp's mobile footer menu declares a "home" item with view_name="home"
 # (mvp/menus.py:146), and the sidebar and dock render on every page the shell serves.
 # A project without a URL of that name logs a reversal failure on every render and
 # serves a dead Home button.
-_URLS_SCRIPT = """
+URLS_SCRIPT = """
 import json
 import os
 
@@ -54,14 +54,14 @@ print("RESULT_JSON:" + json.dumps({{
 """
 
 
-def _resolve_urls(db_path: Path) -> dict:
+def resolve_urls(db_path: Path) -> dict:
     """Reverse the demo's named routes in a fresh subprocess booted on ``demo.settings``."""
     result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
-        [sys.executable, "-c", _URLS_SCRIPT.format(db_path=str(db_path))],
+        [sys.executable, "-c", URLS_SCRIPT.format(db_path=str(db_path))],
         capture_output=True,
         text=True,
         check=False,
-        cwd=_REPO_ROOT,
+        cwd=REPO_ROOT,
     )
     assert result.returncode == 0, result.stderr
     for line in result.stdout.splitlines():
@@ -74,11 +74,11 @@ class TestDemoUrls:
     """The demo's URLconf gives the shell everything it reverses (decisions.md D9)."""
 
     def test_home_reverses_so_the_shell_menus_render_without_error(self, tmp_path):
-        urls = _resolve_urls(tmp_path / "db.sqlite3")
+        urls = resolve_urls(tmp_path / "db.sqlite3")
         assert urls["home"] == "/"
 
     def test_the_root_sends_a_visitor_to_the_catalogue(self, tmp_path):
-        urls = _resolve_urls(tmp_path / "db.sqlite3")
+        urls = resolve_urls(tmp_path / "db.sqlite3")
         assert urls["root_status"] in (301, 302)
         assert urls["root_location"] == urls["catalogue"]
 
@@ -105,7 +105,7 @@ class TestDemoUrls:
             capture_output=True,
             text=True,
             check=False,
-            cwd=_REPO_ROOT,
+            cwd=REPO_ROOT,
             env=env,
         )
 

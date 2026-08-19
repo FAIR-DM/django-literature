@@ -20,13 +20,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_REAL_CATALOGUE = _REPO_ROOT / "demo" / "seed" / "catalogue.json"
-_MANAGE_PY = _REPO_ROOT / "manage.py"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REAL_CATALOGUE = REPO_ROOT / "demo" / "seed" / "catalogue.json"
+MANAGE_PY = REPO_ROOT / "manage.py"
 
 # Force, not setdefault: pytest-django exports DJANGO_SETTINGS_MODULE=tests.settings
 # into the environment, and this subprocess inherits it by default.
-_SEED_DEMO_SCRIPT = """
+SEED_DEMO_SCRIPT = """
 import json
 import os
 
@@ -54,7 +54,7 @@ print("RESULT_JSON:" + json.dumps({{
 # Reads the database without writing to it, so a test can state what a *failed*
 # seed_demo left behind. Runs no migration: the database it inspects has already
 # been migrated by the seed run under test.
-_INSPECT_SCRIPT = """
+INSPECT_SCRIPT = """
 import json
 import os
 
@@ -73,46 +73,46 @@ print("RESULT_JSON:" + json.dumps({{
 """
 
 
-def _read_result_json(result: subprocess.CompletedProcess) -> dict:
+def read_result_json(result: subprocess.CompletedProcess) -> dict:
     for line in result.stdout.splitlines():
         if line.startswith("RESULT_JSON:"):
             return json.loads(line[len("RESULT_JSON:") :])
     raise AssertionError(f"no RESULT_JSON line in stdout: {result.stdout!r}")
 
 
-def _inspect(db_path: Path) -> dict:
+def inspect(db_path: Path) -> dict:
     """What ``db_path`` holds now, read in a fresh subprocess."""
     result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
-        [sys.executable, "-c", _INSPECT_SCRIPT.format(db_path=str(db_path))],
+        [sys.executable, "-c", INSPECT_SCRIPT.format(db_path=str(db_path))],
         capture_output=True,
         text=True,
         check=False,
-        cwd=_REPO_ROOT,
+        cwd=REPO_ROOT,
     )
     assert result.returncode == 0, result.stderr
-    return _read_result_json(result)
+    return read_result_json(result)
 
 
-def _run_seed_demo_raw(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
+def run_seed_demo_raw(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
     """Run ``seed_demo`` in a fresh subprocess, returning the raw completed process."""
-    script = _SEED_DEMO_SCRIPT.format(db_path=str(db_path), seed_path=str(seed_path))
+    script = SEED_DEMO_SCRIPT.format(db_path=str(db_path), seed_path=str(seed_path))
     return subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,
         check=False,
-        cwd=_REPO_ROOT,
+        cwd=REPO_ROOT,
     )
 
 
-def _run_seed_demo(db_path: Path, seed_path: Path) -> dict:
+def run_seed_demo(db_path: Path, seed_path: Path) -> dict:
     """Run ``seed_demo`` in a fresh subprocess against ``db_path``, seeded from ``seed_path``."""
-    result = _run_seed_demo_raw(db_path, seed_path)
+    result = run_seed_demo_raw(db_path, seed_path)
     assert result.returncode == 0, result.stderr
-    return _read_result_json(result)
+    return read_result_json(result)
 
 
-def _run_seed_demo_strict_encoding(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
+def run_seed_demo_strict_encoding(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
     """Run ``seed_demo`` with every implicit text encoding escalated to an error.
 
     ``-X warn_default_encoding`` makes CPython emit an ``EncodingWarning`` wherever
@@ -121,7 +121,7 @@ def _run_seed_demo_strict_encoding(db_path: Path, seed_path: Path) -> subprocess
     suite happens to run under. Asserting the titles come back correct would not
     work: on a UTF-8 machine they do so whether or not the encoding was named.
     """
-    script = _SEED_DEMO_SCRIPT.format(db_path=str(db_path), seed_path=str(seed_path))
+    script = SEED_DEMO_SCRIPT.format(db_path=str(db_path), seed_path=str(seed_path))
     env = os.environ.copy()
     env["PYTHONWARNINGS"] = "error::EncodingWarning"
     return subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
@@ -129,7 +129,7 @@ def _run_seed_demo_strict_encoding(db_path: Path, seed_path: Path) -> subprocess
         capture_output=True,
         text=True,
         check=False,
-        cwd=_REPO_ROOT,
+        cwd=REPO_ROOT,
         env=env,
     )
 
@@ -138,8 +138,8 @@ class TestSeedDemo:
     """``python manage.py seed_demo`` — plan.md D-2."""
 
     def test_loads_the_catalogue(self, tmp_path):
-        result = _run_seed_demo(tmp_path / "db.sqlite3", _REAL_CATALOGUE)
-        catalogue = json.loads(_REAL_CATALOGUE.read_text(encoding="utf-8"))
+        result = run_seed_demo(tmp_path / "db.sqlite3", REAL_CATALOGUE)
+        catalogue = json.loads(REAL_CATALOGUE.read_text(encoding="utf-8"))
         assert result["item_count"] == len(catalogue)
         assert result["item_count"] > 0
 
@@ -150,13 +150,13 @@ class TestSeedDemo:
         # way — while the same command on a UTF-8 machine, and in CI, is perfectly
         # fine. Escalating EncodingWarning to an error catches the whole class here
         # rather than leaving it to whoever runs the demo on a different locale.
-        result = _run_seed_demo_strict_encoding(tmp_path / "db.sqlite3", _REAL_CATALOGUE)
+        result = run_seed_demo_strict_encoding(tmp_path / "db.sqlite3", REAL_CATALOGUE)
         assert result.returncode == 0, f"implicit text encoding on the seed path:\n{result.stderr}"
 
     def test_running_twice_leaves_the_same_number_not_double(self, tmp_path):
         db_path = tmp_path / "db.sqlite3"
-        first = _run_seed_demo(db_path, _REAL_CATALOGUE)
-        second = _run_seed_demo(db_path, _REAL_CATALOGUE)
+        first = run_seed_demo(db_path, REAL_CATALOGUE)
+        second = run_seed_demo(db_path, REAL_CATALOGUE)
         assert second["item_count"] == first["item_count"]
 
     def test_reseeding_with_different_items_leaves_only_the_new_ones(self, tmp_path):
@@ -179,8 +179,8 @@ class TestSeedDemo:
             )
         )
 
-        _run_seed_demo(db_path, catalogue_a)
-        result = _run_seed_demo(db_path, catalogue_b)
+        run_seed_demo(db_path, catalogue_a)
+        result = run_seed_demo(db_path, catalogue_b)
 
         assert result["item_count"] == 2
         assert result["citation_keys"] == ["Beta2021", "Gamma2022"]
@@ -200,7 +200,7 @@ class TestSeedDemo:
             )
         )
 
-        result = _run_seed_demo_raw(db_path, catalogue)
+        result = run_seed_demo_raw(db_path, catalogue)
 
         assert result.returncode != 0
         assert "Bad2020" in result.stderr
@@ -224,11 +224,11 @@ class TestSeedDemo:
             )
         )
 
-        _run_seed_demo(db_path, good)
-        result = _run_seed_demo_raw(db_path, partial)
+        run_seed_demo(db_path, good)
+        result = run_seed_demo_raw(db_path, partial)
 
         assert result.returncode != 0
-        assert _inspect(db_path)["citation_keys"] == ["Alpha2020"]
+        assert inspect(db_path)["citation_keys"] == ["Alpha2020"]
 
 
 class TestMissingUIExtra:
@@ -256,11 +256,11 @@ class TestMissingUIExtra:
         env["PYTHONPATH"] = str(stub_dir) + os.pathsep + env.get("PYTHONPATH", "")
 
         result = subprocess.run(  # noqa: S603 — fixed interpreter, literal args, no user input
-            [sys.executable, str(_MANAGE_PY), "migrate"],
+            [sys.executable, str(MANAGE_PY), "migrate"],
             capture_output=True,
             text=True,
             check=False,
-            cwd=_REPO_ROOT,
+            cwd=REPO_ROOT,
             env=env,
         )
 

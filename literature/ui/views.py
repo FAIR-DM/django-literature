@@ -67,7 +67,7 @@ CRUD_VIEWS = {
 TYPE_GROUPS_JSON = json.dumps({item_type: sorted(FieldGroups.groups_for(item_type)) for item_type in ItemType.values})
 
 
-def _field_group_context(form, forced_groups=frozenset()):
+def field_group_context(form, forced_groups=frozenset()):
     """The write form's template context for group-by-group rendering (D-3).
 
     The ``type`` field is pulled out of ``core`` and returned on its own: with
@@ -274,7 +274,7 @@ class ItemCreateView(MVPCreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.update(_field_group_context(context["form"]))
+        context.update(field_group_context(context["form"]))
         return context
 
 
@@ -302,7 +302,7 @@ class ItemUpdateView(MVPUpdateView):
         # groups_holding_values(self.object) is the forced-visible set
         # FR-010/FR-014 ask for — a group the stored type would not
         # otherwise show still renders when a value already lives in it.
-        context.update(_field_group_context(context["form"], FieldGroups.groups_holding_values(self.object)))
+        context.update(field_group_context(context["form"], FieldGroups.groups_holding_values(self.object)))
         return context
 
 
