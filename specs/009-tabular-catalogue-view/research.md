@@ -157,3 +157,41 @@ host configuration the package cannot supply for them, so it is documented rathe
 
 `tests/test_ui/test_architecture.py` forbids the core importing any front-end root; `django_tables2`
 is added to that list so the core stays provably free of it.
+
+---
+
+## Amendments after design review
+
+Three of the eleven findings above were checked again and two of them were wrong in a way the
+original wording hid. Both are recorded here rather than edited in place, because the shape of the
+mistake is the useful part.
+
+### R1 — the width classes exist, but the default is not the safe one
+
+R1 established that the mvp table ships `mvp-col-*` width classes. It did not establish what a
+column gets when it names none, and the answer is not benign: `MVP_CONFIG["table"]["wrap"]` defaults
+to `False`, so an unclassed cell renders `white-space: nowrap` with no maximum width. One long
+container title then stretches its column until the table scrolls sideways. The free-text columns
+name `mvp-col-wrap` with a maximum, the short ones name `mvp-col-shrink` on both `td` and `th`
+(plan D-5).
+
+**"The mechanism exists" is not "the default is right."** R1 confirmed availability and read as
+though it had confirmed behaviour.
+
+### R4 — the pagination markup survives *because* it carries nothing
+
+R4 checked that the pagination component and the position line both render on the table page, and
+they do. What it did not check is whether a page link carries anything other than the page number.
+It does not: the href is `?page=N`, an outright replacement of the query string, so a chosen sort is
+discarded the moment the reader turns the page. The sort links on the same page do the opposite —
+they preserve what is already there. Plan D-14 owns the fix, upstream.
+
+**A survival check is not a behaviour check.** The finding "unchanged" was true and useless, and it
+was true for the reason that makes the feature fail.
+
+### R3 — right, and its consequence runs the other way too
+
+R3's finding stands: a cell whose value is empty short-circuits and its renderer never runs, which is
+why every computed column declares `empty_values=()`. The consequence R3 did not draw is that the
+same switch is what makes the table's empty-value marker unreachable, so a column declaring it owns
+its own empty case (plan D-4).

@@ -54,6 +54,7 @@ Checked against `memory/constitution.md` v4.0.0 (this branch amends it — see D
 |---|---|---|
 | I Test-First | Every task writes its test before its code | Applies, no tension |
 | II Simplicity / III Anti-Abstraction | Two view classes and one table class, no base class invented to share between them | Pass |
+| V Escaping | Every cell that composes markup does it in a template, so autoescaping is the control and no column builds markup in Python (D-6, D-7). The credited-names cell is the one that had to move to satisfy this | Applies, tasked |
 | VI Documentation | README's front-end section and installation block both change; CHANGELOG entry in the same PR | Applies, tasked |
 | VII Dependency discipline | One new runtime dependency in an optional extra, justified in research R1/R11; `deptry` must stay clean | Applies, tasked |
 | VIII i18n (non-negotiable) | Every column header, the "and N others" suffix and the empty-value marker are translatable; `ngettext` for the suffix because it is countable | Applies, tasked |
@@ -93,6 +94,7 @@ literature/ui/
     ├── item_list_item.html        # unchanged (card, still used by the contributor page)
     ├── _date_value.html           # unchanged (now also included from a table cell)
     ├── _table_issued.html         # NEW — one-line wrapper so the table reuses _date_value.html
+    ├── _table_contributors.html   # NEW — the credited names, escaped by the template layer
     └── _table_actions.html        # NEW — the row's edit control
 
 tests/
@@ -158,7 +160,12 @@ class ItemTableView(MVPTableView):
   `decisions.md`).
 - **No `order_by`.** The mixin raises `ImproperlyConfigured` at instantiation if it finds one.
   Ordering lives on the table class.
-- `get_queryset()` carries the prefetch and the issued-date annotation (D-5, D-6).
+- `get_queryset()` carries **both** prefetches and the issued-date annotation (D-5, D-6). Two, not
+  one: the credited-names prefetch into `to_attr="contributors"`, and `item_dates`, because the
+  issued cell reaches for the whole `ItemDate` row — `_date_value.html` needs its `end`, `begin` and
+  `literal`, which the D-8 annotation cannot supply since it carries only the start date. The card
+  view already pays for `item_dates` for the same reason. Omitting it costs one query per row and
+  breaks FR-012.
 
 ### D-3 — One table class, in a new `literature/ui/tables.py`
 
@@ -166,17 +173,32 @@ New module, because a table class is neither a view nor a form and `views.py` is
 mirror test is `tests/test_ui/test_tables.py` — one module, split by `Test<Column>` classes, never a
 `non-mirror-paths` entry.
 
-`Meta` carries three things that are each load-bearing:
+`Meta` carries three things:
 
 - `template_name = "django_tables2/bootstrap5-mvp.html"` — without it django-tables2 falls back to
   its own stock template and none of the mvp column widths, alignment or empty state apply
   (research R5).
-- `empty_text` — the mvp empty state renders only inside `{% if table.empty_text %}`, so without it
-  the view's `empty_state_heading` and `empty_state_message` are never shown (research R5).
-- `order_by = ("-created",)` — the default order, newest first, unchanged from today (FR-013).
+- `empty_text` — load-bearing, but as a **flag rather than a string**: the mvp template renders its
+  empty state inside `{% if table.empty_text %}` and then shows the view's `empty_state_heading` and
+  `empty_state_message` instead of the text itself. Set it, and do not spend words on its wording.
+- `default` — the empty-value marker FR-010 asks for, translatable, replacing the library's `"—"`.
+
+**No `Meta.order_by`.** An earlier draft had `order_by = ("-created",)` and called it the default
+order. It is a no-op: django-tables2 validates every order-by alias against the declared orderable
+columns and drops what it cannot find, and there is no `created` column — FR-002 forbids one. The
+page is newest-first because `Item.Meta.ordering` says so, which is exactly what `ItemListView`
+already relies on and says out loud. FR-013 is satisfied by the model, and stating it twice would
+have left a line that looks load-bearing and does nothing.
 
 `fields` is not used: every column is declared explicitly, so a field added to `Item` later never
 silently becomes a column.
+
+`ItemTable`'s docstring states the contract its rows require, because this is a public class in a
+published package and a consumer can pair it with a plain `SingleTableView`: the credited-names cell
+reads the `contributors` attribute that `ItemTableView.get_queryset()` places. `render_contributors`
+reads it defensively so a wrongly-shaped queryset degrades rather than raising per row. A shared
+queryset method on `Item` would be the Django-first move if a second caller ever appears; one caller
+does not justify it.
 
 ### D-4 — `empty_values=()` on every computed column
 
@@ -188,17 +210,44 @@ state of the credited-names and edit columns, which have no model attribute behi
 Every column with a `render_` method declares `empty_values=()`. `_table_actions.html` goes through
 `TemplateColumn`, which sets it itself.
 
+**And the consequence, which cuts the other way:** `empty_values=()` is the same switch that stops
+the table's `default` marker ever being reached, so a column that declares it owns its own empty
+case. The two that have one — credited names with nothing credited, and an issued cell on a
+reference whose only date is `accessed` — must render the marker themselves rather than an empty
+`<td>`. FR-010 is delivered by those two cells and by `Meta.default`, not by the library.
+
 ### D-5 — The columns, one row of the table each
 
 | Column | Mechanism | Sorts on | Notes |
 |---|---|---|---|
 | `citation_key` | plain `Column` | `citation_key` (indexed) | nothing computed |
-| `type` | `Column(order_by="type")` + `render_type` returning `get_type_display()` | `type` (indexed) | plain text, not a badge — the badge is the card's idiom and a cell of badges reads as noise. FR-017's documentation note attaches here |
+| `type` | `Column(order_by="type")`, **no renderer** | `type` (indexed) | django-tables2 resolves a choice field through `get_FOO_display()` before any renderer runs, so the translated label arrives on its own and a `render_type` would only restate it. Recorded here so nobody adds one back. Plain text, not a badge — the badge is the card's idiom and a cell of badges reads as noise. FR-017's documentation note attaches here |
 | `title` | `Column(empty_values=(), order_by="title", linkify=(...))` + `render_title` | `title` (indexed) | fallback chain in `render_title`; `linkify` wraps its output rather than replacing it |
 | `container_title` | plain `Column` | `container_title` (indexed) | |
-| `contributors` | `Column(empty_values=(), orderable=False)` + `render_contributors` | — | reads the prefetch, never the manager (D-6) |
-| `issued` | `TemplateColumn(template_name="literature/ui/_table_issued.html", empty_values=())` + `order_issued` | the `issued` annotation | reuses `_date_value.html` (D-7) |
+| `contributors` | `TemplateColumn(template_name="literature/ui/_table_contributors.html", empty_values=(), orderable=False)` | — | reads the prefetch, never the manager; the markup is built in the template, not in Python (D-6) |
+| `issued` | `TemplateColumn(template_name="literature/ui/_table_issued.html", empty_values=())` + `order_issued` | the `issued` annotation, from US-3 onward | reuses `_date_value.html` (D-7). Ships `orderable=False` in US-1 and is switched on when the annotation lands, so the header never advertises a sort that would raise |
 | `actions` | `TemplateColumn(template_name="literature/ui/_table_actions.html", orderable=False, verbose_name="")` | — | `orderable=False` is also what earns it centred alignment (research R6) |
+
+**The column is named `contributors` and its header reads "Authors".** The spec says authors
+throughout and the glossary deprecates `Author` for the model-side term, so the two artefacts were
+using different words for the same column without either saying which one a reader sees. The
+attribute follows the glossary, the header follows the reader — the cell falls back to editors, but
+"Authors" is what a person scanning a bibliography expects, and FR-006 describes it that way.
+
+**The long-title edge case needs width classes named per column, and the default does not handle
+it.** Research R1 established that the mvp table ships width classes. It did not establish what
+happens with none: the project-wide wrap default is `False`, so an unclassed cell is
+`white-space: nowrap` with no maximum, and one long container title stretches its column until the
+table scrolls sideways. The two free-text columns therefore name their own:
+
+| Column | Classes |
+|---|---|
+| `title` | `mvp-col-wrap mvp-col-max-xl` |
+| `container_title` | `mvp-col-wrap mvp-col-max-md` |
+| `citation_key`, `type`, `issued` | `mvp-col-shrink`, on `td` and `th` both, since each holds a short value and would otherwise be widened by its own heading |
+
+Wrapping is not truncating. The full text stays in the cell, on more than one line, so the
+no-truncation rule below and the demo guard that depends on it are both unaffected.
 
 **The title link is built from the route, not from the record.** `Item` has no `get_absolute_url()`
 and will not be given one, so `linkify=("literature:item-detail", {"pk": A("pk")})` (research R2).
@@ -217,9 +266,20 @@ prefetch, and the existing constant-query-count test is there to catch exactly t
 
 The view prefetches `item_names` filtered to the author and editor roles, `select_related` on the
 name, ordered by `(role, order)`, into `to_attr="contributors"`. `render_contributors` filters that
-already-fetched list in Python: authors if any, else editors, first three, each linked to its
-contributor page, then an `ngettext` suffix when more are credited. `ngettext` rather than a lazy
-string because the count is known at render time and the plural form depends on it.
+already-fetched list in Python — authors if any, else editors, first three, and the count of the
+rest — and returns those values to a template. It builds no markup.
+
+**That split is the point, and it is a security decision, not a style one.** A contributor's name is
+free text entered through the front end's own write pages, which this feature deliberately leaves
+open (FR-020). A Python renderer emitting one `<a>` per name is one `mark_safe` away from executing
+whatever a name contains, on what this feature makes the package's default page. So the cell is a
+`TemplateColumn` over `_table_contributors.html`, exactly as the issued cell is over
+`_table_issued.html`, and Django's autoescaping is the control. Nothing hand-builds an anchor.
+`format_html_join` would also be safe, but a template is safe by default and the codebase already
+has the idiom.
+
+The template holds the "and N others" suffix under `blocktrans count`, and the empty case — no
+credited names at all — renders the table's marker rather than nothing (D-4).
 
 ### D-7 — The issued column reuses the shared date partial
 
@@ -227,8 +287,11 @@ string because the count is known at render time and the plural form depends on 
 reference page; its own comment says the two must not drift. Rendering the same rule again in Python
 would fork it (research R8).
 
-`_table_issued.html` is a one-line wrapper that picks the `issued` slot off the record and includes
-`_date_value.html` under the `item_date` name the partial expects. The rule stays in one file.
+`_table_issued.html` is a thin wrapper that picks the `issued` slot off the record and includes
+`_date_value.html` under the `item_date` name the partial expects. The rule stays in one file. It
+renders the empty-value marker when the record carries no issued date — `_date_value.html` emits
+nothing at all for a slot with no `end`, no `begin` and no `literal`, and this column's
+`empty_values=()` means the table's own marker is never reached (D-4).
 
 ### D-8 — Sorting by issued date is annotated, and NULLs are placed deliberately
 
@@ -254,8 +317,10 @@ core is provably free of it in the same way it is provably free of django-mvp.
 
 ### D-10 — Packaging, and the test that pins it
 
-The `ui` extra becomes django-mvp `>=0.19,<1.0` plus django-tables2 `>=3.0,<4`, both under the
-existing `python_version >= '3.12'` marker. `tests/test_ui/test_packaging.py` asserts the extra's
+The `ui` extra becomes django-mvp plus django-tables2 `>=3.0,<4`, both under the existing
+`python_version >= '3.12'` marker. The django-mvp floor is the release carrying the pagination fix
+D-14 requires — `0.19` is the floor the rest of this feature needs, and the final number is settled
+at T001 rather than guessed here. `tests/test_ui/test_packaging.py` asserts the extra's
 contents as an exact list and moves in the same commit — the assertion is doing its job.
 `deptry` needs no name mapping: `django-tables2` resolves to `django_tables2` on its own.
 
@@ -280,9 +345,10 @@ both, because they are now two promises rather than one.
 
 `demo/smoke.py` already reaches a reference by following a link found on the catalogue page and
 already finds an edit link on the reference page. US-5 adds: the row's own edit control, followed
-from the list page rather than from the reference page. The existing pagination literal and the
-existing item-link pattern both keep working unchanged (research R4), so this is an addition rather
-than a repair.
+from the list page rather than from the reference page. The item-link pattern keeps working
+unchanged (research R4). The pagination literal does not: it pins `href="?page=2"`, and D-14's fix
+makes that link carry the rest of the query string, so the guard's pattern has to match a page link
+that is no longer bare. That is a repair, and T025 owns it.
 
 ### D-13 — The constitution amendment rides on this branch
 
@@ -291,6 +357,32 @@ the stack constraint requiring a constitutional amendment before adopting a furt
 package is removed, front-end additions move under Article VII, and the governance clause forbidding
 amendment alongside feature work becomes a disclosure rule. Version 4.0.0. Rationale and the reasons
 for both edits are in `decisions.md` D8. Sam's ruling at spec sign-off.
+
+### D-14 — A sort has to survive a page change, and today the pagination link discards it
+
+FR-016 and SC-004 require the chosen order to hold when the reader moves to the next page. Nothing in
+the design delivered that, and the reason research R4 missed it is worth recording: R4 checked that
+the pagination *markup* survives the change of presentation, and it does — precisely because the link
+carries nothing to lose. `mvp/templates/cotton/pagination/link.html:16` emits
+`href="?{{ page_param|default:"page" }}={{ page }}"`, which replaces the whole query string, so
+`?sort=` is dropped on every page move. The table header does the opposite: the mvp table template
+builds its sort links with django-tables2's `querystring_replace`, which preserves what is already
+there. The two halves of the same page disagree.
+
+**The fix belongs upstream, not here.** The href is hard-coded inside a shared component, and every
+consuming project's table and filter view has the same defect — #49's filtering would hit it next.
+`literature.ui` overriding the footer block would fork fifteen lines of someone else's markup to work
+around a bug that is one line away from being fixed at its source. So: django-mvp's pagination
+component preserves the current query string and replaces only the page key, that lands as its own
+change in that repository, and the `ui` extra's floor rises to the release carrying it.
+
+Two knock-ons, both stated so they are not discovered late:
+
+- The `ui` floor named in D-10 and T001 is **not final** until that release exists. T001 raises it to
+  the version that carries the fix.
+- `demo/smoke.py:29` pins the exact literal `href="?page=2"`. A query-string-preserving link changes
+  that literal, so D-12's "the existing walk keeps working unchanged" no longer holds for the
+  pagination pattern, and T025 repairs it rather than confirming it.
 
 ## Complexity Tracking
 
