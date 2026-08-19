@@ -3,7 +3,7 @@
   "feature": "009-tabular-catalogue-view",
   "branch": "009-tabular-catalogue-view",
   "repo": "FAIR-DM/django-literature",
-  "state": "CONVERGE",
+  "state": "GATE_MERGE",
   "state_history": [
     {
       "state": "INTAKE",
@@ -44,6 +44,16 @@
       "state": "CONVERGE",
       "at": "2026-08-19T16:10:00Z",
       "note": "All five stories landed on the feature branch. Two convergence changes made here rather than left in the PR: the card list is selected by LITERATURE['CATALOGUE_VIEW'] instead of the documented urlpatterns mutation, with tests proved non-vacuous by bypassing the switch; and the leading-underscore naming is gone from the front end, the demo and their tests. Suite 1592 passed, 1 documented xfail (#88). Lint, format, types, deptry and makemigrations --check green."
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-19T17:05:00Z",
+      "note": "One reviewer, craft-review + craft-simplify, receipts verified. Nine findings, all resolved: primary-key tiebreak on every sortable column (a tied sort had no total order across pages), credited-names column alignment, a vacuous overflow-indication assertion, two escaping guards, four documentation corrections, and an import block committed failing lint. Double pagination filed as #89 / django-mvp#276 rather than forked."
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-19T17:10:00Z",
+      "note": "PR #87 out of draft, awaiting Sam. 1605 passed, 1 documented xfail (#88). Lint, format, types, deptry, makemigrations --check green."
     }
   ],
   "gates": {
@@ -610,7 +620,7 @@
       "max": 2
     },
     "review_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 1
     },
     "design_review_cycles": {
@@ -624,7 +634,7 @@
   },
   "pr": {
     "number": 87,
-    "draft": true
+    "draft": false
   },
   "escalations": []
 }
