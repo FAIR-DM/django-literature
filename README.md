@@ -115,6 +115,7 @@ INSTALLED_APPS = [
     "django_cotton",
     "easy_icons",
     "flex_menu",
+    "django_tables2",
     "mvp",
     "crispy_forms",
     "crispy_tailwind",
@@ -243,6 +244,47 @@ urlpatterns = [
 That is every step. Once the URLs are included, the catalogue list, the reference page and the
 contributor page are live. No view, template, URL pattern, or line of styling is left for the host
 to write.
+
+### The catalogue: a table by default, cards if you prefer
+
+With no further configuration, the catalogue route above serves references as a table — one row per
+reference, carrying its citation key, item type, title, the journal or book it appeared in, its
+credited names and its issued date, with an edit control on every row and a click on a column heading
+to sort the whole catalogue by it. That is what a project managing its own library gets out of the
+box.
+
+The card presentation the package served before the table existed is still there: `ItemListView`,
+reachable and tested the same as ever, one reference per card rather than per row. The contributor
+page keeps using it regardless of which view backs the catalogue, since a contributor's credited
+works read better as cards than as a table of one person's output. A project building a public-facing
+reading list, rather than a tool for managing one, can prefer it for the catalogue too.
+
+Selecting it means swapping the one route that names the catalogue before including the app's URLs:
+
+```python
+# urls.py
+from django.urls import include, path
+
+from literature.ui import urls as literature_urls
+from literature.ui.views import ItemListView
+
+for index, pattern in enumerate(literature_urls.urlpatterns):
+    if pattern.name == "item-list":
+        literature_urls.urlpatterns[index] = path("", ItemListView.as_view(), name="item-list")
+
+urlpatterns = [
+    # ...
+    path("catalogue/", include("literature.ui.urls")),
+]
+```
+
+Everything else about the front end is unchanged: the route keeps the name `literature:item-list`, so
+every breadcrumb, redirect and link that reverses it keeps working, and the create, edit and delete
+pages are unaffected either way.
+
+Sorting the table by item type orders by the type's stored value, not by the translated label shown
+in the column — the label reads differently in every language the catalogue is served in, and the
+order behind it does not change with it.
 
 ### Adding, editing and removing a reference
 
