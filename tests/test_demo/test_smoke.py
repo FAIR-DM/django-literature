@@ -28,6 +28,7 @@ from demo.smoke import (
     _DELETE_LINK_RE,
     _EDIT_LINK_RE,
     _ITEM_LINK_RE,
+    _ROW_RE,
     _SECOND_PAGE_LINK_RE,
     DemoWalk,
     SmokeCheckFailed,
@@ -245,6 +246,42 @@ class TestEditLinkPattern:
 
         assert match is not None
         assert match.group("path") == reverse("literature:item-update", kwargs={"pk": item.pk})
+
+
+class TestRowLinkPattern:
+    """Scoping ``_EDIT_LINK_RE`` to a row's own markup (T026, FR-019, FR-028).
+
+    ``_EDIT_LINK_RE`` alone finds the first edit link anywhere on the page.
+    The write pass needs the one that belongs to a *specific* row — the one
+    also carrying that row's own reference link — so it proves the walk
+    followed that row's own control rather than some other row's edit
+    control landing on the right form by coincidence.
+    """
+
+    def test_scopes_the_edit_link_to_the_row_carrying_the_item(self, client, db):
+        first = ItemFactory(title="First Reference")
+        second = ItemFactory(title="Second Reference")
+
+        response = client.get(reverse("literature:item-list"))
+        body = response.content.decode()
+        first_path = reverse("literature:item-detail", kwargs={"pk": first.pk})
+        second_path = reverse("literature:item-detail", kwargs={"pk": second.pk})
+
+        first_row = next(row for row in _ROW_RE.findall(body) if first_path in row)
+        second_row = next(row for row in _ROW_RE.findall(body) if second_path in row)
+
+        first_edit = _EDIT_LINK_RE.search(first_row)
+        second_edit = _EDIT_LINK_RE.search(second_row)
+
+        assert first_edit is not None
+        assert second_edit is not None
+        assert first_edit.group("path") == reverse("literature:item-update", kwargs={"pk": first.pk})
+        assert second_edit.group("path") == reverse("literature:item-update", kwargs={"pk": second.pk})
+
+    def test_does_not_find_a_different_rows_edit_link(self):
+        row = '<tr><td><a href="/catalogue/1/">One</a></td></tr>'
+
+        assert _EDIT_LINK_RE.search(row) is None
 
 
 class TestDeleteLinkPattern:
