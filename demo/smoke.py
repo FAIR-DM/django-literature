@@ -26,7 +26,14 @@ _BODY_EXCERPT_LIMIT = 500
 
 _ITEM_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/)"[^>]*>(?P<text>[^<]+)<')
 _CONTRIBUTOR_LINK_RE = re.compile(r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<')
-_SECOND_PAGE_LINK = 'href="?page=2"'
+
+# Today's pagination component replaces the whole query string on every page
+# link (plan.md D-14, tracked upstream as django-mvp/django-mvp#270 and here
+# as #88), so a rendered link is always the bare `?page=2`. This pattern
+# tolerates the link carrying other parameters either side of `page=2` so it
+# stays correct once that defect is fixed and a sort survives the page move,
+# without also matching a link that carries no page parameter at all.
+_SECOND_PAGE_LINK_RE = re.compile(r'href="(?P<query>\?(?:[^"]*&)?page=2(?:&[^"]*)?)"')
 
 # The write pass's own links (T021, D-9): the catalogue's Add action, and a
 # reference page's Edit and Delete actions. Unlike the two patterns above,
@@ -169,9 +176,10 @@ class DemoWalk:
         if not item_links:
             self._fail(list_url, 200, "no reference link on the catalogue list — the seed did not load", list_body)
 
-        if _SECOND_PAGE_LINK not in list_body:
+        second_page_match = _SECOND_PAGE_LINK_RE.search(list_body)
+        if second_page_match is None:
             self._fail(list_url, 200, "no second-page link on the catalogue list", list_body)
-        second_page_url = f"{list_url}?page=2"
+        second_page_url = f"{list_url}{second_page_match.group('query')}"
         second_page_body = self._get(second_page_url)
         if not _ITEM_LINK_RE.search(second_page_body):
             self._fail(second_page_url, 200, "no reference link on the catalogue's second page", second_page_body)

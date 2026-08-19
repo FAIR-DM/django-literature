@@ -28,7 +28,7 @@ from demo.smoke import (
     _DELETE_LINK_RE,
     _EDIT_LINK_RE,
     _ITEM_LINK_RE,
-    _SECOND_PAGE_LINK,
+    _SECOND_PAGE_LINK_RE,
     DemoWalk,
     SmokeCheckFailed,
     _form_fields,
@@ -58,12 +58,44 @@ class TestItemLinkPattern:
 
         assert _ITEM_LINK_RE.search(f'<a href="{contributor_path}">Someone</a>') is None
 
-    def test_second_page_link_is_the_one_the_paginated_list_renders(self, client, db):
+
+class TestSecondPageLinkPattern:
+    """The pattern the walk follows from the catalogue list to its second page.
+
+    Widened for plan.md D-14/D-12 (T025): today's pagination component
+    replaces the whole query string, so the real render never carries
+    ``page=2`` alongside another parameter (research R4) — but the pattern
+    has to already tolerate that shape for the day django-mvp/django-mvp#270
+    lands and the query string survives, without becoming so loose it
+    accepts a link that carries no page parameter at all.
+    """
+
+    def test_matches_the_bare_link_the_paginated_list_renders(self, client, db):
         ItemFactory.create_batch(30)
 
         response = client.get(reverse("literature:item-list"))
+        match = _SECOND_PAGE_LINK_RE.search(response.content.decode())
 
-        assert _SECOND_PAGE_LINK in response.content.decode()
+        assert match is not None
+        assert match.group("query") == "?page=2"
+
+    def test_matches_a_page_link_that_also_carries_a_leading_parameter(self):
+        match = _SECOND_PAGE_LINK_RE.search('href="?sort=title&page=2"')
+
+        assert match is not None
+        assert match.group("query") == "?sort=title&page=2"
+
+    def test_matches_a_page_link_that_also_carries_a_trailing_parameter(self):
+        match = _SECOND_PAGE_LINK_RE.search('href="?page=2&sort=title"')
+
+        assert match is not None
+        assert match.group("query") == "?page=2&sort=title"
+
+    def test_does_not_match_a_link_with_no_page_parameter(self):
+        assert _SECOND_PAGE_LINK_RE.search('href="?sort=title"') is None
+
+    def test_does_not_match_a_different_page_number(self):
+        assert _SECOND_PAGE_LINK_RE.search('href="?page=20"') is None
 
 
 class TestContributorLinkPattern:
