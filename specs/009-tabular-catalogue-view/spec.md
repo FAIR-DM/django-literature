@@ -216,7 +216,7 @@ No new entity, and no change to an existing one. Every column reads what the sto
 ## Assumptions
 
 - A released version of django-mvp carrying the table view and its full-screen layout is available to depend on; the front-end extra's floor rises to it rather than the feature vendoring anything.
-- The table package the front end needs is added to the `ui` extra. The project's stack constraints currently name django-mvp as the one adopted UI layer and require an amendment before another is adopted, and that amendment is a separate change made outside this feature.
+- The table package the front end needs is added to the `ui` extra. The project's stack constraints named django-mvp as the one adopted UI layer and required an amendment before another was adopted; that restriction was judged too heavy for the decision it governed and is lifted on this branch, with front-end additions now sitting under the ordinary dependency discipline. The amendment is declared in the pull request's description.
 - Nothing in the front end checks permissions today, so "the same gating the edit action already has" means, in the package as it stands, none. FS-008 settled that the write pages are open on the assumption of one person managing their own library.
 - Finding a reference in a large catalogue — search, filtering and the ordering that goes with them — is issue #49 and is not in this feature, so the table ships with those controls switched off rather than absent by oversight.
 - User-configurable columns and column order remain aspirational, as issue #81 states.

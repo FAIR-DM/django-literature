@@ -122,21 +122,38 @@ than a fork. Deprecating the card view would say the opposite of what issue #81 
 contributor page keeps a live user inside the package, so the card path stays exercised by the
 suite rather than surviving only as a documented promise nobody runs.
 
-## D8 — The table package is a stack-constraint change, handled outside this feature
+## D8 — The stack constraint on front-end packages is lifted, on this branch
 
-**Ambiguous:** nothing about the intent. Sam settled at intake that the table package joins the
-`ui` extra.
+**The situation:** the constitution's stack constraints named django-mvp as the one adopted UI
+layer and said in terms that "no further third-party form/table/filter/JS package is prescribed;
+adopting another is a constitutional amendment". Governance then said amendments are never made
+mid-feature. Adding the table package this feature needs therefore required a second pull request
+before this one could proceed.
 
-**Chosen:** the spec records the dependency as an assumption, and the constitutional amendment that
-admits it is a separate change.
+**Chosen:** the restriction is removed rather than satisfied. Front-end additions to the `ui`
+extra now sit under Article VII's ordinary dependency discipline — a stated justification,
+`deptry` clean — keeping the two conditions that were doing the real work: the core never gains a
+front-end dependency, and django-mvp's own integration is the route in where one exists. The
+amendment is carried on this branch, with the constitution moving to 4.0.0, and is declared in the
+pull request's description.
 
-**Why this is recorded rather than acted on:** the constitution's stack constraints name django-mvp
-as the one adopted UI layer and say in terms that "no further third-party form/table/filter/JS
-package is prescribed; adopting another is a constitutional amendment". Governance then says
-amendments are made via a pull request stating the change, rationale and impact on adopters, and
-are **never made mid-feature**. A feature branch that quietly widened the constraint it is judged
-against would defeat both clauses at once. The decision is Sam's and is already made; the
-sequencing is what this note exists to pin.
+**Why defensible:** the bar was heavier than the decision it governed. The package being added is
+one the adopted UI layer already integrates with and is only reachable through that integration,
+so admitting it changes nothing about what governs the interface — it is the mechanism django-mvp
+prescribes for exactly this, not a competing way to do something django-mvp already does. Routing
+that through a constitutional amendment made the constitution the bottleneck for every interface
+feature, and a rule paid mostly in process is a rule that gets worked around rather than followed.
+
+The governance clause changed with it, from a prohibition to a disclosure rule. What the
+prohibition protected against is a branch quietly widening a rule it is judged against, and
+requiring the amendment to be declared in the pull request's description addresses that directly.
+The prohibition instead forced a separate pull request carrying one paragraph, which buys the same
+protection at the cost of a second review cycle.
+
+**Whose call:** Sam's, made explicitly at spec sign-off ("Remove that constraint from the
+constitution with this PR. That is too restrictive."). The governance clause amendment is the part
+resolved here rather than asked: leaving it in place while amending under it would have made the
+change self-contradicting on its own terms.
 
 ## D9 — Presentation only: no model, no field, no migration
 
