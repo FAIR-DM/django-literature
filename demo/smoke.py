@@ -26,7 +26,14 @@ _BODY_EXCERPT_LIMIT = 500
 
 _ITEM_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/)"[^>]*>(?P<text>[^<]+)<')
 _CONTRIBUTOR_LINK_RE = re.compile(r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<')
-_SECOND_PAGE_LINK = 'href="?page=2"'
+
+# Today's pagination component replaces the whole query string on every page
+# link (plan.md D-14, tracked upstream as django-mvp/django-mvp#270 and here
+# as #88), so a rendered link is always the bare `?page=2`. This pattern
+# tolerates the link carrying other parameters either side of `page=2` so it
+# stays correct once that defect is fixed and a sort survives the page move,
+# without also matching a link that carries no page parameter at all.
+_SECOND_PAGE_LINK_RE = re.compile(r'href="(?P<query>\?(?:[^"]*&)?page=2(?:&[^"]*)?)"')
 
 # The write pass's own links (T021, D-9): the catalogue's Add action, and a
 # reference page's Edit and Delete actions. Unlike the two patterns above,
@@ -36,6 +43,12 @@ _SECOND_PAGE_LINK = 'href="?page=2"'
 _CREATE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/add/)"')
 _EDIT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/update/)"')
 _DELETE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/delete/)"')
+
+# One row of the catalogue table (T026, FR-019, FR-028): scopes _EDIT_LINK_RE
+# to the row that also carries a given item's own link, so the walk follows
+# that row's own edit control rather than the first edit link anywhere on
+# the page, which could belong to a different row.
+_ROW_RE = re.compile(r"<tr\b.*?</tr>", re.DOTALL)
 
 
 class _FormFieldParser(HTMLParser):
@@ -169,9 +182,10 @@ class DemoWalk:
         if not item_links:
             self._fail(list_url, 200, "no reference link on the catalogue list — the seed did not load", list_body)
 
-        if _SECOND_PAGE_LINK not in list_body:
+        second_page_match = _SECOND_PAGE_LINK_RE.search(list_body)
+        if second_page_match is None:
             self._fail(list_url, 200, "no second-page link on the catalogue list", list_body)
-        second_page_url = f"{list_url}?page=2"
+        second_page_url = f"{list_url}{second_page_match.group('query')}"
         second_page_body = self._get(second_page_url)
         if not _ITEM_LINK_RE.search(second_page_body):
             self._fail(second_page_url, 200, "no reference link on the catalogue's second page", second_page_body)
@@ -258,6 +272,29 @@ class DemoWalk:
                 200,
                 f"catalogue list does not list the just-created reference at {item_path}",
                 list_after_create,
+            )
+
+        # US-5, FR-028: reach an edit form from a row's own edit control on
+        # the list page, not only from the reference page below. Scoped to
+        # the row carrying this item's own link, so a different row's edit
+        # control landing on the right form by coincidence would not pass.
+        item_row = next((row for row in _ROW_RE.findall(list_after_create) if item_path in row), None)
+        if item_row is None:
+            self._fail(list_url, 200, f"no table row on the catalogue list carries {item_path}", list_after_create)
+        row_edit_match = _EDIT_LINK_RE.search(item_row)
+        if row_edit_match is None:
+            self._fail(list_url, 200, f"catalogue row for {item_path} carries no edit control", item_row)
+        row_edit_url = f"{self.base_url}{row_edit_match.group('path')}"
+
+        row_edit_form_body = self._get(row_edit_url)
+        row_edit_fields = _form_fields(row_edit_form_body)
+        if row_edit_fields.get("title") != title:
+            self._fail(
+                row_edit_url,
+                200,
+                f"the row's edit control did not open the edit form for {item_path} "
+                f"(its title field reads {row_edit_fields.get('title')!r}, not {title!r})",
+                row_edit_form_body,
             )
 
         edit_match = _EDIT_LINK_RE.search(detail_body)

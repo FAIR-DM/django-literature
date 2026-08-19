@@ -28,7 +28,8 @@ from demo.smoke import (
     _DELETE_LINK_RE,
     _EDIT_LINK_RE,
     _ITEM_LINK_RE,
-    _SECOND_PAGE_LINK,
+    _ROW_RE,
+    _SECOND_PAGE_LINK_RE,
     DemoWalk,
     SmokeCheckFailed,
     _form_fields,
@@ -58,12 +59,44 @@ class TestItemLinkPattern:
 
         assert _ITEM_LINK_RE.search(f'<a href="{contributor_path}">Someone</a>') is None
 
-    def test_second_page_link_is_the_one_the_paginated_list_renders(self, client, db):
+
+class TestSecondPageLinkPattern:
+    """The pattern the walk follows from the catalogue list to its second page.
+
+    Widened for plan.md D-14/D-12 (T025): today's pagination component
+    replaces the whole query string, so the real render never carries
+    ``page=2`` alongside another parameter (research R4) — but the pattern
+    has to already tolerate that shape for the day django-mvp/django-mvp#270
+    lands and the query string survives, without becoming so loose it
+    accepts a link that carries no page parameter at all.
+    """
+
+    def test_matches_the_bare_link_the_paginated_list_renders(self, client, db):
         ItemFactory.create_batch(30)
 
         response = client.get(reverse("literature:item-list"))
+        match = _SECOND_PAGE_LINK_RE.search(response.content.decode())
 
-        assert _SECOND_PAGE_LINK in response.content.decode()
+        assert match is not None
+        assert match.group("query") == "?page=2"
+
+    def test_matches_a_page_link_that_also_carries_a_leading_parameter(self):
+        match = _SECOND_PAGE_LINK_RE.search('href="?sort=title&page=2"')
+
+        assert match is not None
+        assert match.group("query") == "?sort=title&page=2"
+
+    def test_matches_a_page_link_that_also_carries_a_trailing_parameter(self):
+        match = _SECOND_PAGE_LINK_RE.search('href="?page=2&sort=title"')
+
+        assert match is not None
+        assert match.group("query") == "?page=2&sort=title"
+
+    def test_does_not_match_a_link_with_no_page_parameter(self):
+        assert _SECOND_PAGE_LINK_RE.search('href="?sort=title"') is None
+
+    def test_does_not_match_a_different_page_number(self):
+        assert _SECOND_PAGE_LINK_RE.search('href="?page=20"') is None
 
 
 class TestContributorLinkPattern:
@@ -213,6 +246,42 @@ class TestEditLinkPattern:
 
         assert match is not None
         assert match.group("path") == reverse("literature:item-update", kwargs={"pk": item.pk})
+
+
+class TestRowLinkPattern:
+    """Scoping ``_EDIT_LINK_RE`` to a row's own markup (T026, FR-019, FR-028).
+
+    ``_EDIT_LINK_RE`` alone finds the first edit link anywhere on the page.
+    The write pass needs the one that belongs to a *specific* row — the one
+    also carrying that row's own reference link — so it proves the walk
+    followed that row's own control rather than some other row's edit
+    control landing on the right form by coincidence.
+    """
+
+    def test_scopes_the_edit_link_to_the_row_carrying_the_item(self, client, db):
+        first = ItemFactory(title="First Reference")
+        second = ItemFactory(title="Second Reference")
+
+        response = client.get(reverse("literature:item-list"))
+        body = response.content.decode()
+        first_path = reverse("literature:item-detail", kwargs={"pk": first.pk})
+        second_path = reverse("literature:item-detail", kwargs={"pk": second.pk})
+
+        first_row = next(row for row in _ROW_RE.findall(body) if first_path in row)
+        second_row = next(row for row in _ROW_RE.findall(body) if second_path in row)
+
+        first_edit = _EDIT_LINK_RE.search(first_row)
+        second_edit = _EDIT_LINK_RE.search(second_row)
+
+        assert first_edit is not None
+        assert second_edit is not None
+        assert first_edit.group("path") == reverse("literature:item-update", kwargs={"pk": first.pk})
+        assert second_edit.group("path") == reverse("literature:item-update", kwargs={"pk": second.pk})
+
+    def test_does_not_find_a_different_rows_edit_link(self):
+        row = '<tr><td><a href="/catalogue/1/">One</a></td></tr>'
+
+        assert _EDIT_LINK_RE.search(row) is None
 
 
 class TestDeleteLinkPattern:
