@@ -15,14 +15,22 @@ import pytest
 LITERATURE_ROOT = Path(__file__).resolve().parents[2] / "literature"
 UI_ROOT = LITERATURE_ROOT / "ui"
 
-FORBIDDEN_ROOTS = ("mvp", "django_cotton", "crispy_forms", "easy_icons", "flex_menu", "literature.ui")
+FORBIDDEN_ROOTS = (
+    "mvp",
+    "django_cotton",
+    "crispy_forms",
+    "easy_icons",
+    "flex_menu",
+    "django_tables2",
+    "literature.ui",
+)
 
 
-def _core_modules():
+def core_modules():
     return [path for path in sorted(LITERATURE_ROOT.rglob("*.py")) if UI_ROOT not in path.parents]
 
 
-def _imported_names(path):
+def imported_names(path):
     """Every dotted name this module's import statements name.
 
     Parsed rather than grepped, so a forbidden name inside a docstring or a
@@ -44,11 +52,11 @@ class TestCoreImportsNothingFromTheUIStack:
 
     @pytest.mark.parametrize(
         "path",
-        _core_modules(),
+        core_modules(),
         ids=lambda p: str(p.relative_to(LITERATURE_ROOT)),
     )
     def test_module_imports_no_ui_dependency(self, path):
-        imported = _imported_names(path)
+        imported = imported_names(path)
         offending = {
             name
             for name in imported

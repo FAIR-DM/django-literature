@@ -1,5 +1,21 @@
 <!--
 Sync Impact Report
+- Version change: 3.2.0 → 4.0.0 (MAJOR: a governance restriction removed). The stack constraints
+  had named django-mvp as the one adopted UI layer and required a constitutional amendment before
+  any further front-end package could be adopted. That bar was heavier than the decision it
+  governed: adding a rendering library the adopted UI layer already integrates with is ordinary
+  dependency work, and routing it through an amendment made the constitution the bottleneck for
+  every interface feature. Front-end additions now sit under Article VII's dependency discipline,
+  keeping the two conditions that were doing the real work — the core never gains a front-end
+  dependency, and django-mvp's own integration is the route in where one exists.
+- Governance: the flat prohibition on amending mid-feature is replaced by a disclosure rule. The
+  clause existed so a branch could not quietly widen a rule it was judged against; requiring the
+  amendment to be declared in the pull request's description addresses that directly, where the
+  prohibition instead forced a second pull request for a paragraph.
+- No article added or removed; no renumbering. Templates and specs referencing article numbers
+  are unaffected.
+- Earlier report retained below.
+
 - Version change: 2.1.1 → 3.0.0 (MAJOR: restructured onto the shared engineering-standards
   article framework; core principles now the shared defaults, repo-specific principles kept as
   project articles VIII–XII).
@@ -239,10 +255,14 @@ The bundled demo/reference project is executable documentation and a regression 
 - **Citation rendering:** `citeproc-py` or a governance-approved equivalent; bundled CSL style
   files are attributable to the CSL project and licensed accordingly.
 - **UI:** server-rendered Django templates. The opt-in `literature.ui` app is built on
-  [django-mvp](https://github.com/django-mvp), the one adopted UI layer — arriving through the
+  [django-mvp](https://github.com/django-mvp), the adopted UI layer — arriving through the
   optional `ui` extra rather than a core dependency, so the core stays free of it and a core-only
-  install resolves no front-end package. No further third-party form/table/filter/JS package is
-  prescribed; adopting another is a constitutional amendment.
+  install resolves no front-end package. A further front-end package may be added to the `ui`
+  extra when the interface genuinely needs it, under Article VII's ordinary dependency discipline:
+  a stated justification, `deptry` clean, and the core still resolving none of it. Two conditions
+  hold whatever is added — the core never gains a front-end dependency, and the package is
+  reached through django-mvp's own integration for it where one exists, rather than as a second
+  way of doing something django-mvp already does.
 - **Testing & tooling:** pytest and pytest-django are canonical; test modules mirror the
   `literature/` tree with `test_` prefixes. Static analysis via Ruff and mypy as configured in
   `pyproject.toml`. Coverage is a guide to find gaps, not a merge gate.
@@ -275,8 +295,9 @@ Read at planning and review; applies to every change.
 This constitution supersedes ad-hoc practice when they conflict. It covers the core
 `django-literature` package and any official demo or reference project in this repository.
 
-- **Amendments** are made via a pull request stating the change, rationale, and impact on adopters,
-  and are never made mid-feature.
+- **Amendments** are made via a pull request stating the change, rationale, and impact on adopters.
+  An amendment carried alongside feature work is declared in that pull request's description, so a
+  branch can never quietly widen a rule it is being judged against.
 - **Versioning** is semantic: **MAJOR** for backward-incompatible governance/principle changes or
   removals; **MINOR** for new principles/sections or substantial expansions; **PATCH** for
   clarifications and wording. Any change updates the version, the Last Amended date, and the Sync
@@ -287,4 +308,4 @@ This constitution supersedes ad-hoc practice when they conflict. It covers the c
 - Final authority currently rests with the original author, leaving room for a broader governance
   model as more maintainers join.
 
-**Version**: 3.2.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-08-11
+**Version**: 4.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-08-19

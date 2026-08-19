@@ -11,36 +11,35 @@ TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html"))
 PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
 
-class TestPassthroughBaseTemplate:
-    """``literature/ui/templates/base.html`` — D20.
+class TestTheBaseTemplateIsNoLongerOurs:
+    """This app used to ship a pass-through ``base.html``; it does not now.
 
     django-mvp routes every packaged page through the unqualified ``base.html``,
-    a name that belongs to the host project, and ships no default for it. This
-    app ships one so the packaged chain resolves in a project that has written
-    none. It is a stop-gap for django-mvp#219, and the tests below are what keep
-    it from becoming anything more.
+    a name that belongs to the host project. It once shipped no default, so an
+    installable app could not reach the packaged chain in a project that had
+    written none, and this app filled the gap itself. Its own comment named the
+    condition for its removal: django-mvp shipping a default of its own. That
+    landed in django-mvp 0.18, so the file is gone and the floor this app
+    declares is what guarantees the replacement is present.
+
+    What these tests keep is the guarantee, not the file: the chain still
+    resolves for a project with no ``base.html``, and a project that has one
+    still wins.
     """
 
-    @staticmethod
-    def _source() -> str:
-        return PASSTHROUGH_BASE.read_text()
+    def test_the_app_ships_no_base_template_of_its_own(self):
+        assert not PASSTHROUGH_BASE.exists()
 
-    def test_forwards_to_the_packaged_shell(self):
-        assert '{% extends "mvp/base.html" %}' in self._source()
+    def test_the_packaged_chain_resolves_for_a_project_with_no_base_template(self, settings):
+        settings.TEMPLATES = [{**settings.TEMPLATES[0], "DIRS": []}]
+        from django.template.loader import get_template
 
-    def test_defines_nothing_of_its_own(self):
-        # A block here would be content a host silently inherits and cannot see.
-        # Everything outside the extends tag and its explanatory comment must be
-        # whitespace, so overriding this file costs a host nothing.
-        source = _DJANGO_BLOCK_COMMENT_RE.sub("", self._source())
-        source = _DJANGO_COMMENT_RE.sub("", source)
-        source = source.replace('{% extends "mvp/base.html" %}', "")
-        assert source.strip() == ""
+        origin = get_template("base.html").origin.name
+        assert origin.endswith("mvp/templates/base.html")
 
-    def test_a_project_template_directory_wins_over_it(self, tmp_path, settings):
-        # The politeness guarantee: DIRS is searched before any app, so a
-        # project that has its own base.html keeps it. This app only fills the
-        # gap for a project with none.
+    def test_a_project_template_directory_still_wins(self, tmp_path, settings):
+        # The politeness guarantee, unchanged: DIRS is searched before any app,
+        # so a project that has its own base.html keeps it.
         (tmp_path / "base.html").write_text("the project's own shell")
         settings.TEMPLATES = [
             {**settings.TEMPLATES[0], "DIRS": [str(tmp_path)]},
@@ -48,12 +47,6 @@ class TestPassthroughBaseTemplate:
         from django.template.loader import get_template
 
         assert get_template("base.html").origin.name == str(tmp_path / "base.html")
-
-    def test_the_app_fills_the_gap_when_a_project_has_none(self, settings):
-        settings.TEMPLATES = [{**settings.TEMPLATES[0], "DIRS": []}]
-        from django.template.loader import get_template
-
-        assert get_template("base.html").origin.name == str(PASSTHROUGH_BASE)
 
 
 class TestPackagedChain:
@@ -88,10 +81,10 @@ class TestPackagedChain:
 # on disk and then break for a host that only ships the packaged one.
 # ---------------------------------------------------------------------------
 
-_SCALE = ["0", "1", "2", "3", "4", "5", "6", "8", "10", "12"]
+SCALE = ["0", "1", "2", "3", "4", "5", "6", "8", "10", "12"]
 
 
-def _expand(pattern: str) -> list[str]:
+def expand(pattern: str) -> list[str]:
     """Expand one ``{a,b,c}`` or ``{1..12}`` (or both) group in a
     utility-classes.md pattern like ``items-{start,center,end}`` or
     ``rounded-{t,r,b,l}-{sm,md,lg,xl,full}``. A pattern with no ``{...}``
@@ -109,23 +102,23 @@ def _expand(pattern: str) -> list[str]:
             options.append(part)
     expanded: list[str] = []
     for option in options:
-        expanded.extend(_expand(pattern[: match.start()] + option + pattern[match.end() :]))
+        expanded.extend(expand(pattern[: match.start()] + option + pattern[match.end() :]))
     return expanded
 
 
-def _expand_all(patterns: list[str]) -> set[str]:
+def expand_all(patterns: list[str]) -> set[str]:
     tokens: set[str] = set()
     for pattern in patterns:
-        tokens.update(_expand(pattern))
+        tokens.update(expand(pattern))
     return tokens
 
 
-def _scaled(prefixes: list[str], scale: list[str]) -> set[str]:
+def scaled(prefixes: list[str], scale: list[str]) -> set[str]:
     return {f"{prefix}-{n}" for prefix in prefixes for n in scale}
 
 
 # utility-classes.md's "responsive groups": bare, or behind md:/lg:/xl:.
-_RESPONSIVE_GROUP_PATTERNS = [
+RESPONSIVE_GROUP_PATTERNS = [
     "block",
     "inline-block",
     "inline",
@@ -176,15 +169,15 @@ _RESPONSIVE_GROUP_PATTERNS = [
 ]
 
 RESPONSIVE_ALLOWED = (
-    _expand_all(_RESPONSIVE_GROUP_PATTERNS)
-    | _scaled(["gap", "gap-x", "gap-y"], _SCALE)
-    | _scaled(["p", "px", "py", "pt", "pr", "pb", "pl"], _SCALE)
-    | _scaled(["m", "mx", "my", "mt", "mr", "mb", "ml"], _SCALE)
+    expand_all(RESPONSIVE_GROUP_PATTERNS)
+    | scaled(["gap", "gap-x", "gap-y"], SCALE)
+    | scaled(["p", "px", "py", "pt", "pr", "pb", "pl"], SCALE)
+    | scaled(["m", "mx", "my", "mt", "mr", "mb", "ml"], SCALE)
     | {"m-auto", "mx-auto", "my-auto"}
 )
 
 # utility-classes.md's "base-only groups": never behind a responsive prefix.
-_BASE_ONLY_PATTERNS = [
+BASE_ONLY_PATTERNS = [
     "z-{0,10,20,30,40,50,auto}",
     "border",
     "border-0",
@@ -221,11 +214,11 @@ _BASE_ONLY_PATTERNS = [
     "list-{none,disc,decimal}",
 ]
 
-BASE_ONLY_ALLOWED = _expand_all(_BASE_ONLY_PATTERNS)
+BASE_ONLY_ALLOWED = expand_all(BASE_ONLY_PATTERNS)
 
 # utility-classes.md's colour utilities: bg-/text-/border- over the daisyUI
 # semantic palette, base only — plus hover:/focus-visible: state variants.
-_PALETTE = [
+PALETTE = [
     "primary",
     "secondary",
     "accent",
@@ -248,15 +241,15 @@ _PALETTE = [
     "base-content",
 ]
 
-COLOUR_ALLOWED = {f"{prefix}-{colour}" for prefix in ("bg", "text", "border") for colour in _PALETTE}
+COLOUR_ALLOWED = {f"{prefix}-{colour}" for prefix in ("bg", "text", "border") for colour in PALETTE}
 STATE_ALLOWED = COLOUR_ALLOWED | {"opacity-75", "opacity-100", "underline"}
 
-_RESPONSIVE_PREFIXES = ("md:", "lg:", "xl:")
-_STATE_PREFIXES = ("hover:", "focus-visible:")
-_REJECTED_PREFIXES = ("sm:", "2xl:")
+RESPONSIVE_PREFIXES = ("md:", "lg:", "xl:")
+STATE_PREFIXES = ("hover:", "focus-visible:")
+REJECTED_PREFIXES = ("sm:", "2xl:")
 
-_CLASS_ATTR_RE = re.compile(r'(?<!:)\bclass="([^"]*)"')
-_TEMPLATE_EXPR_RE = re.compile(r"\{\{.*?\}\}|\{%.*?%\}", re.DOTALL)
+CLASS_ATTR_RE = re.compile(r'(?<!:)\bclass="([^"]*)"')
+TEMPLATE_EXPR_RE = re.compile(r"\{\{.*?\}\}|\{%.*?%\}", re.DOTALL)
 
 
 def extract_class_tokens(source: str) -> list[str]:
@@ -275,8 +268,8 @@ def extract_class_tokens(source: str) -> list[str]:
     ``class="{{ page.class }}"`` would do if this stripped only the token
     that happened to contain the opening delimiter."""
     tokens: list[str] = []
-    for match in _CLASS_ATTR_RE.finditer(source):
-        value = _TEMPLATE_EXPR_RE.sub(" ", match.group(1))
+    for match in CLASS_ATTR_RE.finditer(source):
+        value = TEMPLATE_EXPR_RE.sub(" ", match.group(1))
         tokens.extend(value.split())
     return tokens
 
@@ -292,12 +285,12 @@ def is_allowed_utility_class(token: str) -> bool:
     base name behind a disallowed prefix cannot slip through by accident."""
     if "{{" in token or "{%" in token:
         return False
-    if token.startswith(_REJECTED_PREFIXES):
+    if token.startswith(REJECTED_PREFIXES):
         return False
-    for prefix in _STATE_PREFIXES:
+    for prefix in STATE_PREFIXES:
         if token.startswith(prefix):
             return token[len(prefix) :] in STATE_ALLOWED
-    for prefix in _RESPONSIVE_PREFIXES:
+    for prefix in RESPONSIVE_PREFIXES:
         if token.startswith(prefix):
             return token[len(prefix) :] in RESPONSIVE_ALLOWED
     return token in RESPONSIVE_ALLOWED or token in BASE_ONLY_ALLOWED or token in COLOUR_ALLOWED
@@ -364,8 +357,8 @@ class TestUtilityClassAllowlist:
 #: component and is not translated.
 READER_FACING_ATTRIBUTES = ("title", "label", "text", "heading", "message", "placeholder", "alt")
 
-_BLOCKTRANSLATE_RE = re.compile(r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL)
-_TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}")
+BLOCKTRANSLATE_RE = re.compile(r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL)
+TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}")
 #: ``{# … #}`` is a SINGLE-LINE comment. Django's own lexer compiles
 #: ``({%.*?%}|{{.*?}}|{#.*?#})`` without ``re.DOTALL``, so a ``{#`` whose ``#}``
 #: sits on a later line is never tokenised as a comment and the whole block is
@@ -373,20 +366,20 @@ _TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}"
 #: matching with ``re.DOTALL`` here is what let four multi-line ``{# … #}``
 #: blocks ship and render to readers while this guard stayed green, because the
 #: guard held the same wrong belief the templates did.
-_DJANGO_COMMENT_RE = re.compile(r"\{#[^\n]*?#\}")
+DJANGO_COMMENT_RE = re.compile(r"\{#[^\n]*?#\}")
 #: ``{% comment %}…{% endcomment %}`` is the multi-line form and is genuinely
 #: never rendered. Stripped before the generic tag regex, which would otherwise
 #: remove the two tags and leave their prose behind as residue.
-_DJANGO_BLOCK_COMMENT_RE = re.compile(
+DJANGO_BLOCK_COMMENT_RE = re.compile(
     r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}",
     re.DOTALL,
 )
-_DJANGO_TAG_RE = re.compile(r"\{%.*?%\}", re.DOTALL)
-_DJANGO_VAR_RE = re.compile(r"\{\{.*?\}\}", re.DOTALL)
-_HTML_TAG_RE = re.compile(r"<[^>]*>", re.DOTALL)
-_HTML_ENTITY_RE = re.compile(r"&[#a-zA-Z0-9]+;")
-_LETTER_RE = re.compile(r"[A-Za-z]")
-_READER_ATTRIBUTE_RE = re.compile(
+DJANGO_TAG_RE = re.compile(r"\{%.*?%\}", re.DOTALL)
+DJANGO_VAR_RE = re.compile(r"\{\{.*?\}\}", re.DOTALL)
+HTML_TAG_RE = re.compile(r"<[^>]*>", re.DOTALL)
+HTML_ENTITY_RE = re.compile(r"&[#a-zA-Z0-9]+;")
+LETTER_RE = re.compile(r"[A-Za-z]")
+READER_ATTRIBUTE_RE = re.compile(
     r"\b(?:" + "|".join(READER_FACING_ATTRIBUTES) + r")\s*=\s*\"([^\"]*)\"",
 )
 
@@ -407,14 +400,14 @@ def reader_visible_residue(source: str) -> str:
     only the forms Django actually treats as comments — a multi-line
     ``{# … #}`` is not one, so its prose survives here and is reported as
     reader-facing text, which is exactly what it becomes on the page."""
-    text = _DJANGO_BLOCK_COMMENT_RE.sub(" ", source)
-    text = _DJANGO_COMMENT_RE.sub(" ", text)
-    text = _BLOCKTRANSLATE_RE.sub(" ", text)
-    text = _TRANSLATE_TAG_RE.sub(" ", text)
-    text = _DJANGO_TAG_RE.sub(" ", text)
-    text = _DJANGO_VAR_RE.sub(" ", text)
-    text = _HTML_TAG_RE.sub(" ", text)
-    text = _HTML_ENTITY_RE.sub(" ", text)
+    text = DJANGO_BLOCK_COMMENT_RE.sub(" ", source)
+    text = DJANGO_COMMENT_RE.sub(" ", text)
+    text = BLOCKTRANSLATE_RE.sub(" ", text)
+    text = TRANSLATE_TAG_RE.sub(" ", text)
+    text = DJANGO_TAG_RE.sub(" ", text)
+    text = DJANGO_VAR_RE.sub(" ", text)
+    text = HTML_TAG_RE.sub(" ", text)
+    text = HTML_ENTITY_RE.sub(" ", text)
     return text
 
 
@@ -426,11 +419,11 @@ def unwrapped_reader_attributes(source: str) -> list[str]:
     here — a hard-coded ``title="Contributors"`` does. The machinery is
     stripped first so the nested quotes in ``title="{% translate "Dates" %}"``
     cannot be mistaken for a bare literal."""
-    text = _BLOCKTRANSLATE_RE.sub(" ", source)
-    text = _TRANSLATE_TAG_RE.sub(" ", text)
-    text = _DJANGO_TAG_RE.sub(" ", text)
-    text = _DJANGO_VAR_RE.sub(" ", text)
-    return [value for value in _READER_ATTRIBUTE_RE.findall(text) if _LETTER_RE.search(value)]
+    text = BLOCKTRANSLATE_RE.sub(" ", source)
+    text = TRANSLATE_TAG_RE.sub(" ", text)
+    text = DJANGO_TAG_RE.sub(" ", text)
+    text = DJANGO_VAR_RE.sub(" ", text)
+    return [value for value in READER_ATTRIBUTE_RE.findall(text) if LETTER_RE.search(value)]
 
 
 def has_unwrapped_reader_text(source: str) -> bool:
@@ -441,7 +434,7 @@ def has_unwrapped_reader_text(source: str) -> bool:
     generalisation of "colon, middot and whitespace are not reader-facing
     prose", not a narrower reading of it: anything with no letter in it is
     not prose a reader reads as language, wrapped or not."""
-    return bool(_LETTER_RE.search(reader_visible_residue(source)))
+    return bool(LETTER_RE.search(reader_visible_residue(source)))
 
 
 class TestI18nGuard:

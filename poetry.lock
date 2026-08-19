@@ -788,15 +788,15 @@ rich = ">=13"
 
 [[package]]
 name = "django-mvp"
-version = "0.17.0"
+version = "0.19.0"
 description = "MVP framework for Django - scaffold production-ready applications with sophisticated layouts and UI patterns designed for data-centric applications."
 optional = true
 python-versions = "<4.0,>=3.12"
 groups = ["main"]
 markers = "python_version >= \"3.12\" and extra == \"ui\""
 files = [
-    {file = "django_mvp-0.17.0-py3-none-any.whl", hash = "sha256:80de9f5be536813c4a8339041ba81d080bc3980240cf3cca2a157effe1ca792c"},
-    {file = "django_mvp-0.17.0.tar.gz", hash = "sha256:3311f99e6cad95e979b55fc7f936b4157186d236f03d178a66c13f9d441a9a7c"},
+    {file = "django_mvp-0.19.0-py3-none-any.whl", hash = "sha256:559d85974dfceee20d11aebc5a7ce769cd412a9af87795a916f87d1a2dd51a19"},
+    {file = "django_mvp-0.19.0.tar.gz", hash = "sha256:c441d6f596467c2aa35c4d3a2376562d1272c181645402abea9c834e1a1f18dc"},
 ]
 
 [package.dependencies]
@@ -864,6 +864,25 @@ files = [
 [package.dependencies]
 django = "*"
 typing-extensions = "*"
+
+[[package]]
+name = "django-tables2"
+version = "3.0.0"
+description = "Table/data-grid framework for Django"
+optional = true
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version >= \"3.12\" and extra == \"ui\""
+files = [
+    {file = "django_tables2-3.0.0-py3-none-any.whl", hash = "sha256:2a5b5447f10d7a8cfb7a2e8f0b139d969c7eb2e675079a4b8ba0107956345bfa"},
+    {file = "django_tables2-3.0.0.tar.gz", hash = "sha256:3c5343f72663b0d6684e8e6cbcb16caae10d7621a51c1cf3c581f57ce605f8ee"},
+]
+
+[package.dependencies]
+django = ">=4.2"
+
+[package.extras]
+tablib = ["tablib"]
 
 [[package]]
 name = "django-watchfiles"
@@ -3577,9 +3596,9 @@ files = [
 dev = ["pytest", "setuptools"]
 
 [extras]
-ui = ["django-mvp"]
+ui = ["django-mvp", "django-tables2"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "cfeca472187cad550d87977627d0e98c46a39274e6986c66dc2d238f7ba80020"
+content-hash = "0212e634904e2cf9e90258ad80e3d28cdbe1560743406cd724f2351893432802"

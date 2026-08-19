@@ -8,12 +8,16 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 import json
 import re
 from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import urljoin
 
 import pytest
 from django.db import connection
+from django.template.loader import get_template
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
+import literature
 from literature.choices import DateType, ItemType, NameRole
 from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
@@ -29,7 +33,18 @@ def anchor_tag(content, href):
     return match.group(0)
 
 
-def _rendered_form_post_data(client, url, **overrides):
+def rendered_page_link(content, page_number):
+    """The ``href`` the rendered pagination component's own numbered link to
+    ``page_number`` carries — found by reading the markup, not by
+    constructing ``?page=N`` ourselves. That distinction is what T019's
+    page-2 assertion turns on (plan.md D-14): the address the reader's
+    click actually carries is the evidence, not one the test invents."""
+    match = re.search(rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{page_number}\s*</a>', content)
+    assert match, f"no rendered link to page {page_number}"
+    return match.group(1)
+
+
+def rendered_form_post_data(client, url, **overrides):
     """Build a POST body from a rendered page's own form at ``url``.
 
     Every field starts at what the form (bound or unbound) actually
@@ -54,60 +69,93 @@ def _rendered_form_post_data(client, url, **overrides):
 
 def update_page_post_data(client, item, **overrides):
     """Build a POST body from the rendered edit page's own bound form (T009)."""
-    return _rendered_form_post_data(client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides)
+    return rendered_form_post_data(client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides)
 
 
 def create_page_post_data(client, **overrides):
     """Build a POST body from the rendered create page's own form (T011)."""
-    return _rendered_form_post_data(client, reverse("literature:item-create"), **overrides)
+    return rendered_form_post_data(client, reverse("literature:item-create"), **overrides)
+
+
+#: Both catalogue presentations, so a "both presentations owe this" test
+#: (plan.md D-11) is one parametrized method rather than two near-identical
+#: ones. ``literature:item-list`` is the table since T010; the card is
+#: reachable at the test urlconf's own second route (research R10).
+CATALOGUE_ROUTES = ["literature:item-list", "item-list-cards"]
 
 
 class TestItemListView:
-    """The catalogue list — FR-012 through FR-018."""
+    """List behaviour every catalogue presentation owes, plus the card's own
+    content (FR-011, FR-012, FR-021, plan.md D-11).
 
-    def test_lists_items_most_recently_added_first(self, client, db):
+    The assertions parametrized over ``CATALOGUE_ROUTES`` come from shared
+    django-mvp mechanisms — pagination, the position line, the empty state —
+    rather than from either view's own template, so they are genuinely two
+    promises now rather than one. The rest are about the card's own
+    rendering and stay pinned to its own route; the table's equivalent
+    per-column behaviour is ``tests/test_ui/test_tables.py``'s own subject.
+    """
+
+    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
+    def test_lists_items_most_recently_added_first(self, client, db, route_name):
         older = ItemFactory(title="Older Reference")
         newer = ItemFactory(title="Newer Reference")
-        response = client.get(reverse("literature:item-list"))
+        response = client.get(reverse(route_name))
         content = response.content.decode()
         assert content.index("Newer Reference") < content.index("Older Reference")
 
-    def test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size(self, client, db):
+    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
+    def test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size(self, client, db, route_name):
         ItemFactory.create_batch(30)
-        response = client.get(reverse("literature:item-list"))
+        response = client.get(reverse(route_name))
         assert len(response.context["object_list"]) == 24
 
-    def test_pagination_states_position_and_offers_navigation(self, client, db):
+    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
+    def test_pagination_states_position_and_offers_navigation(self, client, db, route_name):
         ItemFactory.create_batch(30)
-        response = client.get(reverse("literature:item-list"))
+        response = client.get(reverse(route_name))
         content = response.content.decode()
         assert "1-24 of 30" in content
         assert 'href="?page=2"' in content
 
-    def test_page_number_past_the_end_is_a_404(self, client, db):
+    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
+    def test_page_number_past_the_end_is_a_404(self, client, db, route_name):
         ItemFactory()
-        response = client.get(reverse("literature:item-list"), {"page": 999})
+        response = client.get(reverse(route_name), {"page": 999})
         assert response.status_code == 404
 
-    def test_empty_catalogue_renders_the_stated_empty_result(self, client, db):
+    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
+    def test_empty_catalogue_renders_the_stated_empty_result(self, client, db, route_name):
         # Assert this view's own wording, not merely the presence of an empty
         # state — django-mvp's default heading ("There's nothing here yet")
         # would satisfy a looser match and hide an unwired empty state.
-        response = client.get(reverse("literature:item-list"))
+        response = client.get(reverse(route_name))
         assert response.status_code == 200
         content = response.content.decode()
         assert "Nothing in the catalogue yet" in content
         assert "References imported or created will appear here." in content
 
-    def test_each_row_links_to_that_items_page(self, client, db):
+    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
+    def test_each_row_links_to_that_items_page(self, client, db, route_name):
         item = ItemFactory(title="A Linked Reference")
-        response = client.get(reverse("literature:item-list"))
+        response = client.get(reverse(route_name))
         content = response.content.decode()
         assert reverse("literature:item-detail", kwargs={"pk": item.pk}) in content
 
+    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
+    def test_the_add_link_renders_and_points_at_the_create_page(self, client, db, route_name):
+        # directory = ["create"] alone renders nothing without
+        # show_create_action set (plan.md D-6) — this is the entry point
+        # US-1's acceptance scenario 1 starts from.
+        content = client.get(reverse(route_name)).content.decode()
+        assert f'href="{reverse("literature:item-create")}"' in content
+
     def test_item_with_no_title_shows_its_citation_key(self, client, db):
+        # The card's own single-level fallback (title -> citation_key); the
+        # table's five-rung chain is tables.py's own contract, tested in
+        # tests/test_ui/test_tables.py::TestTitleColumn.
         ItemFactory(title="", citation_key="FallbackKey2026")
-        response = client.get(reverse("literature:item-list"))
+        response = client.get(reverse("item-list-cards"))
         content = response.content.decode()
         assert "FallbackKey2026" in content
 
@@ -115,7 +163,7 @@ class TestItemListView:
         item = ItemFactory(title="With Everything", citation_key="Everything2026")
         item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
-        response = client.get(reverse("literature:item-list"))
+        response = client.get(reverse("item-list-cards"))
         content = response.content.decode()
         assert "Everything2026" in content
         assert "2020" in content
@@ -127,16 +175,242 @@ class TestItemListView:
         # reference page rendered the same date correctly (RC-002).
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
-        content = client.get(reverse("literature:item-list")).content.decode()
+        content = client.get(reverse("item-list-cards")).content.decode()
         assert "2019" in content
         assert "2021" in content
 
     def test_row_falls_back_to_a_free_text_date(self, client, db):
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=None, literal="in press")
-        assert "in press" in client.get(reverse("literature:item-list")).content.decode()
+        assert "in press" in client.get(reverse("item-list-cards")).content.decode()
 
     def test_query_count_does_not_grow_with_row_count(self, client, db):
+        def add_items(n):
+            for _ in range(n):
+                item = ItemFactory()
+                ItemNameFactory(item=item)
+                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
+
+        add_items(3)
+        with CaptureQueriesContext(connection) as small_catalogue:
+            response = client.get(reverse("item-list-cards"))
+        assert response.status_code == 200
+
+        add_items(15)
+        with CaptureQueriesContext(connection) as large_catalogue:
+            response = client.get(reverse("item-list-cards"))
+        assert response.status_code == 200
+
+        assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
+
+
+class TestCatalogueListReadability:
+    """Issue #65 — what the card list and its rows say at a glance.
+
+    Re-pointed to the card's own route rather than deleted or loosened
+    (plan.md D-11): every assertion here is about the card, and the card is
+    not going away — only the default route in front of it moved.
+    """
+
+    def test_the_page_is_titled_for_what_it_holds_not_for_the_model(self, client, db):
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "Publications" in content
+        assert "Items" not in content
+
+    def test_the_position_line_names_the_collection_the_same_way_the_heading_does(self, client, db):
+        # django-mvp writes this line from the model's verbose_name_plural, so
+        # retitling the page alone left it reading "Showing 1-24 of 28 items"
+        # directly under a heading that said Publications.
+        ItemFactory.create_batch(30)
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "of 30 publications" in content
+        assert "of 30 items" not in content
+
+    def test_the_model_keeps_its_own_name(self, db):
+        # The heading is the view's to choose. Renaming the model to reach it
+        # would rename it in the admin, in every error message and in the
+        # migration state, for a word on one page.
+        assert str(Item._meta.verbose_name_plural) == "items"
+
+    def test_the_item_type_badge_carries_the_primary_colour(self, client, db):
+        ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert re.search(r'class="badge badge-primary[^"]*">\s*Journal Article\s*<', content)
+
+    def test_contributor_names_link_to_their_page(self, client, db):
+        # The reference page has carried this link since FR-022; the row showed
+        # the same names as plain text, so a reader could not tell from the
+        # catalogue that a contributor had a page at all.
+        item_name = ItemNameFactory(role=NameRole.AUTHOR)
+        content = client.get(reverse("item-list-cards")).content.decode()
+        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert f'href="{contributor_url}"' in content
+
+    def test_a_contributor_link_underlines_on_hover(self, client, db):
+        item_name = ItemNameFactory(role=NameRole.AUTHOR)
+        content = client.get(reverse("item-list-cards")).content.decode()
+        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert "link-hover" in anchor_tag(content, contributor_url)
+
+    def test_the_title_link_underlines_on_hover(self, client, db):
+        item = ItemFactory(title="A Followable Title")
+        content = client.get(reverse("item-list-cards")).content.decode()
+        item_url = reverse("literature:item-detail", kwargs={"pk": item.pk})
+        assert "link-hover" in anchor_tag(content, item_url)
+
+    def test_a_role_heading_pluralises_with_the_names_under_it(self, client, db):
+        item = ItemFactory()
+        for _ in range(3):
+            ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "Authors:" in content
+        assert "Author:" not in content
+
+    def test_a_role_heading_stays_singular_for_one_name(self, client, db):
+        ItemNameFactory(role=NameRole.AUTHOR)
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "Author:" in content
+
+    def test_the_citation_key_is_labelled(self, client, db):
+        # Given a title, so the row's fallback does not also print the key
+        # (the fallback is the row's heading, and is not what this labels).
+        ItemFactory(title="A Titled Reference", citation_key="Labelled2026")
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "Cite key" in content
+        assert content.index("Cite key") < content.index("Labelled2026")
+
+    def test_a_row_shows_a_snippet_of_the_abstract(self, client, db):
+        ItemFactory(abstract="Sediment cores record the drainage history of the basin.")
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "Sediment cores record the drainage history of the basin." in content
+
+    def test_a_long_abstract_is_cut_to_a_snippet(self, client, db):
+        ItemFactory(abstract=" ".join(f"word{n}" for n in range(60)))
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "word0" in content
+        assert "word59" not in content
+
+    def test_a_row_carrying_no_abstract_leaves_no_empty_paragraph_behind(self, client, db):
+        # The snippet is a paragraph; rendered unconditionally it would leave an
+        # empty one on every row of a catalogue imported without abstracts,
+        # which is most of them.
+        item = ItemFactory(abstract="")
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert re.search(r"<p[^>]*>\s*</p>", content) is None
+        assert item.citation_key in content
+
+
+class TestTheCardListStaysAvailable:
+    """US-4 — the card presentation did not go away (FR-022, FR-023, FR-027).
+
+    The list behaviour a project switching to this route inherits —
+    ordering, page size, the empty state, the create action — is already
+    asserted for both presentations by ``TestItemListView``'s
+    ``CATALOGUE_ROUTES`` parametrization. This class asserts the promise
+    itself: the class is reachable, the route it is pointed at renders cards
+    rather than the table it no longer defaults to, the contributor page
+    still presents cards, and none of that needs a template copied out of
+    the package.
+    """
+
+    def test_itemlistview_is_importable_from_the_views_module(self):
+        from literature.ui.views import ItemListView
+
+        assert ItemListView.list_item_template == "literature/ui/item_list_item.html"
+
+    def test_routing_a_url_at_it_renders_cards_not_the_table(self, client, db):
+        # "<table" is unique to django-tables2's own template
+        # (django_tables2/bootstrap5-mvp.html) — nothing in the card's own
+        # chain renders one, so its presence or absence tells the two
+        # presentations apart directly.
+        ItemFactory(title="A Card-Rendered Reference")
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "<table" not in content
+        assert "A Card-Rendered Reference" in content
+
+    def test_routing_a_url_at_it_keeps_pagination_the_empty_state_and_the_create_action(self, client, db):
+        # Empty state first — populating the catalogue would hide it.
+        empty_content = client.get(reverse("item-list-cards")).content.decode()
+        assert "Nothing in the catalogue yet" in empty_content
+        assert f'href="{reverse("literature:item-create")}"' in empty_content
+
+        ItemFactory.create_batch(30)
+        populated_content = client.get(reverse("item-list-cards")).content.decode()
+        assert "1-24 of 30" in populated_content
+        assert 'href="?page=2"' in populated_content
+
+    def test_the_contributor_page_still_presents_cards(self, client, db):
+        contributor = NameFactory()
+        item = ItemFactory(title="A Contributor Page Reference")
+        ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
+        content = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})).content.decode()
+        assert "<table" not in content
+        assert "A Contributor Page Reference" in content
+
+    def test_no_template_is_copied_out_of_the_package_to_render_the_cards(self):
+        # Every template the card chain reaches for resolves inside the
+        # literature package itself, so a project routing at ItemListView
+        # needs to write nothing of its own to get the page FR-022 promises.
+        package_root = Path(literature.__file__).resolve().parent
+        for template_name in ("literature/ui/item_list_item.html", "literature/ui/contributor_item.html"):
+            origin = Path(get_template(template_name).origin.name).resolve()
+            assert package_root in origin.parents, f"{template_name} resolved outside the package at {origin}"
+
+
+class TestItemTableView:
+    """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021, plan.md D-2)."""
+
+    def test_column_headers_appear_in_the_required_order(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        headers = ["Citation key", "Type", "Title", "Container title", "Authors", "Issued"]
+        positions = [content.index(header) for header in headers]
+        assert positions == sorted(positions)
+
+    def test_no_cell_renders_stored_text_unescaped(self, client, db):
+        # Every free-text column at once, on the rendered page rather than
+        # on a cell: a plain column's own cell value is its raw text and the
+        # escaping is the table template's, so a cell-level assertion would
+        # be checking the wrong layer. All four fields below are entered
+        # through this package's own write pages, which it deliberately
+        # leaves open (Article V).
+        payload = "<script>alert(1)</script>"
+        item = ItemFactory(citation_key=payload, title=payload, container_title=payload)
+        ItemNameFactory(item=item, name=NameFactory(family=payload, given=""), role=NameRole.AUTHOR)
+
+        content = client.get(reverse("literature:item-list")).content.decode()
+
+        assert payload not in content
+        assert content.count("&lt;script&gt;alert(1)&lt;/script&gt;") == 4
+
+    def test_a_row_carries_all_six_data_columns_for_one_reference(self, client, db):
+        item = ItemFactory(
+            title="A Complete Reference",
+            citation_key="Complete2026",
+            container_title="Journal of Everything",
+            type=ItemType.ARTICLE_JOURNAL,
+        )
+        item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Complete2026" in content
+        assert "Journal Article" in content
+        assert "A Complete Reference" in content
+        assert "Journal of Everything" in content
+        assert str(item_name.name) in content
+        assert "2020" in content
+
+    def test_paging_to_the_next_page_renders_the_next_rows_under_the_same_headings(self, client, db):
+        ItemFactory.create_batch(30)
+        response = client.get(reverse("literature:item-list"), {"page": 2})
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert "Citation key" in content
+        assert len(response.context["object_list"]) == 6
+
+    def test_query_count_does_not_grow_with_row_count(self, client, db):
+        # FR-012 — proves T009's prefetches are actually being read, rather
+        # than the manager (research R9): the credited-names cell filtering
+        # record.item_names.filter(...) would cost one query per row.
         def add_items(n):
             for _ in range(n):
                 item = ItemFactory()
@@ -155,108 +429,181 @@ class TestItemListView:
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
 
-    def test_the_add_link_renders_and_points_at_the_create_page(self, client, db):
-        # directory = ["create"] alone renders nothing without
-        # show_create_action set (plan.md D-6) — this is the entry point
-        # US-1's acceptance scenario 1 starts from.
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert f'href="{reverse("literature:item-create")}"' in content
-
-
-class TestCatalogueListReadability:
-    """Issue #65 — what the catalogue list and its rows say at a glance.
-
-    Nothing here changes what the page reports, only how readably it reports
-    it, so every test asserts on presentation over data the existing
-    ``TestItemListView`` cases already prove is present.
-    """
-
-    def test_the_page_is_titled_for_what_it_holds_not_for_the_model(self, client, db):
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert "Publications" in content
-        assert "Items" not in content
-
-    def test_the_position_line_names_the_collection_the_same_way_the_heading_does(self, client, db):
-        # django-mvp writes this line from the model's verbose_name_plural, so
-        # retitling the page alone left it reading "Showing 1-24 of 28 items"
-        # directly under a heading that said Publications.
-        ItemFactory.create_batch(30)
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert "of 30 publications" in content
-        assert "of 30 items" not in content
-
-    def test_the_model_keeps_its_own_name(self, db):
-        # The heading is the view's to choose. Renaming the model to reach it
-        # would rename it in the admin, in every error message and in the
-        # migration state, for a word on one page.
-        assert str(Item._meta.verbose_name_plural) == "items"
-
-    def test_the_item_type_badge_carries_the_primary_colour(self, client, db):
-        ItemFactory(type=ItemType.ARTICLE_JOURNAL)
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert re.search(r'class="badge badge-primary[^"]*">\s*Journal Article\s*<', content)
-
-    def test_contributor_names_link_to_their_page(self, client, db):
-        # The reference page has carried this link since FR-022; the row showed
-        # the same names as plain text, so a reader could not tell from the
-        # catalogue that a contributor had a page at all.
-        item_name = ItemNameFactory(role=NameRole.AUTHOR)
-        content = client.get(reverse("literature:item-list")).content.decode()
-        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
-        assert f'href="{contributor_url}"' in content
-
-    def test_a_contributor_link_underlines_on_hover(self, client, db):
-        item_name = ItemNameFactory(role=NameRole.AUTHOR)
-        content = client.get(reverse("literature:item-list")).content.decode()
-        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
-        assert "link-hover" in anchor_tag(content, contributor_url)
-
-    def test_the_title_link_underlines_on_hover(self, client, db):
-        item = ItemFactory(title="A Followable Title")
-        content = client.get(reverse("literature:item-list")).content.decode()
-        item_url = reverse("literature:item-detail", kwargs={"pk": item.pk})
-        assert "link-hover" in anchor_tag(content, item_url)
-
-    def test_a_role_heading_pluralises_with_the_names_under_it(self, client, db):
+    def test_the_edit_control_renders_and_points_at_each_rows_own_update_page(self, client, db):
         item = ItemFactory()
-        for _ in range(3):
-            ItemNameFactory(item=item, role=NameRole.AUTHOR)
         content = client.get(reverse("literature:item-list")).content.decode()
-        assert "Authors:" in content
-        assert "Author:" not in content
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' in content
 
-    def test_a_role_heading_stays_singular_for_one_name(self, client, db):
-        ItemNameFactory(role=NameRole.AUTHOR)
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert "Author:" in content
+    def test_the_edit_control_follows_show_update_action_like_the_reference_pages_own(self, client, db, monkeypatch):
+        # FR-020 — the same CRUDDirectoryMixin flag ItemDetailView's own edit
+        # action reads (literature/ui/views.py), overridden here the same way
+        # a project would override it to gate the write page.
+        from literature.ui.views import ItemTableView
 
-    def test_the_citation_key_is_labelled(self, client, db):
-        # Given a title, so the row's fallback does not also print the key
-        # (the fallback is the row's heading, and is not what this labels).
-        ItemFactory(title="A Titled Reference", citation_key="Labelled2026")
+        monkeypatch.setattr(ItemTableView, "show_update_action", False)
+        item = ItemFactory()
         content = client.get(reverse("literature:item-list")).content.decode()
-        assert "Cite key" in content
-        assert content.index("Cite key") < content.index("Labelled2026")
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' not in content
 
-    def test_a_row_shows_a_snippet_of_the_abstract(self, client, db):
-        ItemFactory(abstract="Sediment cores record the drainage history of the basin.")
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert "Sediment cores record the drainage history of the basin." in content
+    def test_the_control_and_its_target_are_reachable_with_no_authentication(self, client, db):
+        # FR-020 — this feature introduces no permission check, login
+        # requirement or other access control of its own. ``client`` here is
+        # the plain, unauthenticated test client every other assertion in
+        # this module already uses; both pages 200 for it.
+        item = ItemFactory()
+        assert client.get(reverse("literature:item-list")).status_code == 200
+        assert client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).status_code == 200
 
-    def test_a_long_abstract_is_cut_to_a_snippet(self, client, db):
-        ItemFactory(abstract=" ".join(f"word{n}" for n in range(60)))
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert "word0" in content
-        assert "word59" not in content
+    def test_carries_no_search_box_filter_control_or_column_chooser(self, client, db):
+        # FR-025, asserted against the rendered page rather than only
+        # against the view's own actions/search_fields configuration — an
+        # upstream default reintroducing one of these would otherwise pass
+        # silently (T029).
+        ItemFactory()
+        response = client.get(reverse("literature:item-list"))
+        content = response.content.decode()
+        # The only action this view names (plan.md D-2) — the surface an
+        # upstream actions default would widen if it ever added one back.
+        assert response.context["table_actions"] == ["create"]
+        assert 'name="q"' not in content  # the search box's own input name
+        assert "filterModal" not in content  # the filter control's own modal id
+        # No column-chooser ships in either django-tables2 or django-mvp
+        # today — nothing here builds one, and the closed actions list above
+        # is what would carry it if a future default introduced one.
 
-    def test_a_row_carrying_no_abstract_leaves_no_empty_paragraph_behind(self, client, db):
-        # The snippet is a paragraph; rendered unconditionally it would leave an
-        # empty one on every row of a catalogue imported without abstracts,
-        # which is most of them.
-        item = ItemFactory(abstract="")
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert re.search(r"<p[^>]*>\s*</p>", content) is None
-        assert item.citation_key in content
+    def test_the_queryset_annotates_issued_matching_the_items_own_issued_date(self, client, db):
+        # T017 — the Subquery ordering will read at T018 (plan.md D-8,
+        # research R7). A join-based filter is deliberately not used, since
+        # it risks row multiplication and interferes with the paginator's
+        # count query.
+        item = ItemFactory()
+        issued_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020-05-01")
+        issued_date.refresh_from_db()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
+        response = client.get(reverse("literature:item-list"))
+        (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
+        assert annotated_item.issued == issued_date.begin
+
+    def test_the_issued_annotation_is_none_for_a_reference_with_no_issued_date(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
+        response = client.get(reverse("literature:item-list"))
+        (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
+        assert annotated_item.issued is None
+
+
+#: One item-building override per plain sortable column, cycled by index so
+#: 30 references get 30 distinct, independently-sortable values (T019).
+#: "type" cycles a fixed set of stored slugs rather than a unique value per
+#: item — sorting is still monotonic across ties, and it doubles as FR-017's
+#: check that ordering follows the stored slug, not the translated label.
+PLAIN_SORTABLE_COLUMN_OVERRIDES = {
+    "citation_key": lambda n: {"citation_key": f"Key{n:03d}"},
+    "title": lambda n: {"title": f"Title{n:03d}"},
+    "container_title": lambda n: {"container_title": f"Container{n:03d}"},
+    "type": lambda n: {"type": [ItemType.ARTICLE, ItemType.BOOK, ItemType.CHAPTER][n % 3]},
+}
+
+
+class TestCatalogueOrdering:
+    """Sorting the catalogue from an HTTP request — FR-013 through FR-018 (plan.md D-8, research R7)."""
+
+    def catalogue_column_values(self, client, column, sort_param=None):
+        """Every reference's ``column`` value, gathered across both pages of
+        a 30-row catalogue — proving a sort is applied to the whole
+        queryset rather than only to whichever rows a page happens to
+        show.
+
+        Reads ``table.page`` rather than the plain ``object_list`` context
+        key: ``SingleTableMixin`` sorts and paginates its own copy of the
+        queryset independently of ``MVPListViewMixin``'s, and ``object_list``
+        never reflects the sort at all.
+        """
+        values = []
+        params = {"sort": sort_param} if sort_param else {}
+        for page in (1, 2):
+            response = client.get(reverse("literature:item-list"), {**params, "page": page})
+            values += [getattr(row.record, column) for row in response.context["table"].page.object_list]
+        return values
+
+    @pytest.mark.parametrize("column", sorted(PLAIN_SORTABLE_COLUMN_OVERRIDES))
+    def test_ascending_sort_orders_the_whole_catalogue_not_only_the_current_page(self, client, db, column):
+        # 30 references over a 24-row page (FR-014, FR-016).
+        for n in range(30):
+            ItemFactory(**PLAIN_SORTABLE_COLUMN_OVERRIDES[column](n))
+        values = self.catalogue_column_values(client, column, sort_param=column)
+        assert len(values) == 30
+        assert values == sorted(values)
+
+    def test_ascending_sort_by_issued_date_keeps_undated_references_last(self, client, db):
+        # FR-018 — read through the HTTP sort param rather than only through
+        # order_issued directly (TestIssuedOrdering already covers that).
+        dated_keys = []
+        for n in range(20):
+            item = ItemFactory(citation_key=f"Dated{n:03d}")
+            ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=str(2000 + n))
+            dated_keys.append(item.citation_key)
+        undated_keys = {ItemFactory(citation_key=f"Undated{n:03d}").citation_key for n in range(10)}
+        citation_keys = self.catalogue_column_values(client, "citation_key", sort_param="issued")
+        assert citation_keys[:20] == dated_keys
+        assert set(citation_keys[20:]) == undated_keys
+
+    def test_sort_direction_reverses_on_a_second_request(self, client, db):
+        for n in range(30):
+            ItemFactory(citation_key=f"Key{n:03d}")
+        ascending = self.catalogue_column_values(client, "citation_key", sort_param="citation_key")
+        descending = self.catalogue_column_values(client, "citation_key", sort_param="-citation_key")
+        assert ascending == list(reversed(descending))
+        assert ascending != descending
+
+    def test_sort_by_the_contributors_column_is_refused(self, client, db):
+        # FR-015 — the credited-names cell has no single value to order on.
+        first = ItemFactory(citation_key="First")
+        second = ItemFactory(citation_key="Second")
+        response = client.get(reverse("literature:item-list"), {"sort": "contributors"})
+        assert response.status_code == 200
+        # Refused, not errored: django-tables2 silently drops an order_by
+        # alias naming a non-orderable column, so the table keeps its
+        # default newest-first order rather than raising or reordering.
+        citation_keys = [row.record.citation_key for row in response.context["table"].page.object_list]
+        assert citation_keys == [second.citation_key, first.citation_key]
+
+    def test_sort_by_the_actions_column_is_refused(self, client, db):
+        # FR-015 — a control, not data, has no single value to order on.
+        first = ItemFactory(citation_key="First")
+        second = ItemFactory(citation_key="Second")
+        response = client.get(reverse("literature:item-list"), {"sort": "actions"})
+        assert response.status_code == 200
+        citation_keys = [row.record.citation_key for row in response.context["table"].page.object_list]
+        assert citation_keys == [second.citation_key, first.citation_key]
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "django-mvp's pagination link replaces the whole query string and drops ?sort= "
+            "(plan.md D-14) — tracked here as issue #88, upstream as django-mvp/django-mvp#270. "
+            "Flips green once the fix lands and the ui floor in T001 carries it."
+        ),
+    )
+    def test_sort_survives_following_the_rendered_link_to_page_2(self, client, db):
+        # citation_key runs the opposite way to creation order, so a sort by
+        # -citation_key produces a different row order than the catalogue's
+        # default (-created) — a test where the two coincide would pass
+        # whether or not the followed link actually carried the sort.
+        for n in range(30):
+            ItemFactory(citation_key=f"Key{29 - n:03d}")
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"sort": "-citation_key"})
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        # Still descending across the page boundary — fails today because
+        # the followed link carries no ?sort= and page 2 falls back to the
+        # catalogue's default newest-first order instead.
+        assert second_page_records[0].citation_key < first_page_records[-1].citation_key
 
 
 class TestItemCreateView:
@@ -895,7 +1242,7 @@ class TestCSLRoundTrip:
         assert round_tripped_csl == original_csl
 
 
-class _AlpineScopeParser(HTMLParser):
+class AlpineScopeParser(HTMLParser):
     """Capture the parsed ``x-init`` that seeds the form's Alpine scope.
 
     Parsed, not grepped. The page carrying a substring proves nothing about
@@ -917,8 +1264,8 @@ class _AlpineScopeParser(HTMLParser):
             self.x_init = as_dict["x-init"]
 
 
-def _alpine_scope(body):
-    parser = _AlpineScopeParser()
+def alpine_scope(body):
+    parser = AlpineScopeParser()
     parser.feed(body)
     return parser
 
@@ -933,17 +1280,17 @@ class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
     """
 
     def test_the_create_pages_scope_element_carries_exactly_one_attribute(self, client, db):
-        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        parser = alpine_scope(client.get(reverse("literature:item-create")).content.decode())
         assert parser.attr_count == 1, "the scope element gained attributes, which means the JSON broke out of x-init"
 
     def test_the_create_pages_type_map_parses_and_covers_every_item_type(self, client, db):
-        parser = _alpine_scope(client.get(reverse("literature:item-create")).content.decode())
+        parser = alpine_scope(client.get(reverse("literature:item-create")).content.decode())
         assigned = parser.x_init.split("form.typeGroups = ", 1)[1].rsplit(";", 1)[0]
         assert json.loads(assigned).keys() == {t.value for t in ItemType}
 
     def test_the_edit_pages_forced_groups_parse(self, client, db):
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, scale="1:50000")
-        parser = _alpine_scope(client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode())
+        parser = alpine_scope(client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode())
         assert parser.attr_count == 1
         assigned = parser.x_init.split("form.forcedGroups = ", 1)[1].strip()
         assert "physical" in json.loads(assigned), "a populated off-type group must reach the browser as forced-visible"

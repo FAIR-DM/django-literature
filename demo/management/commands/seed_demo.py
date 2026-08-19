@@ -10,10 +10,10 @@ from django.db import transaction
 from literature.converters import from_csl_json_list
 from literature.models import Item, Name
 
-_DEFAULT_SEED_PATH = Path(__file__).resolve().parent.parent.parent / "seed" / "catalogue.json"
+DEFAULT_SEED_PATH = Path(__file__).resolve().parent.parent.parent / "seed" / "catalogue.json"
 
 
-def _key_of(entry):
+def key_of(entry):
     """The citation key a loaded Item would carry, as the converter reads it."""
     return entry.get("citation-key") or entry.get("id")
 
@@ -37,7 +37,7 @@ class Command(BaseCommand):
             Item.objects.all().delete()
             Name.objects.all().delete()
 
-            seed_path = Path(os.environ.get("DEMO_SEED_PATH", str(_DEFAULT_SEED_PATH)))
+            seed_path = Path(os.environ.get("DEMO_SEED_PATH", str(DEFAULT_SEED_PATH)))
             # encoding="utf-8" is not optional here. Without it Python uses the
             # locale's preferred encoding, so the same file loads differently on
             # different machines: the catalogue holds a German thesis title, Gödel
@@ -55,7 +55,7 @@ class Command(BaseCommand):
                 # raising, so a half-loaded catalogue must be caught here (FR-020).
                 loaded_keys = {item.citation_key for item in loaded}
                 missing = [
-                    _key_of(entry) or "<unidentified entry>" for entry in entries if _key_of(entry) not in loaded_keys
+                    key_of(entry) or "<unidentified entry>" for entry in entries if key_of(entry) not in loaded_keys
                 ]
                 raise CommandError(
                     f"seed_demo loaded {len(loaded)} of {len(entries)} entries from {seed_path}; "

@@ -6,6 +6,40 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **The catalogue serves as a table by default.** `literature.ui`'s catalogue page used to be a list
+  of cards; a project installing the front end with no configuration now gets a row per reference —
+  citation key, item type, title, the journal or book it appeared in, its credited names and its
+  issued date — with an edit control on every row and a sort on every column heading but the credited
+  names and the edit control themselves. Paging, the page size, the empty state and the Add action are
+  unchanged.
+
+  The card presentation the package served before is still there. `ItemListView` is unchanged, still
+  tested, and still what the contributor page is built on. A project that prefers cards for its own
+  catalogue restores the previous page with a settings key,
+  `LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.ItemListView"}`, which also takes a project's
+  own subclass of either view. Nothing is deprecated and nothing needs to be copied out of the
+  package to do it.
+
+  Sorting the table by item type orders by the type's stored value rather than by its translated
+  label, since the label reads differently in every language the catalogue is served in and the order
+  behind it should not.
+
+  Known limitation: a chosen sort is discarded when you move to the next page, because the pagination
+  links replace the whole query string. That is a defect in the shared component the page renders,
+  fixed there rather than worked around here; [#88](https://github.com/FAIR-DM/django-literature/issues/88)
+  tracks it and this page picks the fix up with the next dependency bump.
+
+  New runtime dependency, in the `ui` extra only: `django-tables2`. A core-only install, or a project
+  that has not opted into the front end, resolves neither it nor django-mvp.
+
+### Removed
+
+- The one-line `base.html` `literature.ui` used to ship. django-mvp now ships a default of its own,
+  which was the stated condition for dropping this one. A project with its own `base.html` is
+  unaffected, and a project with none still gets a working shell.
+
 ## [v0.1.9] - 2026-08-14
 
 ### Changed

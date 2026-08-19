@@ -3,7 +3,7 @@
   "feature": "008-add-edit-remove-references",
   "branch": "008-add-edit-remove-references",
   "repo": "FAIR-DM/django-literature",
-  "state": "PR_READY",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "INTAKE",
@@ -74,6 +74,11 @@
       "state": "PR_READY",
       "at": "2026-08-14T02:40:00Z",
       "note": "PR #74 body rewritten to contract and marked ready. Author app/fairdm-bot, last pusher fairdm-bot, mergeable. All seven ruleset-required checks green. 'Walk the demo' is RED and is not a required check: diagnosed as a pre-existing infrastructure defect this branch did not cause - demo.yml pins setup-poetry@v0.2.0, which gates the dependency install on a cache miss, and on a cache hit poetry then discards the restored venv as broken and rebuilds it empty. Fixed upstream at v0.3.2, whose install step is unconditional with a comment describing this exact failure; the repo's other workflows were moved to v0.3.2 and demo.yml was written just after and kept the old pin. Filed as issue #75 with the one-line fix. Not fixable here: workflow files need a token the bot deliberately does not hold."
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-13T20:19:54Z",
+      "note": "PR #74 merged; approved by SamuelJennings"
     }
   ],
   "gates": {
@@ -95,8 +100,8 @@
       "at": "2026-08-13T16:45:00Z"
     },
     "merge": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-13T20:17:43Z"
     },
     "design_review": {
       "approved_by": "design-reviewer",

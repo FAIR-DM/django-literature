@@ -22,35 +22,35 @@ import pytest
 from literature.choices import DateType, IdentifierType, NameRole
 from literature.ui.views import ItemListView
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_CATALOGUE_PATH = _REPO_ROOT / "demo" / "seed" / "catalogue.json"
-_UI_TEMPLATES = _REPO_ROOT / "literature" / "ui" / "templates" / "literature" / "ui"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+CATALOGUE_PATH = REPO_ROOT / "demo" / "seed" / "catalogue.json"
+UI_TEMPLATES = REPO_ROOT / "literature" / "ui" / "templates" / "literature" / "ui"
 
-_ROLE_KEYS = [role.value for role in NameRole]
-_DATE_KEYS = [date_type.value for date_type in DateType]
-_IDENTIFIER_KEYS = [identifier_type.value for identifier_type in IdentifierType]
+ROLE_KEYS = [role.value for role in NameRole]
+DATE_KEYS = [date_type.value for date_type in DateType]
+IDENTIFIER_KEYS = [identifier_type.value for identifier_type in IdentifierType]
 
 
-def _contributors(entry):
+def contributors(entry):
     """All (role, name-dict) pairs an entry credits, across every CSL name-variable key."""
     pairs = []
-    for role in _ROLE_KEYS:
+    for role in ROLE_KEYS:
         for name in entry.get(role, []):
             pairs.append((role, name))
     return pairs
 
 
-def _name_key(name):
+def name_key(name):
     """A hashable identity for a CSL name object, literal or family/given."""
     return (name.get("literal", ""), name.get("family", ""), name.get("given", ""))
 
 
-def _entry_key(entry):
+def entry_key(entry):
     """An entry's citation key, falling back to CSL JSON's bare ``id`` (converters.py:311-330)."""
     return entry.get("citation-key") or entry.get("id", "")
 
 
-def _date_precision(date_variable):
+def date_precision(date_variable):
     """'range', 'year', or the number of date-parts components, for a single date-variable."""
     date_parts = date_variable.get("date-parts", [])
     if len(date_parts) == 2:
@@ -62,7 +62,7 @@ def _date_precision(date_variable):
 
 @pytest.fixture(scope="module")
 def catalogue():
-    return json.loads(_CATALOGUE_PATH.read_text(encoding="utf-8"))
+    return json.loads(CATALOGUE_PATH.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +78,7 @@ def snippet_words():
     template, free to drift the moment the template changes — the same reason
     ``paginate_by`` is read from the view rather than typed out.
     """
-    source = (_UI_TEMPLATES / "item_list_item.html").read_text(encoding="utf-8")
+    source = (UI_TEMPLATES / "item_list_item.html").read_text(encoding="utf-8")
     match = re.search(r"abstract\|truncatewords:(\d+)", source)
     assert match, "the catalogue row no longer truncates the abstract with truncatewords"
     return int(match.group(1))
@@ -92,18 +92,18 @@ class TestSeedCatalogue:
         assert len(types) >= 10
 
     def test_has_a_reference_with_eight_or_more_contributors(self, catalogue):
-        counts = [len(_contributors(entry)) for entry in catalogue]
+        counts = [len(contributors(entry)) for entry in catalogue]
         assert max(counts) >= 8
 
     def test_has_a_reference_with_exactly_two_contributors(self, catalogue):
-        counts = [len(_contributors(entry)) for entry in catalogue]
+        counts = [len(contributors(entry)) for entry in catalogue]
         assert 2 in counts
 
     def test_a_contributor_is_credited_on_two_references_under_two_different_roles(self, catalogue):
         roles_by_name = defaultdict(lambda: defaultdict(set))
         for entry in catalogue:
-            for role, name in _contributors(entry):
-                roles_by_name[_name_key(name)][role].add(_entry_key(entry))
+            for role, name in contributors(entry):
+                roles_by_name[name_key(name)][role].add(entry_key(entry))
 
         for roles in roles_by_name.values():
             if len(roles) < 2:
@@ -115,7 +115,7 @@ class TestSeedCatalogue:
 
     def test_has_a_year_only_date(self, catalogue):
         precisions = {
-            _date_precision(entry[date_key]) for entry in catalogue for date_key in _DATE_KEYS if date_key in entry
+            date_precision(entry[date_key]) for entry in catalogue for date_key in DATE_KEYS if date_key in entry
         }
         assert "year" in precisions
 
@@ -123,7 +123,7 @@ class TestSeedCatalogue:
         full_dates = [
             entry[date_key]
             for entry in catalogue
-            for date_key in _DATE_KEYS
+            for date_key in DATE_KEYS
             if date_key in entry
             and len(entry[date_key].get("date-parts", [])) == 1
             and len(entry[date_key]["date-parts"][0]) == 3
@@ -132,20 +132,20 @@ class TestSeedCatalogue:
 
     def test_has_a_date_range(self, catalogue):
         precisions = {
-            _date_precision(entry[date_key]) for entry in catalogue for date_key in _DATE_KEYS if date_key in entry
+            date_precision(entry[date_key]) for entry in catalogue for date_key in DATE_KEYS if date_key in entry
         }
         assert "range" in precisions
 
     def test_has_identifiers_of_more_than_one_type_including_a_doi(self, catalogue):
-        identifier_types_present = {key for entry in catalogue for key in _IDENTIFIER_KEYS if key in entry}
+        identifier_types_present = {key for entry in catalogue for key in IDENTIFIER_KEYS if key in entry}
         assert len(identifier_types_present) >= 2
         assert "DOI" in identifier_types_present
 
     def test_has_exactly_one_reference_with_no_contributors_dates_or_identifiers(self, catalogue):
         def is_bare(entry):
-            has_contributors = bool(_contributors(entry))
-            has_dates = any(date_key in entry for date_key in _DATE_KEYS)
-            has_identifiers = any(identifier_key in entry for identifier_key in _IDENTIFIER_KEYS)
+            has_contributors = bool(contributors(entry))
+            has_dates = any(date_key in entry for date_key in DATE_KEYS)
+            has_identifiers = any(identifier_key in entry for identifier_key in IDENTIFIER_KEYS)
             return not (has_contributors or has_dates or has_identifiers)
 
         bare_entries = [entry for entry in catalogue if is_bare(entry)]

@@ -14,7 +14,7 @@ from django.conf import settings
 # A fresh subprocess, never the pytest process: django.setup() only ever runs
 # once per interpreter, and the pytest session has already populated the app
 # registry from tests.settings before this test executes.
-_CORE_BOOT_SCRIPT = """
+CORE_BOOT_SCRIPT = """
 import os
 # Force, not setdefault: pytest-django exports DJANGO_SETTINGS_MODULE=tests.settings
 # into the environment, and this subprocess inherits it by default.
@@ -38,7 +38,7 @@ class TestSettingsCore:
 
     def test_boots_with_no_ui_app_and_an_empty_urlconf(self):
         result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
-            [sys.executable, "-c", _CORE_BOOT_SCRIPT],
+            [sys.executable, "-c", CORE_BOOT_SCRIPT],
             capture_output=True,
             text=True,
             check=False,

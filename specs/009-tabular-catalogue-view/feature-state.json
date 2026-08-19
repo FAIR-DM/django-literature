@@ -1,0 +1,640 @@
+{
+  "$schema": "https://forge.local/schemas/feature-state.schema.json",
+  "feature": "009-tabular-catalogue-view",
+  "branch": "009-tabular-catalogue-view",
+  "repo": "FAIR-DM/django-literature",
+  "state": "GATE_MERGE",
+  "state_history": [
+    {
+      "state": "INTAKE",
+      "at": "2026-08-19T08:50:00Z",
+      "note": "Issue #81 grilled over six questions and accepted."
+    },
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-19T09:20:00Z",
+      "note": "spec.md + decisions.md written; ten ambiguities self-resolved, no unresolved markers."
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-19T09:40:00Z",
+      "note": "Epic #81 promoted, stories #82-#86 created and linked, draft PR #87 opened bot-authored. Title lint and stage checks green."
+    },
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-19T10:05:00Z",
+      "note": "Approved by Sam. Ruling: remove the stack constraint on further front-end packages rather than satisfy it, on this branch. Constitution amended to 4.0.0 and declared in the PR description."
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-19T10:40:00Z",
+      "note": "research.md (11 findings), plan.md (13 design decisions), tasks.md (28 tasks across a foundational phase and five stories)."
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-19T11:20:00Z",
+      "note": "One reviewer, three lenses, all request_changes. Two blockers verified in source and taken: pagination discards the sort (fix upstream in django-mvp, floor rises), and the credited-names cell becomes a template column so escaping is the template layer's. Five further findings applied, two research findings amended. Design review budget spent."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-19T13:30:00Z",
+      "note": "US-1, US-2 and US-3 landed on the feature branch. Suite 1570 passed, 1 documented xfail for the upstream pagination defect (#88). Ledger reconciled from git after it was left at DESIGN_REVIEW through three stories."
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-19T16:10:00Z",
+      "note": "All five stories landed on the feature branch. Two convergence changes made here rather than left in the PR: the card list is selected by LITERATURE['CATALOGUE_VIEW'] instead of the documented urlpatterns mutation, with tests proved non-vacuous by bypassing the switch; and the leading-underscore naming is gone from the front end, the demo and their tests. Suite 1592 passed, 1 documented xfail (#88). Lint, format, types, deptry and makemigrations --check green."
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-19T17:05:00Z",
+      "note": "One reviewer, craft-review + craft-simplify, receipts verified. Nine findings, all resolved: primary-key tiebreak on every sortable column (a tied sort had no total order across pages), credited-names column alignment, a vacuous overflow-indication assertion, two escaping guards, four documentation corrections, and an import block committed failing lint. Double pagination filed as #89 / django-mvp#276 rather than forked."
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-19T17:10:00Z",
+      "note": "PR #87 out of draft, awaiting Sam. 1605 passed, 1 documented xfail (#88). Lint, format, types, deptry, makemigrations --check green."
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-19T10:05:00Z",
+      "self_resolved": [
+        "Title fallback chain ends at the citation key so the linked cell is never an empty-value marker",
+        "Contributor names in a table cell stay linked to their contributor pages",
+        "Credited names capped at three with a translatable indication that more exist",
+        "Five columns sort; credited names and the edit control declare themselves unsortable",
+        "Item type sorts by the stored CSL value, not the translated label, and the documentation says so",
+        "Search and filter controls switched off by name rather than left to an upstream default",
+        "The card list is not deprecated; a project restores it with a one-line routing change",
+        "Presentation only: no model, no field, no migration",
+        "The governance clause forbidding amendment alongside feature work becomes a disclosure rule, so the amendment Sam directed is not self-contradicting"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 82,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T000",
+          "status": "blocked",
+          "attempts": 0
+        },
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 83,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 84,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T029",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_tables.py",
+              "tests/test_ui/test_views.py",
+              "tests/test_ui/test_urls.py"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 85,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T024",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "US5",
+      "priority": "P5",
+      "issue": 86,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T025",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T026",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T027",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
+        },
+        {
+          "id": "T028",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 1,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 1,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 1,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 120
+    }
+  },
+  "pr": {
+    "number": 87,
+    "draft": false
+  },
+  "escalations": []
+}
