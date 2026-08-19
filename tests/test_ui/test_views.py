@@ -341,6 +341,33 @@ class TestItemTableView:
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
 
+    def test_the_edit_control_renders_and_points_at_each_rows_own_update_page(self, client, db):
+        item = ItemFactory()
+        content = client.get(reverse("literature:item-list")).content.decode()
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' in content
+
+    def test_the_edit_control_follows_show_update_action_like_the_reference_pages_own(self, client, db, monkeypatch):
+        # FR-020 — the same CRUDDirectoryMixin flag ItemDetailView's own edit
+        # action reads (literature/ui/views.py), overridden here the same way
+        # a project would override it to gate the write page.
+        from literature.ui.views import ItemTableView
+
+        monkeypatch.setattr(ItemTableView, "show_update_action", False)
+        item = ItemFactory()
+        content = client.get(reverse("literature:item-list")).content.decode()
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' not in content
+
+    def test_the_control_and_its_target_are_reachable_with_no_authentication(self, client, db):
+        # FR-020 — this feature introduces no permission check, login
+        # requirement or other access control of its own. ``client`` here is
+        # the plain, unauthenticated test client every other assertion in
+        # this module already uses; both pages 200 for it.
+        item = ItemFactory()
+        assert client.get(reverse("literature:item-list")).status_code == 200
+        assert client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).status_code == 200
+
 
 class TestItemCreateView:
     """Enter a reference by hand — US-1 (FR-001 through FR-011)."""

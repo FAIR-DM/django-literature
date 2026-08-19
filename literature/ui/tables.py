@@ -61,6 +61,25 @@ class _IssuedColumn(tables.TemplateColumn):
         return context
 
 
+class _ActionsColumn(tables.TemplateColumn):
+    """The row's edit control (FR-019, FR-020).
+
+    ``ItemTableView.get_table_kwargs()`` hands the table
+    ``show_update_action`` — the same ``CRUDDirectoryMixin`` flag
+    ``ItemDetailView``'s own edit action reads through
+    ``self.show_action("update")`` — as ``table.show_update_action``. This
+    column selects that value into the cell's context; the outer page
+    context is not relied on, since a ``TemplateColumn``'s cell renders
+    through Cotton's own isolated context and cannot be assumed to inherit
+    it (see ``ItemTable.__init__``).
+    """
+
+    def get_context_data(self, table, **kwargs):
+        context = super().get_context_data(table=table, **kwargs)
+        context["show_update_action"] = table.show_update_action
+        return context
+
+
 class ItemTable(tables.Table):
     """The catalogue, one row per reference (FR-001 through FR-012).
 
@@ -71,7 +90,18 @@ class ItemTable(tables.Table):
     prefetch. ``ItemTableView.get_queryset()`` supplies both (plan.md D-2);
     a consumer pairing this table with a plain ``SingleTableView`` of their
     own must supply them too, or pay one query per row for each.
+
+    ``show_update_action`` (FR-019, FR-020) gates the actions cell's edit
+    control. It defaults to ``True`` — a bare ``ItemTable`` is open, matching
+    this feature's rule that it introduces no access control of its own —
+    and ``ItemTableView.get_table_kwargs()`` overrides it with
+    ``self.show_action("update")``, the same ``CRUDDirectoryMixin`` flag
+    ``ItemDetailView``'s own edit action already reads.
     """
+
+    def __init__(self, *args, show_update_action=True, **kwargs):
+        self.show_update_action = show_update_action
+        super().__init__(*args, **kwargs)
 
     citation_key = tables.Column(
         verbose_name=_("Citation key"),
@@ -125,6 +155,14 @@ class ItemTable(tables.Table):
         # before then raises FieldError on the package's default page.
         orderable=False,
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
+    )
+    actions = _ActionsColumn(
+        verbose_name="",
+        template_name="literature/ui/_table_actions.html",
+        empty_values=(),
+        # A control, not data — no single value to order on (FR-015). Also
+        # what earns the column its centred alignment (research R6).
+        orderable=False,
     )
 
     class Meta:
