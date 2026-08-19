@@ -380,6 +380,23 @@ class TestItemTableView:
         assert client.get(reverse("literature:item-list")).status_code == 200
         assert client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).status_code == 200
 
+    def test_carries_no_search_box_filter_control_or_column_chooser(self, client, db):
+        # FR-025, asserted against the rendered page rather than only
+        # against the view's own actions/search_fields configuration — an
+        # upstream default reintroducing one of these would otherwise pass
+        # silently (T029).
+        ItemFactory()
+        response = client.get(reverse("literature:item-list"))
+        content = response.content.decode()
+        # The only action this view names (plan.md D-2) — the surface an
+        # upstream actions default would widen if it ever added one back.
+        assert response.context["table_actions"] == ["create"]
+        assert 'name="q"' not in content  # the search box's own input name
+        assert "filterModal" not in content  # the filter control's own modal id
+        # No column-chooser ships in either django-tables2 or django-mvp
+        # today — nothing here builds one, and the closed actions list above
+        # is what would carry it if a future default introduced one.
+
     def test_the_queryset_annotates_issued_matching_the_items_own_issued_date(self, client, db):
         # T017 — the Subquery ordering will read at T018 (plan.md D-8,
         # research R7). A join-based filter is deliberately not used, since
