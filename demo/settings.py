@@ -51,6 +51,9 @@ INSTALLED_APPS = [
     "django_cotton",
     "easy_icons",
     "flex_menu",
+    # The tabular catalogue renders through django-tables2, which ships the
+    # templatetag library the table component loads (README.md).
+    "django_tables2",
     # ``mvp`` before ``crispy_tailwind``: django-mvp overrides one of
     # crispy-tailwind's templates and the first app to declare a template
     # path wins (README.md).

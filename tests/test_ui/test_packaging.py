@@ -75,7 +75,10 @@ class TestNoDemoOnlyDependencyEntersTheBuild:
             "bibtexparser (>=1.4.4,<2)",
         ]
 
-    def test_the_ui_extra_is_exactly_django_mvp(self):
+    def test_the_ui_extra_is_exactly_the_front_end_packages(self):
         pyproject = _load_pyproject()
         ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
-        assert ui_extra == ["django-mvp (>=0.17,<1.0) ; python_version >= '3.12'"]
+        assert ui_extra == [
+            "django-mvp (>=0.19,<1.0) ; python_version >= '3.12'",
+            "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
+        ]

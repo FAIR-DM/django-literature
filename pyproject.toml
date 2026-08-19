@@ -186,9 +186,22 @@ classifiers = [
 # django-mvp declares requires-python >=3.12, while this project keeps its
 # >=3.11 floor for core-only consumers (see T001) — the marker keeps `poetry
 # lock` resolvable on 3.11 by making the extra unavailable there rather than
-# raising the whole project's floor. One entry only: django-mvp brings
-# django-cotton, easy-icons and flex-menus itself (research R1).
-ui = ["django-mvp (>=0.17,<1.0) ; python_version >= '3.12'"]
+# raising the whole project's floor. django-mvp brings django-cotton,
+# easy-icons and flex-menus itself, so those are not listed.
+#
+# django-tables2 is what the tabular catalogue renders through. django-mvp
+# reaches it as a guarded optional integration and declares no dependency on
+# it, so the extra names it directly.
+#
+# The django-mvp floor is 0.19 because the full-screen table layout, the
+# column width classes and the refusal of a view-level ordering all arrived
+# there; 0.17 and 0.18 import the same module and render the previous layout.
+# It rises again once django-mvp/django-mvp#270 ships — until then a chosen
+# sort is discarded when the reader moves to another page (#88).
+ui = [
+    "django-mvp (>=0.19,<1.0) ; python_version >= '3.12'",
+    "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
+]
 
 [project.urls]
 homepage = "https://github.com/FAIR-DM/django-literature"

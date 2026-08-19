@@ -15,7 +15,15 @@ import pytest
 LITERATURE_ROOT = Path(__file__).resolve().parents[2] / "literature"
 UI_ROOT = LITERATURE_ROOT / "ui"
 
-FORBIDDEN_ROOTS = ("mvp", "django_cotton", "crispy_forms", "easy_icons", "flex_menu", "literature.ui")
+FORBIDDEN_ROOTS = (
+    "mvp",
+    "django_cotton",
+    "crispy_forms",
+    "easy_icons",
+    "flex_menu",
+    "django_tables2",
+    "literature.ui",
+)
 
 
 def _core_modules():

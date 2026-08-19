@@ -167,3 +167,35 @@ volume title and container title are scalar fields on `Item`. Item type is `Item
 already requires stay relational and queryable. The issued date is the `ItemDate` occupying the
 `issued` slot, at most one per reference by construction. Ordering by issued date reads that
 related row rather than a denormalized copy, so no field is added to make a sort cheap.
+
+## D10 — The foundational phase was implemented directly, not dispatched
+
+Three mechanical tasks — a dependency bump, a lock regeneration, and one settings entry in two
+files — with no design content between them. Dispatching them into a worktree would have cost more
+than it saved, and the plan's design decisions were already settled. Recorded here because skipping
+dispatch is the exception, not the default.
+
+## D11 — The app's pass-through `base.html` was deleted, not carried forward
+
+Not a decision so much as an instruction coming due. The file existed because django-mvp routed
+every packaged page through an unqualified `base.html` and shipped no default, so an installable app
+could not reach the packaged chain in a project that had written none. Its own comment named the
+condition for its removal: "It is deleted the moment django-mvp ships a default of its own
+(django-mvp#219)."
+
+That issue closed on 2026-08-12 and the default shipped in django-mvp 0.18. Raising the floor to
+0.19 for the table layout therefore also satisfied the pass-through's deletion condition, and the
+suite said so immediately — a template test failed because django-mvp's own `base.html` now wins
+the lookup.
+
+The file is gone. Its tests are not: what they guaranteed was that the packaged chain resolves for a
+project with no `base.html` of its own, and that a project which has one still wins. Both are still
+asserted, now against django-mvp's default rather than ours. The floor this package declares is what
+guarantees the replacement is present.
+
+## D12 — `deptry` is red between declaring django-tables2 and importing it
+
+The foundational phase declares the dependency; the first module that imports it arrives with the
+first story. In between, `deptry` reports DEP002 — declared but unused — which is correct and
+temporary. It is left red rather than silenced with an ignore entry that would have to be found and
+removed a day later. The story's exit gate is where it must be green.

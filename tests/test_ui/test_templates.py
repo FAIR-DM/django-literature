@@ -11,36 +11,35 @@ TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html"))
 PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
 
-class TestPassthroughBaseTemplate:
-    """``literature/ui/templates/base.html`` — D20.
+class TestTheBaseTemplateIsNoLongerOurs:
+    """This app used to ship a pass-through ``base.html``; it does not now.
 
     django-mvp routes every packaged page through the unqualified ``base.html``,
-    a name that belongs to the host project, and ships no default for it. This
-    app ships one so the packaged chain resolves in a project that has written
-    none. It is a stop-gap for django-mvp#219, and the tests below are what keep
-    it from becoming anything more.
+    a name that belongs to the host project. It once shipped no default, so an
+    installable app could not reach the packaged chain in a project that had
+    written none, and this app filled the gap itself. Its own comment named the
+    condition for its removal: django-mvp shipping a default of its own. That
+    landed in django-mvp 0.18, so the file is gone and the floor this app
+    declares is what guarantees the replacement is present.
+
+    What these tests keep is the guarantee, not the file: the chain still
+    resolves for a project with no ``base.html``, and a project that has one
+    still wins.
     """
 
-    @staticmethod
-    def _source() -> str:
-        return PASSTHROUGH_BASE.read_text()
+    def test_the_app_ships_no_base_template_of_its_own(self):
+        assert not PASSTHROUGH_BASE.exists()
 
-    def test_forwards_to_the_packaged_shell(self):
-        assert '{% extends "mvp/base.html" %}' in self._source()
+    def test_the_packaged_chain_resolves_for_a_project_with_no_base_template(self, settings):
+        settings.TEMPLATES = [{**settings.TEMPLATES[0], "DIRS": []}]
+        from django.template.loader import get_template
 
-    def test_defines_nothing_of_its_own(self):
-        # A block here would be content a host silently inherits and cannot see.
-        # Everything outside the extends tag and its explanatory comment must be
-        # whitespace, so overriding this file costs a host nothing.
-        source = _DJANGO_BLOCK_COMMENT_RE.sub("", self._source())
-        source = _DJANGO_COMMENT_RE.sub("", source)
-        source = source.replace('{% extends "mvp/base.html" %}', "")
-        assert source.strip() == ""
+        origin = get_template("base.html").origin.name
+        assert origin.endswith("mvp/templates/base.html")
 
-    def test_a_project_template_directory_wins_over_it(self, tmp_path, settings):
-        # The politeness guarantee: DIRS is searched before any app, so a
-        # project that has its own base.html keeps it. This app only fills the
-        # gap for a project with none.
+    def test_a_project_template_directory_still_wins(self, tmp_path, settings):
+        # The politeness guarantee, unchanged: DIRS is searched before any app,
+        # so a project that has its own base.html keeps it.
         (tmp_path / "base.html").write_text("the project's own shell")
         settings.TEMPLATES = [
             {**settings.TEMPLATES[0], "DIRS": [str(tmp_path)]},
@@ -48,12 +47,6 @@ class TestPassthroughBaseTemplate:
         from django.template.loader import get_template
 
         assert get_template("base.html").origin.name == str(tmp_path / "base.html")
-
-    def test_the_app_fills_the_gap_when_a_project_has_none(self, settings):
-        settings.TEMPLATES = [{**settings.TEMPLATES[0], "DIRS": []}]
-        from django.template.loader import get_template
-
-        assert get_template("base.html").origin.name == str(PASSTHROUGH_BASE)
 
 
 class TestPackagedChain:
