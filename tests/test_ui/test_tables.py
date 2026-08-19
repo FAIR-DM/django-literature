@@ -6,14 +6,23 @@ own configuration, ``Test<Column>Column`` per column thereafter).
 """
 
 from django.db import connection
+from django.db.models import OuterRef, Subquery
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.functional import Promise
 
 from literature.choices import DateType, NameRole
-from literature.models import Item
+from literature.models import Item, ItemDate
 from literature.ui.tables import ItemTable
 from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
+
+
+def issued_annotated_queryset():
+    """The same ``issued`` annotation ``ItemTableView.get_queryset()`` builds
+    (T017), rebuilt here so ``order_issued`` can be exercised without a view
+    or an HTTP request."""
+    issued_begin = ItemDate.objects.filter(item=OuterRef("pk"), date_type=DateType.ISSUED).values("begin")[:1]
+    return Item.objects.annotate(issued=Subquery(issued_begin))
 
 
 def rendered_cell(item, column_name, **table_kwargs):
@@ -268,11 +277,16 @@ class TestIssuedColumn:
     def test_declares_empty_values_as_empty_tuple(self):
         assert ItemTable.base_columns["issued"].empty_values == ()
 
-    def test_ships_unsortable_until_the_annotation_lands(self):
-        # The annotation and order_issued that make the sort resolvable do
-        # not land until US-3 (T017/T018); a header advertising a sort
-        # before then raises FieldError on the package's default page.
-        assert ItemTable.base_columns["issued"].orderable is False
+    def test_is_orderable_now_the_annotation_and_order_issued_exist(self, db):
+        # Shipped unsortable at T008 (an explicit orderable=False), because a
+        # header advertising a sort before the annotation existed raised
+        # FieldError on the package's default page. That override is gone —
+        # the column's own orderable is the library's default (None, "auto")
+        # — and T017's annotation plus T018's order_issued (below) resolve
+        # the sort, so a bound table now reports the column as orderable.
+        assert ItemTable.base_columns["issued"].orderable is None
+        table = ItemTable(issued_annotated_queryset())
+        assert table.columns["issued"].orderable is True
 
     def test_year_only_precision_shows_the_year_without_inventing_a_month_or_day(self, db):
         item = ItemFactory()
@@ -357,3 +371,46 @@ class TestActionsColumn:
         content = rendered_cell(item, "actions", show_update_action=False)
         update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
         assert f'href="{update_url}"' not in content
+
+
+class TestIssuedOrdering:
+    """Sorting by the issued date — FR-018 (plan.md D-8, research R7).
+
+    django-tables2 passes the ordering key straight to ``order_by()`` and
+    does nothing about NULLs, and SQLite and PostgreSQL place them
+    differently — both of which this package supports — so FR-018's
+    "ordered consistently rather than dropped" has to be stated in code.
+    """
+
+    def test_declares_order_by_issued(self):
+        assert ItemTable.base_columns["issued"].order_by == ("issued",)
+
+    def test_ascending_order_places_an_undated_reference_last(self, db):
+        dated = ItemFactory(citation_key="Dated")
+        ItemDateFactory(item=dated, date_type=DateType.ISSUED, begin="2020")
+        undated = ItemFactory(citation_key="Undated")
+        table = ItemTable(issued_annotated_queryset(), order_by="issued")
+        pks_in_row_order = [row.record.pk for row in table.rows]
+        assert pks_in_row_order[-1] == undated.pk
+        assert pks_in_row_order[0] == dated.pk
+
+    def test_descending_order_also_places_an_undated_reference_last(self, db):
+        # nulls_last applies in both directions (plan.md D-8) — a naive
+        # "-issued" would otherwise put the undated reference first on the
+        # reverse of the ascending case.
+        dated = ItemFactory(citation_key="Dated")
+        ItemDateFactory(item=dated, date_type=DateType.ISSUED, begin="2020")
+        undated = ItemFactory(citation_key="Undated")
+        table = ItemTable(issued_annotated_queryset(), order_by="-issued")
+        pks_in_row_order = [row.record.pk for row in table.rows]
+        assert pks_in_row_order[-1] == undated.pk
+        assert pks_in_row_order[0] == dated.pk
+
+    def test_descending_order_places_the_most_recent_issued_date_first(self, db):
+        older = ItemFactory(citation_key="Older")
+        ItemDateFactory(item=older, date_type=DateType.ISSUED, begin="2010")
+        newer = ItemFactory(citation_key="Newer")
+        ItemDateFactory(item=newer, date_type=DateType.ISSUED, begin="2020")
+        table = ItemTable(issued_annotated_queryset(), order_by="-issued")
+        pks_in_row_order = [row.record.pk for row in table.rows]
+        assert pks_in_row_order.index(newer.pk) < pks_in_row_order.index(older.pk)

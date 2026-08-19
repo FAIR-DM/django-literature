@@ -7,6 +7,7 @@ mirror test is ``tests/test_ui/test_tables.py``, one module split by
 """
 
 import django_tables2 as tables
+from django.db.models import F
 from django.utils.translation import gettext_lazy as _
 from django_tables2.utils import A
 
@@ -150,10 +151,10 @@ class ItemTable(tables.Table):
         verbose_name=_("Issued"),
         template_name="literature/ui/table_issued.html",
         empty_values=(),
-        # The annotation and order_issued that make the sort resolvable do
-        # not land until US-3 (T017/T018) — a header advertising a sort
-        # before then raises FieldError on the package's default page.
-        orderable=False,
+        # order_by names the "issued" annotation ItemTableView.get_queryset()
+        # supplies (T017) — orderable is no longer forced off now that
+        # order_issued (below) can resolve the sort (T018, plan.md D-8).
+        order_by="issued",
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
     actions = ActionsColumn(
@@ -196,3 +197,19 @@ class ItemTable(tables.Table):
         confidence, so a title-less reference duplicates its key instead.
         """
         return record.title or record.title_short or record.original_title or record.volume_title or record.citation_key
+
+    def order_issued(self, queryset, is_descending):
+        """Sort by the ``issued`` annotation, undated references last either way (FR-018).
+
+        django-tables2 hands ordering straight to ``QuerySet.order_by()`` and
+        does nothing about NULLs on its own, and SQLite and PostgreSQL place
+        them differently — both of which this package supports — so
+        ``nulls_last=True`` is stated explicitly in both directions rather
+        than left to whichever the database defaults to (plan.md D-8,
+        research R7). Returning ``True`` tells django-tables2 the queryset is
+        already ordered, so it does not also try `"issued"` as a plain field
+        name.
+        """
+        issued = F("issued")
+        ordering = issued.desc(nulls_last=True) if is_descending else issued.asc(nulls_last=True)
+        return queryset.order_by(ordering), True
