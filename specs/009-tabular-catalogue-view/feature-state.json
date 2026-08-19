@@ -460,28 +460,68 @@
       "id": "US4",
       "priority": "P4",
       "issue": 85,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T021",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T022",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T023",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T024",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files"
+            ],
+            "tests": [
+              "tests/test_ui/test_views.py"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     },
