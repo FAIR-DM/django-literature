@@ -259,24 +259,19 @@ page keeps using it regardless of which view backs the catalogue, since a contri
 works read better as cards than as a table of one person's output. A project building a public-facing
 reading list, rather than a tool for managing one, can prefer it for the catalogue too.
 
-Selecting it means swapping the one route that names the catalogue before including the app's URLs:
+Selecting it is a settings change, under the same namespaced `LITERATURE` key the format registry
+uses:
 
 ```python
-# urls.py
-from django.urls import include, path
-
-from literature.ui import urls as literature_urls
-from literature.ui.views import ItemListView
-
-for index, pattern in enumerate(literature_urls.urlpatterns):
-    if pattern.name == "item-list":
-        literature_urls.urlpatterns[index] = path("", ItemListView.as_view(), name="item-list")
-
-urlpatterns = [
-    # ...
-    path("catalogue/", include("literature.ui.urls")),
-]
+# settings.py
+LITERATURE = {
+    "CATALOGUE_VIEW": "literature.ui.views.ItemListView",
+}
 ```
+
+The value is a dotted path rather than a two-way switch, so a project that has subclassed either
+view — to add a column, change the page size, or narrow the queryset — can name its own class there
+instead.
 
 Everything else about the front end is unchanged: the route keeps the name `literature:item-list`, so
 every breadcrumb, redirect and link that reverses it keeps working, and the create, edit and delete

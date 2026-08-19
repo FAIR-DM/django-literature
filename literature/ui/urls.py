@@ -16,11 +16,17 @@ here.
 from django.urls import path
 
 from . import views
+from .catalogue import catalogue
 
 app_name = "literature"
 
 urlpatterns = [
-    path("", views.ItemTableView.as_view(), name="item-list"),
+    # The one route whose view is a project's to choose (FR-022): the table
+    # by default, the card list or a subclass of either through
+    # ``LITERATURE["CATALOGUE_VIEW"]``. Every other route in this app is
+    # fixed, and all of them share this module's one namespace, so the
+    # choice is made behind the name rather than by overriding the route.
+    path("", catalogue, name="item-list"),
     path("add/", views.ItemCreateView.as_view(), name="item-create"),
     path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("<int:pk>/update/", views.ItemUpdateView.as_view(), name="item-update"),

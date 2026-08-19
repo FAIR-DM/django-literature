@@ -9,14 +9,15 @@ from django.urls import include, path, resolve, reverse
 
 from literature.models import Item
 from literature.ui import views
+from literature.ui.catalogue import catalogue, catalogue_view_class
 
 URLS_PATH = Path(__file__).resolve().parents[2] / "literature" / "ui" / "urls.py"
 
 
-def _urlconf():
+def urlconf():
     """A URLconf mounting the app at a prefix, the way a host would."""
     patterns = [path("catalogue/", include("literature.ui.urls"))]
-    return type("_URLConf", (), {"urlpatterns": patterns})
+    return type("URLConf", (), {"urlpatterns": patterns})
 
 
 class TestURLs:
@@ -31,15 +32,18 @@ class TestURLs:
         ],
     )
     def test_route_reverses_under_the_mounted_prefix(self, name, kwargs, expected):
-        with override_settings(ROOT_URLCONF=_urlconf()):
+        with override_settings(ROOT_URLCONF=urlconf()):
             assert reverse(name, kwargs=kwargs) == expected
 
     def test_the_catalogue_route_serves_the_table_by_default(self):
         # FR-021 — the package's documented catalogue route serves the table
-        # with no configuration; the card stays reachable as a routable
-        # class of its own (plan.md D-1), never at this route.
-        with override_settings(ROOT_URLCONF=_urlconf()):
-            assert resolve("/catalogue/").func.view_class is views.ItemTableView
+        # with no configuration. The route resolves to the one view in this
+        # app a project may choose (FR-022), which picks its class per
+        # request; which class it picks, and how a project changes it, is
+        # tests/test_ui/test_catalogue.py's.
+        with override_settings(ROOT_URLCONF=urlconf()):
+            assert resolve("/catalogue/").func is catalogue
+        assert catalogue_view_class() is views.ItemTableView
 
     def test_importing_urls_has_no_import_time_side_effect_on_the_core(self):
         """Parsed rather than imported-and-inspected: an import statement naming

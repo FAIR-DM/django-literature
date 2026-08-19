@@ -16,9 +16,11 @@ All notable changes to this project are documented in this file. The format foll
   unchanged.
 
   The card presentation the package served before is still there. `ItemListView` is unchanged, still
-  tested, and still what the contributor page is built on; a project that prefers cards for its own
-  catalogue restores the previous page by swapping the one route that names it, documented in
-  `README.md`. Nothing is deprecated and nothing needs to be copied out of the package to do it.
+  tested, and still what the contributor page is built on. A project that prefers cards for its own
+  catalogue restores the previous page with a settings key,
+  `LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.ItemListView"}`, which also takes a project's
+  own subclass of either view. Nothing is deprecated and nothing needs to be copied out of the
+  package to do it.
 
   Sorting the table by item type orders by the type's stored value rather than by its translated
   label, since the label reads differently in every language the catalogue is served in and the order
