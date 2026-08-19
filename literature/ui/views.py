@@ -9,7 +9,7 @@ import json
 from collections import defaultdict
 from functools import cached_property
 
-from django.db.models import Prefetch
+from django.db.models import OuterRef, Prefetch, Subquery
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -17,8 +17,8 @@ from django.utils.translation import gettext_lazy as _
 from mvp.integrations.django_tables.views import MVPTableView
 from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPListView, MVPUpdateView
 
-from literature.choices import ItemType, NameRole
-from literature.models import Item, ItemName, Name
+from literature.choices import DateType, ItemType, NameRole
+from literature.models import Item, ItemDate, ItemName, Name
 from literature.ui.contributors import contributor_groups
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
@@ -215,9 +215,16 @@ class ItemTableView(MVPTableView):
         # them), and the issued cell walks the whole ItemDate row via
         # item_dates, which the card view already prefetches for the same
         # reason. Omitting either costs one query per row (plan.md D-2).
+        #
+        # "issued" is a Subquery annotation, not a join filter (plan.md D-8,
+        # research R7): a join risks row multiplication when an item carries
+        # several ItemDate rows and interferes with the paginator's count
+        # query. ItemTable.order_issued() (US-3) sorts on this column.
+        issued_begin = ItemDate.objects.filter(item=OuterRef("pk"), date_type=DateType.ISSUED).values("begin")[:1]
         return (
             super()
             .get_queryset()
+            .annotate(issued=Subquery(issued_begin))
             .prefetch_related(
                 Prefetch(
                     "item_names",

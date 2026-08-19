@@ -368,6 +368,26 @@ class TestItemTableView:
         assert client.get(reverse("literature:item-list")).status_code == 200
         assert client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).status_code == 200
 
+    def test_the_queryset_annotates_issued_matching_the_items_own_issued_date(self, client, db):
+        # T017 — the Subquery ordering will read at T018 (plan.md D-8,
+        # research R7). A join-based filter is deliberately not used, since
+        # it risks row multiplication and interferes with the paginator's
+        # count query.
+        item = ItemFactory()
+        issued_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020-05-01")
+        issued_date.refresh_from_db()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
+        response = client.get(reverse("literature:item-list"))
+        (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
+        assert annotated_item.issued == issued_date.begin
+
+    def test_the_issued_annotation_is_none_for_a_reference_with_no_issued_date(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
+        response = client.get(reverse("literature:item-list"))
+        (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
+        assert annotated_item.issued is None
+
 
 class TestItemCreateView:
     """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
