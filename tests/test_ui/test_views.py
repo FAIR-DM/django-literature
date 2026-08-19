@@ -8,13 +8,16 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 import json
 import re
 from html.parser import HTMLParser
+from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
 from django.db import connection
+from django.template.loader import get_template
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
+import literature
 from literature.choices import DateType, ItemType, NameRole
 from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
@@ -295,6 +298,63 @@ class TestCatalogueListReadability:
         content = client.get(reverse("item-list-cards")).content.decode()
         assert re.search(r"<p[^>]*>\s*</p>", content) is None
         assert item.citation_key in content
+
+
+class TestTheCardListStaysAvailable:
+    """US-4 — the card presentation did not go away (FR-022, FR-023, FR-027).
+
+    The list behaviour a project switching to this route inherits —
+    ordering, page size, the empty state, the create action — is already
+    asserted for both presentations by ``TestItemListView``'s
+    ``CATALOGUE_ROUTES`` parametrization. This class asserts the promise
+    itself: the class is reachable, the route it is pointed at renders cards
+    rather than the table it no longer defaults to, the contributor page
+    still presents cards, and none of that needs a template copied out of
+    the package.
+    """
+
+    def test_itemlistview_is_importable_from_the_views_module(self):
+        from literature.ui.views import ItemListView
+
+        assert ItemListView.list_item_template == "literature/ui/item_list_item.html"
+
+    def test_routing_a_url_at_it_renders_cards_not_the_table(self, client, db):
+        # "<table" is unique to django-tables2's own template
+        # (django_tables2/bootstrap5-mvp.html) — nothing in the card's own
+        # chain renders one, so its presence or absence tells the two
+        # presentations apart directly.
+        ItemFactory(title="A Card-Rendered Reference")
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert "<table" not in content
+        assert "A Card-Rendered Reference" in content
+
+    def test_routing_a_url_at_it_keeps_pagination_the_empty_state_and_the_create_action(self, client, db):
+        # Empty state first — populating the catalogue would hide it.
+        empty_content = client.get(reverse("item-list-cards")).content.decode()
+        assert "Nothing in the catalogue yet" in empty_content
+        assert f'href="{reverse("literature:item-create")}"' in empty_content
+
+        ItemFactory.create_batch(30)
+        populated_content = client.get(reverse("item-list-cards")).content.decode()
+        assert "1-24 of 30" in populated_content
+        assert 'href="?page=2"' in populated_content
+
+    def test_the_contributor_page_still_presents_cards(self, client, db):
+        contributor = NameFactory()
+        item = ItemFactory(title="A Contributor Page Reference")
+        ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
+        content = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})).content.decode()
+        assert "<table" not in content
+        assert "A Contributor Page Reference" in content
+
+    def test_no_template_is_copied_out_of_the_package_to_render_the_cards(self):
+        # Every template the card chain reaches for resolves inside the
+        # literature package itself, so a project routing at ItemListView
+        # needs to write nothing of its own to get the page FR-022 promises.
+        package_root = Path(literature.__file__).resolve().parent
+        for template_name in ("literature/ui/item_list_item.html", "literature/ui/contributor_item.html"):
+            origin = Path(get_template(template_name).origin.name).resolve()
+            assert package_root in origin.parents, f"{template_name} resolved outside the package at {origin}"
 
 
 class TestItemTableView:
