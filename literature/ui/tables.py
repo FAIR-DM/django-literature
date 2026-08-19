@@ -29,7 +29,14 @@ class ItemTable(tables.Table):
     )
     type = tables.Column(
         verbose_name=_("Type"),
+        order_by="type",
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
+        # No renderer, deliberately: django-tables2 resolves a choice field
+        # through get_FOO_display() before any renderer runs (rows.py), so
+        # the translated label (FR-005) arrives on its own while order_by
+        # above keeps ordering on the stored value (FR-017). A render_type
+        # here would only restate what the library already does — do not
+        # add one back.
     )
     title = tables.Column(
         verbose_name=_("Title"),

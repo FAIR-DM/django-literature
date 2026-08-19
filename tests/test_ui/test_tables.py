@@ -133,3 +133,20 @@ class TestTitleColumn:
         item = ItemFactory(title="A Followable Title")
         content = rendered_cell(item, "title")
         assert 'class="link link-hover"' in content
+
+
+class TestTypeColumn:
+    """The item-type cell — FR-005, FR-017 (plan.md D-5, research R3)."""
+
+    def test_orders_on_the_stored_type_value(self):
+        # Sorting by item type follows the stored CSL type rather than the
+        # translated label, which cannot be done in the database (FR-017).
+        assert ItemTable.base_columns["type"].order_by == ("type",)
+
+    def test_shows_the_translated_label_rather_than_the_stored_value(self, db):
+        from literature.choices import ItemType
+
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = rendered_cell(item, "type")
+        assert "Journal Article" in content
+        assert "article-journal" not in content
