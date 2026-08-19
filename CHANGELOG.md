@@ -6,6 +6,27 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **The catalogue serves as a table by default.** `literature.ui`'s catalogue page used to be a list
+  of cards; a project installing the front end with no configuration now gets a row per reference —
+  citation key, item type, title, the journal or book it appeared in, its credited names and its
+  issued date — with an edit control on every row and a sort on every column heading but the credited
+  names and the edit control themselves. Paging, the page size, the empty state and the Add action are
+  unchanged.
+
+  The card presentation the package served before is still there. `ItemListView` is unchanged, still
+  tested, and still what the contributor page is built on; a project that prefers cards for its own
+  catalogue restores the previous page by swapping the one route that names it, documented in
+  `README.md`. Nothing is deprecated and nothing needs to be copied out of the package to do it.
+
+  Sorting the table by item type orders by the type's stored value rather than by its translated
+  label, since the label reads differently in every language the catalogue is served in and the order
+  behind it should not.
+
+  New runtime dependency, in the `ui` extra only: `django-tables2`. A core-only install, or a project
+  that has not opted into the front end, resolves neither it nor django-mvp.
+
 ## [v0.1.9] - 2026-08-14
 
 ### Changed
