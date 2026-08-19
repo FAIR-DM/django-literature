@@ -16,9 +16,9 @@ from literature.ui.tables import ItemTable
 from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
 
 
-def rendered_cell(item, column_name):
+def rendered_cell(item, column_name, **table_kwargs):
     """The rendered HTML of one column's cell for one item, without a view."""
-    table = ItemTable(Item.objects.filter(pk=item.pk))
+    table = ItemTable(Item.objects.filter(pk=item.pk), **table_kwargs)
     row = next(iter(table.rows))
     return row.get_cell(column_name)
 
@@ -311,3 +311,49 @@ class TestIssuedColumn:
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019")
         content = rendered_cell(item, "issued")
         assert "2019" in content
+
+
+class TestActionsColumn:
+    """The row's edit control — FR-019, FR-020 (plan.md D-5, research R6)."""
+
+    def test_is_not_orderable(self):
+        # A control, not data — no single value to order on (FR-015). Also
+        # what earns the column its centred alignment (research R6).
+        assert ItemTable.base_columns["actions"].orderable is False
+
+    def test_verbose_name_is_empty(self):
+        assert ItemTable.base_columns["actions"].verbose_name == ""
+
+    def test_uses_the_table_actions_template(self):
+        assert ItemTable.base_columns["actions"].template_name == "literature/ui/_table_actions.html"
+
+    def test_links_to_the_records_own_update_page(self, db):
+        item = ItemFactory()
+        content = rendered_cell(item, "actions")
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' in content
+
+    def test_each_row_links_to_its_own_record_not_a_shared_one(self, db):
+        first = ItemFactory()
+        second = ItemFactory()
+        first_content = rendered_cell(first, "actions")
+        second_content = rendered_cell(second, "actions")
+        assert reverse("literature:item-update", kwargs={"pk": first.pk}) in first_content
+        assert reverse("literature:item-update", kwargs={"pk": second.pk}) not in first_content
+        assert reverse("literature:item-update", kwargs={"pk": second.pk}) in second_content
+
+    def test_shown_by_default(self, db):
+        # A bare ItemTable (no show_update_action passed at all) is open —
+        # this feature introduces no access control of its own (FR-020).
+        item = ItemFactory()
+        content = rendered_cell(item, "actions")
+        assert "href=" in content
+
+    def test_hidden_when_show_update_action_is_false(self, db):
+        # The same show_update_action mechanism ItemDetailView's own edit
+        # action reads — set here directly rather than through a view, to
+        # prove the column itself honours the flag (FR-020).
+        item = ItemFactory()
+        content = rendered_cell(item, "actions", show_update_action=False)
+        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert f'href="{update_url}"' not in content

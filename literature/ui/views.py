@@ -163,7 +163,7 @@ class ItemListView(MVPListView):
 
 
 class ItemTableView(MVPTableView):
-    """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021).
+    """The catalogue as a table — US-1 and US-2 (FR-001 through FR-012, FR-019 through FR-021).
 
     ``ItemListView`` keeps its name, its card template and its behaviour
     unchanged (plan.md D-1); this is a new, sibling view, and ``urls.py``
@@ -195,6 +195,12 @@ class ItemTableView(MVPTableView):
     show_create_action = True
     crud_views = CRUD_VIEWS
     search_fields = None
+
+    # Same flag name and semantics as ItemDetailView.show_update_action
+    # (FR-020) — a project that overrides one to gate the write page
+    # overrides the other the same way to gate this row control, and this
+    # feature checks nothing of its own.
+    show_update_action = True
 
     # No order_by: MVPTableViewMixin raises ImproperlyConfigured at
     # instantiation if it finds one — ordering lives on the table class.
@@ -229,6 +235,14 @@ class ItemTableView(MVPTableView):
         # template's own position line otherwise reads "of 28 items"
         # directly under a heading that says Publications.
         return {**super().get_model_info(), "verbose_name_plural": CATALOGUE_NAME_PLURAL}
+
+    def get_table_kwargs(self):
+        # show_action("update") is CRUDDirectoryMixin's own method, read
+        # here directly rather than through get_directory()/"directory" —
+        # that dict resolves a URL for *this* view's own single object and
+        # is empty for a list view's kwargs (FR-020, literature/ui/tables.py
+        # ItemTable.__init__).
+        return {**super().get_table_kwargs(), "show_update_action": self.show_action("update")}
 
 
 class ItemCreateView(MVPCreateView):
