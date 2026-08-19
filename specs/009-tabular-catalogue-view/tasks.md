@@ -1,0 +1,203 @@
+# Tasks — 009 A tabular catalogue view
+
+**Branch**: `009-tabular-catalogue-view` · **Spec**: [`spec.md`](spec.md) · **Plan**: [`plan.md`](plan.md)
+
+Test-first throughout (Article I): each task writes its test, watches it fail for the right reason,
+then makes it pass. A task's test scope is one class or one file; the full suite runs once per story,
+at the story's last task.
+
+`[P]` marks tasks that may run in parallel with the others carrying the same marker in the same
+phase — different files, no shared state.
+
+---
+
+## Phase 1 — Foundational (blocking; nothing else starts until this is green)
+
+- [ ] **T001** Raise the `ui` extra in `pyproject.toml`: django-mvp `>=0.19,<1.0` (from `>=0.17`) and
+  django-tables2 `>=3.0,<4`, both under the existing `python_version >= '3.12'` marker. Update the
+  two exact-list assertions in `tests/test_ui/test_packaging.py`
+  (`TestNoDemoOnlyDependencyEntersTheBuild`) in the same commit — they pin the extra's contents by
+  design. Leave `project.dependencies` untouched: the core gains nothing. Confirm `deptry` needs no
+  entry in `[tool.deptry.package_module_name_map]`.
+  *Test scope:* `tests/test_ui/test_packaging.py`.
+
+- [ ] **T002** `poetry lock` and install, so django-tables2 is resolvable. Record the resolved
+  django-tables2 and django-mvp versions in `progress.md`.
+
+- [ ] **T003** Add `"django_tables2"` to `INSTALLED_APPS` in `tests/settings.py` and
+  `demo/settings.py`. Unconditional in both — the `ui` extra installs it. Add `django_tables2` to
+  `FORBIDDEN_ROOTS` in `tests/test_ui/test_architecture.py` so the core is provably free of it, and
+  confirm the existing AST scan still passes.
+  *Test scope:* `tests/test_ui/test_architecture.py`, `tests/test_ui/test_smoke.py`.
+
+---
+
+## Phase 2 — US-1: Read the catalogue as a table (P1)
+
+Delivers FR-001 through FR-012 and FR-021. At the end of this phase the catalogue is a table.
+
+- [ ] **T004** Create `literature/ui/tables.py` with `ItemTable` and its `Meta`:
+  `model = Item`, `template_name = "django_tables2/bootstrap5-mvp.html"`, `empty_text` set (without
+  it the mvp empty state never renders — research R5), `order_by = ("-created",)`, and no `fields`
+  entry so every column is declared explicitly. Add the four plain columns — `citation_key`, `type`,
+  `container_title` and a placeholder `title` — with `gettext_lazy` verbose names.
+  *Test scope:* new `tests/test_ui/test_tables.py`, class `TestItemTableMeta`.
+
+- [ ] **T005** The title column: `Column(empty_values=(), order_by="title", linkify=("literature:item-detail", {"pk": A("pk")}), attrs={"a": {"class": "link link-hover"}})` plus
+  `render_title` returning the first of `title`, `title_short`, `original_title`, `volume_title`,
+  `citation_key`. `empty_values=()` is mandatory or the renderer never runs on the empty title that
+  the chain exists for (research R3). The cell must not truncate (D-5).
+  *Test scope:* `tests/test_ui/test_tables.py`, class `TestTitleColumn` — one case per rung of the
+  chain, plus the link target and its classes.
+
+- [ ] **T006** The item-type column: `render_type` returning `get_type_display()` so the cell carries
+  the translated label rather than the stored CSL value, with `order_by="type"` so ordering stays on
+  the stored value (FR-005, FR-017).
+  *Test scope:* `tests/test_ui/test_tables.py`, class `TestTypeColumn`.
+
+- [ ] **T007** The credited-names column: `Column(empty_values=(), orderable=False)` plus
+  `render_contributors` reading a `contributors` attribute placed by the view's prefetch — authors if
+  any, else editors, first three linked to their contributor pages, then an `ngettext` suffix when
+  more are credited. Never touch the manager (research R9). All strings translatable.
+  *Test scope:* `tests/test_ui/test_tables.py`, class `TestContributorsColumn` — authors, the editor
+  fallback, neither, exactly three, more than three, and the link targets.
+
+- [ ] **T008** [P] The issued column: `_table_issued.html`, a one-line wrapper that selects the
+  `issued` slot off the record and includes `_date_value.html` under the `item_date` name the partial
+  expects, plus a `TemplateColumn` over it. The rendering rule stays in the one shared partial
+  (research R8).
+  *Test scope:* `tests/test_ui/test_tables.py`, class `TestIssuedColumn` — year only, year and month,
+  a range, a literal date, and no issued date at all.
+
+- [ ] **T009** Add `ItemTableView` to `literature/ui/views.py` per plan D-2: `paginate_by = 24`
+  explicitly (the mixin sets none, and without it the footer bar disappears — research R4),
+  `actions = ["create"]`, `search_fields = None`, the create action, `crud_views = CRUD_VIEWS`, the
+  page title and the empty-state strings, and a `get_queryset()` carrying the `Prefetch(..., to_attr="contributors")` T007 depends on. No `order_by` — the mixin refuses one.
+  *Test scope:* `tests/test_ui/test_views.py`, new class `TestItemTableView`.
+
+- [ ] **T010** Point the `item-list` route at `ItemTableView` in `literature/ui/urls.py`. The route
+  name does not change, so every breadcrumb, `success_url` and `crud_views` entry naming it keeps
+  working. Extend `tests/test_ui/test_urls.py` to cover the new default and to keep asserting every
+  shown action reverses.
+  *Test scope:* `tests/test_ui/test_urls.py`.
+
+- [ ] **T011** Re-point the card's tests rather than deleting them (plan D-11). Add a second route in
+  `tests/urls.py` serving `ItemListView`, move `TestCatalogueListReadability` onto it unchanged, and
+  split `TestItemListView` so that assertions both presentations owe — ordering, page size, the
+  position line, the out-of-range 404, the empty state, the create action — are made against both.
+  No assertion is loosened or removed.
+  *Test scope:* `tests/test_ui/test_views.py`.
+
+- [ ] **T012** The constant-query-count guarantee for the table (FR-012): assert the query count is
+  identical for a small page and a full one, using `CaptureQueriesContext` as the existing card test
+  does. This is what proves T007's prefetch is actually being read rather than the manager.
+  *Test scope:* `tests/test_ui/test_views.py`, class `TestItemTableView`.
+
+- [ ] **T013** Full suite, lint, type check, `deptry`, and the template guards
+  (`tests/test_ui/test_templates.py` sweeps the two new partials automatically). Story exit.
+
+---
+
+## Phase 3 — US-2: Edit a reference without opening it (P2)
+
+Delivers FR-019 and FR-020.
+
+- [ ] **T014** `_table_actions.html`: the row's edit control, linking to `literature:item-update` for
+  the record, with translatable text. Reuse the same control idiom the reference page uses; introduce
+  no new styling.
+  *Test scope:* covered by T015 and by the template guards.
+
+- [ ] **T015** The actions column: `TemplateColumn(template_name="literature/ui/_table_actions.html", orderable=False, verbose_name="")`. `orderable=False` is what earns the column its centred
+  alignment as well as what FR-015 asks for (research R6). Assert the control's target, that its
+  visibility follows the same `show_update_action` mechanism the reference page uses, and that no
+  permission check is introduced.
+  *Test scope:* `tests/test_ui/test_tables.py`, class `TestActionsColumn`;
+  `tests/test_ui/test_views.py` for the visibility flag.
+
+- [ ] **T016** Full suite and gates. Story exit.
+
+---
+
+## Phase 4 — US-3: Order the catalogue by a column (P3)
+
+Delivers FR-013 through FR-018.
+
+- [ ] **T017** Annotate the issued date in `ItemTableView.get_queryset()` with a `Subquery` over
+  `ItemDate` filtered to `date_type="issued"` — not a join filter, which risks row multiplication and
+  interferes with the paginator's count (research R7).
+  *Test scope:* `tests/test_ui/test_views.py`, class `TestItemTableView`.
+
+- [ ] **T018** `order_issued(queryset, is_descending)` on `ItemTable`, returning `(queryset, True)`
+  with `nulls_last=True` in both directions, and `order_by="issued"` on the column. django-tables2
+  does nothing about NULLs, and SQLite and PostgreSQL place them differently, so FR-018 has to be
+  stated in code (research R7).
+  *Test scope:* `tests/test_ui/test_tables.py`, class `TestIssuedOrdering`.
+
+- [ ] **T019** Sorting from an HTTP request: assert that `?sort=` reorders the whole catalogue rather
+  than the current page, that the direction reverses on a second request, that the order survives
+  moving to page 2, and that `?sort=contributors` and `?sort=actions` are refused. Cover all five
+  sortable columns.
+  *Test scope:* `tests/test_ui/test_views.py`, class `TestCatalogueOrdering`.
+
+- [ ] **T020** Full suite and gates. Story exit.
+
+---
+
+## Phase 5 — US-4: Keep the card list (P4)
+
+Delivers FR-022, FR-023, FR-024 and FR-027.
+
+- [ ] **T021** Assert the promise directly: `ItemListView` is importable from `literature.ui.views`,
+  routing a URL at it renders cards with pagination, the empty state and the create action intact,
+  and the contributor page still presents cards. Assert too that no template is copied out of the
+  package to do it.
+  *Test scope:* `tests/test_ui/test_views.py`, class `TestTheCardListStaysAvailable`.
+
+- [ ] **T022** [P] README: extend the front-end section to name both presentations, say which is
+  served by default, show the one-line routing change that selects the other, and add
+  `"django_tables2"` to the installation block a host copies verbatim (research R11).
+
+- [ ] **T023** [P] CHANGELOG entry describing the change of default, the new dependency and the
+  routing change that restores the previous page, plus the note that ordering by item type follows
+  the stored type rather than the translated label (FR-017).
+
+- [ ] **T024** Full suite and gates. Story exit.
+
+---
+
+## Phase 6 — US-5: The demo shows the table, and a broken one is caught (P5)
+
+Delivers FR-028.
+
+- [ ] **T025** Confirm the demo serves the table at `catalogue/` over its seed references, and that
+  the existing walk still passes unchanged — the pagination literal and the item-link pattern both
+  survive because the table page renders the same pagination component and position line
+  (research R4). Fix anything that does not.
+  *Test scope:* `tests/test_demo/test_smoke.py`.
+
+- [ ] **T026** Extend `demo/smoke.py`: reach an edit form by following a row's own edit control on
+  the list page, rather than only from the reference page. Keep the guard's rule that it constructs
+  no address of its own. Add the matching unit coverage for the new pattern.
+  *Test scope:* `tests/test_demo/test_smoke.py`.
+
+- [ ] **T027** Run the guard against a live demo, both green and deliberately broken (a row whose
+  link is removed), and confirm it fails with a message naming what it could not reach.
+
+- [ ] **T028** Full suite, all gates, `makemessages` clean. Story exit.
+
+---
+
+## Dependencies
+
+- Phase 1 blocks everything.
+- T004 blocks T005–T008. T007 depends on T009's prefetch, so T009 lands with or before T007's test
+  turning green; take them as one unit if the ordering fights you.
+- T010 breaks the card tests by design, so T011 is in the same commit as T010.
+- Phase 4's T018 depends on T017's annotation.
+- Phase 6 depends on Phases 2 and 3 being complete.
+
+## Out of scope, deliberately
+
+Search, filtering and result ordering controls (#49). User-configurable columns and column order.
+Any model change, field or migration. Any permission or access control. The contributor page
+becoming a table.

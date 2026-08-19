@@ -1,0 +1,269 @@
+{
+  "$schema": "https://forge.local/schemas/feature-state.schema.json",
+  "feature": "009-tabular-catalogue-view",
+  "branch": "009-tabular-catalogue-view",
+  "repo": "FAIR-DM/django-literature",
+  "state": "PLAN",
+  "state_history": [
+    {
+      "state": "INTAKE",
+      "at": "2026-08-19T08:50:00Z",
+      "note": "Issue #81 grilled over six questions and accepted."
+    },
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-19T09:20:00Z",
+      "note": "spec.md + decisions.md written; ten ambiguities self-resolved, no unresolved markers."
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-19T09:40:00Z",
+      "note": "Epic #81 promoted, stories #82-#86 created and linked, draft PR #87 opened bot-authored. Title lint and stage checks green."
+    },
+    {
+      "state": "GATE_SPEC",
+      "at": "2026-08-19T10:05:00Z",
+      "note": "Approved by Sam. Ruling: remove the stack constraint on further front-end packages rather than satisfy it, on this branch. Constitution amended to 4.0.0 and declared in the PR description."
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-19T10:40:00Z",
+      "note": "research.md (11 findings), plan.md (13 design decisions), tasks.md (28 tasks across a foundational phase and five stories)."
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-19T10:05:00Z",
+      "self_resolved": [
+        "Title fallback chain ends at the citation key so the linked cell is never an empty-value marker",
+        "Contributor names in a table cell stay linked to their contributor pages",
+        "Credited names capped at three with a translatable indication that more exist",
+        "Five columns sort; credited names and the edit control declare themselves unsortable",
+        "Item type sorts by the stored CSL value, not the translated label, and the documentation says so",
+        "Search and filter controls switched off by name rather than left to an upstream default",
+        "The card list is not deprecated; a project restores it with a one-line routing change",
+        "Presentation only: no model, no field, no migration",
+        "The governance clause forbidding amendment alongside feature work becomes a disclosure rule, so the amendment Sam directed is not self-contradicting"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 82,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T002",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T003",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T004",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T005",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T006",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T007",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T008",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T009",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T010",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T011",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T012",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T013",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 83,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T014",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T015",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T016",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 84,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T017",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T018",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T019",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T020",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 85,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T021",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T022",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T023",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T024",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US5",
+      "priority": "P5",
+      "issue": 86,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T025",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T026",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T027",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T028",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 120
+    }
+  },
+  "pr": {
+    "number": 87,
+    "draft": true
+  },
+  "escalations": []
+}
