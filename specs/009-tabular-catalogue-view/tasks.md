@@ -162,12 +162,18 @@ Delivers FR-013 through FR-018.
   *Test scope:* `tests/test_ui/test_tables.py`, class `TestIssuedOrdering`.
 
 - [ ] **T019** Sorting from an HTTP request: assert that `?sort=` reorders the whole catalogue rather
-  than the current page, that the direction reverses on a second request, that the order survives
-  moving to page 2 **by following the rendered page link rather than by constructing the address**
-  (T000 is what makes that pass — a constructed URL would assert nothing about the link the reader
-  clicks), and that `?sort=contributors` and `?sort=actions` are refused. Cover all five sortable
-  columns.
+  than the current page, that the direction reverses on a second request, and that
+  `?sort=contributors` and `?sort=actions` are refused. Cover all five sortable columns.
   *Test scope:* `tests/test_ui/test_views.py`, class `TestCatalogueOrdering`.
+
+  **The page-2 assertion is written now and expected to fail until T000 lands.** The order must
+  survive moving to page 2 **by following the rendered page link rather than by constructing the
+  address** — a constructed URL asserts nothing about the link a reader actually clicks. Today that
+  link is `?page=N` and drops the sort, which is the upstream defect T000 fixes. Write the assertion
+  in its real form and mark it `pytest.mark.xfail(strict=True, reason=...)` naming issue #88 here
+  and django-mvp#270 upstream. Strict, so it flips to a hard failure the moment
+  the floor rises and the marker has to come off — a skip would sit silent forever. Do **not** work
+  around the defect in this package.
 
 - [ ] **T029** [P] Assert FR-025 rather than only configuring it: the rendered table page carries no
   search box, no filter control and no column chooser. The argument for naming those out in the view
@@ -228,7 +234,8 @@ Delivers FR-028.
 
 ## Dependencies
 
-- T000 is in another repository and runs in parallel with everything. Only T001 and T025 wait on it.
+- T000 is in another repository and runs in parallel with everything. T001 and T025 wait on it. T019
+  does not wait on it, but carries one strict-xfail assertion that turns green when it lands.
 - Phase 1 blocks everything.
 - T004 blocks T005–T008. T007 depends on T009's prefetches, so T009 lands with or before T007's test
   turning green; take them as one unit if the ordering fights you. T008 depends on the same T009 for
