@@ -319,6 +319,28 @@ class TestItemTableView:
         assert "Citation key" in content
         assert len(response.context["object_list"]) == 6
 
+    def test_query_count_does_not_grow_with_row_count(self, client, db):
+        # FR-012 — proves T009's prefetches are actually being read, rather
+        # than the manager (research R9): the credited-names cell filtering
+        # record.item_names.filter(...) would cost one query per row.
+        def add_items(n):
+            for _ in range(n):
+                item = ItemFactory()
+                ItemNameFactory(item=item)
+                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
+
+        add_items(3)
+        with CaptureQueriesContext(connection) as small_catalogue:
+            response = client.get(reverse("literature:item-list"))
+        assert response.status_code == 200
+
+        add_items(15)
+        with CaptureQueriesContext(connection) as large_catalogue:
+            response = client.get(reverse("literature:item-list"))
+        assert response.status_code == 200
+
+        assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
+
 
 class TestItemCreateView:
     """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
