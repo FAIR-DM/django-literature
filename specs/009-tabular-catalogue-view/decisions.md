@@ -30,6 +30,8 @@ inventing one. The case is rare — a reference with no title of any kind is a b
 and when it happens the row reads as the same handle twice, which is legible, rather than as a
 row that cannot be opened.
 
+**ADR:** none — a presentation choice local to one column of one table; nothing downstream inherits it.
+
 ## D2 — Contributor names in a cell stay linked
 
 **Ambiguous:** whether the authors column carries plain text or the links the card carries.
@@ -41,6 +43,8 @@ where a reader gets to one. Serving the table by default while dropping the link
 reachability guarantee an earlier feature established, in the same release, without saying so. The
 demo's guard reaches a contributor page by following links rather than by constructing an address,
 so the withdrawal would surface as a broken walk rather than as a decision anyone took.
+
+**ADR:** none — preserves a guarantee an earlier feature already established; adds no new rule.
 
 ## D3 — Three names, then a translatable indication of more
 
@@ -58,6 +62,8 @@ for. Three is what reference managers settle on and is enough to recognise a pap
 The indication is a translated string rather than the Latin *et al.* set in the template: Article
 VIII is non-negotiable and a hard-coded user-visible string is a blocking review comment. A locale
 that does not use the Latin abbreviation gets its own wording.
+
+**ADR:** none — a display cap on one cell, changeable without consequence elsewhere.
 
 ## D4 — Two columns declare themselves unsortable rather than sorting on something else
 
@@ -79,6 +85,8 @@ cell shows for every reference that has one; the divergence is confined to the s
 badly-formed references D1 covers, where the cell is showing a fallback. That is a narrow and
 explicable divergence rather than a systematic one.
 
+**ADR:** none — which columns sort is a property of this table, re-decided per table.
+
 ## D5 — Item type sorts by the stored value, and the docs say so
 
 **Ambiguous:** whether sorting by item type follows the reader's alphabet or the store's.
@@ -91,6 +99,8 @@ pulling every row into memory to sort it, which contradicts FR-012 and stops bei
 exactly the catalogue size a table exists to serve. The stored order is stable, and CSL's type
 names are close enough to their English labels that the result reads as alphabetical to an English
 reader. Saying so in the documentation is what turns a surprise into a documented behaviour.
+
+**ADR:** none — real and durable, but its reach is one column and it is stated in the documentation where a reader meets it, which is where it is useful.
 
 ## D6 — The search and filter controls are switched off explicitly
 
@@ -105,6 +115,8 @@ default happens to be.
 that a later change to a default cannot resurrect a control the feature excluded. The reasoning
 carries over unchanged: an upstream release that adds a control to the default set would otherwise
 put an unspecified, untested, unfinished search box on the package's default page.
+
+**ADR:** none — applies a pattern `ItemListView` already established; the novel part is the boundary with #49, which the spec owns.
 
 ## D7 — Nothing is deprecated when the default changes
 
@@ -121,6 +133,8 @@ them at a prefix it chooses. That is what makes a change of default recoverable 
 than a fork. Deprecating the card view would say the opposite of what issue #81 asks for, and the
 contributor page keeps a live user inside the package, so the card path stays exercised by the
 suite rather than surviving only as a documented promise nobody runs.
+
+**ADR:** docs/adr/0024-the-catalogue-view-is-chosen-by-a-setting.md
 
 ## D8 — The stack constraint on front-end packages is lifted, on this branch
 
@@ -155,6 +169,8 @@ constitution with this PR. That is too restrictive."). The governance clause ame
 resolved here rather than asked: leaving it in place while amending under it would have made the
 change self-contradicting on its own terms.
 
+**ADR:** none — it is a constitution amendment, recorded in `memory/constitution.md` with its own Sync Impact Report. A second record would be the same decision in two places, disagreeing eventually.
+
 ## D9 — Presentation only: no model, no field, no migration
 
 **Ambiguous:** whether any column needs something the store does not hold.
@@ -168,12 +184,16 @@ already requires stay relational and queryable. The issued date is the `ItemDate
 `issued` slot, at most one per reference by construction. Ordering by issued date reads that
 related row rather than a denormalized copy, so no field is added to make a sort cheap.
 
+**ADR:** none — a scope statement about what this feature does not touch, not a decision with downstream consequences.
+
 ## D10 — The foundational phase was implemented directly, not dispatched
 
 Three mechanical tasks — a dependency bump, a lock regeneration, and one settings entry in two
 files — with no design content between them. Dispatching them into a worktree would have cost more
 than it saved, and the plan's design decisions were already settled. Recorded here because skipping
 dispatch is the exception, not the default.
+
+**ADR:** none — a dispatch choice internal to how this run was executed; invisible in the package.
 
 ## D11 — The app's pass-through `base.html` was deleted, not carried forward
 
@@ -193,9 +213,13 @@ project with no `base.html` of its own, and that a project which has one still w
 asserted, now against django-mvp's default rather than ours. The floor this package declares is what
 guarantees the replacement is present.
 
+**ADR:** none — the execution of an instruction the deleted file already carried, and the behaviour change is in the CHANGELOG where an adopter meets it.
+
 ## D12 — `deptry` is red between declaring django-tables2 and importing it
 
 The foundational phase declares the dependency; the first module that imports it arrives with the
 first story. In between, `deptry` reports DEP002 — declared but unused — which is correct and
 temporary. It is left red rather than silenced with an ignore entry that would have to be found and
 removed a day later. The story's exit gate is where it must be green.
+
+**ADR:** none — a transient state between declaring a dependency and importing it; gone by the story's exit.
