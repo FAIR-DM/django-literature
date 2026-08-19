@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from django.test import override_settings
-from django.urls import include, path, reverse
+from django.urls import include, path, resolve, reverse
 
 from literature.models import Item
 from literature.ui import views
@@ -33,6 +33,13 @@ class TestURLs:
     def test_route_reverses_under_the_mounted_prefix(self, name, kwargs, expected):
         with override_settings(ROOT_URLCONF=_urlconf()):
             assert reverse(name, kwargs=kwargs) == expected
+
+    def test_the_catalogue_route_serves_the_table_by_default(self):
+        # FR-021 — the package's documented catalogue route serves the table
+        # with no configuration; the card stays reachable as a routable
+        # class of its own (plan.md D-1), never at this route.
+        with override_settings(ROOT_URLCONF=_urlconf()):
+            assert resolve("/catalogue/").func.view_class is views.ItemTableView
 
     def test_importing_urls_has_no_import_time_side_effect_on_the_core(self):
         """Parsed rather than imported-and-inspected: an import statement naming
@@ -87,6 +94,7 @@ class TestCRUDViewsReverse:
         "view_class",
         [
             views.ItemListView,
+            views.ItemTableView,
             views.ItemDetailView,
             views.ItemCreateView,
             views.ItemUpdateView,

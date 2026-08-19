@@ -9,19 +9,22 @@ import json
 from collections import defaultdict
 from functools import cached_property
 
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
+from mvp.integrations.django_tables.views import MVPTableView
 from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPListView, MVPUpdateView
 
-from literature.choices import ItemType
+from literature.choices import ItemType, NameRole
 from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
 from literature.ui.forms import ItemForm
 from literature.ui.links import web_url
+from literature.ui.tables import ItemTable
 
 #: What the catalogue calls itself, everywhere a reader is shown its name — the
 #: list page's own heading and the breadcrumb back to it from both other pages.
@@ -157,6 +160,75 @@ class ItemListView(MVPListView):
             page_item.contributor_groups = contributor_groups(page_item)
 
         return context
+
+
+class ItemTableView(MVPTableView):
+    """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021).
+
+    ``ItemListView`` keeps its name, its card template and its behaviour
+    unchanged (plan.md D-1); this is a new, sibling view, and ``urls.py``
+    points the ``item-list`` route at it. ``ContributorDetailView`` goes on
+    subclassing ``ItemListView``, so it stays on cards with no change of its
+    own (FR-023).
+    """
+
+    model = Item
+    table_class = ItemTable
+
+    # Mandatory, not inherited: MVPTableView sets no paginate_by at all, and
+    # without one the catalogue becomes unpaginated and the whole footer bar
+    # disappears, since it renders under `{% if page_obj %}` (research R4).
+    # 24 is the card list's own page size, kept so the change of
+    # presentation does not also change how much is on a page.
+    paginate_by = 24
+
+    page_title = CATALOGUE_TITLE
+
+    # The mixin's own default is ["search", "filter", "create"]. Search is
+    # #49's and filter renders nothing on a non-FilterView anyway, but both
+    # are named out explicitly, for the same reason ItemListView already
+    # names search_fields out explicitly: so a later change to an upstream
+    # default cannot put an unspecified control on the package's default
+    # page (FR-025).
+    actions = ["create"]
+    directory: list[str] = ["create"]
+    show_create_action = True
+    crud_views = CRUD_VIEWS
+    search_fields = None
+
+    # No order_by: MVPTableViewMixin raises ImproperlyConfigured at
+    # instantiation if it finds one — ordering lives on the table class.
+
+    empty_state_heading = _("Nothing in the catalogue yet")
+    empty_state_message = _("References imported or created will appear here.")
+
+    def get_queryset(self):
+        # Both prefetches, not one: the credited-names cell reads
+        # "contributors" (a to_attr prefetch restricted to author- and
+        # editor-role rows, ordered the way ItemName.Meta already orders
+        # them), and the issued cell walks the whole ItemDate row via
+        # item_dates, which the card view already prefetches for the same
+        # reason. Omitting either costs one query per row (plan.md D-2).
+        return (
+            super()
+            .get_queryset()
+            .prefetch_related(
+                Prefetch(
+                    "item_names",
+                    queryset=ItemName.objects.filter(role__in=(NameRole.AUTHOR, NameRole.EDITOR)).select_related(
+                        "name"
+                    ),
+                    to_attr="contributors",
+                ),
+                "item_dates",
+            )
+        )
+
+    def get_model_info(self):
+        # Same reasoning as ItemListView.get_model_info(): the table
+        # template's own position line otherwise reads "of 28 items"
+        # directly under a heading that says Publications.
+        return {**super().get_model_info(), "verbose_name_plural": CATALOGUE_NAME_PLURAL}
 
 
 class ItemCreateView(MVPCreateView):

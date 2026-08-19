@@ -4,6 +4,10 @@
   ``hidden_count`` are selected in Python by ContributorsColumn.get_context_data;
   the markup — including the escaping of each free-text name — is built here,
   never in Python, because a contributor's name is text entered through this
-  package's own open write pages (Article V).
+  package's own open write pages (Article V). ``<c-link>`` supplies the same
+  hover-underline class the card's own contributor links carry, rather than
+  those daisyUI component classes written literally as an attribute here —
+  no daisyUI component class is written that way in a shipped template, the
+  Cotton components carry their own.
 {% endcomment %}
-{% if names %}{% for name in names %}<a href="{% url 'literature:contributor-detail' pk=name.pk %}" class="link link-hover">{{ name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if hidden_count %}, {% blocktrans count counter=hidden_count %}and {{ counter }} other{% plural %}and {{ counter }} others{% endblocktrans %}{% endif %}{% else %}{{ default }}{% endif %}
+{% if names %}{% for name in names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}{% if hidden_count %}, {% blocktranslate count counter=hidden_count %}and {{ counter }} other{% plural %}and {{ counter }} others{% endblocktranslate %}{% endif %}{% else %}{{ default }}{% endif %}

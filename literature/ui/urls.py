@@ -20,7 +20,7 @@ from . import views
 app_name = "literature"
 
 urlpatterns = [
-    path("", views.ItemListView.as_view(), name="item-list"),
+    path("", views.ItemTableView.as_view(), name="item-list"),
     path("add/", views.ItemCreateView.as_view(), name="item-create"),
     path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("<int:pk>/update/", views.ItemUpdateView.as_view(), name="item-update"),
