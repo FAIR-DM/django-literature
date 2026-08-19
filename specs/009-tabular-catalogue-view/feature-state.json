@@ -3,7 +3,7 @@
   "feature": "009-tabular-catalogue-view",
   "branch": "009-tabular-catalogue-view",
   "repo": "FAIR-DM/django-literature",
-  "state": "IMPLEMENT",
+  "state": "CONVERGE",
   "state_history": [
     {
       "state": "INTAKE",
@@ -39,6 +39,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-19T13:30:00Z",
       "note": "US-1, US-2 and US-3 landed on the feature branch. Suite 1570 passed, 1 documented xfail for the upstream pagination defect (#88). Ledger reconciled from git after it was left at DESIGN_REVIEW through three stories."
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-19T16:10:00Z",
+      "note": "All five stories landed on the feature branch. Two convergence changes made here rather than left in the PR: the card list is selected by LITERATURE['CATALOGUE_VIEW'] instead of the documented urlpatterns mutation, with tests proved non-vacuous by bypassing the switch; and the leading-underscore naming is gone from the front end, the demo and their tests. Suite 1592 passed, 1 documented xfail (#88). Lint, format, types, deptry and makemigrations --check green."
     }
   ],
   "gates": {
@@ -529,35 +534,79 @@
       "id": "US5",
       "priority": "P5",
       "issue": 86,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T025",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T026",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T027",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
         },
         {
           "id": "T028",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run pre-commit run --all-files",
+              "poetry run python demo/smoke.py"
+            ],
+            "tests": [
+              "tests/test_demo/test_smoke.py"
+            ],
+            "verified_by_ci": false
+          }
         }
       ]
     }
   ],
   "budgets": {
     "converge_cycles": {
-      "used": 0,
+      "used": 1,
       "max": 2
     },
     "review_cycles": {
