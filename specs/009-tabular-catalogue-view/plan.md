@@ -92,10 +92,10 @@ literature/ui/
 ├── urls.py                        # "" now serves ItemTableView
 └── templates/literature/ui/
     ├── item_list_item.html        # unchanged (card, still used by the contributor page)
-    ├── _date_value.html           # unchanged (now also included from a table cell)
-    ├── _table_issued.html         # NEW — one-line wrapper so the table reuses _date_value.html
-    ├── _table_contributors.html   # NEW — the credited names, escaped by the template layer
-    └── _table_actions.html        # NEW — the row's edit control
+    ├── date_value.html           # unchanged (now also included from a table cell)
+    ├── table_issued.html         # NEW — one-line wrapper so the table reuses date_value.html
+    ├── table_contributors.html   # NEW — the credited names, escaped by the template layer
+    └── table_actions.html        # NEW — the row's edit control
 
 tests/
 ├── settings.py                    # + django_tables2
@@ -162,7 +162,7 @@ class ItemTableView(MVPTableView):
   Ordering lives on the table class.
 - `get_queryset()` carries **both** prefetches and the issued-date annotation (D-5, D-6). Two, not
   one: the credited-names prefetch into `to_attr="contributors"`, and `item_dates`, because the
-  issued cell reaches for the whole `ItemDate` row — `_date_value.html` needs its `end`, `begin` and
+  issued cell reaches for the whole `ItemDate` row — `date_value.html` needs its `end`, `begin` and
   `literal`, which the D-8 annotation cannot supply since it carries only the start date. The card
   view already pays for `item_dates` for the same reason. Omitting it costs one query per row and
   breaks FR-012.
@@ -207,7 +207,7 @@ The one edge that would otherwise defeat this feature silently. A column whose a
 (research R3). That is exactly the case the title fallback chain exists for, and it is also the
 state of the credited-names and edit columns, which have no model attribute behind their names.
 
-Every column with a `render_` method declares `empty_values=()`. `_table_actions.html` goes through
+Every column with a `render_` method declares `empty_values=()`. `table_actions.html` goes through
 `TemplateColumn`, which sets it itself.
 
 **And the consequence, which cuts the other way:** `empty_values=()` is the same switch that stops
@@ -224,9 +224,9 @@ reference whose only date is `accessed` — must render the marker themselves ra
 | `type` | `Column(order_by="type")`, **no renderer** | `type` (indexed) | django-tables2 resolves a choice field through `get_FOO_display()` before any renderer runs, so the translated label arrives on its own and a `render_type` would only restate it. Recorded here so nobody adds one back. Plain text, not a badge — the badge is the card's idiom and a cell of badges reads as noise. FR-017's documentation note attaches here |
 | `title` | `Column(empty_values=(), order_by="title", linkify=(...))` + `render_title` | `title` (indexed) | fallback chain in `render_title`; `linkify` wraps its output rather than replacing it |
 | `container_title` | plain `Column` | `container_title` (indexed) | |
-| `contributors` | `TemplateColumn(template_name="literature/ui/_table_contributors.html", empty_values=(), orderable=False)` | — | reads the prefetch, never the manager; the markup is built in the template, not in Python (D-6) |
-| `issued` | `TemplateColumn(template_name="literature/ui/_table_issued.html", empty_values=())` + `order_issued` | the `issued` annotation, from US-3 onward | reuses `_date_value.html` (D-7). Ships `orderable=False` in US-1 and is switched on when the annotation lands, so the header never advertises a sort that would raise |
-| `actions` | `TemplateColumn(template_name="literature/ui/_table_actions.html", orderable=False, verbose_name="")` | — | `orderable=False` is also what earns it centred alignment (research R6) |
+| `contributors` | `TemplateColumn(template_name="literature/ui/table_contributors.html", empty_values=(), orderable=False)` | — | reads the prefetch, never the manager; the markup is built in the template, not in Python (D-6) |
+| `issued` | `TemplateColumn(template_name="literature/ui/table_issued.html", empty_values=())` + `order_issued` | the `issued` annotation, from US-3 onward | reuses `date_value.html` (D-7). Ships `orderable=False` in US-1 and is switched on when the annotation lands, so the header never advertises a sort that would raise |
+| `actions` | `TemplateColumn(template_name="literature/ui/table_actions.html", orderable=False, verbose_name="")` | — | `orderable=False` is also what earns it centred alignment (research R6) |
 
 **The column is named `contributors` and its header reads "Authors".** The spec says authors
 throughout and the glossary deprecates `Author` for the model-side term, so the two artefacts were
@@ -273,8 +273,8 @@ rest — and returns those values to a template. It builds no markup.
 free text entered through the front end's own write pages, which this feature deliberately leaves
 open (FR-020). A Python renderer emitting one `<a>` per name is one `mark_safe` away from executing
 whatever a name contains, on what this feature makes the package's default page. So the cell is a
-`TemplateColumn` over `_table_contributors.html`, exactly as the issued cell is over
-`_table_issued.html`, and Django's autoescaping is the control. Nothing hand-builds an anchor.
+`TemplateColumn` over `table_contributors.html`, exactly as the issued cell is over
+`table_issued.html`, and Django's autoescaping is the control. Nothing hand-builds an anchor.
 `format_html_join` would also be safe, but a template is safe by default and the codebase already
 has the idiom.
 
@@ -283,13 +283,13 @@ credited names at all — renders the table's marker rather than nothing (D-4).
 
 ### D-7 — The issued column reuses the shared date partial
 
-`_date_value.html` holds the whole precision-and-range rule and is included by both the card and the
+`date_value.html` holds the whole precision-and-range rule and is included by both the card and the
 reference page; its own comment says the two must not drift. Rendering the same rule again in Python
 would fork it (research R8).
 
-`_table_issued.html` is a thin wrapper that picks the `issued` slot off the record and includes
-`_date_value.html` under the `item_date` name the partial expects. The rule stays in one file. It
-renders the empty-value marker when the record carries no issued date — `_date_value.html` emits
+`table_issued.html` is a thin wrapper that picks the `issued` slot off the record and includes
+`date_value.html` under the `item_date` name the partial expects. The rule stays in one file. It
+renders the empty-value marker when the record carries no issued date — `date_value.html` emits
 nothing at all for a slot with no `end`, no `begin` and no `literal`, and this column's
 `empty_values=()` means the table's own marker is never reached (D-4).
 

@@ -107,7 +107,7 @@ consistently, the ordering is explicit rather than inherited:
 
 ## R8 — The date partial is shared, and a Python-rendered column would silently fork it
 
-`literature/ui/templates/literature/ui/_date_value.html` carries the whole precision-and-range
+`literature/ui/templates/literature/ui/date_value.html` carries the whole precision-and-range
 rendering rule in one line and is included by both the catalogue row and the reference page. Its own
 comment states the constraint: the two must not drift apart.
 

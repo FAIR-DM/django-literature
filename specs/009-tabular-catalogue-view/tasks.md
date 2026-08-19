@@ -72,7 +72,7 @@ Delivers FR-001 through FR-012 and FR-021. At the end of this phase the catalogu
   and still worth making; it pins behaviour the library provides.
 
 - [ ] **T007** The credited-names column: `TemplateColumn` over a new
-  `literature/ui/templates/literature/ui/_table_contributors.html`, with `empty_values=()` and
+  `literature/ui/templates/literature/ui/table_contributors.html`, with `empty_values=()` and
   `orderable=False`. `render_contributors` selects the values only — reading the `contributors`
   attribute the view's prefetch places, authors if any, else editors, first three, and the count of
   the rest — and the template builds the links. **No markup is built in Python and nothing is passed
@@ -84,8 +84,8 @@ Delivers FR-001 through FR-012 and FR-021. At the end of this phase the catalogu
   fallback, neither (asserting the marker), exactly three, more than three, the link targets, and a
   name containing markup rendering escaped.
 
-- [ ] **T008** [P] The issued column: `_table_issued.html`, a thin wrapper that selects the `issued`
-  slot off the record and includes `_date_value.html` under the `item_date` name the partial expects,
+- [ ] **T008** [P] The issued column: `table_issued.html`, a thin wrapper that selects the `issued`
+  slot off the record and includes `date_value.html` under the `item_date` name the partial expects,
   plus a `TemplateColumn` over it. The rendering rule stays in the one shared partial (research R8).
   Ships `orderable=False` — the annotation and `order_issued` that make the sort resolvable do not
   land until T017/T018, and a header advertising a sort before then raises `FieldError` on the
@@ -129,12 +129,12 @@ Delivers FR-001 through FR-012 and FR-021. At the end of this phase the catalogu
 
 Delivers FR-019 and FR-020.
 
-- [ ] **T014** `_table_actions.html`: the row's edit control, linking to `literature:item-update` for
+- [ ] **T014** `table_actions.html`: the row's edit control, linking to `literature:item-update` for
   the record, with translatable text. Reuse the same control idiom the reference page uses; introduce
   no new styling.
   *Test scope:* covered by T015 and by the template guards.
 
-- [ ] **T015** The actions column: `TemplateColumn(template_name="literature/ui/_table_actions.html", orderable=False, verbose_name="")`. `orderable=False` is what earns the column its centred
+- [ ] **T015** The actions column: `TemplateColumn(template_name="literature/ui/table_actions.html", orderable=False, verbose_name="")`. `orderable=False` is what earns the column its centred
   alignment as well as what FR-015 asks for (research R6). Assert the control's target, that its
   visibility follows the same `show_update_action` mechanism the reference page uses, and that no
   permission check is introduced.
