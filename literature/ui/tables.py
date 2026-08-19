@@ -10,7 +10,7 @@ import django_tables2 as tables
 from django.utils.translation import gettext_lazy as _
 from django_tables2.utils import A
 
-from literature.choices import NameRole
+from literature.choices import DateType, NameRole
 
 
 class _ContributorsColumn(tables.TemplateColumn):
@@ -37,6 +37,27 @@ class _ContributorsColumn(tables.TemplateColumn):
         credited = authors or [item_name.name for item_name in item_names if item_name.role == NameRole.EDITOR]
         context["names"] = credited[:3]
         context["hidden_count"] = max(len(credited) - 3, 0)
+        return context
+
+
+class _IssuedColumn(tables.TemplateColumn):
+    """The issued-date cell (FR-009).
+
+    Picks the ``issued`` date slot off the record's prefetched
+    ``item_dates`` and hands it to ``_date_value.html`` under the name it
+    expects, so the precision-and-range rule stays in that one shared
+    partial rather than forking into a second Python implementation
+    (research R8, plan.md D-7). ``.all()`` on a prefetched relation reads
+    the cache rather than issuing a query, exactly as ``item_list_item.html``
+    already relies on for the same relation.
+    """
+
+    def get_context_data(self, record, **kwargs):
+        context = super().get_context_data(record=record, **kwargs)
+        context["item_date"] = next(
+            (item_date for item_date in record.item_dates.all() if item_date.date_type == DateType.ISSUED),
+            None,
+        )
         return context
 
 
@@ -94,6 +115,16 @@ class ItemTable(tables.Table):
         # An through-model across two roles has no single value to order on
         # (FR-015).
         orderable=False,
+    )
+    issued = _IssuedColumn(
+        verbose_name=_("Issued"),
+        template_name="literature/ui/_table_issued.html",
+        empty_values=(),
+        # The annotation and order_issued that make the sort resolvable do
+        # not land until US-3 (T017/T018) — a header advertising a sort
+        # before then raises FieldError on the package's default page.
+        orderable=False,
+        attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
 
     class Meta:

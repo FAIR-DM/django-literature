@@ -1,0 +1,7 @@
+{% comment %}
+  A thin wrapper: the issued cell reuses _date_value.html so the
+  precision-and-range rule stays in the one shared partial rather than
+  forking into a second Python implementation (research R8, plan.md D-7).
+  ``item_date`` is selected in Python by IssuedColumn.get_context_data.
+{% endcomment %}
+{% if item_date %}{% include "literature/ui/_date_value.html" %}{% else %}{{ default }}{% endif %}

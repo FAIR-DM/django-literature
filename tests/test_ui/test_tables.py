@@ -10,10 +10,10 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.functional import Promise
 
-from literature.choices import NameRole
+from literature.choices import DateType, NameRole
 from literature.models import Item
 from literature.ui.tables import ItemTable
-from tests.factories import ItemFactory, ItemNameFactory, NameFactory
+from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
 
 
 def rendered_cell(item, column_name):
@@ -260,3 +260,54 @@ class TestContributorsColumn:
         with CaptureQueriesContext(connection) as queries:
             rendered_cell_from_record(item, "contributors")
         assert len(queries.captured_queries) == 0
+
+
+class TestIssuedColumn:
+    """The issued cell — FR-009 (plan.md D-7, research R8)."""
+
+    def test_declares_empty_values_as_empty_tuple(self):
+        assert ItemTable.base_columns["issued"].empty_values == ()
+
+    def test_ships_unsortable_until_the_annotation_lands(self):
+        # The annotation and order_issued that make the sort resolvable do
+        # not land until US-3 (T017/T018); a header advertising a sort
+        # before then raises FieldError on the package's default page.
+        assert ItemTable.base_columns["issued"].orderable is False
+
+    def test_year_only_precision_shows_the_year_without_inventing_a_month_or_day(self, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1998")
+        content = rendered_cell(item, "issued")
+        assert "1998" in content
+        assert "1998-01-01" not in content
+
+    def test_full_date_precision(self, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1998-03-14")
+        assert "1998-03-14" in rendered_cell(item, "issued")
+
+    def test_a_range_shows_both_ends(self, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
+        content = rendered_cell(item, "issued")
+        assert "2019" in content
+        assert "2021" in content
+
+    def test_a_free_text_literal_date(self, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=None, literal="in press")
+        assert "in press" in rendered_cell(item, "issued")
+
+    def test_no_issued_date_at_all_renders_the_empty_value_marker(self, db):
+        # Edge case: the item's only date is "accessed" (FR-010).
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
+        content = rendered_cell(item, "issued")
+        assert "—" in content
+
+    def test_ignores_a_non_issued_date_slot(self, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019")
+        content = rendered_cell(item, "issued")
+        assert "2019" in content
