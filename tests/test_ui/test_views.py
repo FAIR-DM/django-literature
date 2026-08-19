@@ -8,6 +8,7 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 import json
 import re
 from html.parser import HTMLParser
+from urllib.parse import urljoin
 
 import pytest
 from django.db import connection
@@ -27,6 +28,17 @@ def anchor_tag(content, href):
     match = re.search(rf"<a\b[^>]*href=\"{re.escape(href)}\"[^>]*>", content)
     assert match, f"no anchor addressing {href}"
     return match.group(0)
+
+
+def rendered_page_link(content, page_number):
+    """The ``href`` the rendered pagination component's own numbered link to
+    ``page_number`` carries — found by reading the markup, not by
+    constructing ``?page=N`` ourselves. That distinction is what T019's
+    page-2 assertion turns on (plan.md D-14): the address the reader's
+    click actually carries is the evidence, not one the test invents."""
+    match = re.search(rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{page_number}\s*</a>', content)
+    assert match, f"no rendered link to page {page_number}"
+    return match.group(1)
 
 
 def _rendered_form_post_data(client, url, **overrides):
@@ -387,6 +399,118 @@ class TestItemTableView:
         response = client.get(reverse("literature:item-list"))
         (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
         assert annotated_item.issued is None
+
+
+#: One item-building override per plain sortable column, cycled by index so
+#: 30 references get 30 distinct, independently-sortable values (T019).
+#: "type" cycles a fixed set of stored slugs rather than a unique value per
+#: item — sorting is still monotonic across ties, and it doubles as FR-017's
+#: check that ordering follows the stored slug, not the translated label.
+PLAIN_SORTABLE_COLUMN_OVERRIDES = {
+    "citation_key": lambda n: {"citation_key": f"Key{n:03d}"},
+    "title": lambda n: {"title": f"Title{n:03d}"},
+    "container_title": lambda n: {"container_title": f"Container{n:03d}"},
+    "type": lambda n: {"type": [ItemType.ARTICLE, ItemType.BOOK, ItemType.CHAPTER][n % 3]},
+}
+
+
+class TestCatalogueOrdering:
+    """Sorting the catalogue from an HTTP request — FR-013 through FR-018 (plan.md D-8, research R7)."""
+
+    def catalogue_column_values(self, client, column, sort_param=None):
+        """Every reference's ``column`` value, gathered across both pages of
+        a 30-row catalogue — proving a sort is applied to the whole
+        queryset rather than only to whichever rows a page happens to
+        show.
+
+        Reads ``table.page`` rather than the plain ``object_list`` context
+        key: ``SingleTableMixin`` sorts and paginates its own copy of the
+        queryset independently of ``MVPListViewMixin``'s, and ``object_list``
+        never reflects the sort at all.
+        """
+        values = []
+        params = {"sort": sort_param} if sort_param else {}
+        for page in (1, 2):
+            response = client.get(reverse("literature:item-list"), {**params, "page": page})
+            values += [getattr(row.record, column) for row in response.context["table"].page.object_list]
+        return values
+
+    @pytest.mark.parametrize("column", sorted(PLAIN_SORTABLE_COLUMN_OVERRIDES))
+    def test_ascending_sort_orders_the_whole_catalogue_not_only_the_current_page(self, client, db, column):
+        # 30 references over a 24-row page (FR-014, FR-016).
+        for n in range(30):
+            ItemFactory(**PLAIN_SORTABLE_COLUMN_OVERRIDES[column](n))
+        values = self.catalogue_column_values(client, column, sort_param=column)
+        assert len(values) == 30
+        assert values == sorted(values)
+
+    def test_ascending_sort_by_issued_date_keeps_undated_references_last(self, client, db):
+        # FR-018 — read through the HTTP sort param rather than only through
+        # order_issued directly (TestIssuedOrdering already covers that).
+        dated_keys = []
+        for n in range(20):
+            item = ItemFactory(citation_key=f"Dated{n:03d}")
+            ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=str(2000 + n))
+            dated_keys.append(item.citation_key)
+        undated_keys = {ItemFactory(citation_key=f"Undated{n:03d}").citation_key for n in range(10)}
+        citation_keys = self.catalogue_column_values(client, "citation_key", sort_param="issued")
+        assert citation_keys[:20] == dated_keys
+        assert set(citation_keys[20:]) == undated_keys
+
+    def test_sort_direction_reverses_on_a_second_request(self, client, db):
+        for n in range(30):
+            ItemFactory(citation_key=f"Key{n:03d}")
+        ascending = self.catalogue_column_values(client, "citation_key", sort_param="citation_key")
+        descending = self.catalogue_column_values(client, "citation_key", sort_param="-citation_key")
+        assert ascending == list(reversed(descending))
+        assert ascending != descending
+
+    def test_sort_by_the_contributors_column_is_refused(self, client, db):
+        # FR-015 — the credited-names cell has no single value to order on.
+        first = ItemFactory(citation_key="First")
+        second = ItemFactory(citation_key="Second")
+        response = client.get(reverse("literature:item-list"), {"sort": "contributors"})
+        assert response.status_code == 200
+        # Refused, not errored: django-tables2 silently drops an order_by
+        # alias naming a non-orderable column, so the table keeps its
+        # default newest-first order rather than raising or reordering.
+        citation_keys = [row.record.citation_key for row in response.context["table"].page.object_list]
+        assert citation_keys == [second.citation_key, first.citation_key]
+
+    def test_sort_by_the_actions_column_is_refused(self, client, db):
+        # FR-015 — a control, not data, has no single value to order on.
+        first = ItemFactory(citation_key="First")
+        second = ItemFactory(citation_key="Second")
+        response = client.get(reverse("literature:item-list"), {"sort": "actions"})
+        assert response.status_code == 200
+        citation_keys = [row.record.citation_key for row in response.context["table"].page.object_list]
+        assert citation_keys == [second.citation_key, first.citation_key]
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "django-mvp's pagination link replaces the whole query string and drops ?sort= "
+            "(plan.md D-14) — tracked here as issue #88, upstream as django-mvp/django-mvp#270. "
+            "Flips green once the fix lands and the ui floor in T001 carries it."
+        ),
+    )
+    def test_sort_survives_following_the_rendered_link_to_page_2(self, client, db):
+        # citation_key runs the opposite way to creation order, so a sort by
+        # -citation_key produces a different row order than the catalogue's
+        # default (-created) — a test where the two coincide would pass
+        # whether or not the followed link actually carried the sort.
+        for n in range(30):
+            ItemFactory(citation_key=f"Key{29 - n:03d}")
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"sort": "-citation_key"})
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        # Still descending across the page boundary — fails today because
+        # the followed link carries no ?sort= and page 2 falls back to the
+        # catalogue's default newest-first order instead.
+        assert second_page_records[0].citation_key < first_page_records[-1].citation_key
 
 
 class TestItemCreateView:
