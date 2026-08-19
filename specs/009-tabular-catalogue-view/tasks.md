@@ -215,8 +215,13 @@ Delivers FR-028.
 
 - [ ] **T025** Confirm the demo serves the table at `catalogue/` over its seed references. The
   item-link pattern survives untouched (research R4). The pagination pattern does not: `demo/smoke.py`
-  pins the literal `href="?page=2"`, and T000's fix makes that link carry the rest of the query
-  string, so the guard has to match a page link that is no longer bare. Repair it, and keep the
+  pins the literal `href="?page=2"`, which T000's fix will change into a link carrying the rest of
+  the query string.
+
+  **Widen the pattern now rather than repairing it later.** It must match a page link whether or not
+  the link carries other parameters, and whether `page` is first or last in the query string — so
+  the guard is correct both today and the day the floor rises, and nobody has to remember to come
+  back. Do not make it so loose it would match a link with no page parameter at all. Keep the
   guard's rule that it constructs no address of its own.
   *Test scope:* `tests/test_demo/test_smoke.py`.
 
@@ -234,8 +239,9 @@ Delivers FR-028.
 
 ## Dependencies
 
-- T000 is in another repository and runs in parallel with everything. T001 and T025 wait on it. T019
-  does not wait on it, but carries one strict-xfail assertion that turns green when it lands.
+- T000 is in another repository and runs in parallel with everything. Only T001 waits on it. T019
+  and T025 do not wait on it: T019 carries one strict-xfail assertion that turns green when it
+  lands, and T025 widens its pattern to be correct on both sides of it.
 - Phase 1 blocks everything.
 - T004 blocks T005–T008. T007 depends on T009's prefetches, so T009 lands with or before T007's test
   turning green; take them as one unit if the ordering fights you. T008 depends on the same T009 for
