@@ -10,6 +10,35 @@ import django_tables2 as tables
 from django.utils.translation import gettext_lazy as _
 from django_tables2.utils import A
 
+from literature.choices import NameRole
+
+
+class _ContributorsColumn(tables.TemplateColumn):
+    """The credited-names cell (FR-006 through FR-008).
+
+    Selects the values only — reading the ``contributors`` attribute
+    ``ItemTableView.get_queryset()`` prefetches onto the record (a
+    ``Prefetch(..., to_attr="contributors")``), author-role names if the
+    item has any, else editor-role names, first three plus the count of the
+    rest — and leaves building the markup to the template (plan.md D-6,
+    Article V): a contributor's name is free text entered through this
+    package's own open write pages, and nothing here is passed through
+    ``mark_safe``. ``getattr(record, "contributors", [])`` reads the
+    prefetch defensively, so a record drawn through a plain
+    ``SingleTableView`` with no prefetch degrades to the empty-value marker
+    rather than raising (research R9) — and never touches the manager, which
+    would cost one query per row.
+    """
+
+    def get_context_data(self, record, **kwargs):
+        context = super().get_context_data(record=record, **kwargs)
+        item_names = getattr(record, "contributors", [])
+        authors = [item_name.name for item_name in item_names if item_name.role == NameRole.AUTHOR]
+        credited = authors or [item_name.name for item_name in item_names if item_name.role == NameRole.EDITOR]
+        context["names"] = credited[:3]
+        context["hidden_count"] = max(len(credited) - 3, 0)
+        return context
+
 
 class ItemTable(tables.Table):
     """The catalogue, one row per reference (FR-001 through FR-012).
@@ -57,6 +86,14 @@ class ItemTable(tables.Table):
     container_title = tables.Column(
         verbose_name=_("Container title"),
         attrs={"td": {"class": "mvp-col-wrap mvp-col-max-md"}},
+    )
+    contributors = _ContributorsColumn(
+        verbose_name=_("Authors"),
+        template_name="literature/ui/_table_contributors.html",
+        empty_values=(),
+        # An through-model across two roles has no single value to order on
+        # (FR-015).
+        orderable=False,
     )
 
     class Meta:

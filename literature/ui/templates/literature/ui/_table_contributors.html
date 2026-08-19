@@ -1,0 +1,9 @@
+{% load i18n %}
+{% comment %}
+  The credited-names cell (FR-006 through FR-008, plan.md D-6). ``names`` and
+  ``hidden_count`` are selected in Python by ContributorsColumn.get_context_data;
+  the markup — including the escaping of each free-text name — is built here,
+  never in Python, because a contributor's name is text entered through this
+  package's own open write pages (Article V).
+{% endcomment %}
+{% if names %}{% for name in names %}<a href="{% url 'literature:contributor-detail' pk=name.pk %}" class="link link-hover">{{ name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if hidden_count %}, {% blocktrans count counter=hidden_count %}and {{ counter }} other{% plural %}and {{ counter }} others{% endblocktrans %}{% endif %}{% else %}{{ default }}{% endif %}

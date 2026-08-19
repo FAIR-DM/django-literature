@@ -5,17 +5,30 @@ expressed with classes, one per column (``TestItemTableMeta`` for the table's
 own configuration, ``Test<Column>Column`` per column thereafter).
 """
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.functional import Promise
 
+from literature.choices import NameRole
 from literature.models import Item
 from literature.ui.tables import ItemTable
-from tests.factories import ItemFactory
+from tests.factories import ItemFactory, ItemNameFactory, NameFactory
 
 
 def rendered_cell(item, column_name):
     """The rendered HTML of one column's cell for one item, without a view."""
     table = ItemTable(Item.objects.filter(pk=item.pk))
+    row = next(iter(table.rows))
+    return row.get_cell(column_name)
+
+
+def rendered_cell_from_record(item, column_name):
+    """Like ``rendered_cell``, but over ``item`` exactly as given — carrying
+    whatever attributes (e.g. a ``contributors`` prefetch stand-in) the
+    caller already set on it — rather than a fresh copy read back from the
+    database."""
+    table = ItemTable([item])
     row = next(iter(table.rows))
     return row.get_cell(column_name)
 
@@ -150,3 +163,100 @@ class TestTypeColumn:
         content = rendered_cell(item, "type")
         assert "Journal Article" in content
         assert "article-journal" not in content
+
+
+class TestContributorsColumn:
+    """The credited-names cell — FR-006 through FR-008 (plan.md D-6, research R9)."""
+
+    def test_declares_empty_values_as_empty_tuple(self):
+        # The column resolves to nothing at all — Item has no "contributors"
+        # field — so without this the marker would render even when the
+        # prefetch carries names (research R3).
+        assert ItemTable.base_columns["contributors"].empty_values == ()
+
+    def test_is_not_orderable(self):
+        # Assembled from a through-model across two roles with no single
+        # value to order on (FR-015).
+        assert ItemTable.base_columns["contributors"].orderable is False
+
+    def test_lists_author_role_contributors_in_stored_order(self, db):
+        item = ItemFactory()
+        first = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        second = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        item.contributors = [first, second]
+        content = rendered_cell_from_record(item, "contributors")
+        assert content.index(str(first.name)) < content.index(str(second.name))
+
+    def test_falls_back_to_editors_when_there_are_no_authors(self, db):
+        item = ItemFactory()
+        editor = ItemNameFactory(item=item, role=NameRole.EDITOR)
+        item.contributors = [editor]
+        content = rendered_cell_from_record(item, "contributors")
+        assert str(editor.name) in content
+
+    def test_ignores_editors_when_authors_are_present(self, db):
+        item = ItemFactory()
+        author = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        editor = ItemNameFactory(item=item, role=NameRole.EDITOR)
+        item.contributors = [author, editor]
+        content = rendered_cell_from_record(item, "contributors")
+        assert str(author.name) in content
+        assert str(editor.name) not in content
+
+    def test_no_contributors_at_all_renders_the_empty_value_marker(self, db):
+        item = ItemFactory()
+        item.contributors = []
+        content = rendered_cell_from_record(item, "contributors")
+        assert "—" in content
+
+    def test_exactly_three_names_shows_no_and_others_suffix(self, db):
+        item = ItemFactory()
+        names = [ItemNameFactory(item=item, role=NameRole.AUTHOR) for _ in range(3)]
+        item.contributors = names
+        content = rendered_cell_from_record(item, "contributors")
+        for item_name in names:
+            assert str(item_name.name) in content
+        assert "other" not in content
+
+    def test_more_than_three_names_shows_the_first_three_and_the_count_of_the_rest(self, db):
+        item = ItemFactory()
+        names = [ItemNameFactory(item=item, role=NameRole.AUTHOR) for _ in range(5)]
+        item.contributors = names
+        content = rendered_cell_from_record(item, "contributors")
+        for item_name in names[:3]:
+            assert str(item_name.name) in content
+        for item_name in names[3:]:
+            assert str(item_name.name) not in content
+        assert "2" in content
+
+    def test_each_name_links_to_its_contributor_page(self, db):
+        item = ItemFactory()
+        item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        item.contributors = [item_name]
+        content = rendered_cell_from_record(item, "contributors")
+        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert f'href="{contributor_url}"' in content
+
+    def test_a_name_containing_markup_renders_escaped(self, db):
+        item = ItemFactory()
+        contributor = NameFactory(family="<script>alert(1)</script>", given="")
+        item_name = ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
+        item.contributors = [item_name]
+        content = rendered_cell_from_record(item, "contributors")
+        assert "<script>" not in content
+        assert "&lt;script&gt;" in content
+
+    def test_a_record_carrying_no_contributors_attribute_degrades_rather_than_raising(self, db):
+        # research R9 — a record drawn through a plain SingleTableView with
+        # no prefetch has no "contributors" attribute at all.
+        item = ItemFactory()
+        content = rendered_cell(item, "contributors")
+        assert "—" in content
+
+    def test_never_touches_the_manager(self, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        item.contributors = []
+        with CaptureQueriesContext(connection) as queries:
+            rendered_cell_from_record(item, "contributors")
+        assert len(queries.captured_queries) == 0
