@@ -325,7 +325,7 @@ class TestActionsColumn:
         assert ItemTable.base_columns["actions"].verbose_name == ""
 
     def test_uses_the_table_actions_template(self):
-        assert ItemTable.base_columns["actions"].template_name == "literature/ui/_table_actions.html"
+        assert ItemTable.base_columns["actions"].template_name == "literature/ui/table_actions.html"
 
     def test_links_to_the_records_own_update_page(self, db):
         item = ItemFactory()

@@ -23,7 +23,7 @@
       <c-grid cols="1" md="2" gap="4">
         {% for item_date in object.item_dates.all %}
           <c-data-field label="{{ item_date.get_date_type_display }}">
-            {% include "literature/ui/_date_value.html" %}
+            {% include "literature/ui/date_value.html" %}
           </c-data-field>
         {% endfor %}
       </c-grid>

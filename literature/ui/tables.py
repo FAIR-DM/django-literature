@@ -13,7 +13,7 @@ from django_tables2.utils import A
 from literature.choices import DateType, NameRole
 
 
-class _ContributorsColumn(tables.TemplateColumn):
+class ContributorsColumn(tables.TemplateColumn):
     """The credited-names cell (FR-006 through FR-008).
 
     Selects the values only — reading the ``contributors`` attribute
@@ -40,11 +40,11 @@ class _ContributorsColumn(tables.TemplateColumn):
         return context
 
 
-class _IssuedColumn(tables.TemplateColumn):
+class IssuedColumn(tables.TemplateColumn):
     """The issued-date cell (FR-009).
 
     Picks the ``issued`` date slot off the record's prefetched
-    ``item_dates`` and hands it to ``_date_value.html`` under the name it
+    ``item_dates`` and hands it to ``date_value.html`` under the name it
     expects, so the precision-and-range rule stays in that one shared
     partial rather than forking into a second Python implementation
     (research R8, plan.md D-7). ``.all()`` on a prefetched relation reads
@@ -61,7 +61,7 @@ class _IssuedColumn(tables.TemplateColumn):
         return context
 
 
-class _ActionsColumn(tables.TemplateColumn):
+class ActionsColumn(tables.TemplateColumn):
     """The row's edit control (FR-019, FR-020).
 
     ``ItemTableView.get_table_kwargs()`` hands the table
@@ -138,17 +138,17 @@ class ItemTable(tables.Table):
         verbose_name=_("Container title"),
         attrs={"td": {"class": "mvp-col-wrap mvp-col-max-md"}},
     )
-    contributors = _ContributorsColumn(
+    contributors = ContributorsColumn(
         verbose_name=_("Authors"),
-        template_name="literature/ui/_table_contributors.html",
+        template_name="literature/ui/table_contributors.html",
         empty_values=(),
         # An through-model across two roles has no single value to order on
         # (FR-015).
         orderable=False,
     )
-    issued = _IssuedColumn(
+    issued = IssuedColumn(
         verbose_name=_("Issued"),
-        template_name="literature/ui/_table_issued.html",
+        template_name="literature/ui/table_issued.html",
         empty_values=(),
         # The annotation and order_issued that make the sort resolvable do
         # not land until US-3 (T017/T018) — a header advertising a sort
@@ -156,9 +156,9 @@ class ItemTable(tables.Table):
         orderable=False,
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
-    actions = _ActionsColumn(
+    actions = ActionsColumn(
         verbose_name="",
-        template_name="literature/ui/_table_actions.html",
+        template_name="literature/ui/table_actions.html",
         empty_values=(),
         # A control, not data — no single value to order on (FR-015). Also
         # what earns the column its centred alignment (research R6).

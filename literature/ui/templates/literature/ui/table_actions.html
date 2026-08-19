@@ -2,7 +2,7 @@
 {% comment %}
   The row's edit control (FR-019, FR-020). ``show_update_action`` is
   ``table.show_update_action``, selected in Python by
-  ``_ActionsColumn.get_context_data`` from the flag ``ItemTableView`` sets —
+  ``ActionsColumn.get_context_data`` from the flag ``ItemTableView`` sets —
   the same ``CRUDDirectoryMixin`` mechanism ``ItemDetailView``'s own edit
   action already reads (literature/ui/views.py). This feature introduces no
   check of its own: a project that has gated the update view the same way
