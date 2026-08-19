@@ -8,6 +8,7 @@ mirror test is ``tests/test_ui/test_tables.py``, one module split by
 
 import django_tables2 as tables
 from django.utils.translation import gettext_lazy as _
+from django_tables2.utils import A
 
 
 class ItemTable(tables.Table):
@@ -32,7 +33,19 @@ class ItemTable(tables.Table):
     )
     title = tables.Column(
         verbose_name=_("Title"),
-        attrs={"td": {"class": "mvp-col-wrap mvp-col-max-xl"}},
+        # Mandatory: without it, an item whose title resolves to "" never
+        # reaches render_title, defeating the fallback chain in exactly the
+        # case it exists for (research R3).
+        empty_values=(),
+        order_by="title",
+        # Item has no get_absolute_url(), so linkify=True cannot be used
+        # (research R2) — the route lives in the table class, inside
+        # literature/ui/.
+        linkify=("literature:item-detail", {"pk": A("pk")}),
+        attrs={
+            "a": {"class": "link link-hover"},
+            "td": {"class": "mvp-col-wrap mvp-col-max-xl"},
+        },
     )
     container_title = tables.Column(
         verbose_name=_("Container title"),
@@ -61,3 +74,12 @@ class ItemTable(tables.Table):
         # on (plan.md D-3).
         # No fields: every column is declared explicitly, so a field added
         # to Item later never silently becomes a column.
+
+    def render_title(self, record):
+        """The first value the reference carries down its title chain (FR-003).
+
+        Ends at the citation key, which is also its own column — a link
+        whose text is the empty-value marker cannot be read or clicked with
+        confidence, so a title-less reference duplicates its key instead.
+        """
+        return record.title or record.title_short or record.original_title or record.volume_title or record.citation_key
