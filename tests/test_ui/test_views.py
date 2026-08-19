@@ -366,6 +366,22 @@ class TestItemTableView:
         positions = [content.index(header) for header in headers]
         assert positions == sorted(positions)
 
+    def test_no_cell_renders_stored_text_unescaped(self, client, db):
+        # Every free-text column at once, on the rendered page rather than
+        # on a cell: a plain column's own cell value is its raw text and the
+        # escaping is the table template's, so a cell-level assertion would
+        # be checking the wrong layer. All four fields below are entered
+        # through this package's own write pages, which it deliberately
+        # leaves open (Article V).
+        payload = "<script>alert(1)</script>"
+        item = ItemFactory(citation_key=payload, title=payload, container_title=payload)
+        ItemNameFactory(item=item, name=NameFactory(family=payload, given=""), role=NameRole.AUTHOR)
+
+        content = client.get(reverse("literature:item-list")).content.decode()
+
+        assert payload not in content
+        assert content.count("&lt;script&gt;alert(1)&lt;/script&gt;") == 4
+
     def test_a_row_carries_all_six_data_columns_for_one_reference(self, client, db):
         item = ItemFactory(
             title="A Complete Reference",

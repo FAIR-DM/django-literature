@@ -5,6 +5,9 @@ expressed with classes, one per column (``TestItemTableMeta`` for the table's
 own configuration, ``Test<Column>Column`` per column thereafter).
 """
 
+import re
+
+import pytest
 from django.db import connection
 from django.db.models import OuterRef, Subquery
 from django.test.utils import CaptureQueriesContext
@@ -130,6 +133,18 @@ class TestTitleColumn:
         item = ItemFactory(title="A Direct Title")
         assert "A Direct Title" in rendered_cell(item, "title")
 
+    def test_a_title_containing_markup_renders_escaped(self, db):
+        # The title cell is the one place a Python renderer's return value
+        # reaches the page, and a title is free text entered through this
+        # package's own open write pages. The escaping is the linkify
+        # wrapper's, which is a library detail — pinned here so a later
+        # switch to a template column, or a mark_safe, fails rather than
+        # passing every other test in this class.
+        item = ItemFactory(title="<script>alert(1)</script>")
+        content = rendered_cell(item, "title")
+        assert "<script>" not in content
+        assert "&lt;script&gt;" in content
+
     def test_falls_back_to_short_title_when_no_title(self, db):
         item = ItemFactory(title="", title_short="Short Form")
         assert "Short Form" in rendered_cell(item, "title")
@@ -163,7 +178,7 @@ class TestTypeColumn:
     def test_orders_on_the_stored_type_value(self):
         # Sorting by item type follows the stored CSL type rather than the
         # translated label, which cannot be done in the database (FR-017).
-        assert ItemTable.base_columns["type"].order_by == ("type",)
+        assert ItemTable.base_columns["type"].order_by == ("type", "pk")
 
     def test_shows_the_translated_label_rather_than_the_stored_value(self, db):
         from literature.choices import ItemType
@@ -236,7 +251,18 @@ class TestContributorsColumn:
             assert str(item_name.name) in content
         for item_name in names[3:]:
             assert str(item_name.name) not in content
-        assert "2" in content
+        # The whole phrase, not the bare count: the three rendered links
+        # already carry a "2" in a contributor URL and in a factory-built
+        # name, so asserting the digit alone stays green with the overflow
+        # indication deleted outright (FR-007).
+        assert "and 2 others" in content
+
+    def test_exactly_one_name_beyond_the_first_three_reads_in_the_singular(self, db):
+        item = ItemFactory()
+        item.contributors = [ItemNameFactory(item=item, role=NameRole.AUTHOR) for _ in range(4)]
+        content = rendered_cell_from_record(item, "contributors")
+        assert "and 1 other" in content
+        assert "others" not in content
 
     def test_each_name_links_to_its_contributor_page(self, db):
         item = ItemFactory()
@@ -373,6 +399,45 @@ class TestActionsColumn:
         assert f'href="{update_url}"' not in content
 
 
+class TestEverySortIsTotal:
+    """A sort with ties still has to name one order — FR-016, SC-004.
+
+    django-tables2 hands the column's ordering accessors straight to
+    ``QuerySet.order_by()``, which *replaces* ``Item.Meta.ordering`` rather
+    than extending it. The catalogue is paginated, so each page is its own
+    query with its own ``LIMIT``/``OFFSET``: with no tiebreak, references
+    sharing a sort value are ordered arbitrarily and independently per page,
+    and on PostgreSQL one can appear on both pages while another appears on
+    neither. Asserted against the SQL the sort actually emits, because the
+    databases this package supports differ in whether they happen to hide
+    the defect — SQLite's scan is stable in practice and would pass a
+    row-order assertion either way.
+    """
+
+    SORTABLE = ["citation_key", "type", "title", "container_title"]
+
+    @pytest.mark.parametrize("column_name", SORTABLE)
+    @pytest.mark.parametrize("direction", ["", "-"])
+    def test_the_sort_ends_on_the_primary_key(self, db, column_name, direction):
+        ItemFactory.create_batch(2, **{column_name: "the same value"})
+        table = ItemTable(Item.objects.all(), order_by=f"{direction}{column_name}")
+        with CaptureQueriesContext(connection) as queries:
+            list(table.rows)
+        order_by_clause = queries.captured_queries[0]["sql"].split("ORDER BY")[-1]
+        assert re.search(r'"id"\s*(ASC|DESC)?\s*$', order_by_clause), order_by_clause
+
+    @pytest.mark.parametrize("direction", ["", "-"])
+    def test_the_issued_sort_ends_on_the_primary_key_too(self, db, direction):
+        for _ in range(2):
+            item = ItemFactory()
+            ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        table = ItemTable(issued_annotated_queryset(), order_by=f"{direction}issued")
+        with CaptureQueriesContext(connection) as queries:
+            list(table.rows)
+        order_by_clause = queries.captured_queries[0]["sql"].split("ORDER BY")[-1]
+        assert re.search(r'"id"\s*(ASC|DESC)?\s*$', order_by_clause), order_by_clause
+
+
 class TestIssuedOrdering:
     """Sorting by the issued date — FR-018 (plan.md D-8, research R7).
 
@@ -384,6 +449,8 @@ class TestIssuedOrdering:
 
     def test_declares_order_by_issued(self):
         assert ItemTable.base_columns["issued"].order_by == ("issued",)
+        # The primary-key tiebreak for this column is added by order_issued
+        # rather than declared here — see TestEverySortIsTotal.
 
     def test_ascending_order_places_an_undated_reference_last(self, db):
         dated = ItemFactory(citation_key="Dated")

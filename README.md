@@ -137,16 +137,12 @@ CRISPY_TEMPLATE_PACK = "tailwind"
 CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 ```
 
-### The `base.html` this app ships
+### The page shell
 
 django-mvp's packaged pages extend a template named `base.html`, which is the shell a project
-writes for itself. Until django-mvp ships a default of its own, `literature.ui` carries one: a
-single line forwarding to `mvp/base.html`, with no blocks of its own.
-
-A project that has its own `base.html` keeps it — a project's template directory is searched before
-any app's — and a project that has none gets a working shell instead of `TemplateDoesNotExist`. If
-you want the pages inside your own layout, write `base.html` in your project and it takes over with
-nothing else to change.
+writes for itself. django-mvp ships a default, so a project that has none still gets a working
+shell rather than `TemplateDoesNotExist`. A project that writes its own `base.html` takes over with
+nothing else to change, since a project's template directory is searched before any app's.
 
 The UI app is built on [django-mvp](https://github.com/django-mvp), which needs a few settings of
 its own before a page renders. `mvp/base.html`, the shell every page extends, loads its stylesheet
@@ -249,9 +245,14 @@ to write.
 
 With no further configuration, the catalogue route above serves references as a table — one row per
 reference, carrying its citation key, item type, title, the journal or book it appeared in, its
-credited names and its issued date, with an edit control on every row and a click on a column heading
-to sort the whole catalogue by it. That is what a project managing its own library gets out of the
-box.
+credited names and its issued date, with an edit control on every row and a click to sort on every
+column heading but the credited names and the edit control themselves. That is what a project
+managing its own library gets out of the box.
+
+One limitation to know about: a chosen sort is discarded when you move to the next page. The
+pagination links replace the whole query string, which is a defect in the shared component this page
+renders and is fixed there rather than here — [issue #88](https://github.com/FAIR-DM/django-literature/issues/88)
+tracks it.
 
 The card presentation the package served before the table existed is still there: `ItemListView`,
 reachable and tested the same as ever, one reference per card rather than per row. The contributor

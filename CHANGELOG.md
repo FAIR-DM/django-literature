@@ -26,8 +26,19 @@ All notable changes to this project are documented in this file. The format foll
   label, since the label reads differently in every language the catalogue is served in and the order
   behind it should not.
 
+  Known limitation: a chosen sort is discarded when you move to the next page, because the pagination
+  links replace the whole query string. That is a defect in the shared component the page renders,
+  fixed there rather than worked around here; [#88](https://github.com/FAIR-DM/django-literature/issues/88)
+  tracks it and this page picks the fix up with the next dependency bump.
+
   New runtime dependency, in the `ui` extra only: `django-tables2`. A core-only install, or a project
   that has not opted into the front end, resolves neither it nor django-mvp.
+
+### Removed
+
+- The one-line `base.html` `literature.ui` used to ship. django-mvp now ships a default of its own,
+  which was the stated condition for dropping this one. A project with its own `base.html` is
+  unaffected, and a project with none still gets a working shell.
 
 ## [v0.1.9] - 2026-08-14
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-19 14:26+0200\n"
+"POT-Creation-Date: 2026-08-19 15:00+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -366,7 +366,7 @@ msgstr ""
 msgid "Event Date"
 msgstr ""
 
-#: choices.py:123 ui/tables.py:151
+#: choices.py:123 ui/tables.py:167
 #: ui/templates/literature/ui/item_list_item.html:34
 msgid "Issued"
 msgstr ""
@@ -1237,6 +1237,29 @@ msgstr ""
 msgid "Literature UI"
 msgstr ""
 
+#: ui/catalogue.py:49
+#, python-brace-format
+msgid ""
+"LITERATURE must be a dict, not {actual} — the catalogue view goes under a "
+"'CATALOGUE_VIEW' key."
+msgstr ""
+
+#: ui/catalogue.py:56
+msgid ""
+"LITERATURE['CATALOGUE_VIEW'] must be a dotted path to a view class, not "
+"{actual}: {value!r}"
+msgstr ""
+
+#: ui/catalogue.py:64
+#, python-brace-format
+msgid "'{path}' in LITERATURE['CATALOGUE_VIEW'] could not be imported: {error}"
+msgstr ""
+
+#: ui/catalogue.py:68
+#, python-brace-format
+msgid "'{path}' in LITERATURE['CATALOGUE_VIEW'] is not a class-based view."
+msgstr ""
+
 #: ui/fieldgroups.py:75
 msgid "Core"
 msgstr ""
@@ -1289,27 +1312,27 @@ msgstr ""
 msgid "Citation key"
 msgstr ""
 
-#: ui/tables.py:112
+#: ui/tables.py:120
 msgid "Type"
 msgstr ""
 
-#: ui/tables.py:123
+#: ui/tables.py:131
 msgid "Title"
 msgstr ""
 
-#: ui/tables.py:139
+#: ui/tables.py:147
 msgid "Container title"
 msgstr ""
 
-#: ui/tables.py:143
+#: ui/tables.py:152
 msgid "Authors"
 msgstr ""
 
-#: ui/tables.py:180
+#: ui/tables.py:196
 msgid "Nothing to show."
 msgstr ""
 
-#: ui/tables.py:183
+#: ui/tables.py:199
 msgid "—"
 msgstr ""
 

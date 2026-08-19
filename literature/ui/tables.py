@@ -106,11 +106,19 @@ class ItemTable(tables.Table):
 
     citation_key = tables.Column(
         verbose_name=_("Citation key"),
+        # Every sortable column names ``pk`` as its last key. django-tables2
+        # hands the accessor list straight to ``QuerySet.order_by()``, which
+        # replaces ``Item.Meta.ordering`` rather than extending it, so
+        # without a tiebreak a sort with ties has no total order — and the
+        # catalogue is paginated, so two pages are two independent queries.
+        # On PostgreSQL a tied reference can then appear on both pages, or
+        # on neither (FR-016, SC-004).
+        order_by=("citation_key", "pk"),
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
     type = tables.Column(
         verbose_name=_("Type"),
-        order_by="type",
+        order_by=("type", "pk"),
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
         # No renderer, deliberately: django-tables2 resolves a choice field
         # through get_FOO_display() before any renderer runs (rows.py), so
@@ -125,7 +133,7 @@ class ItemTable(tables.Table):
         # reaches render_title, defeating the fallback chain in exactly the
         # case it exists for (research R3).
         empty_values=(),
-        order_by="title",
+        order_by=("title", "pk"),
         # Item has no get_absolute_url(), so linkify=True cannot be used
         # (research R2) — the route lives in the table class, inside
         # literature/ui/.
@@ -137,6 +145,7 @@ class ItemTable(tables.Table):
     )
     container_title = tables.Column(
         verbose_name=_("Container title"),
+        order_by=("container_title", "pk"),
         attrs={"td": {"class": "mvp-col-wrap mvp-col-max-md"}},
     )
     contributors = ContributorsColumn(
@@ -146,6 +155,13 @@ class ItemTable(tables.Table):
         # An through-model across two roles has no single value to order on
         # (FR-015).
         orderable=False,
+        # Stated, not inherited: django-mvp centres any column it cannot
+        # resolve to a field and which is not orderable, on the reasoning
+        # that such a column holds controls. This one holds the widest free
+        # text on the row after the title, and a reader runs their eye down
+        # it, so it takes the same left-aligned wrapping treatment as the
+        # other text columns.
+        attrs={"td": {"class": "text-start mvp-col-wrap mvp-col-max-md"}},
     )
     issued = IssuedColumn(
         verbose_name=_("Issued"),
@@ -212,4 +228,7 @@ class ItemTable(tables.Table):
         """
         issued = F("issued")
         ordering = issued.desc(nulls_last=True) if is_descending else issued.asc(nulls_last=True)
-        return queryset.order_by(ordering), True
+        # ``pk`` last, for the same reason every other sortable column names
+        # it: references sharing an issued date are otherwise ordered
+        # arbitrarily, and each page of the catalogue is its own query.
+        return queryset.order_by(ordering, "pk"), True
