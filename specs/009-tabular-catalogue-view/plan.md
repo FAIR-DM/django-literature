@@ -369,7 +369,7 @@ carries nothing to lose. `mvp/templates/cotton/pagination/link.html:16` emits
 builds its sort links with django-tables2's `querystring_replace`, which preserves what is already
 there. The two halves of the same page disagree.
 
-**The fix belongs upstream, not here.** The href is hard-coded inside a shared component, and every
+**The fix belongs upstream, not here** (django-mvp/django-mvp#270, tracked on our side as #88). The href is hard-coded inside a shared component, and every
 consuming project's table and filter view has the same defect — #49's filtering would hit it next.
 `literature.ui` overriding the footer block would fork fifteen lines of someone else's markup to work
 around a bug that is one line away from being fixed at its source. So: django-mvp's pagination

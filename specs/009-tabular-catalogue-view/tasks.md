@@ -16,8 +16,8 @@ phase — different files, no shared state.
 - [ ] **T000** Blocking, and it lives in django-mvp rather than here (plan D-14). The pagination
   component's page links replace the whole query string, so a chosen sort is discarded on every page
   move and FR-016 cannot be met. Fix it at its source — the component preserves the current query
-  string and replaces only the page key — land it in that repository, and note the released version
-  here. Everything else in this feature can proceed while it is in flight. T001 and T025 are the two
+  string and replaces only the page key — land it in that repository (django-mvp/django-mvp#270,
+  tracked here as #88), and note the released version here. Everything else in this feature can proceed while it is in flight. T001 and T025 are the two
   tasks that cannot close without it.
 
 - [ ] **T001** Raise the `ui` extra in `pyproject.toml`: django-mvp `>=<the T000 release>,<1.0` (from
