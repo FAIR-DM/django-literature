@@ -67,3 +67,40 @@ requirement — clearing the search — had no task and now has one; the stories
 sequential, since four of the five edit the same two files; and the search's cost scaling with query
 length is written into the decisions as a watch item rather than work. Requirement citations that
 had drifted past the end of the specification's numbering are corrected.
+
+## 2026-08-20 · Implementer US0 · T001
+
+Did: raised the `ui` extra's floor (django-mvp `>=0.19.1,<1.0`, carrying
+django-mvp/django-mvp#270's pagination-link fix) and added `django-filter
+(>=26.1,<27)` — 26 is the current major on the package index today, not the
+25 the tasks draft assumed, so pinned to what actually resolves. Moved the
+packaging test's exact-list assertion with it. Added a
+`[tool.deptry.package_module_name_map]` entry for django-filter: uninstalled,
+deptry's guess is `django_filter` (singular) while the real import is
+`django_filters` (plural) — confirmed directly against
+`deptry.dependency.Dependency` rather than assumed.
+
+Verified: `poetry run pytest -q tests/test_ui/test_packaging.py` — 7 passed.
+
+Next: T002 (lock and install for real).
+
+## 2026-08-20 · Implementer US0 · T002
+
+Did: `poetry lock` then `poetry install --extras ui`. Resolved versions:
+**django-mvp 0.19.1** (up from the 0.19.0 the lock pinned before this story;
+requires `django>=5.2`) and **django-filter 26.1** (new; requires
+`django>=5.2`), both consistent with the demo/test environment's Django
+5.2.13.
+
+Watch: this floor rise carries the pagination-link fix, so
+`tests/test_ui/test_views.py::TestCatalogueOrdering::test_sort_survives_following_the_rendered_link_to_page_2`
+(currently `xfail`, tracking #88) may now `XPASS`. `pyproject.toml` sets no
+`xfail_strict`, so an XPASS does not fail the suite — confirmed by running
+the full baseline after this task (see T007's entry). That test and its
+xfail marker are outside this story's scope (US-3/D-10 owns the pagination
+assertion moves) and were not touched.
+
+Verified: `poetry run pytest -q tests/test_ui/test_packaging.py` — 7 passed
+(unaffected by the lock/install alone; scope carried over from T001).
+
+Next: T003 (settings + architecture guard).
