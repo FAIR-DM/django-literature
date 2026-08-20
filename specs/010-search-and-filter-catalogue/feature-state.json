@@ -455,7 +455,7 @@
     {
       "id": "US5",
       "priority": "P5",
-      "status": "in_progress",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -480,8 +480,8 @@
         },
         {
           "id": "T030",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         }
       ],
       "issue": 95

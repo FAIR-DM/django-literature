@@ -1014,3 +1014,50 @@ whitespace, end-of-file). Both clean. Committed as `T029: document what the sear
 filters narrow on, and how they compose`.
 
 T030 starts from here.
+
+## 2026-08-20 — US-5/T030 done — US-5 complete — feature complete
+
+Full gettext toolchain (`msguniq`/`msgfmt`/`xgettext`/`msgmerge`) is present in this environment
+(linuxbrew), the same as 009-tabular-catalogue-view's own T028 found. `django-admin makemessages -l
+en` from the project root fails (`CommandError`: no locale directory for `demo/__init__.py` — `demo`
+has none and `LOCALE_PATHS` is unset); run from `literature/` instead (the app's own locale lives at
+`literature/locale/`), it exits 0. Regenerated catalog catches up every string this whole feature
+added since its own T005 (foundational): the `type`/`language`/`issued_year` filter labels, the
+no-results heading and message, and every line-number reference the intervening stories' edits
+shifted. 27 pre-existing xgettext plural/singular warnings on the tree (`Contributor` now a third
+occurrence, from T005's own filter label) — none introduced by this task. `msgfmt --check` compiles
+the regenerated catalog cleanly (only the expected unfilled-header warnings a fresh stub always
+carries).
+
+Last task of the story and the feature. Full verification, exact numbers as they came back:
+
+- `poetry run pytest -q` — **1702 passed** (3 more than US-4's 1699-test baseline: T026's 1, T027's
+  1, T028's 1, T029's 0 — exactly).
+- `poetry run ruff check .` — all checks passed.
+- `poetry run ruff format --check .` — 83 files already formatted.
+- `poetry run mypy literature/ui/filters.py literature/ui/views.py demo/smoke.py` — success, no
+  issues.
+- `poetry run deptry .` — no dependency issues.
+- `poetry run pre-commit run --all-files` — all eight hooks passed.
+- `DJANGO_SETTINGS_MODULE=tests.settings poetry run python manage.py makemigrations --check
+  --dry-run` — no changes detected (SC-007: this feature ships no migration).
+- Against a freshly migrated and seeded demo database (`DEMO_DB_PATH` pointed at a scratch sqlite
+  file): `manage.py migrate` and `manage.py seed_demo` both clean (31 references loaded), the
+  catalogue list returns `200`, and `demo/smoke.py <url>` reports `OK: walked the demo catalogue,
+  its second page, a reference and a contributor, and created/corrected/removed a reference` — the
+  new search, filter and page-move checks included.
+
+Committed as `T030: makemessages catches up the translation catalog, full suite green`.
+
+**US-5 (#95) is done**, and with it the whole feature (#49): T026 gave the demo seed language values
+across five languages; T027 settled and recorded the decision that the dominant language, not a
+broadened search, is what reaches a genuine second page of a narrowed result; T028 gave the guard's
+walk a search, a filter and that page move, asserting on the references present and absent each
+time, and proved each check by breaking it in turn; T029 documented what the search matches, what
+each filter narrows on and how they compose, and swept two other now-stale spots (`CHANGELOG.md`'s
+own #88 paragraph and two claims about `ItemListView` US-4 had already made false) that the brief
+did not name; T030 closes out with the translation catalog caught up and everything green. Nothing
+here touches a django-mvp template, adds a database index or migration, or reaches outside
+`demo/seed/catalogue.json`, `demo/smoke.py`, `tests/test_demo/test_seed.py`,
+`tests/test_demo/test_smoke.py`, `README.md`, `CHANGELOG.md`,
+`literature/locale/en/LC_MESSAGES/django.po`, and this story's own spec files.
