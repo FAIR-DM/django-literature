@@ -872,3 +872,29 @@ touches a django-mvp template, adds a database index or migration, or reaches ou
 `literature/ui/filters.py`, `literature/ui/views.py`, `tests/test_ui/test_views.py`,
 `tests/test_ui/test_architecture.py`, `tests/test_ui/test_contributors.py`, and this file and
 `feature-state.json`.
+
+## 2026-08-20 — US-5/T026 done
+
+`demo/seed/catalogue.json` (plan.md D-11, research R8): not one of the 28 existing entries carried a
+`language` key. 27 of them now carry `"language": "en"`; the one exception, the German thesis
+`Iseli2014`, carries `"de"` since that is what it already is. Three new entries — Poincaré's 1905
+relativity paper (`fr`), García Márquez's *Cien años de soledad* (`es`), Kawabata's *雪国* (`ja`) —
+bring the catalogue to 31 entries and the language chooser to five distinct values. `Beowulf`, the
+one deliberately bare entry, stays untouched.
+
+New `test_has_language_values_across_several_distinct_languages` in `tests/test_demo/test_seed.py`,
+observed failing (`0 >= 4`) before the seed carried any language values. All 13 tests in the file
+green after. Also corrected the file's own docstring, left stale by US-4: `paginate_by` is declared
+on `ItemListView` itself, not inherited from django-mvp.
+
+Sanity-checked the seed actually loads: `DEMO_DB_PATH=<tmp> python manage.py migrate -v0 && DEMO_DB_PATH=<tmp>
+python manage.py seed_demo` against a scratch sqlite database — first attempt with an invented ISBN
+on the García Márquez entry failed loudly exactly as D-11's contract promises (`seed_demo loaded 30
+of 31 entries ... failed to load: GarciaMarquez1967`, "Enter a valid ISBN-10 or ISBN-13"); dropped
+the ISBN rather than hunt a real one, and the reload loaded all 31.
+
+`poetry run pytest -q tests/test_demo/test_seed.py` — 13 passed. `poetry run ruff check
+tests/test_demo/test_seed.py`, `ruff format --check tests/test_demo/test_seed.py` — clean. Committed
+as `T026: the seed carries language values across five languages`.
+
+T027 starts from here.

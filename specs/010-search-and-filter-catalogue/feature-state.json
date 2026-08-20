@@ -455,13 +455,13 @@
     {
       "id": "US5",
       "priority": "P5",
-      "status": "todo",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
           "id": "T026",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1
         },
         {
           "id": "T027",
