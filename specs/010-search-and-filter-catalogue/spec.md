@@ -19,13 +19,13 @@
 - Q: The issue names item type, contributor and year. Contributor is awkward — thousands of references carry thousands of contributors, and there is already a contributor page answering "everything this person is credited on". Is that the filter set? → A: Add language. Contributor stays, because the contributor page answers only its one question and cannot be combined with "articles from 2019". The set is not meant to be exhaustive and is expected to grow as needs appear.
 - Q: There are two public list views — the table the package now serves by default, and the card list a project can route to instead. Which one gets search and filtering? → A: Both, from one shared definition of what is searchable and filterable, each rendering the controls in its own idiom. A project that prefers cards must not silently lose the ability to find things.
 - Q: Issue #88 records that a chosen sort is discarded on a page change, because pagination links replace the whole query string. The upstream fix has now shipped. Does this feature absorb #88, or does it stay a separate issue? → A: Absorb it. This feature has to raise the same dependency floor regardless, because filtering discarded on page two is the defect the feature exists to remove.
-- Q: Are the fields the search reaches indexed? → A: Not today, and the feature is expected to index them.
+- Q: Are the fields the search reaches indexed? → A: Not today. Indexing them was asked for at intake and then withdrawn at the specification gate once it was established that an ordinary index cannot serve this search — see the scan below. The feature adds none.
 
 ### Session 2026-08-20 — clarification scan
 
 Resolved from the intake session's context rather than escalated. Fuller rationale is in `decisions.md`.
 
-- Q: Sam's requirement is that the searched fields be indexed. A single-column index does not serve a substring match — a query looking for a fragment anywhere inside a value cannot use an ordinary index on most databases, so adding one would cost write time and a migration and change no query. What does "indexed" have to mean here? → A: It means an index the search demonstrably uses, proven by measurement rather than asserted by its presence. The feature adds indexing that its own queries can use, and adds none that they cannot. Where the search cannot be served by an index on a given database, the specification says so rather than shipping a decorative one. This is the one place the feature may need a database-specific decision, and it is called out at the specification gate rather than settled quietly.
+- Q: The searched fields were to be indexed. A single-column index does not serve a substring match — a query looking for a fragment anywhere inside a value cannot use an ordinary index, so adding one would cost write time and a migration and change no query. What does "indexed" have to mean here? → A: Nothing: the feature adds no index at all. Raised at the specification gate with the alternative, which is a database-specific index requiring an extension on PostgreSQL and having no equivalent on SQLite, and settled there — a package that needs a database extension to stay usable is a different package, and this feature is not the occasion to make it one. The filters are the same answer for a different reason: they narrow through foreign keys the framework already indexes, or through columns with too few distinct values for a planner to use one. Nothing about search speed is claimed anywhere, so nothing has to be qualified.
 - Q: Does the search match whole words or fragments, and does case matter? → A: Case-insensitive fragments. Someone hunting a half-remembered reference types part of a title or a surname, not its exact form, and a whole-word match would fail on the hyphenated and possessive forms bibliographic titles are full of.
 - Q: Contributor names are stored across several parts — family, given, particles, suffix, and a literal for organizations. Which does a search or a contributor filter match? → A: Family name, given name, and the literal that holds organizational and unparsed names. Particles and suffixes are matched only as part of those where they are stored inline. Omitting the literal would make every organization in the catalogue unfindable by name.
 - Q: An item can carry six date slots, and its dates are partial. What does the year filter mean? → A: The year of the `issued` slot, which is the date the table already shows and the one a reference is commonly cited by. A year-only date qualifies, as does the year a range begins in. A reference carrying no issued date is not returned when a year is chosen.
@@ -34,7 +34,7 @@ Resolved from the intake session's context rather than escalated. Fuller rationa
 - Q: What does the reader see when a search or a filter returns nothing? → A: A message saying nothing matched, distinct from the message shown when the catalogue itself is empty, with the search and filter controls still present so the reader can change them. Emptying the page of its own controls strands the reader on a dead end.
 - Q: What happens to a filter value in the address bar that no longer exists in the catalogue, or was never valid? → A: It narrows to nothing and says so. It never raises an error, and it never falls back to the unfiltered catalogue, which would show a reader a full page they did not ask for and let them believe it was the result.
 - Q: The contributor page is the third place in the front end that lists items. Does it get search and filtering? → A: No. It stays as it is, which is the same boundary FS-009 drew when it left that page on cards.
-- Q: Does the feature change any model, add a field, or ship a migration? → A: No model change and no new field. It may ship a migration that adds indexing and nothing else.
+- Q: Does the feature change any model, add a field, or ship a migration? → A: None of the three. With indexing withdrawn there is nothing left that would touch the database schema.
 - Q: The demo's guard pins a pagination link's exact address, and the upstream fix changes that address. What happens to it? → A: The guard's expectation moves with the fix, and the guard grows to walk a search and a filter, so that a page move that loses them fails the build.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -198,23 +198,21 @@ The demo project serves a catalogue big enough and varied enough to search and f
 
 **Staying fast as the catalogue grows**
 
-- **FR-026**: The feature MUST add the indexing its own search and filter queries use, and MUST NOT add an index those queries cannot use.
-- **FR-027**: Any index the feature adds MUST be justified by a measurement showing the query planner uses it, recorded with the feature rather than asserted.
-- **FR-028**: Where a search cannot be served by an index on a database this package supports, the documentation MUST state that plainly rather than implying a performance the package does not deliver.
-- **FR-029**: Rendering a page of results MUST cost a number of database queries that does not grow with the number of results on it.
+- **FR-026**: Rendering a page of results MUST cost a number of database queries that does not grow with the number of results on it.
+- **FR-027**: The feature MUST NOT add a database index. A search for a fragment appearing anywhere inside a value cannot use an ordinary index, and the filters narrow through columns the framework already indexes or through columns whose few distinct values give a planner no reason to use one.
 
 **Presentation and boundaries**
 
-- **FR-030**: A search or filter returning nothing MUST show a message distinct from the empty-catalogue message, and MUST keep the search and filter controls on the page.
-- **FR-031**: The feature MUST NOT change any model or add any field. A migration that adds indexing and nothing else is permitted.
-- **FR-032**: Every user-facing string this feature introduces MUST be translatable.
+- **FR-028**: A search or filter returning nothing MUST show a message distinct from the empty-catalogue message, and MUST keep the search and filter controls on the page.
+- **FR-029**: The feature MUST NOT change any model, add any field, or ship any migration.
+- **FR-030**: Every user-facing string this feature introduces MUST be translatable.
 
 **Packaging, the demo and the documentation**
 
-- **FR-033**: A core-only install MUST resolve nothing this feature adds to the front end.
-- **FR-034**: The demo's seed references MUST span enough item types, years, languages and contributors for every filter to offer more than one value.
-- **FR-035**: The demo's guard MUST exercise a search, a filter and a page move over a narrowed result, and MUST fail when any of them stops working.
-- **FR-036**: The documentation MUST state what the search matches, what it deliberately does not, what each filter narrows on, and how the search and filters compose with sorting and pagination.
+- **FR-031**: A core-only install MUST resolve nothing this feature adds to the front end.
+- **FR-032**: The demo's seed references MUST span enough item types, years, languages and contributors for every filter to offer more than one value.
+- **FR-033**: The demo's guard MUST exercise a search, a filter and a page move over a narrowed result, and MUST fail when any of them stops working.
+- **FR-034**: The documentation MUST state what the search matches, what it deliberately does not, what each filter narrows on, and how the search and filters compose with sorting and pagination.
 
 ### Key Entities
 
@@ -229,8 +227,8 @@ No new entity and no changed field. The search and the filters read what the sto
 - **SC-003**: A search, a filter and a sort applied together all remain in force after moving to another page of the results.
 - **SC-004**: A catalogue narrowed by search and filters can be bookmarked and reopened to the same result.
 - **SC-005**: The card list returns the same references for the same search and the same filters as the table does.
-- **SC-006**: Every index the feature ships is shown by measurement to be used by the query it was added for, and no index is shipped that is not.
-- **SC-007**: A search over a catalogue of several thousand references returns its first page without the page's query count growing with the size of the result.
+- **SC-006**: A search over a catalogue of several thousand references returns its first page without the page's query count growing with the size of the result.
+- **SC-007**: The feature ships no migration.
 - **SC-008**: The demo's guard fails when a search stops narrowing, a filter stops applying, or a page move discards either.
 - **SC-009**: Installing the core alone resolves nothing the front end added for this feature.
 
@@ -239,6 +237,7 @@ No new entity and no changed field. The search and the filters read what the sto
 - A released version of django-mvp whose pagination links preserve the rest of the address is available to depend on. It has shipped, so the front-end extra's floor rises to it rather than this feature working around the defect.
 - Where the front end meets a defect in the interface layer's own logic or templates, the defect is raised upstream and the floor rises to the release that fixes it. This feature does not fork someone else's markup around a bug (Sam's direction, 2026-08-20).
 - The searched and filtered fields are those a reference is identified by. Discovery over abstracts and keywords is a different capability, with different infrastructure behind it, and is not in this feature.
+- The feature ships no index, and this is a decision rather than an omission (see `decisions.md`). Anyone reading the search later and reaching for `db_index=True` on the title fields should read that entry first: it would not be used by this search. Making a fragment search fast needs a database-specific facility — a trigram index on PostgreSQL, with no SQLite equivalent — and requiring one is a change to what the package demands of its host, which is its own decision and not this one.
 - The filter set — item type, contributor, issued year, language — is what references are commonly grouped by today, not a closed list. It is expected to grow, so the definition of what is filterable is written to be added to.
 - Nothing in the front end checks permissions, so a search and its filters are visible to whoever can reach the catalogue page, matching what FS-008 and FS-009 settled for the pages around it.
 - Sorting is the column headings FS-009 shipped. This feature composes with them and introduces no ordering surface of its own.

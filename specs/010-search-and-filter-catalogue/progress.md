@@ -20,3 +20,11 @@ draft pull request #96 opened by the bot with a closing line for the epic, every
 Title lint and the stage's exit checks green. Specification gate brief posted to the epic.
 
 **Awaiting: specification sign-off.**
+
+## 2026-08-20 — indexing withdrawn at the gate
+
+The requirement to index the searched fields is dropped. An ordinary index cannot serve a
+fragment search, and the alternative that can is a database-specific facility whose adoption is a
+separate decision. The feature now ships no index and no migration. Specification, decisions,
+requirements, success criteria, the epic and the first story updated; recorded on the issue
+thread.

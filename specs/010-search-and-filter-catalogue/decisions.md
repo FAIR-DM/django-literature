@@ -3,36 +3,39 @@
 Rationale too long to sit inside `spec.md`, plus every ambiguity resolved without escalating. The
 spec stands alone; this file explains why it says what it says.
 
-## D1 — "Indexed" means an index the query uses, and nothing else
+## D1 — The feature ships no index, and that is the decision
 
-**Ambiguous:** intake settled that the searched fields should be indexed if they are not already.
-It did not say what indexing means for the kind of search this feature performs, and the two
-readings pull in opposite directions.
+**Ambiguous:** intake asked for the searched fields to be indexed if they were not already. It did
+not say what indexing means for the kind of search this feature performs, and the answer turned out
+to change the requirement rather than refine it.
 
-**Chosen:** the feature adds the indexing its own queries can use, proven by a measurement recorded
-with the feature, and adds none that they cannot. Where a search cannot be served by an index on a
-database this package supports, the documentation says so rather than implying a speed the package
-does not deliver.
+**Chosen:** no index. Raised at the specification gate with what the alternative would actually
+cost, and withdrawn there.
 
 **Why defensible:** an ordinary index on a text column orders that column's values, so it serves a
 query anchored at the start of a value and cannot serve one looking for a fragment anywhere inside
 it. This feature's search is deliberately the second kind — a reader types part of a surname or
 part of a title, not its opening characters — so `db_index=True` on the title fields would add a
 migration, add write cost on every import of every reference, and change no query plan. It would
-also be invisible: nothing fails, the search is exactly as slow as before, and the repository now
-carries a decision that looks like diligence and is decoration.
+also be invisible: nothing fails, the search is exactly as slow as before, and the repository ends
+up carrying something that looks like diligence and is decoration.
 
-The honest forms of the requirement are backend-specific, which is why FR-027 asks for a
-measurement rather than naming a mechanism here: what serves a fragment search on PostgreSQL is a
-trigram index, which is an extension this package would have to require; what serves it on SQLite,
-which the test suite and the demo run on, is nothing at all. Choosing between them is planning
-work, and it is the one decision in this feature that may need to differ per database. It is
-flagged at the specification gate rather than settled quietly, because a package that requires a
-PostgreSQL extension to be usable at scale is a different package from one that does not.
+What would genuinely serve a fragment search is backend-specific and expensive in a way that has
+nothing to do with query time. On PostgreSQL it is a trigram index, which means requiring a
+database extension; on SQLite, which the test suite and the demo run on, there is no equivalent at
+all. A package that needs an extension installed to stay usable at scale is a different package
+from one that does not, and turning this one into that is a decision in its own right, not a
+detail of a search feature. So it is not taken here.
 
-The filters are the opposite case and are straightforward: they narrow on exact values — a stored
-item type, a language, a year, a contributor link — and an ordinary index serves them. Where the
-feature adds one, FR-027's measurement is easy to satisfy.
+The filters reach the same answer by a different route. They narrow through the foreign keys
+linking contributors and dates to an item, which the framework already indexes, and through item
+type and language, whose handful of distinct values across a catalogue give a planner little reason
+to use an index even where one exists. There is nothing left worth adding.
+
+The honesty requirement that came with the original reading is dropped with it: the feature claims
+nothing anywhere about how fast a search is, so there is nothing to qualify. If the catalogue does
+outgrow this, the answer is a real one — a dedicated text-search facility — and it arrives as its
+own piece of work with its own decision about what the package requires of its host.
 
 ## D2 — Case-insensitive fragments, not whole words
 
