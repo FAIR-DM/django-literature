@@ -168,7 +168,7 @@
     {
       "id": "US1",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -248,8 +248,20 @@
         },
         {
           "id": "T012",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemTableView::test_query_count_does_not_grow_with_row_count"
+            ],
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py",
+              "poetry run deptry ."
+            ]
+          }
         }
       ],
       "issue": 91

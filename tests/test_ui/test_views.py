@@ -437,9 +437,15 @@ class TestItemTableView:
         # FR-012 — proves T009's prefetches are actually being read, rather
         # than the manager (research R9): the credited-names cell filtering
         # record.item_names.filter(...) would cost one query per row.
+        #
+        # FR-026 — extended, not duplicated (tasks.md T012): every item's
+        # title carries the same term throughout, so a search for it goes on
+        # matching the whole catalogue as it grows, and the query count under
+        # search is compared against itself at two sizes exactly as the
+        # unfiltered count is above.
         def add_items(n):
             for _ in range(n):
-                item = ItemFactory()
+                item = ItemFactory(title="Whale Reference")
                 ItemNameFactory(item=item)
                 ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
 
@@ -454,6 +460,17 @@ class TestItemTableView:
         assert response.status_code == 200
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
+
+        with CaptureQueriesContext(connection) as small_search:
+            response = client.get(reverse("literature:item-list"), {"q": "whale"})
+        assert response.status_code == 200
+
+        add_items(15)
+        with CaptureQueriesContext(connection) as large_search:
+            response = client.get(reverse("literature:item-list"), {"q": "whale"})
+        assert response.status_code == 200
+
+        assert len(large_search.captured_queries) == len(small_search.captured_queries)
 
     def test_the_edit_control_renders_and_points_at_each_rows_own_update_page(self, client, db):
         item = ItemFactory()

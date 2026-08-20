@@ -434,3 +434,26 @@ tests/test_ui/test_contributors.py` — 105 passed. `poetry run ruff check`, `ru
 `mypy literature/ui/views.py` — all clean. Committed as `T011: ...`.
 
 T012 starts from here.
+
+## 2026-08-20 — US-1/T012 done — US-1 complete
+
+Extended `TestItemTableView::test_query_count_does_not_grow_with_row_count` (FR-026) rather than
+writing a second guarantee, per the task's own instruction: every item's title now carries the same
+term ("Whale Reference") throughout, so the same growing-catalogue sequence that already proves the
+unfiltered count is constant goes on to prove it under `?q=whale` too — same catalogue, same
+prefetches, one more pair of captures compared against each other.
+
+Sanity-checked the extension's power before trusting it: temporarily dropped
+`ItemTableView.get_queryset()`'s `prefetch_related(...)` call to `.prefetch_related()` (no
+arguments) and reran — 21 queries against 6, the N+1 the whole test exists to catch. Reverted with
+`git checkout -- literature/ui/views.py`.
+
+This is the last task in the brief (T008–T012). Verified: `poetry run pytest -q` (full suite) —
+1653 passed, 1 xfailed (the standing D-14/#88 xfail, untouched throughout this story). `poetry run
+ruff check`, `ruff format --check`, `mypy literature/ui/views.py` and `poetry run deptry .` — all
+clean.
+
+US-1 (#91) is done: T008 rebuilt the composition D17/D18 describe, reinstrumenting the five
+pre-existing tests those decisions authorise and none beyond them; T009–T012 build search behaviour,
+its edge cases, the no-results message and the query-count guarantee on top of it. Nothing here
+touches `literature/ui/filters.py`, a django-mvp template, or a file outside this story's scope.
