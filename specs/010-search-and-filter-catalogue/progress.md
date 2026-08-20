@@ -837,3 +837,38 @@ scenario set narrows on. All six passed on first run, proving the claim rather t
 `ruff format --check .`, `mypy literature/ui/views.py` — all clean. Committed as `T024: ...`.
 
 T025 starts from here.
+
+## 2026-08-20 — US-4/T025 done — US-4 complete
+
+No production change. Two additions, both proof rather than build (the mechanism was already in
+place from T022–T024):
+
+New `TestSearchAndFilterAreDeclaredOnce` (`tests/test_ui/test_architecture.py`), one test: parses
+`literature/ui/views.py` and asserts it imports `SEARCH_FIELDS` and `ItemFilterSet` from
+`literature.ui.filters` (via the file's own existing `imported_names()` helper) and declares neither
+name itself — no top-level `SEARCH_FIELDS = ...` assignment, no `class ItemFilterSet` — so a future
+change that replaced either import with a copy would fail this test even though FR-024's own
+narrowing test (T024) would still pass.
+
+New `TestCatalogueStateSurvivesAPageMoveOnTheCardList` (`tests/test_ui/test_views.py`), two tests: a
+search and a type filter each survive a page move on the card list, followed through its own rendered
+link (`rendered_page_link()`) exactly the way `TestCatalogueStateSurvivesAPageMove` already proves for
+the table. Both passed on first run — the card list's pagination component carries the query string
+the same way the table's does; nothing about FR-018 is presentation-specific.
+
+Last task of the story: ran the full suite. `poetry run pytest -q` — 1699 passed, 0 xfailed (13 more
+than the 1686-test US-3 baseline — T022's 3, T023's 1, T024's 6, T025's 3, exactly). `poetry run ruff
+check .`, `ruff format --check .`, `mypy literature/ui/filters.py literature/ui/views.py`, `poetry run
+deptry .`, and `poetry run pre-commit run --all-files` — all clean. Committed as `T025: ...`.
+
+US-4 (#94) is done: T022 made the card list a filtered view (`MVPFilteredListView`) sharing
+`ItemFilterSet` and `SEARCH_FIELDS` with the table, discovering and fixing the applied-filters
+double-count the base class would otherwise reintroduce on the card route (D21) and the pagination
+default it does not carry; T023 split the configuration `ItemListView` and `ContributorDetailView`
+share into `CatalogueListMixin` so the contributor page keeps neither control; T024 proved the two
+routes agree for a search, each filter, and a combination; T025 pinned the one-definition claim
+structurally and proved a search and a filter survive a page move on the card list too. Nothing here
+touches a django-mvp template, adds a database index or migration, or reaches outside
+`literature/ui/filters.py`, `literature/ui/views.py`, `tests/test_ui/test_views.py`,
+`tests/test_ui/test_architecture.py`, `tests/test_ui/test_contributors.py`, and this file and
+`feature-state.json`.

@@ -1232,6 +1232,40 @@ class TestCatalogueStateSurvivesAPageMove:
         assert second_page_records[0].citation_key < first_page_records[-1].citation_key
 
 
+class TestCatalogueStateSurvivesAPageMoveOnTheCardList:
+    """FR-018 on the card presentation — the same guarantee
+    ``TestCatalogueStateSurvivesAPageMove`` proves for the table, followed
+    through the card list's own rendered link rather than the table's.
+    """
+
+    def test_a_search_survives_following_the_rendered_link_to_page_2(self, client, db):
+        for n in range(30):
+            ItemFactory(title=f"Whale Migration {n:03d}")
+        ItemFactory.create_batch(5, title="Unrelated Reference")
+        list_url = reverse("item-list-cards")
+        first_page = client.get(list_url, {"q": "whale"})
+        first_page_records = list(first_page.context["object_list"])
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = list(second_page.context["object_list"])
+        assert second_page_records
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all("Whale Migration" in record.title for record in second_page_records)
+
+    def test_a_filter_survives_following_the_rendered_link_to_page_2(self, client, db):
+        ItemFactory.create_batch(30, type=ItemType.BOOK)
+        ItemFactory.create_batch(5, type=ItemType.ARTICLE_JOURNAL)
+        list_url = reverse("item-list-cards")
+        first_page = client.get(list_url, {"type": ItemType.BOOK})
+        first_page_records = list(first_page.context["object_list"])
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = list(second_page.context["object_list"])
+        assert second_page_records
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all(record.type == ItemType.BOOK for record in second_page_records)
+
+
 class TestCatalogueStateSurvivesAChangeOfSort:
     """A search and a filter survive a change of sort from a column heading,
     and the new sort orders what they narrowed, not the whole catalogue —
