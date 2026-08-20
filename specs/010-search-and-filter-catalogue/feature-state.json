@@ -269,28 +269,73 @@
     {
       "id": "US2",
       "priority": "P2",
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T013",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilters"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueFilters",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
         },
         {
           "id": "T014",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilterComposition"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/filters.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/filters.py"
+            ]
+          }
         },
         {
           "id": "T015",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilterVisibility"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run ruff check literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py"
+            ]
+          }
         },
         {
           "id": "T016",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilterValidation"
+            ],
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run ruff check .",
+              "poetry run ruff format --check .",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py",
+              "poetry run deptry ."
+            ]
+          }
         }
       ],
       "issue": 92
