@@ -710,6 +710,87 @@ class TestCatalogueSearch:
         assert len(cleared.context["table"].page.object_list) == 5
 
 
+class TestCatalogueFilters:
+    """Each filter on its own against the table — FR-009 through FR-013.
+
+    The filterset itself is already exercised directly in
+    ``tests/test_ui/test_filters.py``; this class proves the same behaviour
+    reaches an HTTP request through ``ItemTableView``, which is this story's
+    own scope (plan.md D-1, D-4, D-5).
+    """
+
+    def test_type_narrows_to_the_chosen_type(self, client, db):
+        book = ItemFactory(type=ItemType.BOOK)
+        article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK}).content.decode()
+        assert book.citation_key in content
+        assert article.citation_key not in content
+
+    def test_type_choices_offer_the_translatable_label_while_the_url_narrows_on_the_stored_value(self, client, db):
+        # FR-010 — the select option pairs the stored slug (the value the
+        # query string above narrows on) with its translated label, read
+        # from the filter control itself rather than a row's own type cell,
+        # which would pass even if the filter control's own choices broke.
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert re.search(r'<option value="article-journal"[^>]*>\s*Journal Article\s*</option>', content)
+
+    def test_contributor_narrows_to_references_crediting_them_in_any_role(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(family="Darwin"), role=NameRole.EDITOR)
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"contributor": "darwin"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_a_reference_crediting_the_same_contributor_in_two_roles_is_returned_once(self, client, db):
+        item = ItemFactory()
+        darwin = NameFactory(family="Darwin")
+        ItemNameFactory(item=item, name=darwin, role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, name=darwin, role=NameRole.EDITOR)
+        response = client.get(reverse("literature:item-list"), {"contributor": "darwin"})
+        matches = [row for row in response.context["table"].page.object_list if row.record.pk == item.pk]
+        assert len(matches) == 1
+
+    def test_issued_year_narrows_on_a_year_only_stored_date(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        other = ItemFactory()
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        content = client.get(reverse("literature:item-list"), {"issued_year": 2020}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_issued_year_narrows_on_a_range_beginning_that_year(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
+        other = ItemFactory()
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        content = client.get(reverse("literature:item-list"), {"issued_year": 2019}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_issued_year_excludes_a_reference_carrying_no_issued_date(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        undated = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"issued_year": 2020}).content.decode()
+        assert item.citation_key in content
+        assert undated.citation_key not in content
+
+    def test_language_narrows_on_the_stored_value(self, client, db):
+        en_item = ItemFactory(language="en")
+        other = ItemFactory(language="fr")
+        content = client.get(reverse("literature:item-list"), {"language": "en"}).content.decode()
+        assert en_item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_language_choices_offer_only_values_the_catalogue_holds(self, client, db):
+        ItemFactory(language="en")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert re.search(r'<option value="en"[^>]*>\s*en\s*</option>', content)
+        assert 'value="de"' not in content
+
+
 #: One item-building override per plain sortable column, cycled by index so
 #: 30 references get 30 distinct, independently-sortable values (T019).
 #: "type" cycles a fixed set of stored slugs rather than a unique value per
