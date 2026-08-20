@@ -441,6 +441,54 @@ class TestTheCardListFiltersAndSearches:
         assert "indicator-item badge badge-secondary badge-xs" not in content
 
 
+def catalogue_pks(route_name, params):
+    """The primary keys a request against ``route_name`` narrows to, read
+    from whichever context key that route's own view populates (T024,
+    FR-024, SC-005) — the table's own paginated rows, or the card list's
+    plain ``object_list``."""
+    response = Client().get(reverse(route_name), params)
+    if route_name == "literature:item-list":
+        return {row.record.pk for row in response.context["table"].page.object_list}
+    return {obj.pk for obj in response.context["object_list"]}
+
+
+class TestBothPresentationsReturnTheSameReferences:
+    """FR-024, SC-005 — the card list and the table narrow to the same
+    references for the same search and the same filters, both reading
+    ``SEARCH_FIELDS`` and ``ItemFilterSet`` from ``literature.ui.filters``
+    (plan.md D-1). One test per scenario, each requesting both routes and
+    comparing what came back, rather than two near-identical tests per
+    scenario asserting the same narrowing on each route separately.
+    """
+
+    @pytest.fixture
+    def catalogue(self, db):
+        matching = ItemFactory(title="Whale Migration Patterns", type=ItemType.BOOK, language="en")
+        ItemDateFactory(item=matching, date_type=DateType.ISSUED, begin="2020")
+        ItemNameFactory(item=matching, name=NameFactory(family="Darwin"))
+        other = ItemFactory(title="Unrelated Reference", type=ItemType.ARTICLE_JOURNAL, language="fr")
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        return matching, other
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"q": "whale"},
+            {"type": ItemType.BOOK},
+            {"contributor": "darwin"},
+            {"language": "en"},
+            {"issued_year": 2020},
+            {"q": "whale", "type": ItemType.BOOK},
+        ],
+        ids=["search", "type", "contributor", "language", "issued_year", "search-and-filter"],
+    )
+    def test_the_two_routes_narrow_to_the_same_references(self, catalogue, params):
+        matching, _other = catalogue
+        table_pks = catalogue_pks("literature:item-list", params)
+        card_pks = catalogue_pks("item-list-cards", params)
+        assert table_pks == card_pks == {matching.pk}
+
+
 class TestItemTableView:
     """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021, plan.md D-2)."""
 

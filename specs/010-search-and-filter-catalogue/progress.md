@@ -822,3 +822,18 @@ passed; the last three files reference `ContributorDetailView` without being thi
 Committed as `T023: ...`.
 
 T024 starts from here.
+
+## 2026-08-20 — US-4/T024 done
+
+No production change — T022 already made both routes read `SEARCH_FIELDS` and `ItemFilterSet` from
+the same module (plan.md D-1). New `TestBothPresentationsReturnTheSameReferences`
+(`tests/test_ui/test_views.py`): one parametrized test, six scenarios (search, each of the four
+filters, and a search combined with a filter), each requesting both `literature:item-list` (the
+table) and `item-list-cards` (the card list) with the same query params and asserting the two routes
+return the same primary keys — one reference matching, one deliberately not, across every field the
+scenario set narrows on. All six passed on first run, proving the claim rather than building it.
+
+`poetry run pytest -q tests/test_ui/test_views.py` — clean (225 passed). `poetry run ruff check .`,
+`ruff format --check .`, `mypy literature/ui/views.py` — all clean. Committed as `T024: ...`.
+
+T025 starts from here.
