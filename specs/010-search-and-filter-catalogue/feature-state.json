@@ -343,7 +343,7 @@
     {
       "id": "US3",
       "priority": "P3",
-      "status": "in_progress",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -404,8 +404,21 @@
         },
         {
           "id": "T021",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesReopeningTheAddress"
+            ],
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run ruff check .",
+              "poetry run ruff format --check .",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py",
+              "poetry run deptry .",
+              "poetry run pre-commit run --all-files"
+            ]
+          }
         }
       ],
       "issue": 93

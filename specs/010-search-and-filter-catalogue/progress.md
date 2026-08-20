@@ -742,3 +742,29 @@ literature/ui/views.py tests/test_ui/test_views.py` — clean (mypy included thi
 production files touched). Committed as `T020: ...`.
 
 T021 starts from here.
+
+## 2026-08-20 — US-3/T021 done — US-3 complete
+
+No production change. New `TestCatalogueStateSurvivesReopeningTheAddress`, one test: a search and a
+filter narrow the catalogue, and a second, entirely independent `django.test.Client()` (no cookies
+shared with the first) reaching the exact same address gets the exact same narrowed result back.
+Proves FR-022/SC-004's own claim directly — the state lives in the address, not a session — rather
+than merely re-requesting with the same client, which would pass even if the view secretly read
+`request.session`.
+
+Last task of the story: ran the full suite as instructed. `poetry run pytest -q` — 1686 passed, 0
+xfailed (the standing D-14/#88 xfail T017 closed is gone for good; 8 more passing tests than the
+1678-test baseline — T018's 3, T019's 1, T020's 3, T021's 1, exactly). `poetry run ruff check .`,
+`ruff format --check .`, `mypy literature/ui/filters.py literature/ui/views.py`, `poetry run
+deptry .`, and `poetry run pre-commit run --all-files` — all clean. Committed as `T021: ...`.
+
+US-3 (#93) is done: T017 found and fixed the real defect closing #88 — a test helper reading an
+escaped `&amp;` verbatim, not a production bug — and confirmed the demo guard needed no change; T018
+proved a search and a filter each survive a page move too, adding the disjointness check that
+catches a link silently falling back to page one; T019 pinned that a search and a filter survive a
+change of sort, already working through django-tables2's own header links; T020 carried the sort
+across a change of filter with one hidden field and one context-data correction, neither abort
+condition triggered; T021 proved the whole narrowed state lives in the address. Nothing here touches
+a django-mvp template, adds a database index or migration, or reaches outside
+`literature/ui/filters.py`, `literature/ui/views.py`, `tests/test_ui/test_views.py`, and this file
+and `feature-state.json`.

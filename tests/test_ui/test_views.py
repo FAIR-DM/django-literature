@@ -15,6 +15,7 @@ from urllib.parse import urljoin
 import pytest
 from django.db import connection
 from django.template.loader import get_template
+from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
@@ -1218,6 +1219,30 @@ class TestCatalogueStateSurvivesAChangeOfFilter:
         ItemFactory()
         content = client.get(reverse("literature:item-list"), {"sort": "-citation_key"}).content.decode()
         assert "indicator-item badge badge-secondary badge-xs" not in content
+
+
+class TestCatalogueStateSurvivesReopeningTheAddress:
+    """A narrowed catalogue can be bookmarked and reopened to the same
+    result (FR-022, SC-004): the state lives in the address itself, not in
+    a session, so a second, entirely unrelated client reaching the same
+    address gets the same narrowed catalogue back.
+    """
+
+    def test_a_bookmarked_address_reopens_to_the_same_narrowed_result(self, db):
+        matching = ItemFactory(type=ItemType.BOOK, title="Whale Migration Patterns")
+        ItemFactory(type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Patterns")
+        ItemFactory(type=ItemType.BOOK, title="Unrelated Reference")
+        list_url = reverse("literature:item-list")
+        params = {"q": "whale", "type": ItemType.BOOK}
+        # Two independent clients, no cookies shared between them — if the
+        # narrowing lived in a session rather than the address, the second
+        # would come back to the unfiltered catalogue instead.
+        first_visit = Client().get(list_url, params)
+        reopened = Client().get(list_url, params)
+        first_pks = {row.record.pk for row in first_visit.context["table"].page.object_list}
+        reopened_pks = {row.record.pk for row in reopened.context["table"].page.object_list}
+        assert first_pks == {matching.pk}
+        assert reopened_pks == first_pks
 
 
 class TestItemCreateView:
