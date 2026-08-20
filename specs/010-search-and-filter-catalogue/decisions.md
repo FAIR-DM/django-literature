@@ -442,3 +442,49 @@ per D12), rather than `PartialDate` equality. Once a decision lands, T008 restar
 production diff (the D-2/D-3/D-5 composition plus the `get_filterset_kwargs` fix) is not preserved
 (it was reverted, exactly as D15's was), but it is proven to satisfy every acceptance criterion T008,
 D14 and D16 ask of it, plus this one.
+
+## D18 — The `issued` annotation is a raw column value; the test that compares it to a `PartialDate` is reinstrumented
+
+**Ruling on D17.** Verified first-hand rather than taken from the report: `annotate_issued()` on a
+reference whose issued date is `2020-05-01` returns
+`datetime.datetime(2020, 5, 1, 0, 0, 2, tzinfo=UTC)`, while `ItemDate.begin` reads back as
+`PartialDate('2020-05-01')`, and the two compare unequal. D12's `output_field=DateTimeField()` is
+what makes the annotation skip `PartialDateField`'s own conversion on the way out.
+
+**D12 stands.** Its alternative was tried and returns wrong rows silently, which is worse than an
+error. Nothing in this feature justifies reopening it.
+
+**What the annotation is for.** Two consumers, both internal: `ItemTable.order_issued()` sorts on the
+column, and `filter_issued_year()` narrows on it. Nothing renders it — `IssuedColumn` reads the
+issued slot off the record's prefetched `item_dates` and hands it to the shared `date_value.html`
+partial, precisely so the precision-and-range rule lives in one place. Confirmed in
+`literature/ui/tables.py`. So the annotation's Python type is invisible to a reader of the
+catalogue, and no user-facing behaviour turns on it.
+
+**Chosen:** reinstrument `TestItemTableView::test_the_queryset_annotates_issued_matching_the_items_own_issued_date`
+to compare the annotation's date component against the issued slot's calendar date, rather than
+comparing a `datetime` to a `PartialDate`. The test's subject is unchanged and still discriminating:
+the reference in it also carries an `accessed` date of `2021-01-01`, so an annotation drawing from
+the wrong date slot still fails. Only the instrument moves — the same pattern as D14 and D16, and
+for the same reason: a pre-existing test written against an implementation detail that this feature
+legitimately changes.
+
+**Two production changes are in scope and required, not deviations.** Both follow from plan D-5 and
+neither is stated as its own task, which is why the last run had to reason its way to them:
+
+1. `ItemTableView.get_queryset()` drops its own inline `issued` `Subquery`. The annotation moves into
+   the shared definition; leaving the view's copy double-annotates the same alias.
+2. `ItemTableView.get_filterset_kwargs()` binds the filterset with `self.request.GET` unconditionally.
+   `FilterMixin`'s default is `self.request.GET or None`, and an empty `QueryDict` is falsy, so a
+   param-less request left the filterset unbound and `filter_queryset()` — and with it the `issued`
+   annotation the sort needs — never ran. The fix lives in the view, not in `filters.py`.
+
+**Standing authority for the rest of this story.** A pre-existing test may be reinstrumented, without
+stopping, when all three hold: the production change forcing it is mandated by the plan or this
+file; the test's *subject* survives unchanged; and only its instrument moves. Each instance gets its
+own entry here and is named in the completion report. A test whose **subject** conflicts with this
+feature is still a stop — that is the case D16 ruled on, and it stays mine to rule on.
+
+**Revisit if:** a consumer ever needs to render the `issued` annotation. It is a raw column value
+whose seconds component encodes the source date's precision, so rendering it directly would show a
+fabricated day and month for a year-only date. Read the `ItemDate` row, as `IssuedColumn` does.
