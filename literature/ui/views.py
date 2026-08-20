@@ -296,7 +296,12 @@ class ItemTableView(MVPTableViewMixin, FilterView):
             active = {
                 name: value
                 for name, value in self.filterset.form.cleaned_data.items()
-                if value not in (None, "", [], (), False)
+                # "sort" (literature/ui/filters.py ItemFilterSet.sort,
+                # plan.md D-7) is the table's own ordering, carried as a
+                # hidden field on this form so it survives a change of
+                # filter — a form field, but not one of the catalogue's
+                # own filters, so it never counts as one (decisions.md D20).
+                if name != "sort" and value not in (None, "", [], (), False)
             }
             context["applied_filters"] = active
             context["applied_filter_count"] = len(active)

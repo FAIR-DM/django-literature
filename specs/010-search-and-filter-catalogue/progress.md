@@ -691,3 +691,54 @@ tests/test_ui/test_views.py::TestCatalogueOrdering` — 13 passed. `poetry run p
 tests/test_ui/test_views.py` — clean. Committed as `T019: ...`.
 
 T020 starts from here.
+
+## 2026-08-20 — US-3/T020 done — carried, not abandoned
+
+Neither abort condition triggered. `ItemFilterSet` gains one more declared filter, `sort`:
+`django_filters.CharFilter(method="filter_sort", widget=forms.HiddenInput(), required=False)`,
+where `filter_sort()` is a deliberate no-op — ordering stays `ItemTable`'s own concern
+(`Meta.order_by`/`order_by=` per column); this field exists only to be present on the form and
+carried forward when it is resubmitted. Confirmed directly before trusting it: the filter modal's
+own `<c-form :form-obj="filter.form">` renders through `mvp/templates/cotton/form/render.html`,
+which is `{{ form|crispy }}` — django-crispy-forms renders a `HiddenInput` field as a bare
+`<input type="hidden">` on its own, with no template of ours or upstream's naming the field. A
+rendered page carrying `?sort=-citation_key` now emits
+`<input type="hidden" name="sort" value="-citation_key" id="id_sort">` — measured directly, not
+assumed. No upstream template touched, so the first abort condition does not apply.
+
+Second correction, `ItemTableView.get_context_data()` (decisions.md D20, `literature/ui/views.py`):
+one added clause, `name != "sort"`, excluding the hidden field from `applied_filters`/
+`applied_filter_count`. Also self-contained — no upstream template touched — so the second abort
+condition does not apply either.
+
+New helper `rendered_filter_form_data()`, the filter-modal equivalent of `rendered_form_post_data()`
+already used for POST forms: reads every field's current value off `response.context["filter"].form`
+so a test resubmits exactly what the modal's own form carries, hidden field included, rather than a
+hand-typed dict that could miss it.
+
+New `TestCatalogueStateSurvivesAChangeOfFilter`, three tests. `test_sort_survives_a_change_of_filter_submitted_from_the_filter_form`
+proves the actual claim: a sort in force, the filter form (read via the new helper, changed only to
+add a type filter) resubmitted, and the result still ordered by the original sort over the narrowed
+set — fixture built the same way as T017/T019's, citation_key running opposite to creation order, so
+the catalogue's own default order could not coincidentally pass the assertion. Ran red first, against
+the unmodified filterset (no `sort` field to carry anything): fell back to the catalogue's default
+order, the exact symptom D-7 predicts.
+
+The other two are the design review's own abort condition, now proven rather than assumed:
+`test_an_active_sort_is_not_counted_or_shown_as_an_applied_filter` (the badge and the applied-filter
+set are identical with and without a sort in force) and `test_a_sort_alone_carries_no_filter_badge`
+(a sort with no filter shows no badge at all). Both passed trivially before the `sort` field existed
+— there was nothing to miscount yet — so neither is evidence on its own. Confirmed properly by
+adding the `sort` field alone, without the `get_context_data()` correction: both then failed,
+`applied_filter_count` reading 2 instead of 1 and the badge rendering where none should be. Restored
+the correction, both green again. This is the same discipline T018 needed for its own two tests: a
+test that would pass by coincidence before the production change exists is not evidence once the
+change lands, only after deliberately breaking the one line it exists to guard.
+
+Verified: `poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py
+tests/test_ui/test_tables.py tests/test_ui/test_contributors.py` — 319 passed, no regressions from
+the new filterset field. `poetry run pre-commit run --files literature/ui/filters.py
+literature/ui/views.py tests/test_ui/test_views.py` — clean (mypy included this time, both
+production files touched). Committed as `T020: ...`.
+
+T021 starts from here.

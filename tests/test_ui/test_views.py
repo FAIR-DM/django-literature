@@ -93,6 +93,21 @@ def rendered_form_post_data(client, url, **overrides):
     return data
 
 
+def rendered_filter_form_data(response, **overrides):
+    """Build a GET query dict from a rendered page's own filter form (T020).
+
+    ``response.context["filter"].form`` is the same GET-bound form the
+    filter modal renders — every field starts at what that form actually
+    carries, a hidden field included, so submitting the result reproduces
+    exactly what the modal's own ``c-form`` submits when a reader changes
+    one field and clicks "Apply filters", not a hand-typed dict that could
+    silently omit one."""
+    form = response.context["filter"].form
+    data = {name: (form[name].value() or "") for name in form.fields}
+    data.update(overrides)
+    return data
+
+
 def update_page_post_data(client, item, **overrides):
     """Build a POST body from the rendered edit page's own bound form (T009)."""
     return rendered_form_post_data(client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides)
@@ -1157,6 +1172,52 @@ class TestCatalogueStateSurvivesAChangeOfSort:
         assert wrong_term.pk not in {r.pk for r in sorted_records}
         # Ordered by the clicked column, over only the narrowed set.
         assert [r.citation_key for r in sorted_records] == [matching_low.citation_key, matching_high.citation_key]
+
+
+class TestCatalogueStateSurvivesAChangeOfFilter:
+    """The sort survives a change of filter, carried as a hidden field on
+    ``ItemFilterSet``'s own form — plan.md D-7, decisions.md D-20's own
+    correction. The opposite direction from T019: there the sort came from
+    a column heading and django-tables2 already carried the rest of the
+    address; here the filter modal is our own GET form, and submitting it
+    replaces the query string with only what that form's own fields carry.
+    """
+
+    def test_sort_survives_a_change_of_filter_submitted_from_the_filter_form(self, client, db):
+        # citation_key runs the opposite way to creation order, so a sort
+        # by -citation_key produces a different row order than the
+        # catalogue's default (-created) — same reasoning as T017/T019's
+        # own fixtures, and for the same reason: a test where the two
+        # coincide would pass whether or not the sort actually survived.
+        older_last_key = ItemFactory(type=ItemType.BOOK, citation_key="KeyZ")
+        newer_first_key = ItemFactory(type=ItemType.BOOK, citation_key="KeyA")
+        ItemFactory(type=ItemType.ARTICLE_JOURNAL, citation_key="KeyM")
+        list_url = reverse("literature:item-list")
+        first_response = client.get(list_url, {"sort": "-citation_key"})
+        form_data = rendered_filter_form_data(first_response, type=ItemType.BOOK)
+        filtered_response = client.get(list_url, form_data)
+        filtered_records = [row.record for row in filtered_response.context["table"].page.object_list]
+        # Narrowed to the two BOOK rows, and still ordered by -citation_key
+        # (KeyZ before KeyA) — the catalogue's default (-created) would
+        # order them the other way (newer_first_key before older_last_key).
+        assert filtered_records == [older_last_key, newer_first_key]
+
+    def test_an_active_sort_is_not_counted_or_shown_as_an_applied_filter(self, client, db):
+        ItemFactory(type=ItemType.BOOK)
+        list_url = reverse("literature:item-list")
+        unsorted = client.get(list_url, {"type": ItemType.BOOK})
+        sorted_ = client.get(list_url, {"type": ItemType.BOOK, "sort": "-citation_key"})
+        assert sorted_.context["applied_filter_count"] == unsorted.context["applied_filter_count"]
+        assert set(sorted_.context["applied_filters"]) == set(unsorted.context["applied_filters"])
+        badge_re = r'<span class="indicator-item badge badge-secondary badge-xs">(\d+)</span>'
+        sorted_badge = re.search(badge_re, sorted_.content.decode())
+        unsorted_badge = re.search(badge_re, unsorted.content.decode())
+        assert sorted_badge.group(1) == unsorted_badge.group(1)
+
+    def test_a_sort_alone_carries_no_filter_badge(self, client, db):
+        ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"sort": "-citation_key"}).content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
 
 
 class TestItemCreateView:

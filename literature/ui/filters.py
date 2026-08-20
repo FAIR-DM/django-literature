@@ -126,9 +126,28 @@ class ItemFilterSet(django_filters.FilterSet):
     language = LanguageFilter(label=_("Language"))
     issued_year = django_filters.NumberFilter(method="filter_issued_year", label=_("Year"))
 
+    # Not one of the four catalogue filters (FR-009 to FR-013): carries the
+    # table's own sort (django-tables2's `order_by_field`, "sort") across a
+    # change of filter (plan.md D-7). The filter form is our own GET form,
+    # rendered by the component from `filter.form` (mvp's own crispy-forms
+    # render, which emits a hidden field's <input> with no template change
+    # of ours needed), so a hidden field here round-trips through it where
+    # an upstream pagination-style link previously did not. `filter_sort()`
+    # is a deliberate no-op: ordering is django-tables2's own concern
+    # (`ItemTable.Meta.order_by`), not the filterset's — this field exists
+    # only to be present on the form and carried forward when it is
+    # resubmitted. `ItemTableView.get_context_data()` excludes this key from
+    # what it reports as an applied filter (decisions.md D20's own
+    # correction): a hidden field is still a form field, and django-mvp
+    # counts every non-empty one.
+    sort = django_filters.CharFilter(method="filter_sort", widget=forms.HiddenInput(), required=False)
+
     class Meta:
         model = Item
         fields: list[str] = []
+
+    def filter_sort(self, queryset, name, value):
+        return queryset
 
     def filter_contributor(self, queryset, name, value):
         """FR-011: family, given or literal, in any role — a fragment match, case-insensitive."""

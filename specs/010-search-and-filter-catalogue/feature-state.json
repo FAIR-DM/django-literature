@@ -390,8 +390,17 @@
         },
         {
           "id": "T020",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesAChangeOfFilter"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run pre-commit run --files literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py"
+            ]
+          }
         },
         {
           "id": "T021",
