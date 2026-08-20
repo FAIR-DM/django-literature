@@ -2,10 +2,10 @@
 
 import pytest
 
-from literature.choices import ItemType, NameRole
+from literature.choices import DateType, ItemType, NameRole
 from literature.models import Item
 from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet
-from tests.factories import ItemFactory, ItemNameFactory, NameFactory
+from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
 
 
 class TestSearchFields:
@@ -141,3 +141,54 @@ class TestItemFilterSetLanguage:
         ItemFactory(language="fr")
         filterset = ItemFilterSet(data={"language": "en"}, queryset=Item.objects.all())
         assert list(filterset.qs) == [en_item]
+
+
+@pytest.mark.django_db
+class TestItemFilterSetIssuedYear:
+    """FR-012, plan D-5: the year filter, on the shared ``issued`` annotation."""
+
+    def test_a_year_only_stored_date_qualifies(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        other = ItemFactory()
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        filterset = ItemFilterSet(data={"issued_year": 2020}, queryset=Item.objects.all())
+        assert list(filterset.qs) == [item]
+
+    def test_a_range_qualifies_for_the_year_it_begins_in(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
+        other = ItemFactory()
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        filterset = ItemFilterSet(data={"issued_year": 2019}, queryset=Item.objects.all())
+        assert list(filterset.qs) == [item]
+
+    def test_a_range_does_not_qualify_for_a_year_it_only_ends_in(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
+        filterset = ItemFilterSet(data={"issued_year": 2021}, queryset=Item.objects.all())
+        assert list(filterset.qs) == []
+
+    def test_a_reference_with_no_issued_date_is_excluded(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
+        filterset = ItemFilterSet(data={"issued_year": 2020}, queryset=Item.objects.all())
+        assert list(filterset.qs) == []
+
+    def test_a_reference_carrying_no_date_at_all_is_excluded(self):
+        ItemFactory()
+        filterset = ItemFilterSet(data={"issued_year": 2020}, queryset=Item.objects.all())
+        assert list(filterset.qs) == []
+
+    def test_unfiltered_the_annotation_is_still_present_for_ordering(self):
+        # T007's own contract, not just the year filter's: the annotation is
+        # applied unconditionally in filter_queryset(), so a view relying on
+        # it for sort (ItemTable.order_issued) gets it whether or not a year
+        # was requested.
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        undated = ItemFactory()
+        filterset = ItemFilterSet(data={}, queryset=Item.objects.all())
+        annotated = {row.pk: row.issued for row in filterset.qs}
+        assert annotated[item.pk] is not None
+        assert annotated[undated.pk] is None

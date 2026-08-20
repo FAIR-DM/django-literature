@@ -215,3 +215,54 @@ Verified: `poetry run pytest -q tests/test_ui/test_filters.py` — 21 passed.
 literature/ui/filters.py` — clean.
 
 Next: T007 (the shared `issued` annotation and the year filter).
+
+## 2026-08-20 · Implementer US0 · T007
+
+Did: added `annotate_issued()` (FS-009's `Subquery` over `ItemDate`, moved
+here from where `ItemTableView.get_queryset()` and `test_tables.py` each
+currently write it inline — neither touched; that consolidation is the
+consuming story's job, not this one's) and the `issued_year` filter, both on
+`ItemFilterSet`. `filter_queryset()` now calls `annotate_issued()`
+unconditionally, before `super().filter_queryset()` and `.distinct()`, so a
+consumer sorting on `issued` (`ItemTable.order_issued`) gets the column
+whether or not a year was requested.
+
+Two write-ups worth keeping, both found by running the real thing rather
+than assuming:
+
+1. **`issued__year` needs the annotation's output field stated explicitly.**
+   `ItemDate.begin` is a `PartialDateField` (`django-partial-date`), whose
+   `get_internal_type()` reports `"DateTimeField"` for the database column
+   but which does not itself carry Django's `year` transform — that is
+   registered on `DateField`/`DateTimeField` specifically, and
+   `PartialDateField` subclasses plain `models.Field`. Inferred from the
+   subquery's source, the annotation carried `PartialDateField` as its
+   output field, and `issued__year=value` raised `FieldError: Unsupported
+   lookup 'year' for PartialDateField`. Tried a `gte`/`lt` half-open range
+   next — lookups every field carries — and that compiled but returned
+   wrong rows: `PartialDateField` encodes its precision (year/month/day) in
+   the stored value's *seconds* component, so a year-only date and a
+   full-date range boundary for the same calendar year compare unequal at
+   that resolution, sometimes including the wrong item, sometimes excluding
+   the right one (both reproduced). The fix that actually works: state
+   `output_field=DateTimeField()` explicitly on the `Subquery` — the SQL
+   column is unaffected, but the lookup now resolves against Django's own
+   `DateTimeField`, whose `year` transform extracts the year component in
+   SQL and is correctly indifferent to the seconds-encoded precision.
+   Confirmed via `manage.py shell` before writing it into the module.
+2. Every acceptance scenario in the task text has a test — year-only,
+   range-beginning, range-ending (a negative case beyond what the text
+   named, since "qualifies for the year it begins in" implies it must *not*
+   qualify for the year it ends in), no issued row, and no date row at all.
+   The first version of the two positive tests would have passed with no
+   filtering applied at all (only one item existed in each), so both gained
+   a same-shape decoy item in a different year before being trusted as red.
+
+Verified: `poetry run pytest -q tests/test_ui/test_filters.py` — 27 passed.
+`poetry run pytest -q tests/test_ui/test_tables.py -k "sort or order or Order
+or Sort or issued or Issued"` — 29 passed (this story's own regression check,
+per the task text). `poetry run ruff check`, `ruff format --check`, `mypy
+literature/ui/filters.py` and `poetry run deptry .` — all clean.
+
+This is the last task in the brief (T001–T007). Full-suite verification and
+the completion report follow.

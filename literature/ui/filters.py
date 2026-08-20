@@ -11,11 +11,11 @@ two ``JSONField``s, which django-filter has no filter for and raises on
 """
 
 import django_filters
-from django.db.models import Q
+from django.db.models import DateTimeField, OuterRef, Q, Subquery
 from django.utils.translation import gettext_lazy as _
 
-from literature.choices import ItemType
-from literature.models import Item
+from literature.choices import DateType, ItemType
+from literature.models import Item, ItemDate
 
 #: The ORM paths a catalogue search matches against (FR-002): the item's own
 #: identity and title fields, plus every contributor's name parts regardless
@@ -57,16 +57,35 @@ class LanguageFilter(django_filters.ChoiceFilter):
         return super().field
 
 
-class ItemFilterSet(django_filters.FilterSet):
-    """The catalogue's filters (FR-009 to FR-013): item type, contributor and language.
+def annotate_issued(queryset):
+    """Annotate ``issued`` from the ``issued`` date slot's ``begin`` (plan D-5).
 
-    The issued year filter is added in T007, alongside the shared ``issued``
-    annotation it narrows on.
+    The same ``Subquery`` FS-009 wrote inline in ``ItemTableView.get_queryset()``
+    for the table's own sort column, moved here so it is declared once. A
+    ``Subquery`` rather than a join: a join multiplies a row for an item
+    carrying more than one ``ItemDate``, corrupting a paginator's count.
+
+    ``output_field=DateTimeField()`` is stated explicitly rather than left to
+    infer ``ItemDate.begin``'s own ``PartialDateField``: Django registers the
+    ``year`` transform ``filter_issued_year`` below needs on ``DateField``/
+    ``DateTimeField`` specifically, and a third-party field that only
+    overrides ``get_internal_type()`` to report ``"DateTimeField"`` (for the
+    database column) does not inherit it — confirmed directly,
+    ``issued__year`` otherwise raises ``FieldError: Unsupported lookup
+    'year'``. Ordering (``ItemTable.order_issued``) is unaffected either way,
+    since it sorts on the raw column value, not through a lookup.
     """
+    issued_begin = ItemDate.objects.filter(item=OuterRef("pk"), date_type=DateType.ISSUED).values("begin")[:1]
+    return queryset.annotate(issued=Subquery(issued_begin, output_field=DateTimeField()))
+
+
+class ItemFilterSet(django_filters.FilterSet):
+    """The catalogue's filters (FR-009 to FR-013): item type, contributor, language and issued year."""
 
     type = django_filters.ChoiceFilter(choices=ItemType.choices, label=_("Type"))
     contributor = django_filters.CharFilter(method="filter_contributor", label=_("Contributor"))
     language = LanguageFilter(label=_("Language"))
+    issued_year = django_filters.NumberFilter(method="filter_issued_year", label=_("Year"))
 
     class Meta:
         model = Item
@@ -80,13 +99,29 @@ class ItemFilterSet(django_filters.FilterSet):
             | Q(item_names__name__literal__icontains=value)
         )
 
+    def filter_issued_year(self, queryset, name, value):
+        """FR-012: a year-only date and a range beginning in it qualify; no ``issued`` row excludes.
+
+        Narrows on the ``issued`` annotation ``filter_queryset()`` always
+        applies first, so this runs whether ``annotate_issued()`` was called
+        by a caller already or not. A reference with no ``issued`` row
+        annotates to ``NULL``, and ``__year`` against ``NULL`` never matches
+        — no separate exclusion is written for it.
+        """
+        return queryset.filter(issued__year=value)
+
     def filter_queryset(self, queryset):
         """A match is returned once, however many of its rows matched (FR-005, FR-011, plan D-4).
 
-        Three of the four filters and three of the eight search paths (T004)
-        traverse ``item_names``, so a join can multiply a reference's rows.
+        ``annotate_issued()`` runs first and unconditionally — not only when
+        the year filter has a value — so the ``issued`` column is present
+        for a consumer that sorts on it (``ItemTable.order_issued``)
+        regardless of whether a year was requested (plan D-5). Three of the
+        four filters and three of the eight search paths (T004) traverse
+        ``item_names``, so a join can multiply a reference's rows;
         ``.distinct()`` lives here, once, rather than in each view — the
-        search path needs no equivalent of its own; the mixin's own query
-        already ends in ``.distinct()``.
+        search path needs no equivalent of its own, since the mixin's own
+        query already ends in ``.distinct()``.
         """
+        queryset = annotate_issued(queryset)
         return super().filter_queryset(queryset).distinct()
