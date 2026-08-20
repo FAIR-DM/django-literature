@@ -80,6 +80,26 @@ class TestItemFilterSetContributor:
 
 
 @pytest.mark.django_db
+class TestItemFilterSetDistinct:
+    """FR-005, FR-011, plan D-4: a filter match returns each reference once."""
+
+    def test_a_contributor_credited_in_two_roles_is_returned_once(self):
+        item = ItemFactory()
+        darwin = NameFactory(family="Darwin")
+        ItemNameFactory(item=item, name=darwin, role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, name=darwin, role=NameRole.EDITOR)
+        filterset = ItemFilterSet(data={"contributor": "darwin"}, queryset=Item.objects.all())
+        assert list(filterset.qs) == [item]
+
+    def test_two_related_rows_matching_the_same_filter_still_return_the_reference_once(self):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(family="Darwin"), role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, name=NameFactory(given="Darwiniana"), role=NameRole.EDITOR)
+        filterset = ItemFilterSet(data={"contributor": "darwin"}, queryset=Item.objects.all())
+        assert list(filterset.qs) == [item]
+
+
+@pytest.mark.django_db
 class TestItemFilterSetLanguage:
     """FR-013: the distinct language values the catalogue holds, as stored.
 

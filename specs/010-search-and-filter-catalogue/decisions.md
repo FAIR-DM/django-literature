@@ -178,3 +178,36 @@ defect this feature must not ship into.
 make both regardless, because filtering discarded on a page move is precisely the defect the
 feature exists to remove. Leaving it open would leave a sibling issue describing a floor this
 branch has already raised. Sam confirmed the fold at intake.
+
+## D11 — 0.19.1's pagination change reaches further than research R6 found, and this story does not chase it
+
+**Discovered during US0/T006**, not anticipated at planning. R6 identified one change in the
+0.19.0 → 0.19.1 diff: the pagination link template, fixing #88. The release also rewrites
+`MVPTableView`'s pagination end to end — `mvp/integrations/django_tables/views.py`'s
+`paginate_queryset()` now returns the queryset whole (`return None, None, queryset, False`) rather
+than the sliced page Django's `ListView` used to hand it, on the reasoning (from the installed
+package's own docstring) that a `django_tables2.Table` is a second paginator over the same rows,
+and slicing twice means the row query and every prefetch run again for the second slice.
+
+**Ambiguous:** whether to fix this now, given it breaks two tests this story did not touch and
+whose files (`literature/ui/views.py`, `tests/test_ui/test_views.py`) it is not scoped to write.
+
+**Chosen:** confirmed, not fixed, here. `TestItemListView::test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size[literature:item-list]`
+and `TestItemTableView::test_paging_to_the_next_page_renders_the_next_rows_under_the_same_headings`
+now fail: both assert `len(response.context["object_list"])` directly against the table route, and
+`object_list` is no longer sliced — only `context["table"]`'s own page is, and only that page
+drives what actually renders (`test_pagination_states_position_and_offers_navigation`, asserting
+the rendered `"1-24 of 30"` position line and the `page=2` link, still passes; confirmed by pinning
+django-mvp back to 0.19.0 with `pip install "django-mvp==0.19.0"` and back, reproducing and clearing
+the two failures on the version alone). Nothing this story owns reads `object_list` off the table
+route the way these two tests do, so no task here is blocked by it.
+
+**Why defensible:** the floor bump is R2's own requirement (django-filter's `FilterView` needs it)
+independent of #88, and 0.19.1 is still the correct floor — reverting to 0.19.0 to dodge this would
+leave #88 open again for no gain, since the object_list change is orthogonal to the link fix. The
+two failing tests belong to the story that next touches `ItemTableView` (US-1/T008, which composes
+it with `FilterView`) or to whichever one first reads `object_list` off that route rather than the
+table's own page — reported in T006's completion evidence for that story to inherit knowingly.
+
+**Revisit if:** US-1/T008 (or whichever story next edits `ItemTableView`) does not already carry a
+fix for these two tests — confirm before that story's own baseline check is trusted.

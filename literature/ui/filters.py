@@ -79,3 +79,14 @@ class ItemFilterSet(django_filters.FilterSet):
             | Q(item_names__name__given__icontains=value)
             | Q(item_names__name__literal__icontains=value)
         )
+
+    def filter_queryset(self, queryset):
+        """A match is returned once, however many of its rows matched (FR-005, FR-011, plan D-4).
+
+        Three of the four filters and three of the eight search paths (T004)
+        traverse ``item_names``, so a join can multiply a reference's rows.
+        ``.distinct()`` lives here, once, rather than in each view — the
+        search path needs no equivalent of its own; the mixin's own query
+        already ends in ``.distinct()``.
+        """
+        return super().filter_queryset(queryset).distinct()

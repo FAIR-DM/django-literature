@@ -175,3 +175,43 @@ clean (one `Meta.fields: list[str] = []` annotation added for mypy).
 this task; the import now exists).
 
 Next: T006 (distinct queryset).
+
+## 2026-08-20 · Implementer US0 · T006
+
+Did: added `ItemFilterSet.filter_queryset()`, calling the parent
+implementation then `.distinct()` — one place (plan D-4), not restated per
+view. Two tests written first and watched fail (2 items instead of 1) before
+the override existed: a contributor credited in two roles on the same item,
+and two different `item_names` rows on one item both matching the same
+`contributor` fragment — the second is the case the task text calls out
+directly ("a multi-value filter matching two related rows").
+
+Per the task's own instruction, also ran the table's existing sort tests as
+a regression check — `poetry run pytest -q tests/test_ui/test_tables.py -k
+"sort or order or Order or Sort"`, 22 passed, unaffected (this story has not
+touched `tables.py` or `views.py`).
+
+**Concern, not a blocker — recorded as decisions.md D11.** Running
+`test_views.py` more broadly than that one check (both its ordering-relevant
+classes) turned up two pre-existing, unrelated test failures caused by the
+django-mvp floor bump in T001/T002:
+`TestItemListView::test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size[literature:item-list]`
+and `TestItemTableView::test_paging_to_the_next_page_renders_the_next_rows_under_the_same_headings`.
+0.19.1 changes more than research R6 found — `MVPTableView.paginate_queryset()`
+now returns the queryset unsliced, so `response.context["object_list"]` on
+the table route is the full catalogue rather than one page of it. What
+actually renders is still correctly paginated (confirmed: the position-line
+and `page=2`-link test for the same route still passes) — only that one
+context variable's meaning changed. Confirmed the cause by pinning
+django-mvp to 0.19.0 (`pip install "django-mvp==0.19.0"`) and back: both
+failures disappear and reappear with the version alone. Left both tests and
+`literature/ui/views.py` untouched — out of this story's scope — and wrote
+up the finding in decisions.md D11 for whichever story next touches
+`ItemTableView` (US-1/T008 is the likely one) to inherit knowingly rather
+than rediscover blind.
+
+Verified: `poetry run pytest -q tests/test_ui/test_filters.py` — 21 passed.
+`poetry run ruff check`, `ruff format --check` and `mypy
+literature/ui/filters.py` — clean.
+
+Next: T007 (the shared `issued` annotation and the year filter).
