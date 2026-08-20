@@ -61,6 +61,15 @@ def rendered_page_link(content, page_number):
     return html.unescape(match.group(1))
 
 
+def rendered_sort_link(content, column_label):
+    """The ``href`` a column heading's own sort link carries (T019, FR-019) —
+    the address a reader's click on that heading actually carries, unescaped
+    the same way ``rendered_page_link()`` is and for the same reason."""
+    match = re.search(rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{re.escape(column_label)}\s*<', content)
+    assert match, f"no rendered sort link for column {column_label!r}"
+    return html.unescape(match.group(1))
+
+
 def rendered_form_post_data(client, url, **overrides):
     """Build a POST body from a rendered page's own form at ``url``.
 
@@ -1122,6 +1131,32 @@ class TestCatalogueStateSurvivesAPageMove:
         assert all("Whale Migration" in record.title for record in second_page_records)
         assert all(record.type == ItemType.BOOK for record in second_page_records)
         assert second_page_records[0].citation_key < first_page_records[-1].citation_key
+
+
+class TestCatalogueStateSurvivesAChangeOfSort:
+    """A search and a filter survive a change of sort from a column heading,
+    and the new sort orders what they narrowed, not the whole catalogue —
+    FR-019. This direction already works; pinned here before T020 touches
+    the filter form for the opposite direction.
+    """
+
+    def test_search_and_a_filter_survive_a_change_of_sort_from_a_column_heading(self, client, db):
+        matching_high = ItemFactory(type=ItemType.BOOK, title="Whale Migration Zeta", citation_key="KeyZ")
+        matching_low = ItemFactory(type=ItemType.BOOK, title="Whale Migration Alpha", citation_key="KeyA")
+        wrong_type = ItemFactory(type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Beta", citation_key="KeyB")
+        wrong_term = ItemFactory(type=ItemType.BOOK, title="Unrelated Reference", citation_key="KeyC")
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"q": "whale", "type": ItemType.BOOK})
+        sort_href = rendered_sort_link(first_page.content.decode(), "Citation key")
+        sorted_response = client.get(urljoin(list_url, sort_href))
+        sorted_records = [row.record for row in sorted_response.context["table"].page.object_list]
+        # Narrowed to the two matches, not the whole four-row catalogue —
+        # the search and the filter are both still in force.
+        assert {r.pk for r in sorted_records} == {matching_high.pk, matching_low.pk}
+        assert wrong_type.pk not in {r.pk for r in sorted_records}
+        assert wrong_term.pk not in {r.pk for r in sorted_records}
+        # Ordered by the clicked column, over only the narrowed set.
+        assert [r.citation_key for r in sorted_records] == [matching_low.citation_key, matching_high.citation_key]
 
 
 class TestItemCreateView:

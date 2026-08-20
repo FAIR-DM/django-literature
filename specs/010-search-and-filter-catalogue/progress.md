@@ -666,3 +666,28 @@ tests/test_ui/test_views.py` — clean (one lint fix taken: an unused loop varia
 test, replaced with `ItemFactory.create_batch`). Committed as `T018: ...`.
 
 T019 starts from here.
+
+## 2026-08-20 — US-3/T019 done
+
+No production change. New helper `rendered_sort_link()`, the column-heading equivalent of
+`rendered_page_link()`: reads a column's own rendered `<a href>` from its header text rather than
+constructing `?sort=` by hand, unescaped the same way and for the same reason (D13).
+
+New `TestCatalogueStateSurvivesAChangeOfSort`, one test: a search and a filter in force, the reader
+follows the rendered "Citation key" header link, and both are still narrowing — asserted as the set
+of rows returned (the two matches, not the four-row catalogue) and their order (ascending by the
+clicked column). Confirmed directly before writing it that the rendered href actually carries `q`
+and `type` (`?q=whale&amp;type=book&amp;sort=citation_key`) — not merely that the test would pass
+regardless — so a regression that dropped either from the header link would fail this test, the same
+disjointness-style rigor T018 needed for its two page-move cases.
+
+Passed on the first run, as the task said it would: django-tables2 builds its own header links
+independently of the pagination component T017 fixed, and already preserved the rest of the query
+string.
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueStateSurvivesAChangeOfSort
+tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMove
+tests/test_ui/test_views.py::TestCatalogueOrdering` — 13 passed. `poetry run pre-commit run --files
+tests/test_ui/test_views.py` — clean. Committed as `T019: ...`.
+
+T020 starts from here.
