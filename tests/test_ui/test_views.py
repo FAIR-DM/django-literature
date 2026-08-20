@@ -908,6 +908,54 @@ class TestCatalogueFilterVisibility:
         assert cleared_pks == {matching.pk, other.pk}
 
 
+class TestCatalogueFilterValidation:
+    """Invalid and unmatched filter values — FR-017, decisions.md D7.
+
+    Two cases and only two: a declared filter's value matching nothing, and
+    a declared filter's value that fails validation. Both already narrow to
+    nothing through the adopted components — django-filter's own ``strict``
+    default (``BaseFilterView.get()``) returns an empty queryset for an
+    invalid bound form, and an unmatched value is simply a filter that
+    matches no row — so this task proves the behaviour rather than building
+    it.
+    """
+
+    def test_an_unmatched_value_of_a_declared_filter_states_no_matches(self, client, db):
+        ItemFactory(language="en")
+        response = client.get(reverse("literature:item-list"), {"language": "zz"})
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert len(response.context["table"].page.object_list) == 0
+        assert "No references match your search" in content
+
+    def test_an_invalid_value_of_a_declared_filter_states_no_matches(self, client, db):
+        ItemFactory()
+        response = client.get(reverse("literature:item-list"), {"issued_year": "notanumber"})
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert len(response.context["table"].page.object_list) == 0
+        assert "No references match your search" in content
+
+    def test_neither_case_falls_back_to_the_unfiltered_catalogue(self, client, db):
+        ItemFactory.create_batch(3, language="en")
+        unmatched = client.get(reverse("literature:item-list"), {"language": "zz"})
+        assert len(unmatched.context["table"].page.object_list) == 0
+        invalid = client.get(reverse("literature:item-list"), {"issued_year": "notanumber"})
+        assert len(invalid.context["table"].page.object_list) == 0
+
+    def test_an_address_carrying_an_undeclared_key_is_ignored_not_rejected(self, client, db):
+        # FR-017 reads on a filter *value*, not an undefined key: a Django
+        # form simply ignores data it has no field for, so an address like
+        # this is neither of the two cases above, and this feature
+        # deliberately builds no rejection mechanism for it (tasks.md T016).
+        # Pinned as what actually happens — 200, no exception, the
+        # catalogue unnarrowed — not as a contract this feature owns.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-list"), {"bogus": "xyz"})
+        assert response.status_code == 200
+        assert [row.record.pk for row in response.context["table"].page.object_list] == [item.pk]
+
+
 #: One item-building override per plain sortable column, cycled by index so
 #: 30 references get 30 distinct, independently-sortable values (T019).
 #: "type" cycles a fixed set of stored slugs rather than a unique value per
