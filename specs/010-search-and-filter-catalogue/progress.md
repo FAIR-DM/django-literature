@@ -28,3 +28,7 @@ fragment search, and the alternative that can is a database-specific facility wh
 separate decision. The feature now ships no index and no migration. Specification, decisions,
 requirements, success criteria, the epic and the first story updated; recorded on the issue
 thread.
+
+## 2026-08-20 — specification gate: approved
+
+Signed off in session, with the indexing requirement withdrawn as recorded above. Planning begins.
