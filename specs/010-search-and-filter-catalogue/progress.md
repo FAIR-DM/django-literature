@@ -282,3 +282,35 @@ evidence for both are in decisions.md D15.
 Reverted the production change (`git checkout -- literature/ui/views.py`) rather than land a red,
 untouchable pre-existing test, and reported T008 blocked. T009–T012 depend on T008's composition to
 be meaningfully written against, so none were attempted this run.
+
+## 2026-08-20 — US-1/T008 blocked again, on D16's resolution
+
+Resumed per `briefs/us1-search-resume.json`, authority decisions.md D16. Loaded `craft-tdd` and
+`craft-increments` by name, read D15/D16 and this story's `tasks.md`/`plan.md` sections, confirmed the
+baseline was red on exactly the two D14 tests and nothing else, then implemented T008 exactly as
+D16 resolves it: `ItemTableView(MVPTableViewMixin, FilterView)`, `search_fields = SEARCH_FIELDS`,
+`filterset_class = ItemFilterSet`, `actions = ["search", "filter", "create"]`, the two `#49` comments
+removed, `test_carries_no_search_box_filter_control_or_column_chooser` rewritten to
+`test_carries_search_and_filter_but_no_column_chooser` and `test_column_headers_appear_in_the_required_order`
+rescoped to the table's own `<thead>`, per D16's own text.
+
+Making the composition actually work required two changes plan D-5 already calls for but no task
+states explicitly: removing the view's own inline `issued` `Subquery` (it now double-annotates
+against `ItemFilterSet.filter_queryset()`'s own `annotate_issued()`), and overriding
+`get_filterset_kwargs()` so the filterset binds on a bare, param-less request too — `FilterMixin`'s
+own default (`self.request.GET or None`) leaves an empty `QueryDict` unbound, and an unbound
+`FilterSet.qs` never calls `filter_queryset()` at all, silently dropping the `issued` annotation D-5
+says must be present "regardless of whether a year was requested".
+
+With all of that in place and the full T008 diff green against every test D14 and D16 name, one
+further pre-existing test — untouched, unnamed by either — turned red:
+`test_the_queryset_annotates_issued_matching_the_items_own_issued_date`. Full root cause and evidence
+in decisions.md D17: routing the view through the shared `annotate_issued()` (as D-5 requires) is
+what first exposes that D12's already-committed `output_field=DateTimeField()` typing and this test's
+`PartialDate`-equality assumption disagree — a conflict invisible until a consumer other than
+`test_filters.py`'s own direct `FilterSet(...)` instantiation actually reads `.issued` back.
+
+Reverted the production change and the D16-authorized test rewrites
+(`git checkout -- literature/ui/views.py tests/test_ui/test_views.py`) rather than land this third
+red, untouchable pre-existing test, and reported T008 blocked again. T009–T012 depend on T008's
+composition to be meaningfully written against, so none were attempted this run.

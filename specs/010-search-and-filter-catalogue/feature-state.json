@@ -174,11 +174,12 @@
         {
           "id": "T008",
           "status": "blocked",
-          "attempts": 1,
+          "attempts": 2,
           "evidence": {
             "commands": [
               "poetry run pytest -q",
-              "poetry run pytest -q tests/test_ui/test_views.py::TestItemTableView tests/test_ui/test_views.py::TestItemListView tests/test_ui/test_views.py::TestCatalogueOrdering"
+              "poetry run pytest -q tests/test_ui/test_views.py::TestItemTableView tests/test_ui/test_views.py::TestItemListView tests/test_ui/test_views.py::TestCatalogueOrdering",
+              "poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_filters.py tests/test_ui/test_tables.py"
             ]
           }
         },

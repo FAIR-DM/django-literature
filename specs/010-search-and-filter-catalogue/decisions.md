@@ -381,3 +381,64 @@ something outside the specification's reach, the answer would have been the oppo
 **Not chosen:** reordering `ItemFilterSet`'s fields so `"Type"` is not the first label found. That
 fixes the symptom by constraining an unrelated design surface, and the next label collision would
 break the test again.
+
+## D17 — T008 blocked again: a third untouchable pre-existing test breaks on the correctly-typed shared `issued` annotation
+
+**Discovered during US-1/T008's second attempt**, resuming after D16's ruling on D15. Implementing
+D16's two rewritten tests plus plan D-2/D-3's composition (`ItemTableView(MVPTableViewMixin,
+FilterView)`, `search_fields = SEARCH_FIELDS`, `filterset_class = ItemFilterSet`) requires removing
+the view's own inline `issued` `Subquery` per plan D-5 ("the annotation moves into the shared
+definition and both views carry it") — leaving it in place double-annotates the same alias once
+`ItemFilterSet.filter_queryset()` (T007) also annotates it.
+
+Wiring the filterset into the view (rather than instantiating it directly, as `test_filters.py` does)
+also surfaced a second, latent bug: `FilterMixin.get_filterset_kwargs()`'s default is `"data":
+self.request.GET or None`, and an empty `QueryDict` on a bare, param-less request is falsy, so it
+resolves to `None` and the filterset stays unbound. `FilterSet.qs` only calls `filter_queryset()` —
+and with it `annotate_issued()` — when bound, so a bare `/catalogue/` load carried no `issued`
+annotation at all, contradicting plan D-5's own stated intent ("this runs whether
+`annotate_issued()` was called by a caller already or not ... regardless of whether a year was
+requested"). Fixed with a view-level override, `ItemTableView.get_filterset_kwargs()`, always passing
+`self.request.GET` as `data` — a `QueryDict` `is not None` even when empty — rather than touching
+`filters.py`.
+
+With both of those in place, `TestItemTableView::test_the_queryset_annotates_issued_matching_the_items_own_issued_date`
+fails, named by neither D14 nor D16's amendment. Confirmed: `AssertionError: assert
+datetime.datetime(2020, 5, 1, 0, 0, 2, tzinfo=datetime.timezone.utc) == 2020-05-01` — the annotated
+`.issued` is now a raw `datetime` (seconds-encoding the day precision, per D12) rather than the
+`PartialDate` the pre-existing test compares it to. Root cause: T007/D12 explicitly typed
+`annotate_issued()`'s `Subquery` as `output_field=DateTimeField()`, deliberately overriding the
+inferred `PartialDateField` so `issued__year` resolves — a decision already committed and out of this
+story's reach (`filters.py` is prohibited). The view's own inline annotation, before T008, carried no
+explicit `output_field`, so Django inferred `PartialDateField` from the source expression and
+`.issued` round-tripped back to a `PartialDate`, which is what the test was written against. Routing
+the view through the shared `annotate_issued()` — exactly as D-5 instructs — is what first exposes
+that D12's typing choice and this pre-existing test's assumption disagree. The sibling test,
+`test_the_issued_annotation_is_none_for_a_reference_with_no_issued_date`, is unaffected only because
+`None == None` holds regardless of type.
+
+Confirmed the blast radius is exactly this one test beyond the four D14/D16 already cover: with the
+full T008 change in place, `poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_filters.py
+tests/test_ui/test_tables.py` — 1 failed (this one) / 250 passed, 1 xfailed; every D14/D16 test and
+everything else in those three modules green.
+
+**Chosen:** not fixed here. Reverted the production change and the D16-authorized test rewrites
+(`git checkout -- literature/ui/views.py tests/test_ui/test_views.py`) rather than land a state where
+an untouchable pre-existing test is red, and report T008 blocked again. T009–T012 depend on T008's
+composition existing to be meaningfully written against, so none were attempted this run.
+
+**Why defensible:** `test_the_queryset_annotates_issued_matching_the_items_own_issued_date` is
+outside every prohibition's untouchable carve-out — the four named by D14 and D16's amendment are the
+complete set. Neither the `get_filterset_kwargs` fix nor the annotation removal is optional: both
+follow directly from plan D-2/D-3/D-5 and are necessary for a correct T008 regardless of this one
+test. Editing the test without a Forge-level decision would be the same category of error D15 already
+stopped for, and changing `annotate_issued()`'s output field to dodge the discrepancy would mean
+re-opening D12's already-settled, evidence-backed reasoning (`gte`/`lt` returns wrong rows silently)
+from a file this story cannot touch.
+
+**Revisit if:** Forge (or Sam) decides how this one retires — most likely by the same D14/D16
+pattern: reinstrumenting the test to assert against what the annotation now actually is (a `datetime`,
+per D12), rather than `PartialDate` equality. Once a decision lands, T008 restarts from here — the
+production diff (the D-2/D-3/D-5 composition plus the `get_filterset_kwargs` fix) is not preserved
+(it was reverted, exactly as D15's was), but it is proven to satisfy every acceptance criterion T008,
+D14 and D16 ask of it, plus this one.
