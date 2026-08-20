@@ -80,7 +80,7 @@ def annotate_issued(queryset):
     return queryset.annotate(issued=Subquery(issued_begin, output_field=DateTimeField()))
 
 
-class _ScalarOrListSelectMultiple(forms.SelectMultiple):
+class ScalarOrListSelectMultiple(forms.SelectMultiple):
     """Accept a bare stored value as well as a list of them, and drop blanks.
 
     ``SelectMultiple.value_from_datadict`` reads ``data.getlist(name)`` for
@@ -120,7 +120,7 @@ class ItemFilterSet(django_filters.FilterSet):
     # returns. MultipleChoiceFilter.filter() ORs the chosen values by
     # default (``conjoined=False``), which is exactly that widening.
     type = django_filters.MultipleChoiceFilter(
-        choices=ItemType.choices, label=_("Type"), widget=_ScalarOrListSelectMultiple
+        choices=ItemType.choices, label=_("Type"), widget=ScalarOrListSelectMultiple
     )
     contributor = django_filters.CharFilter(method="filter_contributor", label=_("Contributor"))
     language = LanguageFilter(label=_("Language"))
