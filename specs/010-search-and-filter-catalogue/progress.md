@@ -124,3 +124,20 @@ Verified: `poetry run pytest -q tests/test_ui/test_architecture.py
 tests/test_ui/test_smoke.py` — 28 passed.
 
 Next: T004 (`SEARCH_FIELDS` in a new `literature/ui/filters.py`).
+
+## 2026-08-20 · Implementer US0 · T004
+
+Did: created `literature/ui/filters.py` with `SEARCH_FIELDS` — the eight ORM
+paths from plan D-3 — and nothing else. `tests/test_ui/test_filters.py`
+asserts the list's exact contents and, parametrized per path, that
+`Item.objects.filter(**{f"{path}__icontains": "x"})` builds without raising:
+Django resolves a lookup path into fields at `.filter()`-call time, before
+any database access, so a renamed field fails here rather than as a silently
+empty search. Watched the test fail first with `ModuleNotFoundError` (the
+module did not exist yet), then created the module.
+
+Verified: `poetry run pytest -q tests/test_ui/test_filters.py` — 9 passed.
+`poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py`
+— clean.
+
+Next: T005 (`ItemFilterSet`: item type, contributor, language).
