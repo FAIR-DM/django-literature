@@ -241,3 +241,57 @@ way: it sorts the raw column value, which does not go through a lookup at all.
 **Revisit if:** a future filter on `issued` needs month- or day-level precision — the seconds-encoding
 gotcha applies there too, and `DateTimeField`'s `month`/`day` transforms will have the same silent
 wrong-row failure mode `gte`/`lt` did here if reached for again instead.
+
+## D13 — The page-2 link already carries the sort at 0.19.1; the standing xfail reads an escaped href
+
+**Discovered while reviewing US0's completion**, which reported that
+`TestCatalogueOrdering::test_sort_survives_following_the_rendered_link_to_page_2` (the strict xfail
+tracking #88) had not flipped to XPASS on the raised floor, and left it uninvestigated as outside
+the story's scope. It is in scope for this feature, because closing #88 is one of the things the
+feature promises.
+
+**What is actually true.** Rendered from a request carrying `?sort=-citation_key`, the pagination
+component's numbered link to page 2 emits
+`href="?sort=-citation_key&amp;page=2"` — measured, not inferred. The upstream fix is present and
+working: `{% querystring page=page %}` preserves the rest of the address. The test still fails
+because `rendered_page_link()` returns the href verbatim out of the markup, `&amp;` and all, and the
+test client then parses that as two parameters named `sort` and `amp;page`. No `page` parameter
+reaches the view, page one comes back a second time, and its first row is not less than the first
+page's last row.
+
+The helper was written when the emitted href was the bare `?page=2` of the defect it documents, so
+no ampersand ever appeared in it and unescaping was never needed. The fix that made #88 go away is
+also what first put an entity in that string.
+
+**Chosen:** unescape the href in `rendered_page_link()` (`html.unescape`) and remove the xfail
+marker from that test in the same commit. US-3/T017 owns both, and the marker is `strict=True`, so
+the suite goes red the moment the helper is corrected — which is the marker doing its job.
+
+**Why defensible:** the assertion, the fixture and the intent of the test are all untouched. What
+changes is one line of a helper that was decoding the page's markup incorrectly, and the removal of
+a marker whose own stated condition ("flips green once the fix lands and the `ui` floor carries it")
+is now met. No pre-existing assertion is weakened to reach it.
+
+**Consequence for T017 and T018, and it is the useful half of this entry.** Every existing test that
+follows a rendered pagination link is measuring through this helper, so a search or filter surviving
+a page move would fail the same way for the same reason and look like a defect in this feature.
+Correct the helper first, then write those tests.
+
+## D14 — US-1 inherits the two `object_list` failures D11 reports, and reinstruments them
+
+**Confirmed at D11's own revisit condition.** Both failures are reproduced at `cc4f638`, and the
+cause is exactly as D11 records: at 0.19.1 `MVPTableViewMixin.paginate_queryset()` returns the
+queryset whole and republishes `paginator`, `page_obj` and `is_paginated` from the table's own page,
+so on the table route `response.context["object_list"]` is the catalogue rather than one page of it.
+Upstream states the intent in the method's own docstring — one queryset, one slice, and the sorted
+page is the table's — so this is a deliberate contract change, not a defect to report.
+
+**Chosen:** US-1/T008 reinstruments both tests onto the table's own page
+(`response.context["table"].page.object_list`), which is where every other assertion about rendered
+rows on that route already reads from, and where the count the reader sees comes from. The card-list
+route keeps reading `object_list`, which still means a page there.
+
+**Why defensible:** each test's subject is unchanged — a page holds no more than `paginate_by`
+references, and page two renders the next rows under the same headings. Only the instrument moves,
+from a context variable that no longer describes the rendered page to the one that does. Reading a
+stale variable and calling the mismatch a regression would be the actual error.

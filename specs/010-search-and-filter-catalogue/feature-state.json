@@ -3,7 +3,7 @@
   "feature": "010-search-and-filter-catalogue",
   "branch": "010-search-and-filter-catalogue",
   "repo": "FAIR-DM/django-literature",
-  "state": "DESIGN_REVIEW",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "SPECIFY",
@@ -24,6 +24,11 @@
       "state": "DESIGN_REVIEW",
       "at": "2026-08-20T10:01:24Z",
       "note": "design review returned request_changes; six findings applied to plan, tasks, research and decisions"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-20T10:37:34Z",
+      "note": "US0 foundational green (T001-T007); 0.19.1 object_list fallout assigned to US-1/T008, #88 xfail root-caused to the test helper for US-3/T017"
     }
   ],
   "gates": {
@@ -56,43 +61,107 @@
     {
       "id": "US0",
       "priority": "P0",
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T001",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_packaging.py"
+            ]
+          }
         },
         {
           "id": "T002",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry lock",
+              "poetry install --extras ui",
+              "poetry run pytest -q tests/test_ui/test_packaging.py"
+            ]
+          }
         },
         {
           "id": "T003",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_architecture.py tests/test_ui/test_smoke.py"
+            ]
+          }
         },
         {
           "id": "T004",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestSearchFields"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py"
+            ]
+          }
         },
         {
           "id": "T005",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestItemFilterSetType",
+              "tests/test_ui/test_filters.py::TestItemFilterSetContributor",
+              "tests/test_ui/test_filters.py::TestItemFilterSetLanguage"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run mypy literature/ui/filters.py",
+              "poetry run deptry ."
+            ]
+          }
         },
         {
           "id": "T006",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestItemFilterSetDistinct"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run pytest -q tests/test_ui/test_tables.py -k \"sort or order or Order or Sort\"",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run ruff format --check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run mypy literature/ui/filters.py"
+            ]
+          }
         },
         {
           "id": "T007",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestItemFilterSetIssuedYear"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run pytest -q tests/test_ui/test_tables.py -k \"sort or order or Order or Sort or issued or Issued\"",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run ruff format --check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run mypy literature/ui/filters.py",
+              "poetry run deptry ."
+            ]
+          }
         }
       ]
     },

@@ -74,6 +74,18 @@ phase — different files, no shared state.
   `"search"` and `"filter"` beside `"create"` (plan D-3). Delete the two comments naming this issue as
   the reason they were switched off. Assert the search box renders and, because the filterset is now
   configured, that its submit actually reaches the view (research R4).
+
+  **This task inherits two failing tests and fixes them** (decisions.md D11 and D14). The floor
+  raised in T001 changed what `response.context["object_list"]` means on the table route: upstream
+  now leaves the queryset whole and republishes the page from the table, so that variable is the
+  whole catalogue there. Reinstrument both onto `response.context["table"].page.object_list`, which
+  is where the route's other row assertions already read:
+  `TestItemListView::test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size[literature:item-list]`
+  and `TestItemTableView::test_paging_to_the_next_page_renders_the_next_rows_under_the_same_headings`,
+  both in `tests/test_ui/test_views.py`. Neither test's subject changes — do not weaken either
+  assertion, and leave the card-list parameter of the first one reading `object_list`, where it still
+  means one page. The baseline for this story is therefore red on exactly these two and nothing else;
+  anything further is a stop-and-report.
   *Test scope:* `tests/test_ui/test_views.py`.
 
 - [ ] **T009** Search behaviour against the table, one assertion per searched field: title, short
@@ -145,6 +157,19 @@ phase — different files, no shared state.
 - [ ] **T017** With the floor raised in T001, move the two assertions pinning `href="?page=2"` exactly
   (`tests/test_ui/test_views.py` lines 119 and 340) to what the fixed component emits (plan D-10,
   research R6). The demo guard's regex needs no change — confirm that rather than assuming it.
+
+  **First, correct `rendered_page_link()` and remove a marker** (decisions.md D13). From a request
+  carrying `?sort=-citation_key` the component emits `href="?sort=-citation_key&amp;page=2"` —
+  measured. The helper returns that verbatim, so the test client reads two parameters named `sort`
+  and `amp;page`, no page number reaches the view, and page one comes back. Unescape the href in the
+  helper (`html.unescape`), and in the same commit remove the `xfail` marker from
+  `TestCatalogueOrdering::test_sort_survives_following_the_rendered_link_to_page_2`, whose assertion
+  and fixture stay exactly as they are. The marker is `strict=True`, so an uncorrected helper and a
+  removed marker each fail loudly — that is intended. This is the test that closes #88; watch it go
+  from red to green on the helper's line alone, and record that in `progress.md`.
+
+  Everything in T018 to T021 that follows a rendered link measures through this helper, so nothing
+  else in this story is trustworthy until it is fixed.
   *Test scope:* `tests/test_ui/test_views.py`.
 
 - [ ] **T018** Survival across a page move (FR-018): a search, a filter and a sort each survive
