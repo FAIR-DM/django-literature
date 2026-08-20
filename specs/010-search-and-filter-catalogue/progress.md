@@ -598,3 +598,41 @@ its own test before it shipped; T015 found and closed a second real gap, `ItemTa
 carrying the badge context django-mvp's own template expects; T016 proved FR-017 already holds.
 Nothing here touches a django-mvp template, `tests/test_ui/test_filters.py`, or a file outside this
 story's scope.
+
+## 2026-08-20 — US-3/T017 done — #88 closed
+
+Removed the `strict=True` xfail from
+`TestCatalogueOrdering::test_sort_survives_following_the_rendered_link_to_page_2` first, alone, to
+observe the marker's own claim: red, `assert 'Key029' < 'Key006'`, second page falling back to the
+catalogue's default order — the exact symptom decisions.md D13 diagnoses, not an import or fixture
+error. Confirmed the diagnosis directly before touching the helper: a request carrying
+`?sort=-citation_key` renders the page-2 link as `href="?sort=-citation_key&amp;page=2"`, and
+`rendered_page_link()` returned that byte for byte, so the test client parsed two parameters named
+`sort` and `amp;page` and no `page` value ever reached the view.
+
+Fix: one line, `html.unescape()` on the href `rendered_page_link()` returns. Green on that line
+alone — the test's own assertion and fixture untouched, exactly as D13 specifies. `git diff` before
+committing confirms nothing else in the test changed beyond the marker's removal and the helper's
+one line.
+
+**The demo guard's regex — confirmed, not assumed, per the task.** `SECOND_PAGE_LINK_RE` matches a
+literal `&` between parameters; the real markup joins them with the HTML entity `&amp;`, and a
+direct check (`SECOND_PAGE_LINK_RE.search('href="?sort=-citation_key&amp;page=2"')`) returns `None`
+— the pattern would *not* match a page-2 link that carries a sort. It needs no change regardless:
+`DemoWalk.run()` fetches `{base_url}/catalogue/` with no query string at all before it ever reads
+this link, so the rendered href it actually parses is the bare `?page=2` — no ampersand, escaped or
+not — and the pattern matches that correctly today and after this fix. Recorded here rather than
+touched, since nothing in this story's scope exercises the escaped-ampersand path against the guard.
+
+Two assertions plan.md D-10 named for this task, `tests/test_ui/test_views.py`'s
+`'href="?page=2"' in content` (now at lines 136 and 357, not the 119/340 the plan cites — line
+numbers moved under earlier stories' commits), needed no change either: both are requests with no
+sort or filter in force, so the fixed component's rendered link is still the bare `?page=2` — D-10's
+"becomes what the fixed component emits" and "stays exactly what it already pins" coincide here
+because neither test puts a second parameter in force. Confirmed by reading both tests, not assumed.
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueOrdering` — 9 passed, the
+xfail gone with nothing skipped in its place. `poetry run pre-commit run --files
+tests/test_ui/test_views.py` — clean. Committed as `T017: ...`.
+
+T018 starts from here.

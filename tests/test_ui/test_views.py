@@ -5,6 +5,7 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """
 
+import html
 import json
 import re
 from html.parser import HTMLParser
@@ -48,10 +49,16 @@ def rendered_page_link(content, page_number):
     ``page_number`` carries — found by reading the markup, not by
     constructing ``?page=N`` ourselves. That distinction is what T019's
     page-2 assertion turns on (plan.md D-14): the address the reader's
-    click actually carries is the evidence, not one the test invents."""
+    click actually carries is the evidence, not one the test invents.
+
+    Unescaped (decisions.md D13): ``{% querystring %}`` HTML-escapes the
+    ``&`` joining two or more parameters, so a link carrying both ``sort``
+    and ``page`` renders as ``...&amp;page=2``. Read verbatim, the test
+    client parses that as a parameter literally named ``amp;page`` and no
+    ``page`` value ever reaches the view."""
     match = re.search(rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{page_number}\s*</a>', content)
     assert match, f"no rendered link to page {page_number}"
-    return match.group(1)
+    return html.unescape(match.group(1))
 
 
 def rendered_form_post_data(client, url, **overrides):
@@ -1041,14 +1048,6 @@ class TestCatalogueOrdering:
         citation_keys = [row.record.citation_key for row in response.context["table"].page.object_list]
         assert citation_keys == [second.citation_key, first.citation_key]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "django-mvp's pagination link replaces the whole query string and drops ?sort= "
-            "(plan.md D-14) — tracked here as issue #88, upstream as django-mvp/django-mvp#270. "
-            "Flips green once the fix lands and the ui floor in T001 carries it."
-        ),
-    )
     def test_sort_survives_following_the_rendered_link_to_page_2(self, client, db):
         # citation_key runs the opposite way to creation order, so a sort by
         # -citation_key produces a different row order than the catalogue's

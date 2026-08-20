@@ -343,13 +343,22 @@
     {
       "id": "US3",
       "priority": "P3",
-      "status": "todo",
+      "status": "in_progress",
       "replans": 0,
       "tasks": [
         {
           "id": "T017",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueOrdering::test_sort_survives_following_the_rendered_link_to_page_2"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestCatalogueOrdering -q",
+              "poetry run pre-commit run --files tests/test_ui/test_views.py"
+            ]
+          }
         },
         {
           "id": "T018",
