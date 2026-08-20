@@ -295,3 +295,54 @@ route keeps reading `object_list`, which still means a page there.
 references, and page two renders the next rows under the same headings. Only the instrument moves,
 from a context variable that no longer describes the rendered page to the one that does. Reading a
 stale variable and calling the mismatch a regression would be the actual error.
+
+## D15 — T008 blocked: turning search and filter on breaks two pre-existing FS-009 tests neither D14 nor any task names
+
+**Discovered during US-1/T008**, by implementing the task exactly as written (`ItemTableView`
+composed as `MVPTableViewMixin, FilterView` with `search_fields = SEARCH_FIELDS` and
+`filterset_class = ItemFilterSet`, the `actions` override dropped so the mixin's own
+`["search", "filter", "create"]` applies) and running the full suite against it. Two tests in
+`tests/test_ui/test_views.py::TestItemTableView`, both written for FS-009 and neither named by D14,
+fail as a direct and unavoidable consequence:
+
+- `test_carries_no_search_box_filter_control_or_column_chooser` — asserts
+  `response.context["table_actions"] == ["create"]`, `'name="q"' not in content` and
+  `"filterModal" not in content`. Its own comment cites FS-009's FR-025 (a different requirement
+  under that number than this feature's FR-025, which is about the contributor page). This test is
+  FS-009's lock on the exact decision D-3 reverses — search and filter switched off, with a test
+  guarding that an upstream default could not turn them back on. This feature turning them on by
+  design is exactly what trips it.
+- `test_column_headers_appear_in_the_required_order` — asserts the six column-header strings appear
+  in the rendered page in ascending order of position. `ItemFilterSet.type` is
+  `django_filters.ChoiceFilter(label=_("Type"))` (`literature/ui/filters.py`), and the filter
+  modal's form (`mvp`'s `cotton/page/list/actions/filter.html`, rendered inside `page.actions`,
+  ahead of the table) renders that label as literal text `"Type"` before the table's own "Type"
+  column header — confirmed directly: `content.index("Type")` lands inside the modal, earlier than
+  `content.index("Citation key")`, which only the table emits.
+
+Both are outside `tests/test_ui/test_views.py`'s D14 allowance and outside every prohibition's
+"untouchable" carve-out has an exception for. Confirmed the blast radius is exactly these two beyond
+the two D14 already covers: `poetry run pytest -q` full suite, 4 failed / 1628 passed / 1 xfailed,
+no other file affected (`test_tables.py`, `test_templates.py`, `test_filters.py`,
+`test_contributors.py` all still green).
+
+**Chosen:** not fixed here. The Implementer reverted the production change (`git checkout --
+literature/ui/views.py`) rather than land a state where an untouchable pre-existing test is red, and
+reports T008 blocked rather than done. T009–T012 all depend on T008's composition existing to be
+meaningfully written against, so none were attempted.
+
+**Why defensible:** both tests assert the literal absence of the thing this story exists to add.
+`test_carries_no_search_box_filter_control_or_column_chooser`'s premise — search and filter are off
+— is the FS-009 decision D-3 explicitly documents as being reversed. Neither test can stay as
+written and true at the same time as T008's acceptance criteria; editing either without a
+Forge-level decision would be exactly the "special-case code to make a test pass" the craft-tdd
+skill prohibits, in the other direction (special-casing the test rather than the code).
+
+**Revisit if:** Forge (or Sam) decides how these two retire — most likely `test_carries_no_search_box_filter_control_or_column_chooser`
+is replaced by an assertion of what search/filter now look like on this route (its useful half,
+"no column chooser," has no test of its own once the rest is rewritten), and
+`test_column_headers_appear_in_the_required_order` is scoped to the table body/headers rather than
+the whole rendered page, or the filter form's field order is changed so "Type" is not the first
+label a raw substring search finds. Once a decision lands, T008 restarts from here — the production
+diff above is not preserved (it was reverted), but the change itself is small and was proven to work
+for everything D14 and T008's own acceptance ask of it.

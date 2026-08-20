@@ -266,3 +266,19 @@ literature/ui/filters.py` and `poetry run deptry .` — all clean.
 
 This is the last task in the brief (T001–T007). Full-suite verification and
 the completion report follow.
+
+## 2026-08-20 — US-1/T008 blocked
+
+Implemented T008 exactly as specced — `ItemTableView(MVPTableViewMixin, FilterView)`,
+`search_fields = SEARCH_FIELDS`, `filterset_class = ItemFilterSet`, the `actions` override dropped
+so the mixin's default `["search", "filter", "create"]` applies — and ran the full suite against
+it. Beyond the two D14-named failures, two more went red in `TestItemTableView`, both pre-existing,
+neither authored this story: `test_carries_no_search_box_filter_control_or_column_chooser` (FS-009's
+lock on search/filter being off — exactly what D-3 reverses) and
+`test_column_headers_appear_in_the_required_order` (the filter modal's own "Type" field label now
+precedes the table's "Type" column header in the rendered page). Full detail and the concrete
+evidence for both are in decisions.md D15.
+
+Reverted the production change (`git checkout -- literature/ui/views.py`) rather than land a red,
+untouchable pre-existing test, and reported T008 blocked. T009–T012 depend on T008's composition to
+be meaningfully written against, so none were attempted this run.
