@@ -615,6 +615,43 @@ class TestCatalogueSearch:
         matches = [row for row in response.context["table"].page.object_list if row.record.pk == item.pk]
         assert len(matches) == 1
 
+    def test_a_one_character_fragment_matches_literally(self, client, db):
+        item = ItemFactory(title="Zebra Migration")
+        other = ItemFactory(title="Unrelated Reference")
+        content = client.get(reverse("literature:item-list"), {"q": "Z"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_a_term_of_only_spaces_is_a_no_op(self, client, db):
+        # FR-006 — the upstream mixin strips and checks truthiness before
+        # filtering at all, so this is the empty-query no-op (FR-008) under
+        # a different guise rather than a wildcard match.
+        ItemFactory.create_batch(3)
+        response = client.get(reverse("literature:item-list"), {"q": "   "})
+        assert len(response.context["table"].page.object_list) == 3
+
+    def test_a_percent_sign_is_matched_literally_not_as_a_wildcard(self, client, db):
+        # FR-006 — "%" is the database's own multi-character wildcard. A
+        # naive, unescaped `LIKE '%' || value || '%'` would match "100X..."
+        # too, since the user's own "%" would itself act as a wildcard;
+        # confirmed directly against this database with an unescaped raw
+        # query before writing this test. Django's ORM-level icontains
+        # escapes the value first, so only the literal substring matches.
+        literal_match = ItemFactory(title="100% Guaranteed Results")
+        decoy = ItemFactory(title="100X Guaranteed Results")
+        content = client.get(reverse("literature:item-list"), {"q": "100%"}).content.decode()
+        assert literal_match.citation_key in content
+        assert decoy.citation_key not in content
+
+    def test_an_underscore_is_matched_literally_not_as_a_wildcard(self, client, db):
+        # FR-006 — "_" is the database's own single-character wildcard,
+        # confirmed the same way as the "%" case above.
+        literal_match = ItemFactory(title="Sample_ID Formation")
+        decoy = ItemFactory(title="SampleXID Formation")
+        content = client.get(reverse("literature:item-list"), {"q": "Sample_ID"}).content.decode()
+        assert literal_match.citation_key in content
+        assert decoy.citation_key not in content
+
 
 #: One item-building override per plain sortable column, cycled by index so
 #: 30 references get 30 distinct, independently-sortable values (T019).

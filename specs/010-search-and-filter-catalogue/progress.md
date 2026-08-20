@@ -381,3 +381,24 @@ D-14/#88 xfail). `poetry run ruff check`, `ruff format --check` and `mypy litera
 all clean. Committed as `T009: ...`.
 
 T010 starts from here.
+
+## 2026-08-20 — US-1/T010 done
+
+Four more methods on `TestCatalogueSearch` (FR-006, spec *Edge Cases*): a one-character fragment
+matches literally; a term of only spaces is a no-op — the upstream mixin strips and checks
+truthiness before filtering, so it falls out of the same path as FR-008's empty-`q` no-op rather
+than needing its own; and one test each for `%` and `_`, the database's own multi- and
+single-character wildcards.
+
+For the wildcard tests, confirmed the discrimination directly before writing them: an unescaped raw
+`LIKE` query against this database (`Item.objects` bypassed, a bare cursor and an unescaped pattern)
+matches both the literal reference and a decoy that should not match, while Django's ORM-level
+`icontains` — which is what the upstream search mixin actually issues — matches only the literal
+one. Django escapes the lookup value before wrapping it in wildcards, so the naive failure mode this
+task asks the test to catch is real, and the ORM path already avoids it; the test is the guard that
+it goes on doing so, per tasks.md T010's own instruction.
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py` — 177 passed, 1 xfailed (the standing
+D-14/#88 xfail). `poetry run ruff check` and `ruff format --check` — clean. Committed as `T010: ...`.
+
+T011 starts from here.

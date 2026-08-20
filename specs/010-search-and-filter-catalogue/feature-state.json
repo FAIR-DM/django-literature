@@ -210,8 +210,21 @@
         },
         {
           "id": "T010",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_one_character_fragment_matches_literally",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_term_of_only_spaces_is_a_no_op",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_percent_sign_is_matched_literally_not_as_a_wildcard",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_an_underscore_is_matched_literally_not_as_a_wildcard"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py"
+            ]
+          }
         },
         {
           "id": "T011",
