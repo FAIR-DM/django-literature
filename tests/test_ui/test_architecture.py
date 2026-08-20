@@ -22,6 +22,7 @@ FORBIDDEN_ROOTS = (
     "easy_icons",
     "flex_menu",
     "django_tables2",
+    "django_filters",
     "literature.ui",
 )
 

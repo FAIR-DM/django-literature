@@ -116,6 +116,7 @@ INSTALLED_APPS = [
     "easy_icons",
     "flex_menu",
     "django_tables2",
+    "django_filters",
     "mvp",
     "crispy_forms",
     "crispy_tailwind",

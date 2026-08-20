@@ -104,3 +104,23 @@ Verified: `poetry run pytest -q tests/test_ui/test_packaging.py` — 7 passed
 (unaffected by the lock/install alone; scope carried over from T001).
 
 Next: T003 (settings + architecture guard).
+
+## 2026-08-20 · Implementer US0 · T003
+
+Did: added `django_filters` to `INSTALLED_APPS` in `tests/settings.py` and
+`demo/settings.py` (unconditional, alongside `django_tables2`), to the
+installation documentation's `INSTALLED_APPS` block in README.md, and to
+`FORBIDDEN_ROOTS` in `test_architecture.py`'s core-purity scan.
+
+Before wiring it in, proved the new `FORBIDDEN_ROOTS` entry actually catches
+a real import: temporarily appended `import django_filters` to
+`literature/choices.py`, ran
+`TestCoreImportsNothingFromTheUIStack::test_module_imports_no_ui_dependency[choices.py]`,
+watched it fail for exactly that reason (`imports forbidden module(s):
+{'django_filters'}`), then reverted the probe with `git checkout --` before
+touching anything else — no core module carries that import now.
+
+Verified: `poetry run pytest -q tests/test_ui/test_architecture.py
+tests/test_ui/test_smoke.py` — 28 passed.
+
+Next: T004 (`SEARCH_FIELDS` in a new `literature/ui/filters.py`).
