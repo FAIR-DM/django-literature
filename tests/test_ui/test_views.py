@@ -791,6 +791,67 @@ class TestCatalogueFilters:
         assert 'value="de"' not in content
 
 
+class TestCatalogueFilterComposition:
+    """Composing filters and search — FR-014, FR-015, decisions.md D6.
+
+    "Articles or chapters, from 2019" is D6's own example: one filter
+    (type) widened to either value, another (year) narrowing what that
+    widened set returns.
+    """
+
+    def test_more_than_one_value_within_a_filter_widens_to_either(self, client, db):
+        article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        chapter = ItemFactory(type=ItemType.CHAPTER)
+        book = ItemFactory(type=ItemType.BOOK)
+        content = client.get(
+            reverse("literature:item-list"), {"type": [ItemType.ARTICLE_JOURNAL, ItemType.CHAPTER]}
+        ).content.decode()
+        assert article.citation_key in content
+        assert chapter.citation_key in content
+        assert book.citation_key not in content
+
+    def test_two_filters_narrow_to_both(self, client, db):
+        matching = ItemFactory(type=ItemType.BOOK, language="en")
+        wrong_type = ItemFactory(type=ItemType.ARTICLE_JOURNAL, language="en")
+        wrong_language = ItemFactory(type=ItemType.BOOK, language="fr")
+        content = client.get(
+            reverse("literature:item-list"), {"type": ItemType.BOOK, "language": "en"}
+        ).content.decode()
+        assert matching.citation_key in content
+        assert wrong_type.citation_key not in content
+        assert wrong_language.citation_key not in content
+
+    def test_a_filter_and_a_search_term_narrow_to_both_and_the_count_reflects_it(self, client, db):
+        matching = ItemFactory(type=ItemType.BOOK, title="Whale Migration Patterns")
+        wrong_type = ItemFactory(type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Patterns")
+        wrong_term = ItemFactory(type=ItemType.BOOK, title="Unrelated Reference")
+        response = client.get(reverse("literature:item-list"), {"q": "whale", "type": ItemType.BOOK})
+        content = response.content.decode()
+        assert matching.citation_key in content
+        assert wrong_type.citation_key not in content
+        assert wrong_term.citation_key not in content
+        assert "1-1 of 1" in content
+
+    def test_widening_within_type_still_narrows_against_a_second_filter(self, client, db):
+        # Both directions in one request: "articles or chapters, from 2019".
+        article_2019 = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        ItemDateFactory(item=article_2019, date_type=DateType.ISSUED, begin="2019")
+        chapter_2019 = ItemFactory(type=ItemType.CHAPTER)
+        ItemDateFactory(item=chapter_2019, date_type=DateType.ISSUED, begin="2019")
+        book_2019 = ItemFactory(type=ItemType.BOOK)
+        ItemDateFactory(item=book_2019, date_type=DateType.ISSUED, begin="2019")
+        article_2020 = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        ItemDateFactory(item=article_2020, date_type=DateType.ISSUED, begin="2020")
+        content = client.get(
+            reverse("literature:item-list"),
+            {"type": [ItemType.ARTICLE_JOURNAL, ItemType.CHAPTER], "issued_year": 2019},
+        ).content.decode()
+        assert article_2019.citation_key in content
+        assert chapter_2019.citation_key in content
+        assert book_2019.citation_key not in content
+        assert article_2020.citation_key not in content
+
+
 #: One item-building override per plain sortable column, cycled by index so
 #: 30 references get 30 distinct, independently-sortable values (T019).
 #: "type" cycles a fixed set of stored slugs rather than a unique value per

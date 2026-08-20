@@ -11,6 +11,7 @@ two ``JSONField``s, which django-filter has no filter for and raises on
 """
 
 import django_filters
+from django import forms
 from django.db.models import DateTimeField, OuterRef, Q, Subquery
 from django.utils.translation import gettext_lazy as _
 
@@ -79,10 +80,37 @@ def annotate_issued(queryset):
     return queryset.annotate(issued=Subquery(issued_begin, output_field=DateTimeField()))
 
 
+class _ScalarOrListSelectMultiple(forms.SelectMultiple):
+    """Accept a bare stored value as well as a list of them.
+
+    ``SelectMultiple.value_from_datadict`` reads ``data.getlist(name)`` for
+    a real ``QueryDict`` — an HTTP GET's own multi-value form, where even
+    one chosen option arrives as a one-item list — but falls back to plain
+    ``data.get(name)`` for an ordinary ``dict``, returning a bare value.
+    ``ItemFilterSet`` is also constructed directly with a plain ``dict`` and
+    a bare stored value (``tests/test_ui/test_filters.py``), the same call
+    the single-value ``ChoiceFilter`` this replaces took; wrapping a bare
+    value in a list here keeps that call narrowing to one type exactly as
+    it always did, rather than requiring every direct construction to know
+    this filter now also widens.
+    """
+
+    def value_from_datadict(self, data, files, name):
+        value = super().value_from_datadict(data, files, name)
+        return [value] if isinstance(value, str) else value
+
+
 class ItemFilterSet(django_filters.FilterSet):
     """The catalogue's filters (FR-009 to FR-013): item type, contributor, language and issued year."""
 
-    type = django_filters.ChoiceFilter(choices=ItemType.choices, label=_("Type"))
+    # MultipleChoiceFilter, not ChoiceFilter: FR-014 and decisions.md D6 name
+    # this filter's own worked example — "articles or chapters, from 2019"
+    # widens type to either value while year narrows what that widened set
+    # returns. MultipleChoiceFilter.filter() ORs the chosen values by
+    # default (``conjoined=False``), which is exactly that widening.
+    type = django_filters.MultipleChoiceFilter(
+        choices=ItemType.choices, label=_("Type"), widget=_ScalarOrListSelectMultiple
+    )
     contributor = django_filters.CharFilter(method="filter_contributor", label=_("Contributor"))
     language = LanguageFilter(label=_("Language"))
     issued_year = django_filters.NumberFilter(method="filter_issued_year", label=_("Year"))
