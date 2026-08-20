@@ -276,6 +276,32 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         kwargs["data"] = self.request.GET
         return kwargs
 
+    def get_context_data(self, **kwargs):
+        """FR-016: what is in force is visible on the page (plan.md D-2).
+
+        ``MVPFilteredListView.get_context_data()`` is what adds
+        ``applied_filters``/``applied_filter_count`` for django-mvp's own
+        filter-button badge (``mvp/integrations/django_filters/views.py``),
+        and it never runs here — this view composes ``MVPTableViewMixin,
+        FilterView`` directly rather than through that class (plan.md D-2),
+        since no filtered-table equivalent of it exists. Confirmed directly
+        before writing this: an unfiltered request left both keys absent
+        from the context entirely. Mirrored rather than reached through a
+        third mixin: multiple inheritance from both the table and the
+        filtered-list bases would fight over ``get_queryset()`` and
+        ``get_context_data()`` for no benefit over the lines below.
+        """
+        context = super().get_context_data(**kwargs)
+        if context.get("filter") and hasattr(self.filterset.form, "cleaned_data"):
+            active = {
+                name: value
+                for name, value in self.filterset.form.cleaned_data.items()
+                if value not in (None, "", [], (), False)
+            }
+            context["applied_filters"] = active
+            context["applied_filter_count"] = len(active)
+        return context
+
     def get_model_info(self):
         # Same reasoning as ItemListView.get_model_info(): the table
         # template's own position line otherwise reads "of 28 items"

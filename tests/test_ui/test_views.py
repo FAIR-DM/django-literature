@@ -852,6 +852,62 @@ class TestCatalogueFilterComposition:
         assert article_2020.citation_key not in content
 
 
+class TestCatalogueFilterVisibility:
+    """What is in force is visible on the page and clearable from it — FR-016.
+
+    django-mvp's own badge (``mvp/templates/cotton/page/list/actions/filter.html``)
+    reads ``applied_filters``/``applied_filter_count`` from the context, but
+    only ``MVPFilteredListView.get_context_data()`` (the card list's own base,
+    plan.md D-2) populates them — ``ItemTableView`` composes
+    ``MVPTableViewMixin, FilterView`` instead, and never ran that method, so
+    the table carried a filter control with no badge at all. Confirmed
+    directly before writing these tests: an unfiltered request already
+    leaves ``response.context["applied_filters"]`` at ``None``.
+    """
+
+    def test_no_badge_when_nothing_is_applied(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
+
+    def test_a_filter_in_force_is_counted_and_shown_as_a_badge(self, client, db):
+        ItemFactory(type=ItemType.BOOK)
+        response = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK})
+        assert response.context["applied_filter_count"] == 1
+        content = response.content.decode()
+        assert '<span class="indicator-item badge badge-secondary badge-xs">1</span>' in content
+
+    def test_two_filters_in_force_are_both_counted(self, client, db):
+        ItemFactory(type=ItemType.BOOK, language="en")
+        response = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK, "language": "en"})
+        assert response.context["applied_filter_count"] == 2
+        content = response.content.decode()
+        assert '<span class="indicator-item badge badge-secondary badge-xs">2</span>' in content
+
+    def test_a_search_term_alone_carries_no_filter_badge(self, client, db):
+        # The badge belongs to the Filter button specifically (FR-016 governs
+        # both controls, but django-mvp's own count is filter-only) — `q` is
+        # not one of `self.filterset.filters`, so it never reaches
+        # `filterset.form.cleaned_data`.
+        ItemFactory(title="Whale Migration Patterns")
+        content = client.get(reverse("literature:item-list"), {"q": "whale"}).content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
+
+    def test_the_chosen_value_stays_selected_on_the_rendered_control(self, client, db):
+        ItemFactory(type=ItemType.BOOK)
+        content = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK}).content.decode()
+        assert re.search(r'<option value="book"[^>]*\sselected[^>]*>\s*Book\s*</option>', content)
+
+    @pytest.mark.parametrize("clearing_params", [{"type": ""}, {}], ids=["empty-type", "no-params"])
+    def test_clearing_a_filter_restores_the_unfiltered_catalogue(self, client, db, clearing_params):
+        matching = ItemFactory(type=ItemType.BOOK)
+        other = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        narrowed = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK})
+        assert len(narrowed.context["table"].page.object_list) == 1
+        cleared = client.get(reverse("literature:item-list"), clearing_params)
+        cleared_pks = {row.record.pk for row in cleared.context["table"].page.object_list}
+        assert cleared_pks == {matching.pk, other.pk}
+
+
 #: One item-building override per plain sortable column, cycled by index so
 #: 30 references get 30 distinct, independently-sortable values (T019).
 #: "type" cycles a fixed set of stored slugs rather than a unique value per

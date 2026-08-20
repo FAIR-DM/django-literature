@@ -81,7 +81,7 @@ def annotate_issued(queryset):
 
 
 class _ScalarOrListSelectMultiple(forms.SelectMultiple):
-    """Accept a bare stored value as well as a list of them.
+    """Accept a bare stored value as well as a list of them, and drop blanks.
 
     ``SelectMultiple.value_from_datadict`` reads ``data.getlist(name)`` for
     a real ``QueryDict`` — an HTTP GET's own multi-value form, where even
@@ -93,11 +93,22 @@ class _ScalarOrListSelectMultiple(forms.SelectMultiple):
     value in a list here keeps that call narrowing to one type exactly as
     it always did, rather than requiring every direct construction to know
     this filter now also widens.
+
+    A blank entry is dropped rather than passed through: the single-value
+    ``ChoiceFilter`` this replaces treated ``?type=`` as no value at all
+    (``Filter.filter()``'s own ``EMPTY_VALUES`` no-op), where
+    ``MultipleChoiceField.validate()`` has no such allowance and would
+    reject a list holding an empty string as not a valid choice — turning a
+    cleared filter into an invalid one and, under ``strict``, an empty
+    catalogue instead of the unfiltered one clearing it must restore
+    (FR-016, decisions.md D7 governs an actually-invalid value, not this).
     """
 
     def value_from_datadict(self, data, files, name):
         value = super().value_from_datadict(data, files, name)
-        return [value] if isinstance(value, str) else value
+        if isinstance(value, str):
+            value = [value]
+        return [v for v in value if v] if value else value
 
 
 class ItemFilterSet(django_filters.FilterSet):
