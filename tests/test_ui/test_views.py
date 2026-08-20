@@ -1061,9 +1061,66 @@ class TestCatalogueOrdering:
         second_page = client.get(urljoin(list_url, second_page_href))
         first_page_records = [row.record for row in first_page.context["table"].page.object_list]
         second_page_records = [row.record for row in second_page.context["table"].page.object_list]
-        # Still descending across the page boundary — fails today because
-        # the followed link carries no ?sort= and page 2 falls back to the
-        # catalogue's default newest-first order instead.
+        # Still descending across the page boundary.
+        assert second_page_records[0].citation_key < first_page_records[-1].citation_key
+
+
+class TestCatalogueStateSurvivesAPageMove:
+    """A search and a filter each survive a page move too, and all three
+    survive together — FR-018, closing #88 alongside the sort case above.
+
+    Followed through the page's own rendered link (``rendered_page_link()``,
+    decisions.md D13), never a hand-built ``?page=2`` — asserted on the
+    second page's own results, not merely on the shape of the link that
+    reached it.
+    """
+
+    def test_a_search_survives_following_the_rendered_link_to_page_2(self, client, db):
+        for n in range(30):
+            ItemFactory(title=f"Whale Migration {n:03d}")
+        ItemFactory.create_batch(5, title="Unrelated Reference")
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"q": "whale"})
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        assert second_page_records
+        # Not merely "narrowed" — the second page's own rows, distinct from
+        # the first's. A ?page=2 read as the literal parameter "amp;page"
+        # falls back to page one, which would satisfy the narrowing
+        # assertion below without ever proving a page move happened.
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all("Whale Migration" in record.title for record in second_page_records)
+
+    def test_a_filter_survives_following_the_rendered_link_to_page_2(self, client, db):
+        ItemFactory.create_batch(30, type=ItemType.BOOK)
+        ItemFactory.create_batch(5, type=ItemType.ARTICLE_JOURNAL)
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"type": ItemType.BOOK})
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        assert second_page_records
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all(record.type == ItemType.BOOK for record in second_page_records)
+
+    def test_a_search_a_filter_and_a_sort_all_survive_together_following_the_rendered_link_to_page_2(self, client, db):
+        for n in range(30):
+            ItemFactory(type=ItemType.BOOK, title=f"Whale Migration {n:03d}", citation_key=f"Key{29 - n:03d}")
+        ItemFactory.create_batch(5, type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Decoy")
+        ItemFactory.create_batch(5, type=ItemType.BOOK, title="Unrelated Reference")
+        list_url = reverse("literature:item-list")
+        params = {"q": "whale", "type": ItemType.BOOK, "sort": "-citation_key"}
+        first_page = client.get(list_url, params)
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        assert second_page_records
+        assert all("Whale Migration" in record.title for record in second_page_records)
+        assert all(record.type == ItemType.BOOK for record in second_page_records)
         assert second_page_records[0].citation_key < first_page_records[-1].citation_key
 
 

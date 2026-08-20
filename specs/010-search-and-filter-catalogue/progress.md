@@ -636,3 +636,33 @@ xfail gone with nothing skipped in its place. `poetry run pre-commit run --files
 tests/test_ui/test_views.py` — clean. Committed as `T017: ...`.
 
 T018 starts from here.
+
+## 2026-08-20 — US-3/T018 done
+
+No production change: search and a filter each already survived a page move once T017's helper
+correction was in place to prove it, the same way T017 itself found no production defect once the
+0.19.1 floor was already carrying the pagination fix.
+
+New `TestCatalogueStateSurvivesAPageMove`, three tests, each following the page's own rendered link
+via `rendered_page_link()`: a search alone, a filter alone, and a search, a filter and a sort all
+three together. Each asserts on the second page's own results, not the link — and each also asserts
+the second page's rows are disjoint from the first's, not merely narrowed the same way. That
+disjointness check earned its place directly: without it, the first two tests passed even with
+T017's helper fix reverted, because a `?page=2` misread as the literal parameter `amp;page` falls
+back to page one, and page one's own rows already satisfy "still narrowed" without ever proving a
+page move happened. Reverted the fix, watched the (initially weaker) tests fail for the wrong
+reason — a false pass — added the disjointness assertion, reverted again, watched all three fail for
+the right reason this time, then restored the fix and confirmed green. The third (combined) test
+did not need the same strengthening: its own descending-order boundary assertion already fails under
+the same fallback, confirmed the same way.
+
+Also corrected a stale comment on `TestCatalogueOrdering`'s own sort-survival test (T017's
+`test_sort_survives_following_the_rendered_link_to_page_2`): it still read "fails today because…",
+describing the pre-T017 defect on a test that now passes. One line, no assertion touched.
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMove
+tests/test_ui/test_views.py::TestCatalogueOrdering` — 12 passed. `poetry run pre-commit run --files
+tests/test_ui/test_views.py` — clean (one lint fix taken: an unused loop variable in the filter
+test, replaced with `ItemFactory.create_batch`). Committed as `T018: ...`.
+
+T019 starts from here.
