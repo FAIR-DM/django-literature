@@ -526,3 +526,75 @@ cases the brief named as plausible (T013's language choices, T016's validation).
 per the prohibition's own instruction, with the reasoning above.
 
 T015 starts from here.
+
+## 2026-08-20 — US-2/T015 done
+
+Read the upstream template first, per the task's own instruction:
+`mvp/templates/cotton/page/list/actions/filter.html` renders a badge
+(`<span class="indicator-item badge badge-secondary badge-xs">{{ applied_filter_count }}</span>`)
+only `{% if applied_filters %}`, and those two context keys are added by
+`MVPFilteredListView.get_context_data()` — a class `ItemTableView` never inherits from (plan.md D-2
+composes `MVPTableViewMixin, FilterView` directly instead, since no filtered-table equivalent of
+`MVPFilteredListView` exists). Confirmed directly: an unfiltered request already left
+`response.context["applied_filters"]` at `None`, and a filtered one left it there too — the table
+carried a filter control with no badge at all, upstream's own logic simply never reached, not
+markup that emits nothing usable. Not a template fork: `ItemTableView.get_context_data()` is our own
+view's method, computing the same two keys `MVPFilteredListView` does, so the upstream template
+picks them up unmodified.
+
+**A second, real regression found while proving "clearing" (FR-016) and fixed at the same widget
+T014 added.** `?type=` (an explicit empty value) used to no-op under the old single-value
+`ChoiceFilter` — `Filter.filter()`'s own `EMPTY_VALUES` check — but `MultipleChoiceField.validate()`
+has no equivalent allowance for a list holding one empty string, so it now rejected the whole form,
+and `BaseFilterView.get()`'s own `strict` handling turned "clear the type filter" into an empty
+catalogue instead of the unfiltered one. Caught by `test_clearing_a_filter_restores_the_unfiltered_catalogue[empty-type]`,
+red for exactly that reason before the fix. `_ScalarOrListSelectMultiple.value_from_datadict()`
+(T014's widget, `literature/ui/filters.py`) now also drops blank entries from the list it returns,
+restoring parity with the old single-value behaviour; decisions.md D7 still governs a value that is
+actually invalid or actually unmatched, which this is neither of.
+
+New `TestCatalogueFilterVisibility` class, seven tests (one parametrized): no badge when nothing is
+applied; one filter counted and badged; two filters both counted; a search term alone carries no
+filter badge (django-mvp's own count is filter-only — `q` is not one of `self.filterset.filters`,
+so it never reaches `filterset.form.cleaned_data`); the chosen value stays `selected` on the
+rendered control; and clearing — an empty `type` and no params at all — each restores the whole
+catalogue.
+
+Verified: `poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py
+tests/test_ui/test_tables.py tests/test_ui/test_contributors.py` — 307 passed, 1 xfailed (the
+standing D-14/#88 xfail). `poetry run ruff check`, `ruff format --check` — clean. `mypy
+literature/ui/filters.py literature/ui/views.py` — clean. Committed as `T015: ...`.
+
+T016 starts from here.
+
+## 2026-08-20 — US-2/T016 done — US-2 complete
+
+No production change: confirmed both cases directly against the running view before writing a
+single test. `?issued_year=notanumber` and `?language=zz` each already return `200`, an empty
+`table.page.object_list`, and the "No references match your search" copy — `BaseFilterView.get()`'s
+own `strict` handling (`django_filters/views.py`) sets `self.object_list =
+self.filterset.queryset.none()` whenever the bound form is invalid, and an unmatched value is simply
+a filter matching no row. Neither needs a line of `literature/ui/filters.py` changed, contrary to
+that file being named a "plausible case" for this task in the brief's own prohibitions — stated here
+as the brief itself asks.
+
+New `TestCatalogueFilterValidation` class, four tests: the unmatched case, the invalid case, both
+confirmed never to fall back to the unfiltered catalogue, and — per the task's own instruction — an
+address carrying a key `ItemFilterSet` does not declare, pinned as what actually happens (`200`, the
+catalogue unnarrowed) rather than as a rejection this feature does not build. FR-017 reads on a
+filter *value*, not an undefined key.
+
+This is the last task in the brief (T013–T016). Verified: `poetry run pytest -q` (full suite) — 1677
+passed, 1 xfailed (the standing D-14/#88 xfail, untouched throughout this story — 24 more passing
+tests than US-1's own 1653, matching T013's 9, T014's 4, T015's 7 and T016's 4). `poetry run ruff
+check .`, `ruff format --check .`, `mypy literature/ui/filters.py literature/ui/views.py` and
+`poetry run deptry .` — all clean.
+
+US-2 (#92) is done: T013 proved the four filters already configured in the foundational phase reach
+an HTTP request; T014 added the one production change this story required beyond what was
+foreseen — `type` widening to several values (FR-014, decisions.md D6's own worked example) — and
+found and fixed a real regression its own widget introduced for clearing an empty value, caught by
+its own test before it shipped; T015 found and closed a second real gap, `ItemTableView` never
+carrying the badge context django-mvp's own template expects; T016 proved FR-017 already holds.
+Nothing here touches a django-mvp template, `tests/test_ui/test_filters.py`, or a file outside this
+story's scope.
