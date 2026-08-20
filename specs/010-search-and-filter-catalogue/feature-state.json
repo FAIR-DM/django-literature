@@ -194,8 +194,19 @@
         },
         {
           "id": "T009",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueSearch"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
         },
         {
           "id": "T010",

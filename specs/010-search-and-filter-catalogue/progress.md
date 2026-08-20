@@ -357,3 +357,27 @@ standing D-14/#88 xfail, untouched). `poetry run ruff check`, `ruff format --che
 literature/ui/views.py` — all clean. Committed as `T008: ...`.
 
 T009 starts from here.
+
+## 2026-08-20 — US-1/T009 done
+
+New `TestCatalogueSearch` class in `tests/test_ui/test_views.py`, following `TestCatalogueOrdering`'s
+own cross-cutting shape rather than nesting inside `TestItemTableView`: one parametrized test over
+the five scalar `SEARCH_FIELDS` paths (`citation_key`, `title`, `title_short`, `original_title`,
+`container_title`), one test each for the three contributor `Name` paths (family, given, an
+organizational `literal`), case-insensitivity with a negative control, a fragment living only in
+`abstract` or `keyword` (neither in `SEARCH_FIELDS`) finding nothing, and one reference matching
+three searched paths at once still appearing once (FR-005, plan D-4).
+
+No production change — T008 already wired `search_fields = SEARCH_FIELDS`; this task is proving
+that wiring end to end. Sanity-checked the suite's power before trusting it: temporarily set
+`search_fields = None` on `ItemTableView` and reran — 9 of 11 tests failed for the expected reason
+(the two that still passed, case-insensitivity and the once-only assertion, do so because their own
+positive assertion holds trivially with no filtering at all; both also carry a same-shape control
+elsewhere in the class that does fail unfiltered). Reverted with `git checkout --
+literature/ui/views.py` before continuing.
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py` — 173 passed, 1 xfailed (the standing
+D-14/#88 xfail). `poetry run ruff check`, `ruff format --check` and `mypy literature/ui/views.py` —
+all clean. Committed as `T009: ...`.
+
+T010 starts from here.

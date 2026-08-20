@@ -551,6 +551,71 @@ class TestItemTableView:
         assert annotated_item.issued is None
 
 
+class TestCatalogueSearch:
+    """Searching the catalogue from an HTTP request — FR-002 through FR-005."""
+
+    @pytest.mark.parametrize(
+        "field",
+        ["citation_key", "title", "title_short", "original_title", "container_title"],
+    )
+    def test_matches_a_term_in_each_scalar_field(self, client, db, field):
+        matching = ItemFactory(**{field: "Whale Migration Patterns"})
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "whale"}).content.decode()
+        assert matching.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matches_a_contributors_family_name(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(family="Darwin"))
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "darwin"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matches_a_contributors_given_name(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(given="Charles"))
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "charles"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matches_an_organizational_literal_name(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(family="", given="", literal="Smithsonian Institution"))
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "smithsonian"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matching_is_case_insensitive(self, client, db):
+        item = ItemFactory(title="Whale Migration Patterns")
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "WHALE"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_a_fragment_living_only_in_the_abstract_or_a_keyword_finds_nothing(self, client, db):
+        # FR-004 — neither field is in SEARCH_FIELDS (tests/test_ui/test_filters.py
+        # ::TestSearchFields already pins the declared list itself).
+        ItemFactory(abstract="Discusses whale migration patterns at length.")
+        ItemFactory(keyword="whale, migration")
+        response = client.get(reverse("literature:item-list"), {"q": "whale"})
+        assert len(response.context["table"].page.object_list) == 0
+
+    def test_a_reference_matching_several_fields_appears_once(self, client, db):
+        # FR-005, plan D-4 — the shared fragment sits in three different
+        # searched paths (title, container_title, a contributor's family
+        # name) at once, over a distinct row so no other match can hide a
+        # duplicate.
+        item = ItemFactory(title="Zzyxq Behavior", container_title="The Zzyxq Journal")
+        ItemNameFactory(item=item, name=NameFactory(family="Zzyxqson"))
+        response = client.get(reverse("literature:item-list"), {"q": "zzyxq"})
+        matches = [row for row in response.context["table"].page.object_list if row.record.pk == item.pk]
+        assert len(matches) == 1
+
+
 #: One item-building override per plain sortable column, cycled by index so
 #: 30 references get 30 distinct, independently-sortable values (T019).
 #: "type" cycles a fixed set of stored slugs rather than a unique value per
