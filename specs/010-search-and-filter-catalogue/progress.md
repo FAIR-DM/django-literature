@@ -32,3 +32,15 @@ thread.
 ## 2026-08-20 — specification gate: approved
 
 Signed off in session, with the indexing requirement withdrawn as recorded above. Planning begins.
+
+## 2026-08-20 — planning
+
+`research.md` (eleven findings), `plan.md` (twelve decisions) and `tasks.md` (thirty tasks across a
+foundational phase and five stories) authored; ledger created and schema-valid.
+
+The upstream surface was mapped by reading django-mvp at v0.19.1 directly. Search and filtering are
+both adopted rather than written: the search mixin needs only a field list, and the filter
+integration is reached by composing the documented mixin with django-filter's own view. Two findings
+change the shape of the work — the filter form drops a chosen sort when it submits (raised upstream,
+carried in our own form if that can be done without touching an upstream template), and no demo seed
+reference carries a language, so the language filter would render empty.
