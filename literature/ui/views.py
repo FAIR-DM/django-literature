@@ -207,6 +207,37 @@ class ItemTableView(MVPTableViewMixin, FilterView):
     empty_state_heading = _("Nothing in the catalogue yet")
     empty_state_message = _("References imported or created will appear here.")
 
+    # FR-028, plan.md D-8: a search or filter matching nothing reads
+    # differently from a genuinely empty catalogue, and keeps its controls —
+    # django-mvp's own empty state otherwise renders the same "nothing here"
+    # copy either way.
+    no_matches_heading = _("No references match your search")
+    no_matches_message = _("Try a different search term, or clear the search and filters.")
+
+    def get_empty_state_heading(self):
+        if self._catalogue_is_narrowed():
+            return self.no_matches_heading
+        return super().get_empty_state_heading()
+
+    def get_empty_state_message(self):
+        if self._catalogue_is_narrowed():
+            return self.no_matches_message
+        return super().get_empty_state_message()
+
+    def _catalogue_is_narrowed(self):
+        """Whether the current request carries a search term or a filter value.
+
+        Read from the raw request rather than from ``self.filterset.qs``
+        being empty — an empty catalogue with no query in force is a
+        different circumstance from a query that matched nothing, and both
+        can leave the same queryset empty. ``self.filterset`` is already
+        built and bound by the time a view method reaches here
+        (``BaseFilterView.get()`` sets it before calling ``get_context_data()``).
+        """
+        if self.request.GET.get("q", "").strip():
+            return True
+        return any(self.request.GET.get(name, "").strip() for name in self.filterset.filters)
+
     def get_queryset(self):
         # Both prefetches, not one: the credited-names cell reads
         # "contributors" (a to_attr prefetch restricted to author- and

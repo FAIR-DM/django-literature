@@ -652,6 +652,46 @@ class TestCatalogueSearch:
         assert literal_match.citation_key in content
         assert decoy.citation_key not in content
 
+    def test_a_search_matching_something_states_how_many(self, client, db):
+        # FR-007 — django-mvp's own position line, which already reads the
+        # table's narrowed page and paginator (no production change of this
+        # feature's own): confirmed the search reduces what it counts, not
+        # only what it lists.
+        ItemFactory.create_batch(3)
+        ItemFactory(title="Zzyxq Unique Match")
+        content = client.get(reverse("literature:item-list"), {"q": "zzyxq"}).content.decode()
+        assert "1-1 of 1" in content
+
+    def test_a_search_matching_nothing_states_so_and_keeps_its_controls(self, client, db):
+        # FR-028, plan.md D-8 — distinct from the genuinely-empty-catalogue
+        # message below, and the search box and filter control both stay on
+        # the page rather than disappearing along with the rows.
+        ItemFactory.create_batch(3)
+        content = client.get(reverse("literature:item-list"), {"q": "no-such-term-anywhere"}).content.decode()
+        assert "No references match your search" in content
+        assert "Nothing in the catalogue yet" not in content
+        assert 'name="q"' in content
+        assert "filterModal" in content
+
+    def test_a_genuinely_empty_catalogue_keeps_its_own_message(self, client, db):
+        # FR-028, plan.md D-8 — the two messages never appear together; this
+        # is the other half of the pair above, with no query in force at all.
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Nothing in the catalogue yet" in content
+        assert "No references match your search" not in content
+
+    @pytest.mark.parametrize("clearing_params", [{"q": ""}, {}], ids=["empty-q", "no-q"])
+    def test_clearing_the_search_restores_the_unnarrowed_catalogue(self, client, db, clearing_params):
+        # FR-008 — a request carrying an empty q, and one carrying no q at
+        # all, each return the whole catalogue where the preceding search
+        # had narrowed it. Upstream's search mixin already no-ops on an
+        # empty term; this is the guard that it goes on doing so.
+        ItemFactory.create_batch(5)
+        narrowed = client.get(reverse("literature:item-list"), {"q": "no-such-term-anywhere"})
+        assert len(narrowed.context["table"].page.object_list) == 0
+        cleared = client.get(reverse("literature:item-list"), clearing_params)
+        assert len(cleared.context["table"].page.object_list) == 5
+
 
 #: One item-building override per plain sortable column, cycled by index so
 #: 30 references get 30 distinct, independently-sortable values (T019).

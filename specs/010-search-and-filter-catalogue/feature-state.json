@@ -228,8 +228,23 @@
         },
         {
           "id": "T011",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_search_matching_something_states_how_many",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_search_matching_nothing_states_so_and_keeps_its_controls",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_genuinely_empty_catalogue_keeps_its_own_message",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_clearing_the_search_restores_the_unnarrowed_catalogue"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run ruff check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
         },
         {
           "id": "T012",

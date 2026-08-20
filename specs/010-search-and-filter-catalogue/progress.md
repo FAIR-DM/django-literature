@@ -402,3 +402,35 @@ Verified: `poetry run pytest -q tests/test_ui/test_views.py` — 177 passed, 1 x
 D-14/#88 xfail). `poetry run ruff check` and `ruff format --check` — clean. Committed as `T010: ...`.
 
 T011 starts from here.
+
+## 2026-08-20 — US-1/T011 done
+
+Production change (FR-028, plan D-8): `ItemTableView.get_empty_state_heading()` and
+`get_empty_state_message()` overridden to check a new `_catalogue_is_narrowed()` — true when the
+request's `q` is non-empty or any of `self.filterset.filters`' names carries a non-empty value in
+`self.request.GET`. When narrowed, the page shows a new pair of translatable strings
+(`no_matches_heading`/`no_matches_message`) instead of the existing `empty_state_heading`/
+`empty_state_message`, which stay for a genuinely empty catalogue with no query in force.
+Confirmed the wrong message rendered today before writing the fix: a no-results search showed
+"Nothing in the catalogue yet" — the empty-*catalogue* copy — with no way to tell it apart from an
+actually-empty one.
+
+Read from the raw request rather than from the filterset's own `qs` being empty, since an empty
+catalogue with no query and a query that matched nothing can both leave that queryset empty — the
+distinction plan D-8 asks for is about whether a query is in force, not about the row count.
+
+Five new `TestCatalogueSearch` tests: the position line states the narrowed count (FR-007, no
+production change needed there — django-mvp's own page/paginator republish from T008's D14 fix
+already reads the narrowed queryset); the two empty-state messages, each in its own circumstance
+and asserted never to appear with the other; and one parametrized test for FR-008 (an empty `q` and
+no `q` at all, each restoring the whole catalogue after a preceding search had narrowed it).
+Sanity-checked the two empty-state tests against the pre-fix view — the no-matches one failed for
+the right reason (wrong message rendered), the genuinely-empty one passed before and after since
+that circumstance was already correct.
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py` — 182 passed, 1 xfailed (the standing
+D-14/#88 xfail); `tests/test_ui/test_filters.py tests/test_ui/test_tables.py
+tests/test_ui/test_contributors.py` — 105 passed. `poetry run ruff check`, `ruff format --check` and
+`mypy literature/ui/views.py` — all clean. Committed as `T011: ...`.
+
+T012 starts from here.
