@@ -506,7 +506,7 @@ bare value, which `MultipleChoiceField.to_python()` rejects as "not a list." A r
 never hits this: `self.request.GET` is always a `QueryDict`. Confirmed by running that file, read-only,
 before touching `filters.py`.
 
-**Chosen:** `_ScalarOrListSelectMultiple(forms.SelectMultiple)`, the `type` filter's own widget,
+**Chosen:** `ScalarOrListSelectMultiple(forms.SelectMultiple)`, the `type` filter's own widget,
 wraps a bare string in a one-item list. `tests/test_ui/test_filters.py` needed no change and none was
 made; `poetry run pytest -q tests/test_ui/test_filters.py` stayed green throughout, confirmed after
 the widget landed. Also caught in the same task: the same widget's naive form let `?type=` (an
@@ -523,7 +523,7 @@ prohibitions rule out, which is about narrowing what a test proves, not widening
 accepts. `literature/ui/filters.py` changing outside the two named-plausible cases is stated here and
 in the completion report, per the prohibition's own instruction.
 
-**Revisit if:** a second multi-value filter is added — `_ScalarOrListSelectMultiple` is written
+**Revisit if:** a second multi-value filter is added — `ScalarOrListSelectMultiple` is written
 generically enough to reuse, but has exactly one caller today, so it stays where `type` declares it
 rather than moving to a shared module speculatively.
 
