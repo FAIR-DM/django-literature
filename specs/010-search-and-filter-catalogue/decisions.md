@@ -579,3 +579,38 @@ only overwrites the two keys the upstream method got wrong for this form.
 **Revisit if:** upstream's own `get_active_filters()` grows a way to declare a field as
 ordering-only rather than filter-only — at that point this package's own exclusion could be deleted
 in favour of it.
+
+## D22 — The guard reaches page 2 by filtering to the dominant language; the seed grows to make that a real narrowing
+
+**T027 (plan.md D-11) asks which of two routes the guard takes to a second page of a narrowed
+result**, at a page size of 24: either the demo's search narrows to something broader than 24 of the
+(then) 28 references, or the seed grows so a genuine filter still clears a page.
+
+**A search broad enough to leave 25+ of 28 references is a narrowing in name only.** It would move
+the pagination link and pass the guard, but it demonstrates nothing about the feature — a reader
+watching the demo would see almost the whole catalogue and no evidence the search filtered anything.
+FR-033 asks the guard to exercise a search, a filter and a page move *over a narrowed result*, and a
+28-of-28-minus-a-few result does not meet that bar.
+
+**Chosen:** grow the seed and make the language filter the one that reaches page 2. T026 already
+tags 26 of the (now 31) references `"en"`, dominant by a wide margin over the four other language
+values (`de`, `fr`, `es`, `ja`) the remaining five carry. Filtering to `en` leaves 26 references —
+more than the 24-item page, so a reader following the rendered "page 2" link lands on a real second
+page of 2 references, of a set genuinely narrowed by language. `test_filtering_to_the_dominant_language_still_leaves_more_than_one_page`
+(`tests/test_demo/test_seed.py`) pins the invariant — dominant-language count exceeds
+`ItemListView.paginate_by`, read from the view rather than typed out — so a later shrink of the seed
+fails there rather than surfacing as a mystifying guard failure in `demo/smoke.py`.
+
+Language is the natural filter for this, over type or contributor: a real catalogue is dominated by
+one language, T026 is already rewriting this same file for language values, and no single item type
+in the seed clears 24 (the largest, `article-journal`, sits at 11 — measured before T026, confirmed
+unchanged after, since none of the three new entries are `article-journal`).
+
+**Why defensible:** every pre-existing assertion in `tests/test_demo/test_seed.py` still passes
+(T026's own record); the three added entries are realistic CSL JSON of the same shape as the ones
+already there — a French relativity paper, a Spanish novel, a Japanese novel — not filler rows built
+to pad a count.
+
+**Revisit if:** the seed's item-type distribution changes such that some other filter clears 24 on
+its own — at that point the guard could exercise that filter instead without the seed needing this
+much language skew, though there is no reason to change it while the language route already works.

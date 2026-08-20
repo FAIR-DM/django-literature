@@ -898,3 +898,25 @@ tests/test_demo/test_seed.py`, `ruff format --check tests/test_demo/test_seed.py
 as `T026: the seed carries language values across five languages`.
 
 T027 starts from here.
+
+## 2026-08-20 — US-5/T027 done
+
+Settled per the ruling in the dispatch brief: the language filter is the route to page 2, not a
+broadened search. decisions.md D22 records the choice and why a search-based narrowing was
+rejected — a search wide enough to leave 25+ of 28 references would move the pagination link
+without demonstrating a genuine narrowing. T026's seed already makes the numbers real: 26 of 31
+references are `"en"`, clearing the 24-item page by two, against four other distinct language
+values in the remainder (`de`, `fr`, `es`, `ja`).
+
+New `test_filtering_to_the_dominant_language_still_leaves_more_than_one_page` in
+`tests/test_demo/test_seed.py`: `Counter` over the catalogue's language values, asserts the most
+common count exceeds `ItemListView.paginate_by` (read from the view, not typed out). Passed on
+first run — T026 already built the seed to satisfy this invariant, so this task is recording and
+pinning the decision rather than discovering new behaviour; confirmed by hand that the count is
+exactly 26 against a page size of 24, not a coincidence of some other count clearing the bar.
+
+`poetry run pytest -q tests/test_demo/test_seed.py` — 14 passed. `poetry run ruff check
+tests/test_demo/test_seed.py`, `ruff format --check tests/test_demo/test_seed.py` — clean. Committed
+as `T027: the dominant language is the route to page 2, and the seed backs it`.
+
+T028 starts from here.

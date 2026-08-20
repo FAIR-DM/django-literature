@@ -14,7 +14,7 @@ a second copy that can drift from the source of truth without either copy failin
 
 import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import pytest
@@ -174,3 +174,12 @@ class TestSeedCatalogue:
         # present so the empty control cannot come back silently.
         languages = {entry["language"] for entry in catalogue if entry.get("language")}
         assert len(languages) >= 4
+
+    def test_filtering_to_the_dominant_language_still_leaves_more_than_one_page(self, catalogue, paginate_by):
+        # decisions.md D22: the guard reaches a second page of a narrowed
+        # result by filtering on the dominant language. Read from the view's
+        # own paginate_by rather than typed out, so a later shrink of the
+        # seed fails here rather than in the guard (plan.md D-11).
+        counts = Counter(entry["language"] for entry in catalogue if entry.get("language"))
+        dominant_count = counts.most_common(1)[0][1]
+        assert dominant_count > paginate_by
