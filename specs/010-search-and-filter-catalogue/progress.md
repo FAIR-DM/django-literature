@@ -141,3 +141,37 @@ Verified: `poetry run pytest -q tests/test_ui/test_filters.py` — 9 passed.
 — clean.
 
 Next: T005 (`ItemFilterSet`: item type, contributor, language).
+
+## 2026-08-20 · Implementer US0 · T005
+
+Did: added `ItemFilterSet` to `literature/ui/filters.py` with `type`
+(`ChoiceFilter` over `ItemType.choices`, exact match on the stored value),
+`contributor` (`CharFilter` with a `method`, `Q`-OR across
+`item_names__name__family/given/literal`, no role restriction — matching is
+"in any role" simply by never filtering on role) and `language` (a new
+`LanguageFilter(ChoiceFilter)` subclassing the same idiom as django-filter's
+own `AllValuesFilter`, but excluding the empty string the free-text
+`language` column holds on most references today). `Meta.fields = []`
+pins the "no auto-generated filters, only what is declared" rule the module's
+own docstring now states — the exact default the brief warned against.
+
+`self.model` needed by `LanguageFilter.field` is assigned by
+`BaseFilterSet.__init__` on every filter instance (confirmed by reading
+`django_filters/filterset.py`) — recomputed fresh per `ItemFilterSet`
+instantiation, i.e. per request, not cached at import time.
+
+One test needed correcting mid-task: asserting `"" not in field.choices`
+against the *built form field* failed, because `ChoiceField` itself prepends
+its own `("", empty_label)` "any" option — a UI affordance, not the language
+column's blank value, and exactly the "own 'any' option" the task text
+already named. Reworked the language tests to assert against
+`extra["choices"]` — the raw list `LanguageFilter.field` computes — which is
+what T005 actually specifies.
+
+Verified: `poetry run pytest -q tests/test_ui/test_filters.py` — 19 passed.
+`poetry run ruff check` and `poetry run mypy literature/ui/filters.py` —
+clean (one `Meta.fields: list[str] = []` annotation added for mypy).
+`poetry run deptry .` — clean (was `DEP002 'django-filter' … not used` before
+this task; the import now exists).
+
+Next: T006 (distinct queryset).
