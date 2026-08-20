@@ -457,3 +457,72 @@ US-1 (#91) is done: T008 rebuilt the composition D17/D18 describe, reinstrumenti
 pre-existing tests those decisions authorise and none beyond them; T009–T012 build search behaviour,
 its edge cases, the no-results message and the query-count guarantee on top of it. Nothing here
 touches `literature/ui/filters.py`, a django-mvp template, or a file outside this story's scope.
+
+## 2026-08-20 — US-2/T013 done
+
+No production change: per this story's own brief, `filters.py` (T004–T007) and `ItemTableView`
+(T008) already carry every filter this task proves — item type, contributor, issued year and
+language — so this task is entirely proving, at the HTTP layer, what `tests/test_ui/test_filters.py`
+already proves at the filterset layer directly.
+
+New `TestCatalogueFilters` class, nine tests, in `tests/test_ui/test_views.py`: each filter narrows
+on its own against `literature:item-list` (FR-009); item type's `<select>` pairs the stored slug the
+query string narrows on with its translated label (FR-010), read from the filter control's own
+markup rather than a row's type cell, which would pass even if the control itself broke; contributor
+narrows in any role and a reference credited twice is returned once (FR-011); issued year narrows on
+a year-only date, a range beginning that year, and excludes an undated reference (FR-012); language
+narrows on the stored value and its choices hold only what the catalogue offers (FR-013).
+
+All nine passed on first run, as the brief anticipated — sanity-checked by re-running
+`test_type_choices_offer_the_translatable_label_while_the_url_narrows_on_the_stored_value` and
+`test_language_choices_offer_only_values_the_catalogue_holds` against a scratch script with the
+type/language choices removed from the rendered options before writing the assertions, confirming
+each regex genuinely fails to match when the control doesn't offer what it should.
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueFilters` — 9 passed.
+`poetry run ruff check`, `ruff format --check` — clean. `mypy literature/ui/views.py` — clean (no
+production file touched, but T013's own scope names it). Committed as `T013: ...`.
+
+T014 starts from here.
+
+## 2026-08-20 — US-2/T014 done
+
+Production change, `literature/ui/filters.py`: `type` becomes `django_filters.MultipleChoiceFilter`
+(was `ChoiceFilter`) — FR-014 and decisions.md D6 name this filter's own worked example, "articles
+or chapters, from 2019", type widened to either value while year narrows what that widened set
+returns. `MultipleChoiceFilter.filter()` ORs the chosen values by default (`conjoined=False`), which
+is exactly FR-014's widening; no `conjoined` kwarg needed.
+
+**Scope conflict, resolved without touching the file it would have broken.** Confirmed RED first
+(`test_more_than_one_value_within_a_filter_widens_to_either` against the untouched `ChoiceFilter`),
+then, before committing the field-class change, ran the whole of `tests/test_ui/test_filters.py` —
+outside this story's editable scope — and found it breaks `TestItemFilterSetType.test_narrows_to_the_chosen_type`:
+that test constructs `ItemFilterSet(data={"type": ItemType.BOOK}, ...)` with a plain `dict` and a
+bare stored value, and `SelectMultiple.value_from_datadict` only calls `.getlist()` — always
+returning a list — against a real `QueryDict`; against a plain `dict` it falls back to `.get()` and
+returns the bare value, which `MultipleChoiceField.to_python()` then rejects as "not a list". A real
+HTTP request never hits this, since `self.request.GET` is always a `QueryDict`; only the direct
+unit-level construction in the file I cannot edit does.
+
+Fixed at the widget, not the test: `_ScalarOrListSelectMultiple(forms.SelectMultiple)` wraps a bare
+string return from `value_from_datadict` in a one-item list, so `data={"type": "book"}` narrows to
+exactly one type exactly as the old `ChoiceFilter` did, while a real `QueryDict` carrying two
+`type=` values keeps widening to both — verified both directions, and confirmed the full
+`tests/test_ui/test_filters.py` (27 tests) still passes unmodified. This is additive input handling
+on the filter's own widget, not a change to what a list of values does, so it is not the kind of
+test-directed special-casing the brief's prohibitions rule out.
+
+New `TestCatalogueFilterComposition` class, four tests: two `type` values widen to either (FR-014);
+two filters narrow to both (FR-015); a filter and a search term narrow to both, with the position
+line reflecting the count; and both directions in one request — D6's own "articles or chapters, from
+2019" example, `type` widened while `issued_year` narrows what the widened set returns.
+
+Verified: `poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py` — 314
+passed, 1 xfailed (the standing D-14/#88 xfail). `poetry run ruff check`, `ruff format --check` —
+clean. `mypy literature/ui/filters.py` — clean. Committed as `T014: ...`.
+
+**Concern for the report, not acted on here:** `literature/ui/filters.py` changed outside the two
+cases the brief named as plausible (T013's language choices, T016's validation). Stated explicitly
+per the prohibition's own instruction, with the reasoning above.
+
+T015 starts from here.
