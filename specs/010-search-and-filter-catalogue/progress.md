@@ -920,3 +920,58 @@ tests/test_demo/test_seed.py`, `ruff format --check tests/test_demo/test_seed.py
 as `T027: the dominant language is the route to page 2, and the seed backs it`.
 
 T028 starts from here.
+
+## 2026-08-20 — US-5/T028 done
+
+New `DemoWalk.walk_narrowed_catalogue()` (`demo/smoke.py`, FR-033): a search on the unique citation
+key `Shannon1948` proves search narrows (its own title present, an unrelated one absent); a
+`type=dataset` filter proves a filter narrows, against the seed's one dataset reference; a
+`language=en` filter — the dominant language decisions.md D22 settles on — proves a page move
+survives a genuine narrowing, following the rendered page-2 link and asserting the two pages are
+disjoint and neither carries the Spanish-language control reference.
+
+Each step submits exactly one query parameter, not the whole form `form_fields()` would scrape:
+tried the scrape-and-override idiom `walk_write_pass` uses for POST first, and it broke immediately
+— `form_fields()` defaults an untouched `<select multiple>` to its first option (`type=article`)
+since the parser assumes single-select semantics, so every request would have silently also
+filtered on a type no reader chose. Confirmed directly (`form_fields()` against a saved copy of the
+real rendered list page returned `{'type': 'article', ...}` with nothing selected). Submitting one
+parameter alone matches what a real browser actually sends for an untouched multi-select — no key at
+all — and sidesteps the parser limitation without touching `FormFieldParser`, which is out of this
+task's scope. `form_fields()` is still used, narrowly, to confirm `type` and `language` are rendered
+controls before submitting to them.
+
+New `SEARCH_INPUT_RE` confirms the search box exists first — it renders outside the filter modal's
+`<form>`, associated only by the HTML5 `form="filterForm"` attribute (mvp's `search.html`), so
+`form_fields()`'s physical-nesting walk cannot see it.
+
+**A real gap found and fixed, not assumed:** `SECOND_PAGE_LINK_RE` had only ever been exercised
+against the read walk's own unfiltered page-2 link, which carries no other parameter and renders
+bare (`?page=2`). The first live run against `?language=en&page=2` failed — the rendered link joins
+its parameters with the HTML entity `&amp;`, and the pattern required a literal `&` immediately
+before `page=2`. Widened to tolerate `&(?:amp;)?` at either join point; a caller (this task's own
+new code) `html.unescape()`s the captured group before building a URL, the same discipline
+decisions.md D13 already established for the test suite's `rendered_page_link()` helper — confirmed
+both directions (widened match, then correct unescape) against the real rendered markup before
+trusting it. New test `test_matches_a_link_the_paginated_list_renders_when_a_filter_is_also_in_force`
+(`tests/test_demo/test_smoke.py`) pins this against real rendered HTML (`ItemFactory.create_batch(30,
+language="en")`), observed failing against the un-widened pattern first.
+
+Deleted the stale comment above `SECOND_PAGE_LINK_RE` (measurement (4) in the dispatch brief):
+described the whole-query-string replacement as current behaviour and #88 as open, both false since
+US-3 closed #88 on this branch.
+
+**Broke each of the three checks in turn, per the task's own instruction, and confirmed
+`SmokeCheckFailed` for the stated reason each time**, against a live demo server seeded from this
+branch's catalogue: the search assertion's expected text (failed: "did not return its own
+reference"), the filter's target type (failed: "did not return the seed's one dataset reference"),
+and the page-move step — forced the walk's own second-page URL back to the first page, reproducing
+the exact #88 symptom — (failed: "repeats a reference from its first page"). Restored the file
+(`diff` against the pre-break copy: clean) and reran clean before committing.
+
+`poetry run pytest -q tests/test_demo/` — 49 passed. `poetry run pytest -q tests/test_ui/
+tests/test_demo/` — 572 passed, no regressions. `poetry run ruff check demo/smoke.py
+tests/test_demo/test_smoke.py`, `ruff format --check`, `mypy demo/smoke.py` — all clean. Committed as
+`T028: the guard walks a search, a filter, and a page move over a narrowed result`.
+
+T029 starts from here.
