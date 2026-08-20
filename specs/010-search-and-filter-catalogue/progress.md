@@ -975,3 +975,42 @@ tests/test_demo/test_smoke.py`, `ruff format --check`, `mypy demo/smoke.py` — 
 `T028: the guard walks a search, a filter, and a page move over a narrowed result`.
 
 T029 starts from here.
+
+## 2026-08-20 — US-5/T029 done
+
+`README.md` gains a new "Searching and filtering the catalogue" section (FR-034): what the search
+box matches (citation key, the three title fields, container title, every credited contributor's
+name) and deliberately does not (abstract, keywords — different infrastructure, a slower lookup, not
+in this feature); what each of the four filters narrows on; that values within one filter widen
+while a search term and different filters narrow; and that a search, every filter, the sort and the
+page all live in the address together.
+
+Deleted the stale pagination-sort limitation naming #88 from `README.md` (plan.md D-12) — closed on
+this branch by US-3/T017, so leaving it would tell a reader not to rely on something that now works.
+
+**Audited docs/ beyond the two locations the brief named, per its own instruction.** Found and fixed
+a second stale spot in `CHANGELOG.md`'s existing `[Unreleased]` entry for the table-by-default
+change: the same #88 paragraph, and — not named by the brief — two claims US-4 had since made false
+("`ItemListView` is unchanged" and "still what the contributor page is built on"; US-4/T022 gave
+`ItemListView` the same search and filters as the table, and US-4/T023 moved the contributor page
+onto `CatalogueListMixin` rather than subclassing it). Corrected both. Checked `docs/usage.md`,
+`docs/ROADMAP.md`, `docs/field-groups.md`, `docs/index.md`, `docs/installation.md` and every ADR for
+a stale reference to search, filtering, pagination or #88 — the only other hit was `docs/ROADMAP.md`
+line 82, a still-open, multi-feature roadmap item (R6) listing search and filtering among several
+still-pending deliverables; left alone as a concern rather than edited, since correcting a roadmap
+item's delivery status is a different lane's call, not this story's.
+
+New `[Unreleased]` entries in `CHANGELOG.md`: an Added entry for the feature itself, and a Fixed
+entry closing #88.
+
+Humanized both files before committing (checked against inflated-symbolism, AI-vocabulary, em-dash
+and inline-header-list patterns; the bold-term-plus-em-dash list style and heavy em-dash use are
+this README's own established house style throughout, not an AI tell, so kept). No internal handle,
+stage code or tool name in either file — checked directly, not assumed.
+
+No test scope of its own beyond the pre-existing `tests/test_documentation.py` (docstring coverage;
+unaffected by prose changes) and `pre-commit run --files README.md CHANGELOG.md` (trailing
+whitespace, end-of-file). Both clean. Committed as `T029: document what the search matches, what the
+filters narrow on, and how they compose`.
+
+T030 starts from here.

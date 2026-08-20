@@ -250,16 +250,12 @@ credited names and its issued date, with an edit control on every row and a clic
 column heading but the credited names and the edit control themselves. That is what a project
 managing its own library gets out of the box.
 
-One limitation to know about: a chosen sort is discarded when you move to the next page. The
-pagination links replace the whole query string, which is a defect in the shared component this page
-renders and is fixed there rather than here — [issue #88](https://github.com/FAIR-DM/django-literature/issues/88)
-tracks it.
-
 The card presentation the package served before the table existed is still there: `ItemListView`,
-reachable and tested the same as ever, one reference per card rather than per row. The contributor
-page keeps using it regardless of which view backs the catalogue, since a contributor's credited
-works read better as cards than as a table of one person's output. A project building a public-facing
-reading list, rather than a tool for managing one, can prefer it for the catalogue too.
+reachable the same way as ever, one reference per card rather than per row, searching and filtering
+the same set of references the table does. The contributor page keeps a plain, unfiltered version of
+it regardless of which view backs the catalogue, since a contributor's credited works read better as
+cards than as a table of one person's output. A project building a public-facing reading list, rather
+than a tool for managing one, can prefer the card presentation for the catalogue too.
 
 Selecting it is a settings change, under the same namespaced `LITERATURE` key the format registry
 uses:
@@ -282,6 +278,36 @@ pages are unaffected either way.
 Sorting the table by item type orders by the type's stored value, not by the translated label shown
 in the column — the label reads differently in every language the catalogue is served in, and the
 order behind it does not change with it.
+
+### Searching and filtering the catalogue
+
+Both presentations carry a search box and four filters, reading from one shared definition, so a
+narrowed catalogue looks the same whichever route serves it.
+
+The search box matches a fragment, case-insensitively, against a reference's citation key, its
+title, short title and original title, the container it appeared in, and every credited
+contributor's name. It deliberately does not reach a reference's abstract or its keywords: that text
+runs much longer, and searching it well needs different infrastructure than a fast, predictable
+lookup over a handful of short fields.
+
+The four filters narrow on:
+
+- **Item type** — the kind of reference: an article, a book, a dataset, and so on.
+- **Contributor** — a name fragment matched against a contributor's family, given, or literal name,
+  in any role.
+- **Language** — whichever language values the catalogue actually holds, offered as a chooser built
+  from the stored data rather than a fixed list a project has to keep in sync with it.
+- **Issued year** — the year a reference's issued date falls in, including a reference whose date
+  covers a range beginning that year. A reference with no issued date never matches a year filter.
+
+Choosing more than one value within a single filter widens what it accepts — an article or a book.
+A search term and a filter, or two different filters, narrow further — an article, published in
+2019. An invalid or unmatched filter value returns no results rather than falling back to the whole
+catalogue or raising an error.
+
+A search, every filter, the chosen sort and the current page all live in the address, so moving to
+another page, changing the sort, or bookmarking the address and reopening it later keeps every one
+of them in force.
 
 ### Adding, editing and removing a reference
 

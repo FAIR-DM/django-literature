@@ -6,6 +6,36 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- **Searching and filtering the catalogue.** Both the table and the card presentation carry a
+  search box and four filters — item type, contributor, language, and issued year — reading from
+  one shared definition, so a narrowed catalogue looks the same whichever route serves it.
+
+  The search box matches a fragment, case-insensitively, against a reference's citation key, its
+  title, short title and original title, the container it appeared in, and every credited
+  contributor's name. It does not reach the abstract or the keywords: that text runs much longer,
+  and searching it well needs different infrastructure than a fast, predictable lookup over a
+  handful of short fields.
+
+  Choosing more than one value within a single filter widens what it accepts; a search term and a
+  filter, or two different filters, narrow further. An invalid or unmatched filter value returns no
+  results rather than falling back to the whole catalogue or raising an error.
+
+  A search, every filter, the chosen sort and the current page all live in the address, so moving to
+  another page, changing the sort, or bookmarking the address and reopening it later keeps every one
+  of them in force.
+
+  New runtime dependency, in the `ui` extra only: `django-filter`. A core-only install, or a project
+  that has not opted into the front end, resolves neither it nor django-mvp.
+
+### Fixed
+
+- A chosen sort no longer resets when moving to another page of the catalogue. The pagination links
+  used to replace the whole query string, dropping a sort along with everything else in it; the
+  django-mvp version this release requires preserves it instead, closing
+  [#88](https://github.com/FAIR-DM/django-literature/issues/88).
+
 ### Changed
 
 - **The catalogue serves as a table by default.** `literature.ui`'s catalogue page used to be a list
@@ -15,9 +45,9 @@ All notable changes to this project are documented in this file. The format foll
   names and the edit control themselves. Paging, the page size, the empty state and the Add action are
   unchanged.
 
-  The card presentation the package served before is still there. `ItemListView` is unchanged, still
-  tested, and still what the contributor page is built on. A project that prefers cards for its own
-  catalogue restores the previous page with a settings key,
+  The card presentation the package served before is still there, reachable the same way, and still
+  what the contributor page's own configuration is drawn from. A project that prefers cards for its
+  own catalogue restores the previous page with a settings key,
   `LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.ItemListView"}`, which also takes a project's
   own subclass of either view. Nothing is deprecated and nothing needs to be copied out of the
   package to do it.
@@ -25,11 +55,6 @@ All notable changes to this project are documented in this file. The format foll
   Sorting the table by item type orders by the type's stored value rather than by its translated
   label, since the label reads differently in every language the catalogue is served in and the order
   behind it should not.
-
-  Known limitation: a chosen sort is discarded when you move to the next page, because the pagination
-  links replace the whole query string. That is a defect in the shared component the page renders,
-  fixed there rather than worked around here; [#88](https://github.com/FAIR-DM/django-literature/issues/88)
-  tracks it and this page picks the fix up with the next dependency bump.
 
   New runtime dependency, in the `ui` extra only: `django-tables2`. A core-only install, or a project
   that has not opted into the front end, resolves neither it nor django-mvp.
