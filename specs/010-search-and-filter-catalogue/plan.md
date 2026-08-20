@@ -140,17 +140,16 @@ carrying its own fields, so submitting it replaces the query string and discards
 `?page=` is correct — a new filter belongs on page one — but losing the sort is the same defect as
 #88 arriving from the other direction.
 
-Two things happen, in this order:
+**No upstream issue is filed for it** (Sam, 2026-08-20): that component is already being worked on
+upstream, and a second report against the same surface costs attention without adding information.
 
-1. **Raise it upstream** as a django-mvp issue, with the reproduction and the suggested fix (the
-   filter form should carry the current sort, exactly as the pagination link now carries the rest of
-   the address). This is the standing direction for a defect in the shared component, and it serves
-   every project using it rather than this one.
-2. **Carry the sort in our own filterset's form** as a hidden field populated from the request. This
-   is our form, rendered by the component from `filter.form`, so it forks no upstream template and
-   overrides no block — the measure lives entirely in `literature/ui/filters.py`. If it turns out to
-   need a template override to work, it is abandoned and the limitation is documented instead: a
-   fork of someone else's markup is explicitly not what this feature does.
+What this feature does instead is one cheap, self-contained measure: **carry the sort in our own
+filterset's form** as a hidden field populated from the request. This is our form, rendered by the
+component from `filter.form`, so it forks no upstream template and overrides no block — the measure
+lives entirely in `literature/ui/filters.py`. If it turns out to need a template override to work,
+it is abandoned and the limitation is documented instead. A fork of someone else's markup is
+explicitly not what this feature does, and nothing in the specification requires a sort to survive a
+change of filter — FR-019 governs the opposite direction, which works today.
 
 The task carries that abort condition in its brief, so the decision does not get made silently by
 whoever implements it.

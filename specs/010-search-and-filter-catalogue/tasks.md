@@ -131,14 +131,14 @@ phase — different files, no shared state.
   narrowed (FR-019). This is the direction that works today; pin it before T020 touches the form.
   *Test scope:* `tests/test_ui/test_views.py`.
 
-- [ ] **T020** The sort survives a change of filter (plan D-7, research R5). **Two parts, in order.**
-  First, raise it upstream as a django-mvp issue with the reproduction and the suggested fix — the
-  filter form should carry the current sort as the pagination link now carries the rest of the
-  address — and record the issue number here. Second, carry the sort as a hidden field on
-  `ItemFilterSet`'s own form, populated from the request, so it is rendered from `filter.form` and no
-  upstream template is touched. **Abort condition, and it is not negotiable:** if this cannot be done
-  without overriding an upstream template or block, stop, leave the upstream issue open, and document
-  the limitation in the README instead. Report which of the two happened.
+- [ ] **T020** The sort survives a change of filter (plan D-7, research R5). Carry the sort as a
+  hidden field on `ItemFilterSet`'s own form, populated from the request, so it is rendered from
+  `filter.form` and no upstream template is touched. **Do not file an upstream issue for this** —
+  that component is already being worked on upstream (Sam, 2026-08-20). **Abort condition, and it is
+  not negotiable:** if this cannot be done without overriding an upstream template or block, stop,
+  spend no further time on it, and document the limitation in the README instead. Nothing in the
+  specification requires this, so abandoning it is a clean outcome, not a failure. Report which of
+  the two happened.
   *Test scope:* `tests/test_ui/test_views.py`.
 
 - [ ] **T021** A narrowed catalogue can be bookmarked and reopened to the same result (FR-022,
