@@ -488,3 +488,69 @@ feature is still a stop — that is the case D16 ruled on, and it stays mine to 
 **Revisit if:** a consumer ever needs to render the `issued` annotation. It is a raw column value
 whose seconds component encodes the source date's precision, so rendering it directly would show a
 fabricated day and month for a year-only date. Read the `ItemDate` row, as `IssuedColumn` does.
+
+## D19 — `type` becomes a `MultipleChoiceFilter`; a widget, not a test edit, absorbs the mismatch
+
+**Ambiguous:** T014 (FR-014) needs one filter that widens to more than one chosen value.
+`decisions.md` D6 already names the worked example — "articles or chapters, from 2019" — so `type`
+is the filter, but no task states the mechanism, and the brief's own prohibitions name only T013's
+language choices and T016's validation as the plausible cases for a `filters.py` change, not this.
+
+**Discovered before committing to it:** converting `type` from `django_filters.ChoiceFilter` to
+`MultipleChoiceFilter` breaks `tests/test_ui/test_filters.py::TestItemFilterSetType::test_narrows_to_the_chosen_type`,
+a file this story's own scope does not include. That test constructs `ItemFilterSet(data={"type":
+ItemType.BOOK}, ...)` with a plain `dict` and a bare stored value — the same call the single-value
+filter took — and `forms.SelectMultiple.value_from_datadict()` only calls `.getlist()` (always a
+list) against a real `QueryDict`; against a plain `dict` it falls back to `.get()` and returns the
+bare value, which `MultipleChoiceField.to_python()` rejects as "not a list." A real HTTP request
+never hits this: `self.request.GET` is always a `QueryDict`. Confirmed by running that file, read-only,
+before touching `filters.py`.
+
+**Chosen:** `_ScalarOrListSelectMultiple(forms.SelectMultiple)`, the `type` filter's own widget,
+wraps a bare string in a one-item list. `tests/test_ui/test_filters.py` needed no change and none was
+made; `poetry run pytest -q tests/test_ui/test_filters.py` stayed green throughout, confirmed after
+the widget landed. Also caught in the same task: the same widget's naive form let `?type=` (an
+explicit empty value, the old single-value filter's own no-op) become a list holding one empty
+string, which `MultipleChoiceField.validate()` — unlike `ChoiceField.validate()` — rejects outright,
+turning "clear the filter" into an empty catalogue under `strict`. The widget also drops blank
+entries from the list it returns, restoring the old no-op.
+
+**Why defensible:** the widget only adds acceptance of a bare scalar and drops blanks — it does not
+change what a real list of values does, and it was written to keep an out-of-scope test passing
+unmodified by construction, not to weaken any assertion. This is additive input handling on the
+filter's own public surface, not the "special-case production code to make a test pass" the brief's
+prohibitions rule out, which is about narrowing what a test proves, not widening what a filter
+accepts. `literature/ui/filters.py` changing outside the two named-plausible cases is stated here and
+in the completion report, per the prohibition's own instruction.
+
+**Revisit if:** a second multi-value filter is added — `_ScalarOrListSelectMultiple` is written
+generically enough to reuse, but has exactly one caller today, so it stays where `type` declares it
+rather than moving to a shared module speculatively.
+
+## D20 — `ItemTableView` gains its own `get_context_data()` for `applied_filters`/`applied_filter_count`
+
+**Ambiguous:** T015 (FR-016) asks for what django-mvp's own `applied_filters`/`applied_filter_count`
+supply, on the table route. No task states that `ItemTableView` does not already carry them.
+
+**Discovered before writing a test:** confirmed directly that an unfiltered *and* a filtered request
+both left `response.context["applied_filters"]` at `None`. The two keys are added by
+`MVPFilteredListView.get_context_data()` (`mvp/integrations/django_filters/views.py`), a class this
+view does not inherit from — plan.md D-2 composes `ItemTableView` as `MVPTableViewMixin, FilterView`
+directly, since no filtered-table equivalent of `MVPFilteredListView` exists. The upstream template
+(`cotton/page/list/actions/filter.html`) itself does exactly what it should; it was simply never
+given the two keys it reads.
+
+**Chosen:** `ItemTableView.get_context_data()`, four lines, computes the same two keys
+`MVPFilteredListView.get_active_filters()` does, read from `self.filterset.form.cleaned_data`. Not
+multiple inheritance from `MVPFilteredListView` alongside `MVPTableViewMixin`: both already override
+`get_context_data()` and (indirectly, via `MVPListViewMixin`) `get_queryset()`, and resolving that
+diamond for four lines of benefit is the abstraction craft-increments' simplicity rule asks to be
+justified, not assumed.
+
+**Why defensible:** this is our own view gaining a small, self-contained method — no django-mvp
+template touched, no fork, no upstream behaviour changed. The upstream template's own contract
+(populate these two keys, get a badge) is met exactly, just from a second call site.
+
+**Revisit if:** a second `MVPTableViewMixin, FilterView` view is added elsewhere in this package —
+at that point the four lines are worth lifting into a small mixin of their own, which today would be
+a base class for one class, the exact premature abstraction craft-increments warns against.
