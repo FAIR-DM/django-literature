@@ -768,3 +768,32 @@ condition triggered; T021 proved the whole narrowed state lives in the address. 
 a django-mvp template, adds a database index or migration, or reaches outside
 `literature/ui/filters.py`, `literature/ui/views.py`, `tests/test_ui/test_views.py`, and this file
 and `feature-state.json`.
+
+## 2026-08-20 — US-4/T022 done
+
+`ItemListView` becomes `MVPFilteredListView` (plan.md D-2): `search_fields = SEARCH_FIELDS`,
+`filterset_class = ItemFilterSet`, the old `search_fields = None` / `order_by = None` pair and their
+"#49 out of scope" comment deleted. New `TestTheCardListFiltersAndSearches` (3 tests):
+a search term and a type filter each narrow the card list the way they already narrow the table, and
+a sort with no filter in force shows no applied-filter badge.
+
+Discovered before the third test went green (D21): the upstream base class's own
+`get_context_data()` counts the hidden `sort` field as an applied filter, the same defect D20 already
+found and fixed on the table. Fixed by extracting D20's exclusion into `get_active_filters()`
+(`literature/ui/filters.py`), called from both `ItemListView.get_context_data()` and
+`ItemTableView.get_context_data()` — recorded as D21, not a deviation, since the brief named this
+production change ahead of time.
+
+Also discovered, not named in the brief: `MVPFilteredListView` sets no `paginate_by` at all (unlike
+`MVPListView`, this view's former base), so pagination silently switched off — page size, the
+position line and the page-999 404 all broke. Fixed with `paginate_by = 24`, the view's own
+already-established page size, same reasoning `ItemTableView` already documents for its own mandatory
+`paginate_by`. Not a deviation from the plan; a mechanical consequence of the base-class change T022
+itself mandates.
+
+`poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_filters.py
+tests/test_ui/test_architecture.py tests/test_ui/test_contributors.py` — clean (280 passed).
+`poetry run ruff check .` (one auto-fix: the now-unused `MVPListView` import), `ruff format --check
+.`, `mypy literature/ui/filters.py literature/ui/views.py` — all clean. Committed as `T022: ...`.
+
+T023 starts from here.

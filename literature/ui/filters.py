@@ -111,6 +111,27 @@ class ScalarOrListSelectMultiple(forms.SelectMultiple):
         return [v for v in value if v] if value else value
 
 
+def get_active_filters(filterset):
+    """Filters actually in force, the hidden ``sort`` field excluded (decisions.md D21).
+
+    Mirrors ``MVPFilteredListView.get_active_filters()``
+    (``mvp/integrations/django_filters/views.py``) — dropping every empty,
+    null or default-like value from ``filterset.form.cleaned_data`` — plus
+    the one field neither presentation ever counts: ``sort`` is a hidden
+    field on this form only to round-trip django-tables2's own ordering
+    (plan.md D-7, ``ItemFilterSet.sort`` below), not one of the catalogue's
+    four filters. One definition, called from both ``ItemListView`` and
+    ``ItemTableView``, so the exclusion is not restated twice.
+    """
+    if not hasattr(filterset.form, "cleaned_data"):
+        return {}
+    return {
+        name: value
+        for name, value in filterset.form.cleaned_data.items()
+        if name != "sort" and value not in (None, "", [], (), False)
+    }
+
+
 class ItemFilterSet(django_filters.FilterSet):
     """The catalogue's filters (FR-009 to FR-013): item type, contributor, language and issued year."""
 

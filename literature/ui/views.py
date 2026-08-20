@@ -15,15 +15,16 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django_filters.views import FilterView
+from mvp.integrations.django_filters.views import MVPFilteredListView
 from mvp.integrations.django_tables.views import MVPTableViewMixin
-from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPListView, MVPUpdateView
+from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPUpdateView
 
 from literature.choices import ItemType, NameRole
 from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
-from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet
+from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
 from literature.ui.forms import ItemForm
 from literature.ui.links import web_url
 from literature.ui.tables import ItemTable
@@ -107,7 +108,7 @@ def field_group_context(form, forced_groups=frozenset()):
     }
 
 
-class ItemListView(MVPListView):
+class ItemListView(MVPFilteredListView):
     """The catalogue list — FR-012, FR-014, FR-015, FR-018, FR-027, FR-029."""
 
     model = Item
@@ -118,10 +119,16 @@ class ItemListView(MVPListView):
     # pass-through of its own until then. Only the card is ours.
     list_item_template = "literature/ui/item_list_item.html"
 
-    # Out of scope here (#49) — set explicitly so a later template change
-    # cannot resurrect a control this feature excluded (plan.md D-2).
-    search_fields = None
-    order_by = None
+    # Mandatory, not inherited: MVPFilteredListView sets no paginate_by at
+    # all (unlike MVPListView, this view's own base until now), and without
+    # one pagination switches off entirely. 24 is this view's own
+    # already-established page size, kept so the change of base class does
+    # not also change how much is on a page — same reasoning as
+    # ItemTableView's own paginate_by below.
+    paginate_by = 24
+
+    search_fields = SEARCH_FIELDS
+    filterset_class = ItemFilterSet
 
     # "create" alone in directory shows nothing without the matching
     # show_create_action flag (plan.md D-6) — CRUDDirectoryMixin defaults
@@ -160,6 +167,17 @@ class ItemListView(MVPListView):
         # rather than querying per row.
         for page_item in context["object_list"]:
             page_item.contributor_groups = contributor_groups(page_item)
+
+        # MVPFilteredListView.get_context_data() (mvp/integrations/django_filters/views.py)
+        # already populated applied_filters/applied_filter_count above, but
+        # counted the hidden "sort" field (literature/ui/filters.py
+        # ItemFilterSet.sort, plan.md D-7) as an applied filter, which it is
+        # not (decisions.md D21). Recomputed here through the same shared
+        # exclusion ItemTableView.get_context_data() below also calls.
+        if context.get("filter"):
+            active = get_active_filters(self.filterset)
+            context["applied_filters"] = active
+            context["applied_filter_count"] = len(active)
 
         return context
 
@@ -293,16 +311,13 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         """
         context = super().get_context_data(**kwargs)
         if context.get("filter") and hasattr(self.filterset.form, "cleaned_data"):
-            active = {
-                name: value
-                for name, value in self.filterset.form.cleaned_data.items()
-                # "sort" (literature/ui/filters.py ItemFilterSet.sort,
-                # plan.md D-7) is the table's own ordering, carried as a
-                # hidden field on this form so it survives a change of
-                # filter — a form field, but not one of the catalogue's
-                # own filters, so it never counts as one (decisions.md D20).
-                if name != "sort" and value not in (None, "", [], (), False)
-            }
+            # get_active_filters() (literature/ui/filters.py) is the one
+            # place the exclusion of "sort" — the table's own ordering,
+            # carried as a hidden field on this form so it survives a change
+            # of filter — from what counts as an applied filter is declared
+            # (decisions.md D20's own correction, D21). ItemListView.
+            # get_context_data() calls the same function.
+            active = get_active_filters(self.filterset)
             context["applied_filters"] = active
             context["applied_filter_count"] = len(active)
         return context

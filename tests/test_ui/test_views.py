@@ -406,6 +406,41 @@ class TestTheCardListStaysAvailable:
             assert package_root in origin.parents, f"{template_name} resolved outside the package at {origin}"
 
 
+class TestTheCardListFiltersAndSearches:
+    """US-4, T022 — the card list narrows the same way the table does, now
+    that it is ``MVPFilteredListView`` (plan.md D-2, FR-024).
+    """
+
+    def test_a_search_term_narrows_the_card_list(self, client, db):
+        matching = ItemFactory(title="Whale Migration Patterns")
+        other = ItemFactory(title="Unrelated Reference")
+        content = client.get(reverse("item-list-cards"), {"q": "whale"}).content.decode()
+        assert matching.title in content
+        assert other.title not in content
+
+    def test_a_filter_narrows_the_card_list(self, client, db):
+        book = ItemFactory(type=ItemType.BOOK)
+        article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = client.get(reverse("item-list-cards"), {"type": ItemType.BOOK}).content.decode()
+        assert book.citation_key in content
+        assert article.citation_key not in content
+
+    def test_a_sort_with_no_filter_in_force_shows_no_applied_filter_badge(self, client, db):
+        # The finding this task exists for: MVPFilteredListView's own
+        # get_context_data() (mvp/integrations/django_filters/views.py)
+        # counts every non-empty field of filterset.form.cleaned_data, and
+        # "sort" (literature/ui/filters.py ItemFilterSet.sort) is a hidden
+        # field on that form carrying django-tables2's own ordering (plan.md
+        # D-7) — not one of the catalogue's own filters (decisions.md D21).
+        # Proven through the shared exclusion function, not a second copy of
+        # the table's own override (decisions.md D20).
+        ItemFactory()
+        response = client.get(reverse("item-list-cards"), {"sort": "-citation_key"})
+        assert not response.context.get("applied_filters")
+        content = response.content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
+
+
 class TestItemTableView:
     """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021, plan.md D-2)."""
 

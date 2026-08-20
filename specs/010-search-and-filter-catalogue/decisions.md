@@ -554,3 +554,28 @@ template touched, no fork, no upstream behaviour changed. The upstream template'
 **Revisit if:** a second `MVPTableViewMixin, FilterView` view is added elsewhere in this package —
 at that point the four lines are worth lifting into a small mixin of their own, which today would be
 a base class for one class, the exact premature abstraction craft-increments warns against.
+
+## D21 — The applied-filters exclusion of `sort` moves into one shared function
+
+**Discovered before writing T022's own test:** `ItemListView` becoming `MVPFilteredListView` (plan.md
+D-2) hands the card list `MVPFilteredListView.get_context_data()`
+(`mvp/integrations/django_filters/views.py`), and that upstream method counts every non-empty entry
+of `filterset.form.cleaned_data` — exactly the bug D20 already found and corrected on the table. The
+hidden `sort` field (`ItemFilterSet.sort`, plan.md D-7) would be counted again, on the card list this
+time, and `mvp/templates/cotton/page/list/actions/filter.html` would badge a sort with no filter in
+force.
+
+**Chosen:** the exclusion `ItemTableView.get_context_data()` wrote for itself under D20 is extracted
+into `get_active_filters(filterset)` in `literature/ui/filters.py` — the module D-1 already names as
+the one place a shared definition lives — and both `ItemListView.get_context_data()` and
+`ItemTableView.get_context_data()` call it. Not two copies of one exclusion, which is exactly the
+duplication FR-023 exists to prevent.
+
+**Why defensible:** this is a production change T022 itself mandates, not a deviation from it — the
+finding was known before T022's first test was written. `ItemListView.get_context_data()` still calls
+`super()` first (so `MVPFilteredListView`'s own pagination/grid/context wiring runs unchanged) and
+only overwrites the two keys the upstream method got wrong for this form.
+
+**Revisit if:** upstream's own `get_active_filters()` grows a way to declare a field as
+ordering-only rather than filter-only — at that point this package's own exclusion could be deleted
+in favour of it.
