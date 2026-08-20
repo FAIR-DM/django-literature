@@ -797,3 +797,28 @@ tests/test_ui/test_architecture.py tests/test_ui/test_contributors.py` — clean
 .`, `mypy literature/ui/filters.py literature/ui/views.py` — all clean. Committed as `T022: ...`.
 
 T023 starts from here.
+
+## 2026-08-20 — US-4/T023 done
+
+The card-list configuration `ItemListView` and `ContributorDetailView` share — `model`, `page_title`,
+`list_item_template`, `get_queryset`'s prefetching, `get_model_info`, the `contributor_groups`
+annotation in `get_context_data`, and the `directory`/`show_create_action`/`crud_views` wiring — moved
+into `CatalogueListMixin` (plan.md D-6), holding no base class of its own. `ItemListView` is now that
+mixin plus `MVPFilteredListView`; `ContributorDetailView` is that mixin plus the plain `MVPListView`
+(no longer a subclass of `ItemListView`). Each keeps every attribute it declares for itself —
+`ContributorDetailView` still overrides `list_item_template` and both empty-state strings, same as
+before.
+
+New test in `TestContributorDetailView` (`tests/test_ui/test_views.py`): the page 200s and renders
+neither `name="q"` nor `filterModal`. Confirmed RED first — before this task the page rendered a
+search box, since it inherited `ItemListView`'s new `MVPFilteredListView` base directly (T022's own
+base-class change). Every pre-existing test in that class and in `tests/test_ui/test_contributors.py`
+passes unchanged — no reinstrumentation, so nothing to record against `standing_authority`.
+
+`poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_contributors.py
+tests/test_ui/test_urls.py tests/test_ui/test_tables.py tests/test_demo/test_smoke.py` — clean (335
+passed; the last three files reference `ContributorDetailView` without being this task's own scope).
+`poetry run ruff check .`, `ruff format --check .`, `mypy literature/ui/views.py` — all clean.
+Committed as `T023: ...`.
+
+T024 starts from here.

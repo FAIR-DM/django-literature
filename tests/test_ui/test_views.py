@@ -1731,6 +1731,17 @@ class TestItemDeleteView:
 class TestContributorDetailView:
     """The contributor page — FR-032 through FR-038."""
 
+    def test_renders_neither_a_search_box_nor_a_filter_button(self, client, db):
+        # FR-025, plan.md D-6 — ItemListView's own base class change (T022)
+        # would otherwise hand this page a search box and four filters,
+        # since it used to subclass ItemListView directly.
+        contributor = NameFactory()
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'name="q"' not in content
+        assert "filterModal" not in content
+
     def test_credits_listed_with_roles(self, client, db):
         contributor = NameFactory()
         item = ItemFactory(title="Credited Work")

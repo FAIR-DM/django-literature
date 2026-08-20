@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from django_filters.views import FilterView
 from mvp.integrations.django_filters.views import MVPFilteredListView
 from mvp.integrations.django_tables.views import MVPTableViewMixin
-from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPUpdateView
+from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPListView, MVPUpdateView
 
 from literature.choices import ItemType, NameRole
 from literature.models import Item, ItemName, Name
@@ -108,8 +108,22 @@ def field_group_context(form, forced_groups=frozenset()):
     }
 
 
-class ItemListView(MVPFilteredListView):
-    """The catalogue list — FR-012, FR-014, FR-015, FR-018, FR-027, FR-029."""
+class CatalogueListMixin:
+    """The card-list configuration ``ItemListView`` and ``ContributorDetailView``
+    share (plan.md D-6): no base class of its own — each of the two concrete
+    views exists today and each composes this with its own base, so this is
+    not a speculative base class under Article III.
+
+    ``ItemListView`` becoming ``MVPFilteredListView`` (T022) is what forces
+    the split: subclassing it would otherwise hand the contributor page a
+    search box and four filters it must not have (FR-025). Extracting the
+    two views' shared configuration here, rather than overriding it back off
+    on a subclass, is the mechanism plan.md D-6 names — overriding
+    ``filterset_class`` back to unset does not disable filtering and 500s
+    the page instead (``FilterMixin.get_filterset_class()`` falls through to
+    a filterset generated over every field of ``Item``, including its two
+    ``JSONField``s, which django-filter has no filter for).
+    """
 
     model = Item
     page_title = CATALOGUE_TITLE
@@ -117,18 +131,10 @@ class ItemListView(MVPFilteredListView):
     # ``list_view.html``, which reaches the shell through the default
     # ``base.html`` django-mvp has shipped since 0.18 — this app carried a
     # pass-through of its own until then. Only the card is ours.
+    #
+    # ``ItemListView``'s own default — ``ContributorDetailView`` overrides
+    # it back to its own template, the same as it does today.
     list_item_template = "literature/ui/item_list_item.html"
-
-    # Mandatory, not inherited: MVPFilteredListView sets no paginate_by at
-    # all (unlike MVPListView, this view's own base until now), and without
-    # one pagination switches off entirely. 24 is this view's own
-    # already-established page size, kept so the change of base class does
-    # not also change how much is on a page — same reasoning as
-    # ItemTableView's own paginate_by below.
-    paginate_by = 24
-
-    search_fields = SEARCH_FIELDS
-    filterset_class = ItemFilterSet
 
     # "create" alone in directory shows nothing without the matching
     # show_create_action flag (plan.md D-6) — CRUDDirectoryMixin defaults
@@ -139,9 +145,6 @@ class ItemListView(MVPFilteredListView):
     directory: list[str] = ["create"]
     show_create_action = True
     crud_views = CRUD_VIEWS
-
-    empty_state_heading = _("Nothing in the catalogue yet")
-    empty_state_message = _("References imported or created will appear here.")
 
     def get_queryset(self):
         # Keep the model's declared ``-created`` ordering — no ``order_by``
@@ -168,6 +171,29 @@ class ItemListView(MVPFilteredListView):
         for page_item in context["object_list"]:
             page_item.contributor_groups = contributor_groups(page_item)
 
+        return context
+
+
+class ItemListView(CatalogueListMixin, MVPFilteredListView):
+    """The catalogue list — FR-012, FR-014, FR-015, FR-018, FR-027, FR-029."""
+
+    # Mandatory, not inherited: MVPFilteredListView sets no paginate_by at
+    # all (unlike MVPListView, this view's own base until now), and without
+    # one pagination switches off entirely. 24 is this view's own
+    # already-established page size, kept so the change of base class does
+    # not also change how much is on a page — same reasoning as
+    # ItemTableView's own paginate_by below.
+    paginate_by = 24
+
+    search_fields = SEARCH_FIELDS
+    filterset_class = ItemFilterSet
+
+    empty_state_heading = _("Nothing in the catalogue yet")
+    empty_state_message = _("References imported or created will appear here.")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
         # MVPFilteredListView.get_context_data() (mvp/integrations/django_filters/views.py)
         # already populated applied_filters/applied_filter_count above, but
         # counted the hidden "sort" field (literature/ui/filters.py
@@ -187,9 +213,10 @@ class ItemTableView(MVPTableViewMixin, FilterView):
 
     ``ItemListView`` keeps its name, its card template and its behaviour
     unchanged (plan.md D-1); this is a new, sibling view, and ``urls.py``
-    points the ``item-list`` route at it. ``ContributorDetailView`` goes on
-    subclassing ``ItemListView``, so it stays on cards with no change of its
-    own (FR-023).
+    points the ``item-list`` route at it. ``ContributorDetailView`` stays on
+    cards through ``CatalogueListMixin`` (plan.md D-6), the configuration it
+    shares with ``ItemListView`` rather than an inheritance from it, so it is
+    unaffected either way (FR-023).
     """
 
     model = Item
@@ -495,15 +522,19 @@ class ItemDeleteView(MVPDeleteView):
         return detail_url or fallback
 
 
-class ContributorDetailView(ItemListView):
+class ContributorDetailView(CatalogueListMixin, MVPListView):
     """The contributor page — FR-032 through FR-038.
 
     A contributor's page is the catalogue filtered to what they are credited
-    on, so it *is* a list view: it subclasses the catalogue rather than
-    reproducing it. Pagination, the page size, the empty state, the grid
-    configuration and the not-found on an out-of-range page all arrive with
-    ``MVPListView``. The contributor is the page's subject, not the object it
-    lists, which is the only thing here the base class does not already know.
+    on, so it *is* a list view: it composes ``CatalogueListMixin`` rather
+    than reproducing the card list's configuration. Pagination, the page
+    size, the empty state, the grid configuration and the not-found on an
+    out-of-range page all arrive with ``MVPListView``. Plain, not
+    ``MVPFilteredListView``: this page carries no search box and no filter
+    (FR-025, plan.md D-6) — ``ItemListView`` is the only concrete view that
+    composes the mixin with a filtered base. The contributor is the page's
+    subject, not the object it lists, which is the only thing here the base
+    class does not already know.
     """
 
     list_item_template = "literature/ui/contributor_item.html"
@@ -522,7 +553,7 @@ class ContributorDetailView(ItemListView):
         # .distinct() is load-bearing: a contributor holding two roles on one
         # item has two ItemName rows, and without it the item would appear
         # twice (FR-035). The catalogue's own ordering and prefetching come
-        # from ItemListView, which is what FR-036 asks for.
+        # from CatalogueListMixin, which is what FR-036 asks for.
         return super().get_queryset().filter(item_names__name=self.contributor).distinct()
 
     def get_page_title(self):
