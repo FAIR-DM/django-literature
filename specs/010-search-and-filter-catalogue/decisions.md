@@ -346,3 +346,38 @@ the whole rendered page, or the filter form's field order is changed so "Type" i
 label a raw substring search finds. Once a decision lands, T008 restarts from here — the production
 diff above is not preserved (it was reverted), but the change itself is small and was proven to work
 for everything D14 and T008's own acceptance ask of it.
+
+## D16 — D15 resolved: both tests are rewritten, one because its premise is reversed and one because its instrument is wrong
+
+**Decided at the D15 block**, after verifying both findings first-hand rather than accepting the
+report. `cotton/page/list/actions/filter.html` renders `filter.form` inline through `c-form`, inside
+`page.actions`, which `cotton/page/list/index.html` emits before the body — so every filter label is
+literal text on the page ahead of the table, and `ItemFilterSet.type`'s label is `"Type"`. The
+column-order finding follows from the upstream markup, not from anything this feature chose.
+
+**Chosen — `test_carries_no_search_box_filter_control_or_column_chooser` is rewritten, not scoped.**
+FS-009's FR-025 asserts the absence of exactly what this feature's own FR-001 and FR-009 to FR-013
+add, over a signed-off specification. That text is annotated as superseded in place in
+`specs/009-tabular-catalogue-view/spec.md`, with its last clause — no column chooser — left standing
+as the only part still true. The test follows the requirement: it becomes
+`test_carries_search_and_filter_but_no_column_chooser`, asserting `table_actions` equals
+`["search", "filter", "create"]` exactly, that `name="q"` and `filterModal` are both present, and
+that no column chooser is. It is a closed assertion in both directions, so it still catches an
+upstream default widening the surface — the guarantee FS-009 wrote it for is kept, pointed at the
+list this feature specifies rather than the one it replaced.
+
+**Chosen — `test_column_headers_appear_in_the_required_order` keeps its subject and moves its
+instrument**, exactly as D14 moved the two `object_list` assertions. It reads the table's own header
+row rather than the whole rendered page. A page-wide substring search was only ever a proxy for
+"the table's columns sit in this order", and it stopped being a faithful one the moment anything
+else on the page emitted a matching word. The assertion is not weakened: all six headers must still
+be present, and still in that order.
+
+**Why this is mine to decide and not Sam's.** It is a conflict between two of my own specification
+documents, where the later one owns the problem and was signed off knowing it reversed the earlier.
+Nothing about the feature Sam approved changes. Had the conflict been with a test asserting
+something outside the specification's reach, the answer would have been the opposite.
+
+**Not chosen:** reordering `ItemFilterSet`'s fields so `"Type"` is not the first label found. That
+fixes the symptom by constraining an unrelated design surface, and the next label collision would
+break the test again.
