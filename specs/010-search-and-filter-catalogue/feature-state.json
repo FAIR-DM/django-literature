@@ -173,13 +173,22 @@
       "tasks": [
         {
           "id": "T008",
-          "status": "blocked",
-          "attempts": 2,
+          "status": "done",
+          "attempts": 3,
           "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemTableView::test_carries_search_and_filter_but_no_column_chooser",
+              "tests/test_ui/test_views.py::TestItemTableView::test_the_search_box_submits_through_the_filter_form",
+              "tests/test_ui/test_views.py::TestItemTableView::test_column_headers_appear_in_the_required_order",
+              "tests/test_ui/test_views.py::TestItemTableView::test_the_queryset_annotates_issued_matching_the_items_own_issued_date",
+              "tests/test_ui/test_views.py::TestItemTableView::test_paging_to_the_next_page_renders_the_next_rows_under_the_same_headings",
+              "tests/test_ui/test_views.py::TestItemListView::test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size"
+            ],
             "commands": [
-              "poetry run pytest -q",
-              "poetry run pytest -q tests/test_ui/test_views.py::TestItemTableView tests/test_ui/test_views.py::TestItemListView tests/test_ui/test_views.py::TestCatalogueOrdering",
-              "poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_filters.py tests/test_ui/test_tables.py"
+              "poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_filters.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run ruff check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
             ]
           }
         },

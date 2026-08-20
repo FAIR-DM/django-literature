@@ -314,3 +314,46 @@ Reverted the production change and the D16-authorized test rewrites
 (`git checkout -- literature/ui/views.py tests/test_ui/test_views.py`) rather than land this third
 red, untouchable pre-existing test, and reported T008 blocked again. T009–T012 depend on T008's
 composition to be meaningfully written against, so none were attempted this run.
+
+## 2026-08-20 — US-1/T008 done, on D18's ruling
+
+Resumed per `briefs/us1-search-resume-2.json`, authority decisions.md D16 and D18. Loaded
+`craft-tdd` and `craft-increments` by name, read D15–D18 and this story's `tasks.md`/`plan.md`
+sections and `literature/ui/filters.py` in full, confirmed the baseline was red on exactly the two
+D14 tests and nothing else, then rebuilt T008 directly from D17's description rather than
+rediscovering it: `ItemTableView(MVPTableViewMixin, FilterView)`, `search_fields = SEARCH_FIELDS`,
+`filterset_class = ItemFilterSet`, the mixin's own `actions` default applying unchanged, the view's
+inline `issued` `Subquery` dropped from `get_queryset()`, and `get_filterset_kwargs()` overridden to
+bind with `self.request.GET` unconditionally — both production changes D18 states are in scope,
+neither a task of its own.
+
+Five pre-existing tests went red against that composition, all five named in D14, D16 or D18's
+`amendment.now_in_scope`, and none beyond them:
+
+- `TestItemListView::test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size[literature:item-list]`
+  and `TestItemTableView::test_paging_to_the_next_page_renders_the_next_rows_under_the_same_headings`
+  (D14) — reinstrumented onto `response.context["table"].page.object_list"` on the table route; the
+  card-list parametrisation of the first test keeps reading `object_list`, unchanged.
+- `test_carries_no_search_box_filter_control_or_column_chooser` (D16) — rewritten to
+  `test_carries_search_and_filter_but_no_column_chooser`, asserting `table_actions == ["search",
+  "filter", "create"]` exactly, `name="q"` present, `filterModal` present, closed in both directions.
+- `test_column_headers_appear_in_the_required_order` (D16) — instrument moved from the whole
+  rendered page to the table's own `<thead>...</thead>` (new helper `table_header_row()`); all six
+  headers, same required order.
+- `test_the_queryset_annotates_issued_matching_the_items_own_issued_date` (D18) — instrument moved
+  from `annotated_item.issued == issued_date.begin` (a `PartialDate` comparison) to
+  `annotated_item.issued.date() == issued_date.begin.date` (a calendar-date comparison against the
+  raw `DateTimeField` annotation D12 types it as). Still discriminating against the reference's own
+  `accessed` date.
+
+Also added one new test of this task's own, `test_the_search_box_submits_through_the_filter_form`
+(tasks.md T008, research R4): asserts the literal `name="q" form="filterForm"` and `id="filterForm"`
+markup, since R4 records that the search input only submits anywhere once a filterset puts
+`filterForm` in context — the acceptance criterion this brief calls "its submit reaches the view".
+
+Verified: `poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_filters.py
+tests/test_ui/test_tables.py tests/test_ui/test_contributors.py` — 267 passed, 1 xfailed (the
+standing D-14/#88 xfail, untouched). `poetry run ruff check`, `ruff format --check` and `mypy
+literature/ui/views.py` — all clean. Committed as `T008: ...`.
+
+T009 starts from here.

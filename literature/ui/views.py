@@ -9,19 +9,21 @@ import json
 from collections import defaultdict
 from functools import cached_property
 
-from django.db.models import OuterRef, Prefetch, Subquery
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
-from mvp.integrations.django_tables.views import MVPTableView
+from django_filters.views import FilterView
+from mvp.integrations.django_tables.views import MVPTableViewMixin
 from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPListView, MVPUpdateView
 
-from literature.choices import DateType, ItemType, NameRole
-from literature.models import Item, ItemDate, ItemName, Name
+from literature.choices import ItemType, NameRole
+from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
+from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet
 from literature.ui.forms import ItemForm
 from literature.ui.links import web_url
 from literature.ui.tables import ItemTable
@@ -162,7 +164,7 @@ class ItemListView(MVPListView):
         return context
 
 
-class ItemTableView(MVPTableView):
+class ItemTableView(MVPTableViewMixin, FilterView):
     """The catalogue as a table — US-1 and US-2 (FR-001 through FR-012, FR-019 through FR-021).
 
     ``ItemListView`` keeps its name, its card template and its behaviour
@@ -184,17 +186,14 @@ class ItemTableView(MVPTableView):
 
     page_title = CATALOGUE_TITLE
 
-    # The mixin's own default is ["search", "filter", "create"]. Search is
-    # #49's and filter renders nothing on a non-FilterView anyway, but both
-    # are named out explicitly, for the same reason ItemListView already
-    # names search_fields out explicitly: so a later change to an upstream
-    # default cannot put an unspecified control on the package's default
-    # page (FR-025).
-    actions = ["create"]
+    # The mixin's own default, ["search", "filter", "create"], applies as-is
+    # (plan.md D-3) — FS-009 switched search and filter off with this
+    # attribute; this feature is what reverses that.
     directory: list[str] = ["create"]
     show_create_action = True
     crud_views = CRUD_VIEWS
-    search_fields = None
+    search_fields = SEARCH_FIELDS
+    filterset_class = ItemFilterSet
 
     # Same flag name and semantics as ItemDetailView.show_update_action
     # (FR-020) — a project that overrides one to gate the write page
@@ -216,15 +215,13 @@ class ItemTableView(MVPTableView):
         # item_dates, which the card view already prefetches for the same
         # reason. Omitting either costs one query per row (plan.md D-2).
         #
-        # "issued" is a Subquery annotation, not a join filter (plan.md D-8,
-        # research R7): a join risks row multiplication when an item carries
-        # several ItemDate rows and interferes with the paginator's count
-        # query. ItemTable.order_issued() (US-3) sorts on this column.
-        issued_begin = ItemDate.objects.filter(item=OuterRef("pk"), date_type=DateType.ISSUED).values("begin")[:1]
+        # No "issued" annotation here: ItemFilterSet.filter_queryset()
+        # (literature/ui/filters.py, plan.md D-5) annotates it on every
+        # request, whether or not a year was requested. Annotating it again
+        # here would double-annotate the same alias.
         return (
             super()
             .get_queryset()
-            .annotate(issued=Subquery(issued_begin))
             .prefetch_related(
                 Prefetch(
                     "item_names",
@@ -236,6 +233,17 @@ class ItemTableView(MVPTableView):
                 "item_dates",
             )
         )
+
+    def get_filterset_kwargs(self, filterset_class):
+        # FilterMixin's default binds with `self.request.GET or None`, and
+        # an empty QueryDict on a bare, param-less request is falsy — so the
+        # filterset stayed unbound and filter_queryset() (and the `issued`
+        # annotation it applies) never ran (decisions.md D17/D18). A
+        # QueryDict is `is not None` even when empty, so passing it directly
+        # keeps the filterset always bound.
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        kwargs["data"] = self.request.GET
+        return kwargs
 
     def get_model_info(self):
         # Same reasoning as ItemListView.get_model_info(): the table

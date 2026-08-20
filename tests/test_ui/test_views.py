@@ -33,6 +33,16 @@ def anchor_tag(content, href):
     return match.group(0)
 
 
+def table_header_row(content):
+    """The table's own ``<thead>...</thead>`` markup, so a column-order
+    assertion reads the header row rather than the whole rendered page
+    (decisions.md D16) — the filter modal renders ahead of the table and
+    emits some of the same words as literal field labels."""
+    match = re.search(r"<thead.*?</thead>", content, re.DOTALL)
+    assert match, "no table header row"
+    return match.group(0)
+
+
 def rendered_page_link(content, page_number):
     """The ``href`` the rendered pagination component's own numbered link to
     ``page_number`` carries — found by reading the markup, not by
@@ -108,7 +118,14 @@ class TestItemListView:
     def test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size(self, client, db, route_name):
         ItemFactory.create_batch(30)
         response = client.get(reverse(route_name))
-        assert len(response.context["object_list"]) == 24
+        if route_name == "literature:item-list":
+            # The table route's own page (decisions.md D14): at 0.19.1
+            # MVPTableViewMixin.paginate_queryset() leaves the queryset
+            # whole and republishes the page from the table, so
+            # object_list there is the whole catalogue, not one page of it.
+            assert len(response.context["table"].page.object_list) == 24
+        else:
+            assert len(response.context["object_list"]) == 24
 
     @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
     def test_pagination_states_position_and_offers_navigation(self, client, db, route_name):
@@ -361,9 +378,16 @@ class TestItemTableView:
     """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021, plan.md D-2)."""
 
     def test_column_headers_appear_in_the_required_order(self, client, db):
+        # decisions.md D16: reads the table's own header row, not the whole
+        # rendered page — the filter modal (this feature's own FR-009 to
+        # FR-013) renders ahead of the table and emits "Type" as a literal
+        # filter-field label before the table's own "Type" column header, so
+        # a page-wide substring search stopped being a faithful proxy for
+        # "the table's columns sit in this order".
         content = client.get(reverse("literature:item-list")).content.decode()
+        header_row = table_header_row(content)
         headers = ["Citation key", "Type", "Title", "Container title", "Authors", "Issued"]
-        positions = [content.index(header) for header in headers]
+        positions = [header_row.index(header) for header in headers]
         assert positions == sorted(positions)
 
     def test_no_cell_renders_stored_text_unescaped(self, client, db):
@@ -405,7 +429,9 @@ class TestItemTableView:
         content = response.content.decode()
         assert response.status_code == 200
         assert "Citation key" in content
-        assert len(response.context["object_list"]) == 6
+        # The table's own page (decisions.md D14) — see the sibling
+        # assertion above for why object_list no longer means this here.
+        assert len(response.context["table"].page.object_list) == 6
 
     def test_query_count_does_not_grow_with_row_count(self, client, db):
         # FR-012 — proves T009's prefetches are actually being read, rather
@@ -456,19 +482,38 @@ class TestItemTableView:
         assert client.get(reverse("literature:item-list")).status_code == 200
         assert client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).status_code == 200
 
-    def test_carries_no_search_box_filter_control_or_column_chooser(self, client, db):
-        # FR-025, asserted against the rendered page rather than only
-        # against the view's own actions/search_fields configuration — an
-        # upstream default reintroducing one of these would otherwise pass
-        # silently (T029).
+    def test_carries_search_and_filter_but_no_column_chooser(self, client, db):
+        # FS-009 wrote this test's ancestor for FR-025 to lock search and
+        # filter off; this feature's own FR-001 and FR-009 to FR-013 turn
+        # them back on over a signed-off specification, so the assertion
+        # follows the requirement rather than the old one (decisions.md D16
+        # — FS-009's FR-025 is annotated as superseded in place in
+        # specs/009-tabular-catalogue-view/spec.md). Still asserted against
+        # the rendered page rather than only the view's own configuration,
+        # and still closed in both directions, so an upstream default
+        # widening the action surface is still caught.
         ItemFactory()
         response = client.get(reverse("literature:item-list"))
         content = response.content.decode()
-        # The only action this view names (plan.md D-2) — the surface an
-        # upstream actions default would widen if it ever added one back.
-        assert response.context["table_actions"] == ["create"]
-        assert 'name="q"' not in content  # the search box's own input name
-        assert "filterModal" not in content  # the filter control's own modal id
+        assert response.context["table_actions"] == ["search", "filter", "create"]
+        assert 'name="q"' in content  # the search box's own input name
+        assert "filterModal" in content  # the filter control's own modal id
+        # No column-chooser ships in either django-tables2 or django-mvp
+        # today — nothing here builds one, and the closed actions list above
+        # is what would carry it if a future default introduced one.
+
+    def test_the_search_box_submits_through_the_filter_form(self, client, db):
+        # T008, research R4: the search input renders with `form="filterForm"`,
+        # and `filterForm` is only declared inside `{% if filter %}` — a
+        # context key only FilterView sets. Without filterset_class
+        # configured, the input would be wired to a form that does not
+        # exist and typing into it would do nothing. Asserted on the
+        # literal markup, not merely on both controls being present, so a
+        # future markup change that renamed either id would still be caught.
+        ItemFactory()
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert 'name="q" form="filterForm"' in content
+        assert 'id="filterForm"' in content
         # No column-chooser ships in either django-tables2 or django-mvp
         # today — nothing here builds one, and the closed actions list above
         # is what would carry it if a future default introduced one.
@@ -478,13 +523,25 @@ class TestItemTableView:
         # research R7). A join-based filter is deliberately not used, since
         # it risks row multiplication and interferes with the paginator's
         # count query.
+        #
+        # decisions.md D18: the annotation is a raw column value, typed
+        # DateTimeField (D12) so issued__year resolves, and its seconds
+        # component encodes the source date's precision rather than
+        # round-tripping through PartialDateField — compared here against
+        # the issued slot's own calendar date, not against a PartialDate.
+        # Still discriminating: the reference also carries an accessed date
+        # of 2021-01-01, so an annotation drawing from the wrong date slot
+        # still fails. Nothing renders this annotation directly — the
+        # rendered cell reads the prefetched ItemDate row instead
+        # (literature/ui/tables.py IssuedColumn), which is where the
+        # precision-and-range display rule lives.
         item = ItemFactory()
         issued_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020-05-01")
         issued_date.refresh_from_db()
         ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
         response = client.get(reverse("literature:item-list"))
         (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
-        assert annotated_item.issued == issued_date.begin
+        assert annotated_item.issued.date() == issued_date.begin.date
 
     def test_the_issued_annotation_is_none_for_a_reference_with_no_issued_date(self, client, db):
         item = ItemFactory()
