@@ -44,3 +44,26 @@ integration is reached by composing the documented mixin with django-filter's ow
 change the shape of the work — the filter form drops a chosen sort when it submits (raised upstream,
 carried in our own form if that can be done without touching an upstream template), and no demo seed
 reference carries a language, so the language filter would render empty.
+
+## 2026-08-20 — design review: changes requested, all applied
+
+One reviewer carrying compliance, security and simplicity lenses over the five specification
+artefacts, with the upstream research re-verified against django-mvp at v0.19.1 and django-filter's
+own source. Six findings, one of them high, plus six notes. Every one applied; no round two.
+
+The high finding is the only one that changed the design. The plan held the contributor page's
+controls off by leaving its filterset unset, and that does not disable filtering — django-filter
+defaults to generating a filterset over every field of the model, which raises on this model's JSON
+fields, so the contributor page would have returned a server error on every request. The page
+therefore stops inheriting the catalogue: what the two share moves into a mixin, the catalogue adds
+the filtered base class and the shared definition on top, and the contributor page keeps the plain
+list view it has always behaved like.
+
+The rest tightened the tasks rather than the design. One test case demanded behaviour the adopted
+components cannot produce and does not need to (an address carrying an undefined filter key is
+ignored, not rejected); the sort-preservation measure would have reported the sort as an applied
+filter, which is now an assertion and a second abort condition on that task; one functional
+requirement — clearing the search — had no task and now has one; the stories are recorded as
+sequential, since four of the five edit the same two files; and the search's cost scaling with query
+length is written into the decisions as a watch item rather than work. Requirement citations that
+had drifted past the end of the specification's numbering are corrected.

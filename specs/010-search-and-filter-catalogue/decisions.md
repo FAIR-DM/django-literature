@@ -37,6 +37,15 @@ nothing anywhere about how fast a search is, so there is nothing to qualify. If 
 outgrow this, the answer is a real one — a dedicated text-search facility — and it arrives as its
 own piece of work with its own decision about what the package requires of its host.
 
+**Watch item, recorded so the first slow-catalogue report is not diagnosed from scratch.** The cost
+of a search scales with the length of the query as well as with the size of the catalogue. A term is
+split on whitespace and every word is matched against every one of the eight field paths, three of
+which reach contributors through a join, so a ten-word query issues eighty fragment comparisons
+across joined tables and then deduplicates. The result page stays bounded — pagination sees to that
+— but the scan does not, and nothing the reader can type is capped. This is the accepted consequence
+of the decision above and needs no work here. If it ever bites, the answer is the dedicated
+text-search facility named above, not a limit on how much someone is allowed to type.
+
 ## D2 — Case-insensitive fragments, not whole words
 
 **Ambiguous:** the spec says the search matches text; it did not say whether a term matches a whole
@@ -151,6 +160,12 @@ built on the card list this feature is adding search to.
 within it is a different feature with no demand behind it yet. This is the same boundary FS-009
 drew when it left the contributor page on cards while the catalogue became a table, and holding the
 boundary in the same place twice is worth more than the small convenience of moving it.
+
+Unchanged to a reader is not unchanged in the code: the page subclasses the catalogue today, and the
+catalogue is becoming a filtered view. Keeping the page as it is therefore means taking it off that
+inheritance and giving it the catalogue's configuration directly, which plan D-6 sets out. Turning
+the controls back off from underneath a filtered ancestor is not available — it generates a filterset
+over the whole model and raises.
 
 ## D10 — #88 is absorbed rather than left open
 

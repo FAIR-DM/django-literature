@@ -125,13 +125,35 @@ Year matching is on the annotated value's year, accepting a year-only stored dat
 beginning in that year, and excluding a reference with no `issued` row at all, which falls out of
 the subquery being null (FR-012).
 
-### D-6 — The contributor page must not inherit the controls
+### D-6 — The contributor page stops inheriting the catalogue, and inherits its configuration instead
 
 `ContributorDetailView` subclasses `ItemListView`, so changing the card list's base class and giving
 it `search_fields` hands the contributor page a search box and four filters it must not have
-(FR-025, research R11). It overrides them back off — `search_fields = None`, no filterset — and a
-test asserts the contributor page renders neither control. Written as a task of its own so it cannot
-be lost inside the card-list task.
+(FR-025, research R11).
+
+**Overriding the attributes back off does not work, and would fail loudly.** `FilterMixin` declares
+`filterset_fields = ALL_FIELDS` as its class default, and `get_filterset_class()` falls through to
+`filterset_factory(model=self.model, fields=self.filterset_fields)` whenever `filterset_class` is
+unset but `model` is not. So "no filterset" on a subclass of a filtered view does not switch
+filtering off — it switches on a generated filterset over every field of `Item`. `Item` declares
+two `JSONField`s, django-filter has no filter for that type, and its default behaviour on an
+unrecognised field is to raise, so the contributor page would 500 on every request. Even had every
+field resolved, the page would then carry a filter control over the whole model, which is exactly
+what FR-025 forbids: the filter component renders under a bare `{% if filter %}`, and the filtered
+view puts `filter` in the context unconditionally.
+
+**So the inheritance is what changes.** The configuration the two pages genuinely share — the card
+template, the prefetching queryset, the model-info override, the contributor grouping in the
+context, the directory and CRUD wiring — moves into one mixin holding no base class of its own.
+`ItemListView` becomes that mixin plus `MVPFilteredListView`, and adds `search_fields` and
+`filterset_class` on top. `ContributorDetailView` becomes that mixin plus the plain `MVPListView`,
+so it has no filtered ancestor to hold anything off from and no search or filter attribute to
+override. Both classes exist today and both are real, so this is not a speculative base class under
+Article III — it is the same configuration, reached without the coupling that broke.
+
+The test is behavioural, not structural: the contributor page returns 200, renders neither control,
+and its existing tests go on passing unchanged. Written as a task of its own so it cannot be lost
+inside the card-list task.
 
 ### D-7 — Applying a filter drops the current sort; raise it upstream, carry it in our own form
 
@@ -151,12 +173,21 @@ it is abandoned and the limitation is documented instead. A fork of someone else
 explicitly not what this feature does, and nothing in the specification requires a sort to survive a
 change of filter — FR-019 governs the opposite direction, which works today.
 
-The task carries that abort condition in its brief, so the decision does not get made silently by
+**A second abort condition, from the design review.** django-mvp counts every non-empty entry in the
+filterset form's `cleaned_data` as an applied filter, and publishes the count as the badge on the
+Filter button. A hidden field is a form field, so a sort carried this way would be reported as a
+filter in force and offered for clearing in the filter modal — which misstates both halves of
+FR-016. The measure is therefore only kept if the applied-filter badge and the list of what is in
+force are left unchanged by an active sort, which means excluding the sort key from what the view
+reports as applied. If that cannot be done without touching an upstream template either, the measure
+goes the same way as the first abort condition: dropped, documented as a limitation.
+
+The task carries both abort conditions in its brief, so neither decision gets made silently by
 whoever implements it.
 
 ### D-8 — The empty-result message is the filterset's, not the empty catalogue's
 
-FR-030: a search matching nothing must read differently from an empty catalogue, and must keep its
+FR-028: a search matching nothing must read differently from an empty catalogue, and must keep its
 controls. django-mvp's list and table pages both render an empty state; the distinction is ours to
 draw from whether a query is in force. The wording is a translatable string on each view, and the
 test asserts both messages appear in their own circumstance and never together.
@@ -189,7 +220,7 @@ references — either the narrowing is a search broad enough to leave more than 
 The front-end section currently tells readers that a chosen sort is discarded on a page change and
 points at #88. This feature removes that limitation, so the paragraph goes, and the section gains
 what the search matches, what it deliberately does not, what each filter narrows on, and how the
-three compose (FR-036). A stale limitation left in place is worse than no documentation, because it
+three compose (FR-034). A stale limitation left in place is worse than no documentation, because it
 tells a reader not to rely on something that now works.
 
 ## Story → task shape
@@ -200,8 +231,15 @@ tells a reader not to rely on something that now works.
 | US-1 #91 | Table gains `search_fields` and its actions (D-3); no-results message (D-8); query-count guarantee |
 | US-2 #92 | The four filters, their composition, invalid-value behaviour (D-1, FR-017) |
 | US-3 #93 | Floor-driven assertion moves (D-10), sort-survival tests, the hidden sort field and its upstream issue (D-7) |
-| US-4 #94 | Card list gains the same definition (D-2); contributor page holds them off (D-6); the two-presentations agreement test |
+| US-4 #94 | Card list gains the same definition (D-2); contributor page moves off the filtered ancestor (D-6); the two-presentations agreement test |
 | US-5 #95 | Seed languages, guard walks search + filter + page move (D-11); README and CHANGELOG (D-12) |
+
+**The stories run in sequence — Foundational → US-1 → US-2 → US-3 → US-4 → US-5, no two at once.**
+They are not independent, and dispatching them concurrently would collide twice over. US-2 and US-3
+both assert filter behaviour on the table, which only becomes a filtered view in US-1's T008; and
+`literature/ui/views.py` and `tests/test_ui/test_views.py` are in the declared scope of nearly every
+task across four of the five stories, so parallel worktrees would meet at convergence on both files.
+Sequencing them removes a convergence pass rather than adding work. No task carries `[P]`.
 
 ## Complexity Tracking
 

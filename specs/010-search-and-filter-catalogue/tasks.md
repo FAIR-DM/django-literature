@@ -44,10 +44,17 @@ phase — different files, no shared state.
   value; language offers the distinct values the catalogue holds, computed per request, and offers
   none that no reference carries; contributor matches family, given or literal in any role; the year
   filter is added in T007. Every label translatable (Article VIII).
+
+  `language` is free text and blank for most references today, so the distinct-values query returns
+  the empty string as one of its values. The empty string is not a language the catalogue holds:
+  exclude it, so the filter never offers a blank choice beside its own "any" option, and assert that.
   *Test scope:* `tests/test_ui/test_filters.py`.
 
 - [ ] **T006** Make the filtered queryset return each reference once (plan D-4, FR-005, FR-011).
-  Assert the single occurrence directly — a reference credited to one contributor in two roles, and a
+  The search path is already deduplicated upstream — the mixin's own query ends in `.distinct()` — so
+  this task's subject is the filter path, and the search side of it is a guard that upstream goes on
+  doing what it does. Assert the single occurrence directly — a reference credited to one contributor
+  in two roles, and a
   multi-value filter matching two related rows — never that `.distinct()` was called. Run the table's
   existing sort tests as part of this task's check: distinct combined with an ordering on an
   annotation is where this breaks quietly.
@@ -55,8 +62,9 @@ phase — different files, no shared state.
 
 - [ ] **T007** Move FS-009's `issued` subquery annotation into the shared definition and add the year
   filter on it (plan D-5, FR-012). A year-only stored date qualifies, a range qualifies for the year
-  it begins in, and a reference with no `issued` row is excluded. Both views carry the annotation
-  after this task; the table's existing sort on `issued` must still pass.
+  it begins in, and a reference with no `issued` row is excluded. The annotation lives in
+  `literature/ui/filters.py` and is applied from there — one place, not restated in each view's
+  `get_queryset()` — and the table's existing sort on `issued` must still pass.
   *Test scope:* `tests/test_ui/test_filters.py`.
 
 ## Phase 2 — US-1 #91 · Search the catalogue for a reference
@@ -82,10 +90,16 @@ phase — different files, no shared state.
   as the guard that it goes on doing so.
   *Test scope:* `tests/test_ui/test_views.py`.
 
-- [ ] **T011** The result count and the no-results message (FR-007, FR-030, plan D-8). The count
-  states how many references matched; a search matching nothing says so, keeps the search box and the
-  filters on the page, and does not show the empty-catalogue message. Assert both messages appear in
-  their own circumstance and never together. Translatable strings.
+- [ ] **T011** The result count and the no-results message (FR-007, FR-028, FR-030, plan D-8). The
+  count states how many references matched; a search matching nothing says so, keeps the search box
+  and the filters on the page, and does not show the empty-catalogue message. Assert both messages
+  appear in their own circumstance and never together. Translatable strings.
+
+  Also FR-008, which no other task covers: clearing the search restores the unnarrowed catalogue.
+  Assert that a request carrying an empty `q`, and a request carrying no `q` at all, each return the
+  whole catalogue where the preceding search had narrowed it. Upstream's search mixin already no-ops
+  on an empty term, so this is a guard on behaviour that should already hold — which is exactly what
+  it is for.
   *Test scope:* `tests/test_ui/test_views.py`.
 
 - [ ] **T012** The query-count guarantee under search (FR-026): a page of results costs a constant
@@ -109,10 +123,21 @@ phase — different files, no shared state.
   reaches the unfiltered catalogue.
   *Test scope:* `tests/test_ui/test_views.py`.
 
-- [ ] **T016** Invalid and unmatched filter values (FR-017, plan D-1): a value matching no reference,
-  and a value that is not valid at all, each report no matches — never an error, never a fall back to
-  the unfiltered catalogue. Include a hand-edited address carrying a filter key the filterset does not
-  define. Run the full suite — last task of the story.
+- [ ] **T016** Invalid and unmatched filter values (FR-017, plan D-1), which is two cases and only
+  two: an unmatched value of a declared filter (`?language=zz`), and an invalid value of a declared
+  filter (`?year=notanumber`). Each reports no matches — never an error, never a fall back to the
+  unfiltered catalogue. Both work through the adopted components: an unmatched value narrows to
+  nothing, and an invalid one fails the filterset form's validation, which under `strict` returns an
+  empty queryset.
+
+  **An address carrying a key the filterset does not define is not one of these cases.** A Django
+  form ignores data it has no field for, so such an address is simply ignored and the catalogue comes
+  back unnarrowed. FR-017 reads on a filter *value*, not an undefined key, and making an unknown key
+  fail would mean building a rejection mechanism nothing asks for and then allowlisting `q`, `page`
+  and the sort back through it. If it is worth pinning at all, pin what actually happens — the page
+  returns 200 and does not raise — and say so.
+
+  Run the full suite — last task of the story.
   *Test scope:* `tests/test_ui/test_views.py`, then the whole suite.
 
 ## Phase 4 — US-3 #93 · State survives a page move
@@ -134,8 +159,16 @@ phase — different files, no shared state.
 - [ ] **T020** The sort survives a change of filter (plan D-7, research R5). Carry the sort as a
   hidden field on `ItemFilterSet`'s own form, populated from the request, so it is rendered from
   `filter.form` and no upstream template is touched. **Do not file an upstream issue for this** —
-  that component is already being worked on upstream (Sam, 2026-08-20). **Abort condition, and it is
-  not negotiable:** if this cannot be done without overriding an upstream template or block, stop,
+  that component is already being worked on upstream (Sam, 2026-08-20).
+
+  **Assert that an active sort does not get reported as a filter.** django-mvp counts every non-empty
+  entry in the filterset form's cleaned data as an applied filter and badges the Filter button with
+  the count, so a hidden sort field lands there unless the view's applied-filter reporting drops the
+  sort key. The test is that the badge and the list of what is in force are identical with and
+  without a sort in force — otherwise the measure misstates both halves of FR-016.
+
+  **Abort conditions, and they are not negotiable:** if either the hidden field or the
+  applied-filter correction cannot be done without overriding an upstream template or block, stop,
   spend no further time on it, and document the limitation in the README instead. Nothing in the
   specification requires this, so abandoning it is a clean outcome, not a failure. Report which of
   the two happened.
@@ -151,10 +184,24 @@ phase — different files, no shared state.
   `search_fields` and `filterset_class`. Delete its two comments naming this issue.
   *Test scope:* `tests/test_ui/test_views.py`.
 
-- [ ] **T023** The contributor page holds the controls off (plan D-6, FR-025). It subclasses the card
-  list, so it inherits them unless it says otherwise: set `search_fields = None` and no filterset, and
-  assert the contributor page renders neither control and is otherwise unchanged. A task of its own so
-  it cannot be lost inside T022.
+- [ ] **T023** The contributor page keeps neither control (plan D-6, FR-025). It subclasses the card
+  list, so T022 would otherwise hand it a search box and four filters.
+
+  **Overriding the attributes back off is not the mechanism, and does not work.** Leaving
+  `filterset_class` unset on a subclass of a filtered view does not disable filtering — `FilterMixin`
+  defaults `filterset_fields` to every field, so `get_filterset_class()` generates a filterset over
+  the whole of `Item`, which raises on its `JSONField`s and 500s the page. Do not reach for it.
+
+  What this task does instead is move the inheritance: extract the card-list configuration
+  `ItemListView` and `ContributorDetailView` share — `list_item_template`, `get_queryset`'s
+  prefetching, `get_model_info`, the `contributor_groups` annotation in `get_context_data`, and the
+  directory and CRUD wiring — into one mixin carrying no base class of its own. `ItemListView`
+  becomes that mixin plus `MVPFilteredListView` (T022); `ContributorDetailView` becomes that mixin
+  plus the plain `MVPListView`. Each of the two keeps every attribute it declares for itself today.
+
+  Assert behaviour, not structure: the contributor page returns 200, renders neither the search box
+  nor the Filter button, and every existing contributor-page test passes unchanged. A task of its own
+  so it cannot be lost inside T022.
   *Test scope:* `tests/test_ui/test_contributors.py`.
 
 - [ ] **T024** The two presentations agree (FR-024, SC-005): the same search term and the same filters
@@ -181,11 +228,11 @@ phase — different files, no shared state.
   *Test scope:* `tests/test_demo/test_smoke.py`.
 
 - [ ] **T028** The guard walks a search, a filter, and a page move over a narrowed result
-  (FR-033, FR-035), asserting on what came back each time rather than on a status code. Break each of
+  (FR-033), asserting on what came back each time rather than on a status code. Break each of
   the three in turn and confirm the guard fails — a guard that cannot fail is not a guard.
   *Test scope:* `tests/test_demo/test_smoke.py`, `demo/smoke.py`.
 
-- [ ] **T029** README (FR-036, plan D-12): the front-end section gains what the search matches, what
+- [ ] **T029** README (FR-034, plan D-12): the front-end section gains what the search matches, what
   it deliberately does not, what each filter narrows on, and how the three compose with sorting and
   pagination. **Delete the paragraph describing the pagination limitation and pointing at #88** — this
   feature removes it, and a stale limitation is worse than no documentation. CHANGELOG entry in the

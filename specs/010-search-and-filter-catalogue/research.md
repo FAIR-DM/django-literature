@@ -73,11 +73,12 @@ defect class as #88, arriving from the opposite direction: the pagination links 
 and now the filter form does.
 
 **Consequence:** FR-018 and FR-019 are not fully satisfied by adopting the upstream components as
-they stand. The fix belongs upstream — the filter form should carry the current sort as a hidden
-field, exactly as the pagination link now carries the rest of the address — so this is raised as a
-django-mvp issue rather than worked around here, per the standing direction. What the plan must
-decide is what this feature ships in the meantime, and the honest options are a documented
-limitation or waiting on a release. This is the one open design question S3R should look hardest at.
+they stand. The durable fix belongs upstream — the filter form should carry the current sort as a
+hidden field, exactly as the pagination link now carries the rest of the address.
+
+**Superseded on the disposition, 2026-08-20:** no issue is filed, because that component is already
+being worked on upstream. Plan D-7 settles what this feature ships instead — the hidden field on our
+own filterset's form, with two abort conditions — and tasks T020 carries it.
 
 ## R6 — The pagination fix is in 0.19.1, and the floor and the lock both move
 
