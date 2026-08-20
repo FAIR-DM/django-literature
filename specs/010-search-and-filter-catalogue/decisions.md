@@ -211,3 +211,33 @@ table's own page — reported in T006's completion evidence for that story to in
 
 **Revisit if:** US-1/T008 (or whichever story next edits `ItemTableView`) does not already carry a
 fix for these two tests — confirm before that story's own baseline check is trusted.
+
+## D12 — The `issued` annotation states its output field explicitly, rather than inferring it
+
+**Discovered during US0/T007.** The year filter needs `issued__year`, and `annotate_issued()`'s
+`Subquery` draws from `ItemDate.begin`, a `PartialDateField` (`django-partial-date`). Inferred from
+the source expression, the annotation carries `PartialDateField` as its output field, and
+`issued__year=value` raised `FieldError: Unsupported lookup 'year' for PartialDateField` — Django
+registers the `year` transform on `DateField`/`DateTimeField` specifically, and `PartialDateField`
+subclasses plain `models.Field`; its `get_internal_type() == "DateTimeField"` only tells the schema
+editor what database column to create, and is not consulted for lookup resolution.
+
+**Ambiguous:** whether to work around the missing lookup with a `gte`/`lt` half-open range instead,
+since every field carries those.
+
+**Chosen:** state `output_field=DateTimeField()` explicitly on the `Subquery`, and keep the plain
+`__year` lookup.
+
+**Why defensible:** the `gte`/`lt` range was tried first and returns wrong rows, not just an error —
+worse, because it fails silently. `PartialDateField` encodes its precision (year/month/day) in the
+stored value's *seconds* component (0/1/2), so a year-only date and a full-date range boundary for
+the same calendar year compare unequal at that resolution: reproduced both a real match excluded and
+a wrong item included, from the same underlying cause. `output_field=DateTimeField()` changes nothing
+about the SQL column — it only tells Django's ORM which field's lookups to resolve against — and
+`DateTimeField`'s `year` transform extracts the year in SQL, correctly indifferent to the
+seconds-encoded precision. Ordering (`ItemTable.order_issued`, `F("issued")`) is unaffected either
+way: it sorts the raw column value, which does not go through a lookup at all.
+
+**Revisit if:** a future filter on `issued` needs month- or day-level precision — the seconds-encoding
+gotcha applies there too, and `DateTimeField`'s `month`/`day` transforms will have the same silent
+wrong-row failure mode `gte`/`lt` did here if reached for again instead.
