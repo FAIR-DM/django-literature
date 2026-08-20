@@ -46,6 +46,8 @@ across joined tables and then deduplicates. The result page stays bounded — pa
 of the decision above and needs no work here. If it ever bites, the answer is the dedicated
 text-search facility named above, not a limit on how much someone is allowed to type.
 
+**ADR:** docs/adr/0024-the-catalogue-search-adds-no-index.md
+
 ## D2 — Case-insensitive fragments, not whole words
 
 **Ambiguous:** the spec says the search matches text; it did not say whether a term matches a whole
@@ -61,6 +63,8 @@ not a choice so much as the absence of a reason: nobody hunting a reference inte
 between `Smith` and `smith`. The cost is the one D1 describes, and paying it knowingly is better
 than a fast search that does not find things.
 
+**ADR:** none — the search semantics this feature ships, stated for a reader in the README; nothing downstream inherits the choice.
+
 ## D3 — Contributor names match on family, given and literal
 
 **Ambiguous:** a `Name` stores its parts separately — family, given, two particle fields, a suffix,
@@ -74,6 +78,8 @@ a survey, a consortium — is stored there and nowhere else, so omitting it woul
 of contributor unfindable by name while appearing to work. Particles and suffixes are excluded as
 search targets of their own because nobody searches for `van` or `Jr`, and where a particle is
 stored inline in a family name it is matched anyway as part of that value.
+
+**ADR:** none — a field list inside the shared search definition, documented where it is declared.
 
 ## D4 — The year filter reads the `issued` slot, and excludes references without one
 
@@ -92,6 +98,8 @@ the opposite choice for undated references, keeping them in the result rather th
 and the two are consistent: an ordering must account for every reference it orders, while a filter
 exists to leave things out.
 
+**ADR:** none — one filter's own matching rule, stated in the README and pinned by its tests.
+
 ## D5 — The language filter offers what the catalogue holds
 
 **Ambiguous:** `language` is a free-text field with no `choices`, so its values are whatever the
@@ -107,6 +115,8 @@ honest, needs no vocabulary, and makes an inconsistent import visible as two ent
 rather than invisible behind a normalization. If normalizing language values is worth doing, it is
 an import concern and its own piece of work.
 
+**ADR:** none — one filter's own source of choices, carried by the filter class's docstring.
+
 ## D6 — Values within a filter widen, filters narrow
 
 **Ambiguous:** how several filters combine, and how several values within one filter combine, was
@@ -119,6 +129,8 @@ combine with each other and with the search so that a result satisfies all of th
 is one filter widened and another applied, and the opposite convention — requiring a reference to
 carry two item types at once — would return nothing, always. This is also the near-universal
 convention in faceted search, so a reader arrives already knowing it.
+
+**ADR:** none — the composition rule the README states for a reader; it follows from the filter classes chosen.
 
 ## D7 — An invalid or empty filter says nothing matched, rather than falling back
 
@@ -136,6 +148,8 @@ dropped, with a plausible page in its place. Raising an error is the other extre
 reader for a stale bookmark. Reporting no matches is true in both cases — nothing in the catalogue
 matches what was asked for — and leaves the controls on the page so the reader can change it.
 
+**ADR:** none — this feature's own behaviour on bad input, stated in the README and covered by tests.
+
 ## D8 — One definition of what is searchable, used by both presentations
 
 **Ambiguous:** intake settled that both the table and the card list get the feature. It did not say
@@ -147,6 +161,8 @@ whether they share a definition or each carry their own.
 search and not the card list's produces two catalogues that disagree about what exists, with
 nothing failing. The spec makes the agreement testable (FR-023, and the story that compares the two
 results) rather than trusting it to review.
+
+**ADR:** docs/adr/0025-one-definition-of-what-the-catalogue-narrows-by.md
 
 ## D9 — The contributor page stays as it is
 
@@ -167,6 +183,8 @@ inheritance and giving it the catalogue's configuration directly, which plan D-6
 the controls back off from underneath a filtered ancestor is not available — it generates a filterset
 over the whole model and raises.
 
+**ADR:** none — a scope boundary, and the mechanism that holds it is recorded in ADR 0025.
+
 ## D10 — #88 is absorbed rather than left open
 
 **Ambiguous:** #88 is a separate open issue against the same roadmap item, describing the same
@@ -178,6 +196,8 @@ defect this feature must not ship into.
 make both regardless, because filtering discarded on a page move is precisely the defect the
 feature exists to remove. Leaving it open would leave a sibling issue describing a floor this
 branch has already raised. Sam confirmed the fold at intake.
+
+**ADR:** none — issue housekeeping settled at intake, with no consequence for the code.
 
 ## D11 — 0.19.1's pagination change reaches further than research R6 found, and this story does not chase it
 
@@ -212,6 +232,8 @@ table's own page — reported in T006's completion evidence for that story to in
 **Revisit if:** US-1/T008 (or whichever story next edits `ItemTableView`) does not already carry a
 fix for these two tests — confirm before that story's own baseline check is trusted.
 
+**ADR:** none — a finding about a dependency release, local to this branch's planning.
+
 ## D12 — The `issued` annotation states its output field explicitly, rather than inferring it
 
 **Discovered during US0/T007.** The year filter needs `issued__year`, and `annotate_issued()`'s
@@ -241,6 +263,8 @@ way: it sorts the raw column value, which does not go through a lookup at all.
 **Revisit if:** a future filter on `issued` needs month- or day-level precision — the seconds-encoding
 gotcha applies there too, and `DateTimeField`'s `month`/`day` transforms will have the same silent
 wrong-row failure mode `gte`/`lt` did here if reached for again instead.
+
+**ADR:** none — one annotation's argument, and the reason sits in its own docstring where a reader meets it.
 
 ## D13 — The page-2 link already carries the sort at 0.19.1; the standing xfail reads an escaped href
 
@@ -277,6 +301,8 @@ follows a rendered pagination link is measuring through this helper, so a search
 a page move would fail the same way for the same reason and look like a defect in this feature.
 Correct the helper first, then write those tests.
 
+**ADR:** none — a test instrument detail, superseded by the guard the demo story rewrote.
+
 ## D14 — US-1 inherits the two `object_list` failures D11 reports, and reinstruments them
 
 **Confirmed at D11's own revisit condition.** Both failures are reproduced at `cc4f638`, and the
@@ -295,6 +321,8 @@ route keeps reading `object_list`, which still means a page there.
 references, and page two renders the next rows under the same headings. Only the instrument moves,
 from a context variable that no longer describes the rendered page to the one that does. Reading a
 stale variable and calling the mismatch a regression would be the actual error.
+
+**ADR:** none — a story-level record of which pre-existing tests moved and why.
 
 ## D15 — T008 blocked: turning search and filter on breaks two pre-existing FS-009 tests neither D14 nor any task names
 
@@ -347,6 +375,8 @@ label a raw substring search finds. Once a decision lands, T008 restarts from he
 diff above is not preserved (it was reverted), but the change itself is small and was proven to work
 for everything D14 and T008's own acceptance ask of it.
 
+**ADR:** none — a record of a stop during implementation, resolved by D16.
+
 ## D16 — D15 resolved: both tests are rewritten, one because its premise is reversed and one because its instrument is wrong
 
 **Decided at the D15 block**, after verifying both findings first-hand rather than accepting the
@@ -381,6 +411,8 @@ something outside the specification's reach, the answer would have been the oppo
 **Not chosen:** reordering `ItemFilterSet`'s fields so `"Type"` is not the first label found. That
 fixes the symptom by constraining an unrelated design surface, and the next label collision would
 break the test again.
+
+**ADR:** none — resolves D15 by superseding a clause of the earlier spec in place, which is recorded there.
 
 ## D17 — T008 blocked again: a third untouchable pre-existing test breaks on the correctly-typed shared `issued` annotation
 
@@ -443,6 +475,8 @@ production diff (the D-2/D-3/D-5 composition plus the `get_filterset_kwargs` fix
 (it was reverted, exactly as D15's was), but it is proven to satisfy every acceptance criterion T008,
 D14 and D16 ask of it, plus this one.
 
+**ADR:** none — a record of a stop during implementation, resolved by D18.
+
 ## D18 — The `issued` annotation is a raw column value; the test that compares it to a `PartialDate` is reinstrumented
 
 **Ruling on D17.** Verified first-hand rather than taken from the report: `annotate_issued()` on a
@@ -489,6 +523,8 @@ feature is still a stop — that is the case D16 ruled on, and it stays mine to 
 whose seconds component encodes the source date's precision, so rendering it directly would show a
 fabricated day and month for a year-only date. Read the `ItemDate` row, as `IssuedColumn` does.
 
+**ADR:** none — a test instrument moving to follow a type stated in D12's own docstring.
+
 ## D19 — `type` becomes a `MultipleChoiceFilter`; a widget, not a test edit, absorbs the mismatch
 
 **Ambiguous:** T014 (FR-014) needs one filter that widens to more than one chosen value.
@@ -527,6 +563,8 @@ in the completion report, per the prohibition's own instruction.
 generically enough to reuse, but has exactly one caller today, so it stays where `type` declares it
 rather than moving to a shared module speculatively.
 
+**ADR:** none — a widget local to one filter, with the reason carried in the widget's docstring.
+
 ## D20 — `ItemTableView` gains its own `get_context_data()` for `applied_filters`/`applied_filter_count`
 
 **Ambiguous:** T015 (FR-016) asks for what django-mvp's own `applied_filters`/`applied_filter_count`
@@ -555,6 +593,8 @@ template touched, no fork, no upstream behaviour changed. The upstream template'
 at that point the four lines are worth lifting into a small mixin of their own, which today would be
 a base class for one class, the exact premature abstraction craft-increments warns against.
 
+**ADR:** none — a context key mirrored from the dependency, superseded in part by D21.
+
 ## D21 — The applied-filters exclusion of `sort` moves into one shared function
 
 **Discovered before writing T022's own test:** `ItemListView` becoming `MVPFilteredListView` (plan.md
@@ -579,6 +619,8 @@ only overwrites the two keys the upstream method got wrong for this form.
 **Revisit if:** upstream's own `get_active_filters()` grows a way to declare a field as
 ordering-only rather than filter-only — at that point this package's own exclusion could be deleted
 in favour of it.
+
+**ADR:** none — an extraction inside this feature's own module; the shared function documents itself.
 
 ## D22 — The guard reaches page 2 by filtering to the dominant language; the seed grows to make that a real narrowing
 
@@ -614,3 +656,6 @@ to pad a count.
 **Revisit if:** the seed's item-type distribution changes such that some other filter clears 24 on
 its own — at that point the guard could exercise that filter instead without the seed needing this
 much language skew, though there is no reason to change it while the language route already works.
+
+**ADR:** none — how the demo's own check reaches a second page, local to the demo data.
+

@@ -260,16 +260,16 @@ class ItemTableView(MVPTableViewMixin, FilterView):
     no_matches_message = _("Try a different search term, or clear the search and filters.")
 
     def get_empty_state_heading(self):
-        if self._catalogue_is_narrowed():
+        if self.catalogue_is_narrowed():
             return self.no_matches_heading
         return super().get_empty_state_heading()
 
     def get_empty_state_message(self):
-        if self._catalogue_is_narrowed():
+        if self.catalogue_is_narrowed():
             return self.no_matches_message
         return super().get_empty_state_message()
 
-    def _catalogue_is_narrowed(self):
+    def catalogue_is_narrowed(self):
         """Whether the current request carries a search term or a filter value.
 
         Read from the raw request rather than from ``self.filterset.qs``
