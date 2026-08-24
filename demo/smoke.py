@@ -488,29 +488,32 @@ class DemoWalk:
             )
 
     def walk_import(self, list_url, list_body):
-        """Preview the fixture file, confirm it, and confirm both the report and the
-        catalogue show it (T301, T304, T513, US-4).
+        """Preview the fixture file, confirm it, and confirm both the message
+        left behind and the catalogue show it (T301, T304, T513, T918, US-4,
+        US-6).
 
         Follows the catalogue's own Import link, the same discipline every
-        other step in this class uses (SC-003). Submitting the form is
-        asserted never to redirect — the reader always lands on the report
-        itself, never on the catalogue with a message (plan.md D1, D11) —
-        and, since previewing is the default path through the feature now
-        (decisions.md D16), that first response is asserted to be a
+        other step in this class uses (SC-003). Submitting the form now
+        redirects to the preview's own address rather than rendering it
+        directly (FR-045, decisions.md D30), and ``self.fetch`` follows that
+        redirect the same way a browser would — the landed-on address is
+        checked against the preview's own, expected one, not merely against
+        "did not stay on the form". That response is asserted to be a
         preview: labelled as one, reporting the same two entries that would
         convert and the one that would not with the reason a reader could
         act on (demo/seed/import-sample.bib, decisions.md D15), and the
         catalogue is checked to still hold none of them. Only then is the
-        preview's own confirm control followed, and the same three
-        assertions repeated against the report that comes back — the point
-        of a preview is that it reports exactly what a real import would —
-        before the catalogue is re-fetched to confirm the references
-        actually arrived, not only that the report claimed they would.
+        preview's own confirm control followed, which redirects again, this
+        time to the catalogue with a message stating the counts (FR-052,
+        decisions.md D31) — there is no success page or address any more —
+        and the catalogue is re-fetched to confirm the references actually
+        arrived, not only that the preview claimed they would.
         """
         import_match = IMPORT_LINK_RE.search(list_body)
         if import_match is None:
             self.fail(list_url, 200, "no Import link on the catalogue list", list_body)
         import_url = f"{self.base_url}{import_match.group('path')}"
+        preview_url = f"{import_url}preview/"
 
         import_form_body = self.get(import_url)
         fields = form_fields(import_form_body)
@@ -525,18 +528,18 @@ class DemoWalk:
         )
         headers = {"Referer": import_url, "Content-Type": content_type}
         request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
-        preview_body, preview_url = self.fetch(request, import_url)
+        preview_body, landed_url = self.fetch(request, import_url)
 
-        if preview_url != import_url:
+        if landed_url != preview_url:
             self.fail(
-                preview_url,
+                landed_url,
                 200,
-                f"submitting the import did not render the preview directly (landed on {preview_url})",
+                f"submitting the import did not redirect to its own preview address (landed on {landed_url})",
                 preview_body,
             )
         if "preview" not in preview_body.lower():
-            self.fail(import_url, 200, "a default submission was not rendered as a preview", preview_body)
-        self._check_import_report(import_url, preview_body, "the preview")
+            self.fail(preview_url, 200, "the preview address was not rendered as a preview", preview_body)
+        self._check_import_report(preview_url, preview_body, "the preview")
 
         list_before_confirm = self.get(list_url)
         for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
@@ -550,24 +553,25 @@ class DemoWalk:
 
         confirm_match = CONFIRM_IMPORT_RE.search(preview_body)
         if confirm_match is None:
-            self.fail(import_url, 200, "the preview carries no confirm control", preview_body)
+            self.fail(preview_url, 200, "the preview carries no confirm control", preview_body)
         confirm_url = f"{self.base_url}{confirm_match.group('path')}"
 
-        # ``form_fields`` walks a page's first <form>, and the preview page's
-        # first one is now the upload form sitting above the results
-        # (decisions.md D17). Reading from the confirm control's own opening
-        # tag onwards is what keeps this step posting the confirm form's
-        # fields rather than the upload form's.
         confirm_form_body = preview_body[confirm_match.start() :]
-        report_body, report_url = self.post(confirm_url, import_url, form_fields(confirm_form_body))
-        if report_url != confirm_url:
+        list_after_confirm_body, landed_url = self.post(confirm_url, preview_url, form_fields(confirm_form_body))
+        if landed_url != list_url:
             self.fail(
-                report_url,
+                landed_url,
                 200,
-                f"confirming the preview did not render the report directly (landed on {report_url})",
-                report_body,
+                f"confirming the preview did not redirect to the catalogue (landed on {landed_url})",
+                list_after_confirm_body,
             )
-        self._check_import_report(confirm_url, report_body, "the report")
+        if "2 created" not in list_after_confirm_body:
+            self.fail(
+                list_url,
+                200,
+                "the catalogue does not carry a message stating the counts after confirming",
+                list_after_confirm_body,
+            )
 
         list_after_import = self.get(list_url)
         for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):

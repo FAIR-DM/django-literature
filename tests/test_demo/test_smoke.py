@@ -412,11 +412,14 @@ class TestImportLinkPattern:
 
 
 class TestConfirmImportPattern:
-    """The pattern the walk follows from a preview to carrying it out (T512, US-4)."""
+    """The pattern the walk follows from a preview to carrying it out (T512,
+    T918, US-4, US-6). Submitting the form redirects to the preview's own
+    address now (FR-045) — the confirm control lives on the page reached by
+    following that redirect, not on the response to the upload itself."""
 
     def test_matches_the_form_the_preview_page_really_renders(self, client, db):
         upload = SimpleUploadedFile("import.bib", b"@article{Key2020, title={A Title}, address={x}}")
-        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload}, follow=True)
         match = CONFIRM_IMPORT_RE.search(response.content.decode())
 
         assert match is not None
