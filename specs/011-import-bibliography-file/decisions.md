@@ -170,3 +170,65 @@ What makes this worth a decision rather than a silent inheritance is the size of
 create form adds one reference at a time; an import adds a file's worth, and a reader who reaches
 the page can fill a catalogue in one action. If Sam wants the front end gated, this is the feature
 where the cost of not having it is highest, so the gate brief names it as a veto point.
+
+## D10 — The two formats are made to agree on what a file handle is, before any front-end work
+
+**Ambiguous:** the import contract documents `import_file`'s argument as "an open file object, or
+anything with a `read()`". Planning established that the two shipped formats mean different things
+by it, and that a browser upload satisfies only one of them.
+
+**Chosen:** both formats accept either a text or a binary handle, decoding bytes themselves. It is
+the first task in the run, ahead of everything front-end.
+
+**Why defensible:** the measurements are in `research.md` R1 and they are unambiguous — BibTeX
+requires text and fails on bytes with `TypeError: cannot use a string pattern on a bytes-like
+object`; RIS requires bytes and fails on text with `AttributeError: 'str' object has no attribute
+'decode'`. Neither raises to the caller, because the runner catches everything, so each arrives as a
+report of one failed entry whose reason names a Python type error. Django hands a view bytes,
+always. So without this fix the feature ships a BibTeX path that fails every file with a reason the
+reader cannot act on, which is precisely the outcome the report exists to prevent.
+
+The alternative — the view decoding for BibTeX and not for RIS — was rejected on three counts. It
+contradicts ADR 0012, which puts decoding with the format on the grounds that only the format knows
+its own encoding conventions. It contradicts FR-010, which keeps any reading path out of the front
+end. And it breaks for any third format a project configures, which FR-005 explicitly supports; the
+front end would be carrying a table of handle types it cannot possibly keep current.
+
+The spec forbids changing the import contract, any model or any converter (FR-028). A format's
+`parse` is none of the three, and what changes is not the contract's shape but a documented input
+type that two implementations already disagreed about. The change is additive in both directions:
+every existing caller keeps working, because each format continues to accept what its own tests
+already pass it.
+
+RIS is the one that was right. It owns its decoding and raises a `ParseError` a reader can act on
+when the bytes are not decodable. BibTeX gains the same step, with the same error, which is why
+this reads as bringing one format up to the other rather than as a new behaviour.
+
+Raised on the tracker in its own right, so the defect has a record that does not depend on anyone
+reading this feature's specification.
+
+## D11 — FR-023 is narrowed to the guarantee that can be kept
+
+**Ambiguous:** the specification required that reloading the report not re-run the import. Planning
+established that this cannot hold at the same time as FR-031, which stores nothing about the run.
+
+**Chosen:** the report is rendered on the response to the upload. FR-023 now says that one
+submission imports the file once and that the report page carries no control that runs it again.
+
+**Why defensible:** the wider guarantee needs the result to survive between two requests, so that
+the upload can redirect to a report fetched with an ordinary GET. That means the session. A report
+of several hundred entries does not fit a signed-cookie session, so the package would be requiring
+its host to run a database or cache session backend — and Article X says a host adopting this
+package makes no structural changes to accommodate it. A reusable app does not get to impose that.
+
+What is left is what every server-rendered upload in Django does, including Django's own admin: the
+result renders on the POST response, and a reader who reloads meets the browser's resubmission
+prompt. The prompt is the browser's, it is familiar, and it asks before doing anything.
+
+This is a criterion written at specification time that implementation reality narrowed before any
+code existed, which is what the planning stage is for. It changes no scope, so it does not go back
+through the specification gate; it is raised in the plan notification instead, where Sam can object
+at no cost.
+
+If an import history is built later (D2), the redirect becomes available for free, because the
+result would then have somewhere to live that is not the session.

@@ -113,7 +113,7 @@ The demo project offers the import path over its own front end, and the guard th
 - A file whose entries all fail produces a report of failures and leaves the catalogue as it was.
 - A failure reason carrying characters that mean something in markup is shown as text, not interpreted.
 - A very large file blocks the request for as long as the import takes, because the import runs in the request; the host's own upload and timeout limits are what bound it.
-- A reader who reloads the report page does not re-run the import.
+- A reader who reloads the report page meets their browser's own offer to resubmit the form, which is what every server-rendered upload in Django does. The page itself carries nothing that re-runs the import.
 - A citation key long enough to be awkward in a table is still shown in full rather than silently truncated to something that no longer matches the file.
 
 ## Requirements *(mandatory)*
@@ -150,7 +150,7 @@ The demo project offers the import path over its own front end, and the guard th
 - **FR-020**: Each created entry MUST link to that reference's page in the catalogue.
 - **FR-021**: The report MUST offer a way back to the catalogue.
 - **FR-022**: A failure reason MUST be rendered as text, so that characters meaningful in markup cannot be interpreted.
-- **FR-023**: Reloading the report MUST NOT re-run the import.
+- **FR-023**: One submission MUST import the file exactly once, and the report MUST offer no control that runs the import again. *(Narrowed during planning from "reloading the report must not re-run the import" — see `decisions.md` D11. Holding the wider form would mean carrying the result between two requests, which needs a session backend the host may not run, and Article X forbids the package requiring structural changes of its host.)*
 
 **Failing safely**
 

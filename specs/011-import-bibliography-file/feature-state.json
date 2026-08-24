@@ -1,0 +1,295 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "011-import-bibliography-file",
+  "branch": "011-import-bibliography-file",
+  "repo": "FAIR-DM/django-literature",
+  "state": "PLAN",
+  "state_history": [
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-24T09:15:00Z",
+      "note": "spec and decisions authored from the intake conversation on issue #50"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-24T09:55:00Z",
+      "note": "epic promoted, stories #100-#102 created, draft PR #103 opened"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T10:50:00Z",
+      "note": "plan, research and tasks authored; handle-type defect found and filed as #104, FR-023 narrowed"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-24T10:30:00Z",
+      "self_resolved": [
+        "The reader always lands on a report; the redirect-with-a-summary alternative is the failure the requirement names",
+        "Nothing about the run is stored, so the report exists once",
+        "The import action appears on both catalogue presentations, not only the table",
+        "The import page carries no permission check, matching what FS-008 settled for the other write paths",
+        "The report numbers entries from one while the import contract keeps its zero-based index",
+        "No duplicate detection; the import page warns before submission instead",
+        "The report is one page and is never paginated",
+        "The format is chosen by the reader and never detected from the file",
+        "Formats offered are read from the installation's configuration rather than listed in the front end",
+        "The feature reads the import contract and does not extend it; a genuine gap is raised as its own issue"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "issue": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T002",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T003",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T004",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T005",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T006",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 100,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T101",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T102",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T103",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T104",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T105",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T106",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T107",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T108",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T109",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T110",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T111",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T112",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T113",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T114",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 101,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T201",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T202",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T203",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 102,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T301",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T302",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T303",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T304",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T305",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T401",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T402",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T403",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T404",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T405",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T406",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T407",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 120
+    }
+  },
+  "pr": {
+    "number": 103,
+    "draft": true
+  },
+  "escalations": []
+}
