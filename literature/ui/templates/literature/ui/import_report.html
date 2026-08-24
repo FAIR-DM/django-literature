@@ -1,0 +1,27 @@
+{% extends "page_view.html" %}
+{% load i18n %}
+{% comment %}
+The report for a completed, one-step (skip-preview) import (US-1, US-2,
+FR-011 through FR-022, FR-040). The preview has its own address now, and a
+confirmed import redirects back to the catalogue with a message
+(US-6, decisions.md D30, D31) — this template renders only the path that
+imported directly, with no preview step to have shown the same detail
+already.
+
+T917 — the upload form this page carried above its results (FR-011a) and
+the disabled *Retry* state (FR-023a) were both reversed by the second
+2026-08-24 refinement: the preview page (FR-046) carries no form either, and
+*Restart import* there replaces Retry.
+{% endcomment %}
+{% block page.content %}
+  <c-text class="mb-4">
+    {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
+      {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
+    {% endblocktranslate %}
+  </c-text>
+  <c-addons.django-table :table="table" />
+  <c-group collapse wrap class="mt-4">
+    <c-button href="{% url 'literature:item-list' %}" text="{% trans 'Back to the catalogue' %}" icon="arrow-left" />
+    <c-button href="{% url 'literature:item-import' %}" text="{% trans 'Import another file' %}" />
+  </c-group>
+{% endblock page.content %}

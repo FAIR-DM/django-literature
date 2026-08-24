@@ -1,0 +1,20 @@
+{% load i18n %}
+<c-vars label="{% trans "Import" %}" />
+{% comment %}
+The import toolbar action — a component django-mvp does not define, so
+shipping it here adds a name rather than shadowing one (research R2); the
+INSTALLED_APPS-order problem that would sink a shadow does not arise.
+Mirrors create.html's non-modal branch, minus its icon. The packaged
+Bootstrap Icons pack (mvp.utils.BS5_ICONS) defines no alias for importing
+or uploading, and it is an alias map rather than a passthrough — a raw
+Bootstrap name is not resolvable either. An unregistered name renders as
+empty rather than raising, so naming one here would be an attribute that
+silently does nothing. Raised upstream; add the icon once the pack carries
+one.
+{% endcomment %}
+{% if directory.import_url %}
+  <c-button text="{{ label }}"
+            small
+            ghost
+            href="{{ directory.import_url }}" />
+{% endif %}

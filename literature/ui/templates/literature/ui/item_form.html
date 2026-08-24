@@ -62,7 +62,7 @@ a property somewhere in scope.
         {# every save would land on the catalogue rather than the reference #}
         {# (plan.md D-3). This button carries no name/value pair, so nothing #}
         {# overrides success_url = "detail". #}
-        <c-group breakpoint="md" wrap>
+        <c-group collapse wrap>
           <c-button text="{% translate "Save" %}" type="submit" variant="primary" />
         </c-group>
       {% endblock actions %}

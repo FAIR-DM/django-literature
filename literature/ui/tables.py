@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from django_tables2.utils import A
 
 from literature.choices import DateType, NameRole
+from literature.importers.results import Outcome
 
 
 class ContributorsColumn(tables.TemplateColumn):
@@ -232,3 +233,64 @@ class ItemTable(tables.Table):
         # it: references sharing an issued date are otherwise ordered
         # arbitrarily, and each page of the catalogue is its own query.
         return queryset.order_by(ordering, "pk"), True
+
+
+class OutcomeColumn(tables.TemplateColumn):
+    """The outcome cell (US-1, FR-019, decisions.md D17).
+
+    Renders django-mvp's ``<c-badge>`` around the outcome's own translated
+    label — the badge wraps the label, it does not replace it, so a failed
+    entry stays distinguishable by the word itself and not only by colour.
+    The variant mapping is settled and not re-litigated here: created =
+    success, skipped = warning, failed = error. Skipped is a warning rather
+    than a neutral tone because a skipped entry may now carry a reason
+    (D18), which is worth the reader's eye. Built as a ``TemplateColumn``,
+    the same way ``ContributorsColumn`` and ``IssuedColumn`` are, so the
+    template — not a ``mark_safe``/``format_html`` call here — is what
+    escapes the label.
+    """
+
+    VARIANTS = {
+        Outcome.CREATED: "success",
+        Outcome.SKIPPED: "warning",
+        Outcome.FAILED: "error",
+    }
+
+    def get_context_data(self, record, **kwargs):
+        context = super().get_context_data(record=record, **kwargs)
+        context["variant"] = self.VARIANTS[record.outcome]
+        context["label"] = record.outcome.label
+        return context
+
+
+class ImportReportTable(tables.Table):
+    """The import report, one row per entry the format found (US-1, FR-019).
+
+    Built over a plain list of :class:`~literature.ui.importing.ImportReportRow`,
+    never a queryset — the report has no model behind it (research R4). The
+    position column is the only link: a created row's citation key may be
+    absent (``EntryResult.handle`` is ``None`` by default, AS-10 forbids
+    inventing one), but its position never is, so the link hangs there
+    rather than on the key.
+    """
+
+    position = tables.Column(
+        verbose_name=_("Position"),
+        linkify=lambda record: record.item_url,
+        attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
+    )
+    citation_key = tables.Column(verbose_name=_("Citation key"))
+    outcome = OutcomeColumn(
+        verbose_name=_("Outcome"),
+        template_name="literature/ui/table_outcome.html",
+        empty_values=(),
+    )
+    reason = tables.Column(verbose_name=_("Reason"))
+
+    class Meta:
+        template_name = "django_tables2/bootstrap5-mvp.html"
+        empty_text = _("Nothing to show.")
+        default = _("—")
+        # Fixed source order (FR-019) — nothing here is sortable, so no
+        # header advertises a control that would not do anything.
+        orderable = False

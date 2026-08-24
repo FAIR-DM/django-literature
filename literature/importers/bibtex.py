@@ -625,6 +625,20 @@ def _mapping_document() -> str:
 _BIBTEX_BLOCK_RE = re.compile(r"@\s*[A-Za-z]+\s*[{(]")
 
 
+@dataclasses.dataclass(frozen=True)
+class _NonRecord:
+    """A ``@comment`` or ``@preamble`` block: recognised, but not an entry.
+
+    ``bibtexparser`` collects both kinds into their own lists, indistinguishable
+    once flattened to plain strings (see :meth:`BibTeXFormat.parse`). Naming the
+    kind here is what lets :meth:`BibTeXFormat.to_csl_json` say which one it
+    skipped (D18), rather than only that it skipped something.
+    """
+
+    kind: str  # "comment" | "preamble"
+    text: str
+
+
 class BibTeXFormat(BibFormat):
     """Reads ``.bib`` files, in either the classic or the BibLaTeX dialect."""
 
@@ -658,16 +672,18 @@ class BibTeXFormat(BibFormat):
         parser.bib_database.strings.update(_MONTH_MACROS)
         return parser
 
-    def parse(self, file) -> Iterator[dict[str, Any] | str]:
+    def parse(self, file) -> Iterator[dict[str, Any] | _NonRecord]:
         """Yield this file's entries, then its comments and preambles.
 
         ``@comment`` and ``@preamble`` blocks are not bibliographic records
         (FR-014), and ``bibtexparser`` collects them into their own lists
         rather than interleaving them with entries, so there is no source
-        position to recover them at. They are yielded as plain strings,
-        which :meth:`to_csl_json` uses to tell them apart from an entry
-        (always a ``dict``) and skip. Entries themselves keep their source
-        order, which is what FR-004 is asserted against.
+        position to recover them at. They are yielded wrapped in
+        :class:`_NonRecord`, which names which of the two a block was —
+        :meth:`to_csl_json` reads that to tell them apart from an entry
+        (always a plain ``dict``) and to say what it skipped (D18). Entries
+        themselves keep their source order, which is what FR-004 is asserted
+        against.
 
         A file holding no entries and no BibTeX syntax at all is reported as
         unreadable rather than as a list of skipped comments (D26).
@@ -691,8 +707,26 @@ class BibTeXFormat(BibFormat):
         (FR-016). That is ``bibtexparser``'s own behaviour rather than a
         choice made here, and it is written down because a rule nothing
         states is a rule nobody can rely on.
+
+        Accepts a binary or a text handle (011 Phase 0 decisions.md D10): a
+        browser upload is always bytes, and this decodes them itself —
+        ``utf-8-sig``, so a byte-order mark is absorbed rather than leaking
+        into the first field, matching :class:`~literature.importers.ris.RISParser`
+        — raising the same shaped :class:`~literature.importers.exceptions.ParseError`
+        on undecodable bytes. A text read passes through unchanged.
         """
-        text = file.read()
+        raw = file.read()
+        if isinstance(raw, bytes):
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError as exc:
+                raise ParseError(
+                    _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
+                        encoding=exc.encoding, offset=exc.start
+                    )
+                ) from exc
+        else:
+            text = raw
         if text.strip() and not _BIBTEX_BLOCK_RE.search(text):
             raise ParseError(
                 _("No BibTeX entries found. Is this a BibTeX file?"),
@@ -704,14 +738,15 @@ class BibTeXFormat(BibFormat):
                 _("This file nests braces too deeply to read."),
             ) from None
         yield from database.entries
-        yield from database.preambles
-        yield from database.comments
+        yield from (_NonRecord("preamble", text) for text in database.preambles)
+        yield from (_NonRecord("comment", text) for text in database.comments)
 
-    def to_csl_json(self, raw: dict[str, Any] | str) -> dict[str, Any]:
+    def to_csl_json(self, raw: dict[str, Any] | _NonRecord) -> dict[str, Any]:
         """Turn one parsed entry into CSL JSON.
 
-        Comments and preambles arrive as plain strings (see :meth:`parse`)
-        and are skipped outright (FR-014). Everything else is a classic or
+        A comment or a preamble arrives wrapped in :class:`_NonRecord` (see
+        :meth:`parse`) and is skipped outright (FR-014), naming which of the
+        two it was (D18). Everything else is a classic or
         BibLaTeX entry dict, mapped in the fixed order plan.md lays out:
         type, fields, names, dates, identifiers, preservation, each cleaned
         ahead of mapping (FR-017, FR-018, D1). Where a dialect pair targets
@@ -728,8 +763,10 @@ class BibTeXFormat(BibFormat):
         (FR-025, FR-026, D3, D20, :func:`_unmapped_fields`) — the general
         case.
         """
-        if not isinstance(raw, dict):
-            raise SkipEntry
+        if isinstance(raw, _NonRecord):
+            if raw.kind == "preamble":
+                raise SkipEntry(_("This is a @preamble block, not a bibliographic record."))
+            raise SkipEntry(_("This is a @comment block, not a bibliographic record."))
 
         result: dict[str, Any] = {
             "type": ENTRY_TYPE_TABLE.get(raw.get("ENTRYTYPE", ""), _Mapped(_FALLBACK_TYPE, "classic")).csl,
@@ -823,7 +860,7 @@ class BibTeXFormat(BibFormat):
 
         return result
 
-    def handle_for(self, raw: dict[str, Any] | str) -> str | None:
+    def handle_for(self, raw: dict[str, Any] | _NonRecord) -> str | None:
         """The cite key, which is what a reader will search for (FR-012).
 
         ``None`` for a comment or preamble (see :meth:`parse`), which has no

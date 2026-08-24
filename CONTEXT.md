@@ -154,12 +154,40 @@ The result is the **only** reporting channel. Logging may carry the same failure
 visibility, but a failure that appears solely in a log is a defect: a caller must never have to
 compare a count of inputs against a count of stored items to discover something went wrong.
 
+### import report
+
+The **UI app**'s own rendering of one **import result**, on the page a reader lands on after
+submitting a file. It carries the same counts the result already holds and one row per entry
+result, in source order, numbered from one — a reader-facing count, deliberately different from
+the result's own zero-based index (see *import result / entry result*, above). Nothing is
+recomputed: an import report reads the result it wraps and adds no reporting logic of its own.
+
+Distinct from an **import result**: a result is the contract's own return value, and a report is
+what one interface — the UI app — chooses to show a person from it. A different interface could
+render the same result a different way without either term changing meaning.
+
 ### dry run
 
 An import that runs every stage and reports every outcome while leaving the catalogue exactly as it
 was. Outcomes are observed rather than predicted, because the work genuinely happens inside a
 transaction that is then rolled back. A dry run's entry results carry no `Item`, since those rows do
 not survive the rollback.
+
+### preview
+
+The **UI app**'s offer to carry out an import before it happens. Submitting the import form runs a
+**dry run** and renders the result as an **import report** labelled to say plainly that nothing has
+been imported yet, alongside a control that carries out the import it described. Carrying that out
+needs no second look at the file: what produced the preview is a **staged file**, read again from
+where it was held rather than asked for a second time. A form can skip a preview and import
+directly instead — that submission is not a preview at all, and its report is an ordinary one.
+
+### staged file
+
+An uploaded file held on disk between a preview and its confirmation, since a browser will not
+re-populate a file input. Identified only by a random token kept in the reader's own session, never
+on the page, so a confirmation can only ever complete what that same session staged. Removed the
+moment its import is carried out, and swept automatically if it never is.
 
 ### entry type
 

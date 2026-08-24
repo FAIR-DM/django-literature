@@ -1,0 +1,1071 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "011-import-bibliography-file",
+  "branch": "011-import-bibliography-file",
+  "repo": "FAIR-DM/django-literature",
+  "state": "PLAN",
+  "state_history": [
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-24T09:15:00Z",
+      "note": "spec and decisions authored from the intake conversation on issue #50"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-24T09:55:00Z",
+      "note": "epic promoted, stories #100-#102 created, draft PR #103 opened"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T10:50:00Z",
+      "note": "plan, research and tasks authored; handle-type defect found and filed as #104, FR-023 narrowed"
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-24T11:20:00Z",
+      "note": "one reviewer, three lenses; amendments applied to plan, research and tasks"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T15:40:00Z",
+      "note": "US0-US4 implemented and committed, T001-T407"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T18:05:00Z",
+      "note": "ledger backfilled: implementation had landed while the ledger stayed at PLAN with every task open"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T18:40:00Z",
+      "note": "specification refined and re-approved in session; stories US4, US5, US6 and US9 added, 33 tasks"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T15:29:07Z",
+      "note": "US4 (preview and confirm) implemented, T501-T514; four shipped tests brought onto the refined default under D20"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T19:05:00Z",
+      "note": "US5 (a skipped entry names why) implemented, T601-T608; D21's open finding adjudicated as D22 - both runner stages now carry a skip's reason and the pre-existing test is brought onto the amended contract"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T20:40:00Z",
+      "note": "US6 implemented and converged, T701-T705; convergence settled D23's two deferrals and fixed a third defect (D24)"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T21:35:00Z",
+      "note": "US9 documentation landed, T801-T806; docs gate was red on OutcomeColumn and is now green (D26)"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-24T22:30:00Z",
+      "note": "refinement reviewed as a unit; two defects found and fixed (D28 stale preview confirms the wrong file, D29 sweep race), review outcome posted to PR #103"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T21:10:00Z",
+      "note": "second refinement: the preview and success pages get their own addresses; story US7 (#110) added, 21 tasks"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T19:10:00Z",
+      "note": "second refinement amended in session: the success page is dropped, a carried-out import redirects to the catalogue with a message (D31), and the outcome filter is confirmed with the counts fixed to the whole file (D32). T913 and T914 removed."
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-24T10:30:00Z",
+      "self_resolved": [
+        "The reader always lands on a report; the redirect-with-a-summary alternative is the failure the requirement names",
+        "Nothing about the run is stored, so the report exists once",
+        "The import action appears on both catalogue presentations, not only the table",
+        "The import page carries no permission check, matching what FS-008 settled for the other write paths",
+        "The report numbers entries from one while the import contract keeps its zero-based index",
+        "No duplicate detection; the import page warns before submission instead",
+        "The report is one page and is never paginated",
+        "The format is chosen by the reader and never detected from the file",
+        "Formats offered are read from the installation's configuration rather than listed in the front end",
+        "The feature reads the import contract and does not extend it; a genuine gap is raised as its own issue",
+        "Refined 2026-08-24 with Sam's approval: importing previews by default and the staged file lives on disk (D12)",
+        "Refined 2026-08-24: the report's presentation \u2014 badges, buttons, the form above the results, a disabled Retry (D13)",
+        "Refined 2026-08-24: a skipped entry may carry a reason, amending the import contract (D14)",
+        "Refined again 2026-08-24 with Sam's approval: the preview and the success page become pages in their own right, reversing FR-011a and FR-023a (D30)"
+      ]
+    },
+    "plan": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-24T11:40:00Z"
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "issue": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 100,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T101",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T102",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T103",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T104",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T105",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T106",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T107",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T108",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T109",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T110",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T111",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T112",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T113",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T114",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 101,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T201",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T202",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T203",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 102,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T301",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T302",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T303",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T304",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T305",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US8",
+      "priority": "P4",
+      "issue": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T401",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T402",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T403",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T404",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T405",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T406",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T407",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P1",
+      "issue": 108,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T501",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T502",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T503",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T504",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T505",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T506",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T507",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T508",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T509",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T510",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T511",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T512",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T513",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        },
+        {
+          "id": "T514",
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US5",
+      "priority": "P2",
+      "issue": 109,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T601",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_results.py::TestEntryResult -q  (red on the new test before T602, 8 passed after)"
+            ]
+          }
+        },
+        {
+          "id": "T602",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_results.py -q  (21 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T603",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_bibtex.py -q  (red before T605, 245 passed after)"
+            ]
+          }
+        },
+        {
+          "id": "T604",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py -q  (red before T605, 345 passed after)"
+            ]
+          }
+        },
+        {
+          "id": "T605",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_bibtex.py tests/test_importers/test_ris.py -q  (590 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T606",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_importing.py tests/test_ui/test_tables.py -q  (21 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T607",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "same run as T606 - the report row and table column already carried a reason unconditionally, no change needed"
+            ]
+          }
+        },
+        {
+          "id": "T608",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "docs/adr/0027 added and listed in docs/adr/index.md; CHANGELOG entry citing #107; decisions.md D21 and D22"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US6",
+      "priority": "P1",
+      "issue": 100,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T701",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
+        },
+        {
+          "id": "T702",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
+        },
+        {
+          "id": "T703",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
+        },
+        {
+          "id": "T704",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
+        },
+        {
+          "id": "T705",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US9",
+      "priority": "P4",
+      "issue": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T801",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T802",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T803",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T804",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T805",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
+        },
+        {
+          "id": "T806",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US7",
+      "priority": "P1",
+      "issue": 110,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T901",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T902",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T903",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T904",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T905",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T906",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T907",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T908",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T909",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T910",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T911",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T912",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T915",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T916",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T917",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T918",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US10",
+      "priority": "P4",
+      "issue": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T1001",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T1002",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T1003",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 120
+    }
+  },
+  "pr": {
+    "number": 103,
+    "draft": true
+  },
+  "escalations": []
+}

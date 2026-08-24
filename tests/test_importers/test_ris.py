@@ -43,6 +43,15 @@ def fixture(relative_path):
     return (DATA / relative_path).open("rb")
 
 
+def fixture_text(relative_path):
+    """Open a corpus file for reading, in text mode — the handle type a caller who has already
+    decoded a file would hand over (011 Phase 0, decisions.md D10). Plain ``utf-8``, not
+    ``utf-8-sig``: a text handle is expected to pass through :class:`RISParser` unchanged, with
+    no BOM-stripping of its own, so this helper must not do that stripping either.
+    """
+    return (DATA / relative_path).open(encoding="utf-8")
+
+
 def entry(ty="JOUR", index=0, **single_tags):
     """Build one :class:`RISEntry` directly, without going through the parser.
 
@@ -119,7 +128,7 @@ class TestGenuineCorpus:
 
     def test_the_matched_set_holds_the_same_dois_and_the_others_do_not(self):
         """The premise SC-005 rests on, asserted rather than assumed — the failure D35 caught was
-        this claim going unchecked from S3 research through to T028 (D36).
+        this claim going unchecked from the research that proposed it through to T028 (D36).
         """
 
         def dois(name: str) -> set[str]:
@@ -402,6 +411,25 @@ class TestRISParserEncoding:
         assert "18" in message
 
 
+class TestParseAcceptsEitherHandle:
+    """The mirror of ``test_bibtex.py``'s class of the same name (011 Phase 0, decisions.md D10,
+    research.md R1): a text handle must produce the same entries a binary one already does.
+    """
+
+    @pytest.mark.django_db
+    def test_binary_and_text_handles_produce_the_same_entry_results(self):
+        with fixture("constructed/crlf_line_endings.ris") as handle:
+            binary_result = RISFormat().import_file(handle, dry_run=True)
+        with fixture_text("constructed/crlf_line_endings.ris") as handle:
+            text_result = RISFormat().import_file(handle, dry_run=True)
+
+        def as_pairs(result):
+            return [(e.outcome, e.handle) for e in result]
+
+        assert as_pairs(binary_result) == as_pairs(text_result)
+        assert binary_result.created, "the fixture is expected to produce created entries"
+
+
 class TestRISParserStreaming:
     """Consuming one entry must not process the rest of a large file (FR-004, T006)."""
 
@@ -592,6 +620,13 @@ class TestWholeFileOutcomes:
             result = RISFormat().import_file(handle)
         assert result.entries[0].outcome == Outcome.SKIPPED
 
+    def test_header_material_names_itself_as_the_reason(self):
+        """D18: the format knows this was header material, not a record."""
+        with fixture("constructed/header_before_first_entry.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.entries[0].reason is not None
+        assert "header" in result.entries[0].reason.lower()
+
     def test_header_material_produces_no_item(self):
         with fixture("constructed/header_before_first_entry.ris") as handle:
             result = RISFormat().import_file(handle)
@@ -679,6 +714,14 @@ class TestTyOnlySkipped:
     def test_to_csl_json_raises_skip_entry_for_a_ty_only_entry(self):
         with pytest.raises(SkipEntry):
             RISFormat().to_csl_json(entry())
+
+    @pytest.mark.django_db
+    def test_the_entry_names_ty_as_the_reason(self):
+        """D18: the format knows this entry carried only its reference-type tag."""
+        with fixture("constructed/ty_only.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.entries[0].reason is not None
+        assert "TY" in result.entries[0].reason
 
     def test_a_tag_present_with_an_empty_value_is_not_ty_only(self):
         """A second tag disqualifies the skip even when its value is empty — the check is on

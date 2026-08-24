@@ -1,0 +1,14 @@
+{% extends "list_view.html" %}
+{% comment %}
+Card-list wrapper, action row only (US-1, research R2). list_view.html's
+own page.actions block renders <c-page.list.actions /> with no attribute,
+which falls back to the component's own c-vars default
+(['search','sort','filter','create']) — the only way to add "import" is to
+pass the list explicitly, which means overriding the block. The override
+carries the packaged default through in full (list_actions, set by
+ItemListView) rather than replacing it with the import link alone: the
+block it replaces is the sole renderer of search, sort, filter and create.
+{% endcomment %}
+{% block page.actions %}
+  <c-page.list.actions :actions="list_actions" />
+{% endblock page.actions %}
