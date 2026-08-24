@@ -1612,7 +1612,11 @@ class TestItemImportViewRejects:
         assert response.status_code == 200
         report = response.context["report"]
         assert report.failed == 1
-        assert report.rows[0].reason
+        # The format's own sentence, not a Python exception's repr. Asserting
+        # only that a reason is present would pass on the "TypeError: cannot
+        # use a string pattern on a bytes-like object" this feature's first
+        # phase existed to remove, which is the regression worth catching.
+        assert report.rows[0].reason == "No BibTeX entries found. Is this a BibTeX file?"
         assert Item.objects.count() == 0
 
     def test_undecodable_bytes_are_reported_and_no_server_error_is_raised(self, client, db):
@@ -1621,7 +1625,9 @@ class TestItemImportViewRejects:
         assert response.status_code == 200
         report = response.context["report"]
         assert report.failed == 1
-        assert report.rows[0].reason
+        # Names the encoding attempted and the offset that broke, which is
+        # what a reader can act on — and again, not an exception's repr.
+        assert report.rows[0].reason == "Could not decode this file as utf-8: invalid byte at offset 0."
         assert Item.objects.count() == 0
 
 
