@@ -71,3 +71,30 @@ confirming the binary decode-failure path is unaffected.
 handle types reach `parse` unchanged.
 
 **Watch:** none.
+
+## 2026-08-24T13:25+02:00 · Implementer Phase 0 · T005
+
+**Did:** Rewrote `import_file`'s `Args: file:` docstring line to say what is actually accepted —
+text or binary, a shipped format decodes bytes itself (D10) — replacing "an open file object, or
+anything with a `read()`". Added `TestHandleReachesParseUnchanged` to `tests/test_importers/test_base.py`,
+parametrized over `io.StringIO`/`io.BytesIO`, asserting the exact object passed to `import_file`
+is the exact object `parse` receives. No production behaviour changed — `import_file` already
+passed `file` straight through with no decoding of its own — so this task is documentation plus a
+regression test locking in existing correct behaviour, not a red/green pair.
+
+**Verified:** `poetry run pytest tests/test_importers/test_base.py -k TestHandleReachesParseUnchanged -v`
+— 2 passed (exit 0), immediately, as expected. `poetry run pytest tests/test_importers/test_base.py -q`
+— 61 passed (exit 0). `poetry run pytest tests/test_importers/ -q` — 752 passed (exit 0).
+
+**Next:** T006 — the CHANGELOG entry.
+
+**Watch:** placing the new test class immediately before the pre-existing `TestOverridingImportEntry`
+(a test I did not author) made that test fail — not from anything of mine, but because that test
+calls `Item.objects.count()` with no `@pytest.mark.django_db` and no `db`-requiring fixture, and
+only "passes" today by reusing a database connection a neighbouring `django_db`-marked class left
+open; inserting an unmarked class between them breaks that reuse and exposes it. Per this phase's
+prohibitions I did not touch that test. Worked around it by appending the new class at the end of
+the file instead, where the full file (61 tests) and the whole `tests/test_importers/` directory
+(752 tests) both pass. Flagged in the completion report's `concerns` for Forge to triage —
+`TestOverridingImportEntry::test_overriding_import_entry_changes_only_that_step` is missing
+`@pytest.mark.django_db` and its current pass is order-dependent, not correct in its own right.

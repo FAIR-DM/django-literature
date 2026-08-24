@@ -941,3 +941,30 @@ class TestDryRunFollowsTheRouter:
 
         assert len(result.created) == 1
         assert Item.objects.count() == 1
+
+
+class TestHandleReachesParseUnchanged:
+    """``import_file`` decodes nothing itself — a format owns its own decoding (ADR-0012, 011
+    Phase 0 decisions.md D10) — so whatever ``file`` a caller hands in must be the exact object
+    ``parse`` receives, whether it reads ``str`` or ``bytes``.
+    """
+
+    @pytest.mark.parametrize("handle", [io.StringIO("irrelevant"), io.BytesIO(b"irrelevant")])
+    def test_the_handle_reaches_parse_unchanged(self, handle):
+        received = []
+
+        class _ProbeFormat(BibFormat):
+            label = "Probe (test-only)"
+
+            def parse(self, file):
+                received.append(file)
+                return iter([])
+
+            def to_csl_json(self, raw):
+                return {}
+
+        _ProbeFormat.name = "probe"
+
+        _ProbeFormat().import_file(handle)
+
+        assert received == [handle]

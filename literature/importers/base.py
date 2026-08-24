@@ -123,9 +123,13 @@ class BibFormat(abc.ABC):
         through :meth:`import_entries` and :meth:`get_result`.
 
         Args:
-            file: An open file object, or anything with a ``read()``. Never
-                opened as a path — passed straight through to :meth:`parse`
-                (FR-023).
+            file: An open file object in text or binary mode, or anything
+                else with a ``read()`` that returns ``str`` or ``bytes`` — a
+                shipped format accepts either and decodes bytes itself (011
+                Phase 0 decisions.md D10). Never opened as a path, and never
+                decoded here: passed straight through to :meth:`parse`
+                unchanged, since decoding is the format's own job, never a
+                caller's (ADR-0012, FR-023).
             dry_run: Run every stage and report every outcome, then leave
                 the catalogue exactly as it was (FR-015). Same code path as
                 a real run, wrapped in one outer ``transaction.atomic()``
