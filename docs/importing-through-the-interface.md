@@ -25,15 +25,15 @@ import in one step.
 
 ## The preview
 
-Submitting the form creates nothing. It puts the file aside and sends you to a page of its own,
-at its own address, headed "Preview import" and saying beneath that heading that nothing has been
-imported yet.
+Submitting the form creates nothing. It puts the file aside and sends you to the preview, which
+is a page at its own address, headed "Preview import" and saying beneath that heading that
+nothing has been imported yet.
 
 That page has no import form on it. The only file it can describe is the one you just submitted,
 and it works that file out afresh each time you open it, so reloading the preview is safe: it
 reads the same file again, reports the same outcomes, and writes nothing on either pass.
 
-Where any entry was skipped or would fail, a warning above the table says so before you get
+Where entries were skipped or could not be read, a warning above the table says so before you get
 there. Where every entry would be created, there is no warning to read.
 
 Below that is a line of counts — how many entries would be created, how many skipped, how many

@@ -10,8 +10,8 @@ All notable changes to this project are documented in this file. The format foll
 
 - **Importing a bibliography file through the front end.** The catalogue carries an Import
   action, on both presentations, that opens a page to choose a configured format and attach a
-  file. Submitting it previews by default: the file is set aside and you land on a page of the
-  preview's own, saying plainly that nothing has been imported yet and showing the report a real
+  file. Submitting it previews by default: the file is set aside and you land on a preview page at
+  its own address, saying plainly that nothing has been imported yet and showing the report a real
   import would produce. It gives the counts — how many entries would be created, skipped and
   failed — and one row per entry in source order, numbered from one, each outcome a colour-coded
   badge, with a reason on every failure and on every skip, and a link to the reference a created

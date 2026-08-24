@@ -1276,3 +1276,66 @@ all eight hooks, no migrations outstanding.
 **Next:** converge Phase 9 onto the feature branch, then Phase 10 (T1001-T1003, documentation).
 
 **Watch:** none.
+
+## 2026-08-24T23:40+02:00 · Implementer Phase 10 · T1001–T1003
+
+**Did:** T1001 rewrote `docs/importing-through-the-interface.md` onto the shipped shape. The old
+page described the preview as a report rendered into the response to the upload, with the upload
+form above the results and a disabled *Retry* control — all three gone. It now describes the
+preview as a page at its own address, rebuilt from the staged file on every GET so a reload is
+harmless; the warning above the table when anything was skipped or failed; the counts, and that
+they keep describing the whole file while the outcome buttons narrow the table beneath them
+without a request; the three controls at the foot and what each does; that restarting throws the
+staged file away; and that confirming returns the reader to the catalogue with a message stating
+the counts rather than to a page of its own. The unreadable-file case has its own section: every
+entry fails, nothing would be created, so no confirmation is offered and only restart and the way
+back remain. Sections added for what a stale or replaced preview says, and for reaching the
+preview address with nothing staged.
+
+T1002 covered the new public surface in `docs/api/ui.md` — `ItemImportPreviewView`,
+`ItemImportRestartView`, the changed endings of `ItemImportView` (redirect, not render) and
+`ItemImportConfirmView` (catalogue plus message, no success page), the four route names in the
+`literature` namespace, and a new *Components* section for the outcome filter: its one attribute,
+that it opens no scope and wraps itself in no form, and that the counts deliberately do not read
+what it writes. A sentence in the tables section records that the preview builds the table with
+per-row attributes and the one-step report does not. The changelog folded the refinement into the
+existing import entry rather than adding a *Changed* note, since the feature is unreleased and a
+reader of the release notes should meet one coherent description — the same treatment the first
+refinement got.
+
+`README.md` carried one sentence this phase made false ("Either way you land on a report", which
+is no longer true of the confirm path). Corrected in place, one paragraph, no other change; it was
+not named in the phase's tasks and is called out here for that reason.
+
+T1003 was the humanizer pass plus the vocabulary check.
+
+**Verified:** documentation gate `poetry run pytest tests/test_documentation.py -q -p no:randomly`
+— 135 passed. Full suite `poetry run pytest -q -p no:randomly` — 1852 passed, the baseline.
+`poetry run pre-commit run --all-files` — all eight hooks green.
+
+The vocabulary check was proved live before being trusted, rather than being read as clean. A
+scratch file was seeded with every banned pattern in one paragraph — task and decision ids,
+requirement, acceptance- and success-criterion codes, a research id, feature and story ids, a
+`specs/` path, five spec artefact filenames, a phase code, a stage code, agent and organisation
+names, three role names and four internal tool names. The first run caught 32 of 33 and missed
+capitalised *Forge*, which was a case-sensitivity defect in the pattern, not a clean result; fixed
+and re-run to 34 hits with every seeded pattern named. Against the real files the three this phase
+authored are clean at zero hits. `README.md` returns four, every one a pre-existing false positive
+inside a code example — a contributor family name in a CSL sample, `owner: 'sam'` in a BibTeX
+custom-field dump, and an NIH grant number reading `R01-GM12345`. None is in this phase's diff and
+none is internal vocabulary.
+
+Humanizer measurements rather than an impression: no AI-vocabulary word from the watch list
+appears in any of the three files, no curly quotes, no negative parallelism, no hedging
+constructions, every heading sentence case. Em dashes went down, not up — the diff adds 12 across
+171 added lines and removes 14. Three phrasings were rewritten on the pass: a doubled "a page of
+its own, at its own address", an ungrammatical "a page of the preview's own" in the changelog, and
+a tense mismatch in the warning sentence.
+
+**Next:** none — Phase 10 complete. The branch is ready to converge.
+
+**Watch:** the template comment blocks under `literature/ui/templates/` carry decision and
+requirement citations, as `views.py` does throughout. That is the repo's established convention for
+source comments and Django strips `{% comment %}` before anything reaches a browser, so it was left
+alone — but it is the one place internal vocabulary ships inside the sdist, and whoever decides that
+convention should decide it deliberately rather than by omission.
