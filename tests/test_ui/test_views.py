@@ -663,10 +663,14 @@ class TestItemTableView:
         # the rendered page rather than only the view's own configuration,
         # and still closed in both directions, so an upstream default
         # widening the action surface is still caught.
+        # T114 — "import" genuinely joins the shown action set (US-1); this
+        # is the one shipped assertion this phase edits, because the list
+        # it names gains a real member rather than losing what it already
+        # asserted.
         ItemFactory()
         response = client.get(reverse("literature:item-list"))
         content = response.content.decode()
-        assert response.context["table_actions"] == ["search", "filter", "create"]
+        assert response.context["table_actions"] == ["search", "filter", "create", "import"]
         assert 'name="q"' in content  # the search box's own input name
         assert "filterModal" in content  # the filter control's own modal id
         # No column-chooser ships in either django-tables2 or django-mvp
@@ -720,6 +724,46 @@ class TestItemTableView:
         response = client.get(reverse("literature:item-list"))
         (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
         assert annotated_item.issued is None
+
+
+class TestCatalogueImportAction:
+    """The toolbar action on both catalogue presentations — US-1, research R2.
+
+    The table view has a supported hook (``actions``); the card list does
+    not and reaches the action through a block override that must carry the
+    whole row through, never just the import link — the regression this
+    guards against is silent and the two shipped tests it names are
+    evidence about intent, never something to edit green
+    (``TestItemTableView::test_carries_search_and_filter_but_no_column_chooser``,
+    ``TestItemListView::test_the_add_link_renders_and_points_at_the_create_page``).
+    """
+
+    def test_the_table_catalogue_carries_a_link_to_the_import_route(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' in content
+
+    def test_the_card_catalogue_carries_the_same_link(self, client, db):
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' in content
+
+    def test_the_contributor_page_carries_no_import_link(self, client, db):
+        contributor = NameFactory()
+        content = client.get(
+            reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
+        ).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' not in content
+
+    def test_the_table_catalogue_still_renders_search_filter_and_create(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert 'name="q"' in content
+        assert "filterModal" in content
+        assert f'href="{reverse("literature:item-create")}"' in content
+
+    def test_the_card_catalogue_still_renders_search_filter_and_create(self, client, db):
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert 'name="q"' in content
+        assert "filterModal" in content
+        assert f'href="{reverse("literature:item-create")}"' in content
 
 
 class TestCatalogueSearch:

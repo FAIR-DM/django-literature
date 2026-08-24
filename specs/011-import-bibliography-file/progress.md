@@ -311,6 +311,56 @@ red either: the Cotton actions directory does not exist yet (`import.html` is T1
 it returns an empty list rather than a collection error. Reported here rather than presented as a
 red/green pair that did not happen (craft-tdd: "report what you executed, not what you believe").
 
+## 2026-08-24T15:05+02:00 · Implementer Phase 1 · T113
+
+**Did:** Added `TestCatalogueImportAction` to `tests/test_ui/test_views.py` — the table catalogue
+carries a link to the import route, the card catalogue carries the same link, the contributor page
+carries none, and both catalogues still render search, filter and create. Edited the one shipped
+assertion the hazards name — `TestItemTableView::test_carries_search_and_filter_but_no_column_chooser`
+— to expect `["search", "filter", "create", "import"]`, since the actions list genuinely gains a
+member.
+
+**Verified:** `poetry run pytest tests/test_ui/test_views.py::TestCatalogueImportAction "tests/test_ui/test_views.py::TestItemTableView::test_carries_search_and_filter_but_no_column_chooser" -q`
+— 3 failed, 3 passed (exit 1). The right reason on all three: no view shows the import action yet,
+so `directory.import_url` is absent and `table_actions` has no fourth member. The three that already
+passed (create link, contributor page carrying nothing, and one of the "still renders search/filter"
+pair) were already true before this task and stay true after it.
+
+**Next:** T114 — the toolbar action itself.
+
+**Watch:** none.
+
+## 2026-08-24T15:15+02:00 · Implementer Phase 1 · T114
+
+**Did:** `"import"` joined `CRUD_VIEWS`. `ItemTableView` gained `actions = [..., "import"]` (its own
+hook, research R2) and `directory`/`show_import_action`. `ItemListView` gained `template_name =
+"literature/ui/item_list_page.html"` (never on `CatalogueListMixin` — the contributor page composes
+it too), `directory`/`show_import_action`, and a `list_actions` attribute
+(`["search","sort","filter","create","import"]`) published into context. Both views also override
+`get_url_kwargs()` for `"import"` — a genuine gap in django-mvp's own directory mechanism discovered
+while wiring this, recorded as decisions.md D14. New templates:
+`cotton/page/list/actions/import.html` (no icon — `BS5_ICONS` has no `upload`/`import` entry and
+`EASY_ICONS_FAIL_SILENTLY` defaults to `settings.DEBUG`, unset/False in this suite, so an
+unregistered name would raise rather than fail silently) and `item_list_page.html` (extends
+`list_view.html`, overrides only `page.actions` against the full `list_actions`, never the import
+link alone). Refreshed `TestPackagedChain::test_no_page_template_of_our_own_stands_in_for_a_packaged_one`'s
+docstring per the task's own instruction, distinguishing `item_list_page.html` (a wrapper that
+extends the packaged template) from the `item_list.html` the test guards against (one that would
+stand in for it).
+
+**Verified:** `poetry run pytest tests/test_ui/test_views.py::TestCatalogueImportAction "tests/test_ui/test_views.py::TestItemTableView::test_carries_search_and_filter_but_no_column_chooser" -q`
+— 6 passed (exit 0), green T113. `poetry run pytest tests/test_ui/ -q` — 580 passed (exit 0).
+`poetry run pytest -q` — 1764 passed (exit 0), full suite.
+
+**Next:** none — Phase 1 complete pending final verification (pre-commit, `pytest tests/test_ui/`,
+full suite once more).
+
+**Watch:** the `get_url_kwargs()` fix (D14) forced a second shipped-test edit beyond the one the
+hazards name — `TestCRUDViewsReverse::test_every_action_the_view_shows_reverses` mirrors
+`CRUDDirectoryMixin`'s own "list/create take no pk" rule as a hardcoded set, independently of
+`get_url_kwargs()`, and needed `"import"` added to stay a correct mirror rather than a stale one.
+Flagged in the completion report's `deviations`, not folded in silently.
+
 **Watch:** `BoundRow.get_cell()` (the helper every other class in this module uses) returns a
 column's raw Python value with no escaping at all for a plain, unlinked column — escaping happens
 only in the outer table template's `{{ cell }}`, or inside `format_html()` for a linkified column.
