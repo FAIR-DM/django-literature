@@ -8,6 +8,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- **Importing a bibliography file through the front end.** The catalogue carries an Import
+  action, on both presentations, that opens a page to choose a configured format and attach a
+  file. Submitting reads it through the package's existing import contract and lands on a report:
+  how many entries were created, skipped and failed, and one row per entry in source order,
+  numbered from one, with a reason on every failure and a link to the reference a created row
+  produced.
+
+  The format is chosen, never detected from the file. Nothing checks whether a file has already
+  been imported, so importing the same file twice creates the references twice; the page warns of
+  this before you submit. A failure partway through the file leaves the entries already created in
+  place. The page carries no permission check of its own and imposes no size limit of its own on
+  the file it accepts, the same as every other page in the front end.
+
 - **Searching and filtering the catalogue.** Both the table and the card presentation carry a
   search box and four filters — item type, contributor, language, and issued year — reading from
   one shared definition, so a narrowed catalogue looks the same whichever route serves it.
