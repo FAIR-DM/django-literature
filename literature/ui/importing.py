@@ -28,7 +28,9 @@ class ImportReportRow:
         outcome: Carried straight through from the ``EntryResult``.
         citation_key: The source's own handle for the entry, or ``None`` —
             never invented for an entry whose source carried none (AS-10).
-        reason: Why the entry failed, or ``None`` for anything that did not.
+        reason: Why the entry failed, or what was recognised and set aside
+            for one that was skipped, or ``None`` where neither applies
+            (ADR-0027).
         item_url: The created reference's own page, or ``None`` for an entry
             that created nothing.
     """

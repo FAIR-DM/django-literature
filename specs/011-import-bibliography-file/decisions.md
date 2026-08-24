@@ -653,3 +653,28 @@ authorised to adjudicate.
 **Revisit when:** whoever reviews this phase decides whether to correct
 `ImportReportRow.reason`'s docstring to match the amended contract (the same edit T803 already made
 to its public restatement).
+
+## D26 — The documentation gate was red on a name the phase's own change introduced
+
+**Ambiguous:** Phase 8 reported its documentation verified by diffing Sphinx's warning set against a
+clean baseline and finding it unchanged. That is a real check and it is not this repo's
+documentation gate, which asks a different question: does every public name the branch adds appear
+on a page? Sphinx was content because `automodule` renders `OutcomeColumn`'s docstring; the gate was
+not, because a docstring is not a page.
+
+**Chosen:** `docs/api/ui.md` describes `OutcomeColumn` in its own right — that it is a template
+column, so the badge is escaped by a template rather than marked safe in Python, that the badge
+wraps the outcome's own label rather than replacing it, and that the mapping is a class attribute a
+project can subclass. Verified against the class rather than written from the phase's summary of it:
+the first draft claimed a project "can subclass it to map the outcomes differently" without naming
+how, which is advice a reader cannot act on.
+
+**Also fixed here:** `ImportReportRow.reason`'s docstring still read "Why the entry failed", stale
+since a skipped entry could carry one (D22). Phase 8 found it and could not touch it — `literature/`
+was outside its scope — and reported it rather than leaving it silent, which is what let it be fixed
+one step later instead of shipping.
+
+**Why defensible:** the gate is the repo's own and it is machine-checked, so this is not a judgement
+call about how much documentation is enough. Two prose corrections went in beside it: a semicolon
+joining two independent clauses in `README.md`, and a "now carries a reason too" in the walkthrough,
+which is changelog voice in a page a reader arrives at with no memory of what it used to do.

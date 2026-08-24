@@ -146,6 +146,13 @@ renders each row's outcome as a colour-coded badge, created, skipped and failed 
 variant. A created row's position number links to the reference it produced, and a skipped or
 failed row's does not.
 
+`OutcomeColumn` is that column. It is a template column, so the badge is rendered by a template
+and escaped like any other, rather than built as a marked-safe string in Python. It maps each
+outcome to its own badge variant and wraps the outcome's own translated label, which is what the
+cell carried before it was a badge — the colour is added to the label, never substituted for it.
+The mapping is a class attribute, `VARIANTS`, so a project that renders the report itself can
+subclass the column and map the three outcomes to different variants.
+
 ```{eval-rst}
 .. automodule:: literature.ui.tables
    :members:

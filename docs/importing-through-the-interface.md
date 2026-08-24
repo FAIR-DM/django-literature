@@ -50,7 +50,7 @@ failed, and lists one row per entry in the order the file held them, numbered fr
 Each row carries the entry's outcome as a coloured badge — created, skipped and failed are each
 their own colour, so a failure or a skip stands out without having to read every word — and, where
 the source format supplies one, its own citation key. A row for an entry that failed carries the
-reason it failed, and a skipped row now carries a reason too, naming what was recognised and set
+reason it failed, and a skipped row carries a reason too, naming what was recognised and set
 aside: a BibTeX comment or preamble block, RIS header material, or a record carrying nothing but a
 reference type. A created row's position number links to the new reference. A skipped or failed
 row's does not, because there is nothing to link to.
