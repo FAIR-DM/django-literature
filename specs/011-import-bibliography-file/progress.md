@@ -6,4 +6,4 @@
 | 2026-08-24 | Issue #50 accepted. |
 | 2026-08-24 | `spec.md` and `decisions.md` written. Eleven further ambiguities resolved without escalating, recorded in the clarification scan and in nine numbered decisions. |
 | 2026-08-24 | Branch `011-import-bibliography-file` pushed. Issue #50 promoted to the feature's parent issue; story sub-issues #100, #101, #102 created; draft PR #103 opened against the v1.0.0 milestone. Issue-title lint green. |
-| 2026-08-24 | Specification gate: **pending**. |
+| 2026-08-24 | Specification gate: **approved** by Sam, in session, with no changes requested. |
