@@ -10,13 +10,16 @@ import re
 import pytest
 from django.db import connection
 from django.db.models import OuterRef, Subquery
+from django.test import RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.functional import Promise
 
 from literature.choices import DateType, NameRole
+from literature.importers.results import Outcome
 from literature.models import Item, ItemDate
-from literature.ui.tables import ItemTable
+from literature.ui.importing import ImportReportRow
+from literature.ui.tables import ImportReportTable, ItemTable
 from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
 
 
@@ -481,3 +484,90 @@ class TestIssuedOrdering:
         table = ItemTable(issued_annotated_queryset(), order_by="-issued")
         pks_in_row_order = [row.record.pk for row in table.rows]
         assert pks_in_row_order.index(newer.pk) < pks_in_row_order.index(older.pk)
+
+
+#: Declaration order of ``ImportReportTable``'s columns — how its one
+#: rendered row's ``<td>`` cells line up below.
+IMPORT_REPORT_COLUMNS = ["position", "citation_key", "outcome", "reason"]
+
+
+def import_report_cell(rows, column_name):
+    """The rendered HTML of one column's cell for the first row of a plain
+    list of :class:`~literature.ui.importing.ImportReportRow` — never a
+    queryset (US-1, research R4).
+
+    A plain, unlinked column (``reason``) carries no escaping of its own —
+    escaping is the outer table template's ``{{ cell }}``, which
+    ``BoundRow.get_cell()`` never reaches — so this renders the whole table
+    through ``as_html()``, the same path a real page uses, and picks the
+    requested column's own ``<td>`` back out by its declared position rather
+    than calling ``get_cell()`` directly."""
+    table = ImportReportTable(rows)
+    html = table.as_html(RequestFactory().get("/"))
+    body_match = re.search(r"<tbody.*?</tbody>", html, re.DOTALL)
+    assert body_match, "no table body rendered"
+    row_match = re.search(r"<tr.*?</tr>", body_match.group(0), re.DOTALL)
+    assert row_match, "no table row rendered"
+    cells = re.findall(r"<td.*?</td>", row_match.group(0), re.DOTALL)
+    assert len(cells) == len(IMPORT_REPORT_COLUMNS), cells
+    return cells[IMPORT_REPORT_COLUMNS.index(column_name)]
+
+
+class TestImportReportTable:
+    """``ImportReportTable`` — one row per import entry, no queryset behind it (US-1, FR-019)."""
+
+    def test_renders_a_list_of_rows_with_no_queryset(self):
+        rows = [ImportReportRow(position=1, outcome=Outcome.SKIPPED, citation_key=None, reason=None, item_url=None)]
+        table = ImportReportTable(rows)
+        assert [row.record for row in table.rows] == rows
+
+    def test_every_column_is_present(self):
+        assert set(ImportReportTable.base_columns) == {"position", "citation_key", "outcome", "reason"}
+
+    def test_the_outcome_cell_renders_the_outcomes_own_translated_label(self):
+        # FR-019 — this is what keeps a failed entry distinguishable in
+        # place: the word itself, not a class or an icon a reader could miss.
+        row = ImportReportRow(position=1, outcome=Outcome.FAILED, citation_key=None, reason="broken", item_url=None)
+        content = import_report_cell([row], "outcome")
+        assert "Failed" in content
+        assert "failed" not in content  # the stored value, not the label
+
+    def test_a_failure_reason_containing_markup_is_escaped(self):
+        row = ImportReportRow(
+            position=1,
+            outcome=Outcome.FAILED,
+            citation_key=None,
+            reason="<script>alert(1)</script>",
+            item_url=None,
+        )
+        content = import_report_cell([row], "reason")
+        assert "<script>" not in content
+        assert "&lt;script&gt;" in content
+
+    def test_a_created_rows_position_links_to_the_item(self):
+        row = ImportReportRow(
+            position=1, outcome=Outcome.CREATED, citation_key="Doe2024", reason=None, item_url="/catalogue/1/"
+        )
+        content = import_report_cell([row], "position")
+        assert 'href="/catalogue/1/"' in content
+
+    def test_a_failed_rows_position_does_not_link(self):
+        row = ImportReportRow(position=1, outcome=Outcome.FAILED, citation_key=None, reason="broken", item_url=None)
+        content = import_report_cell([row], "position")
+        assert "href=" not in content
+
+    def test_a_created_row_whose_entry_carries_no_citation_key_still_links(self):
+        # AS-10 — the link hangs on the position, never on the (absent) key.
+        row = ImportReportRow(
+            position=1, outcome=Outcome.CREATED, citation_key=None, reason=None, item_url="/catalogue/1/"
+        )
+        content = import_report_cell([row], "position")
+        assert 'href="/catalogue/1/"' in content
+
+    def test_the_citation_key_renders_as_plain_text_not_a_link(self):
+        row = ImportReportRow(
+            position=1, outcome=Outcome.CREATED, citation_key="Doe2024", reason=None, item_url="/catalogue/1/"
+        )
+        content = import_report_cell([row], "citation_key")
+        assert "Doe2024" in content
+        assert "<a" not in content

@@ -177,3 +177,25 @@ checks the row is frozen.
 **Next:** T105 — the report table's own red test.
 
 **Watch:** none.
+
+## 2026-08-24T14:10+02:00 · Implementer Phase 1 · T105
+
+**Did:** Added `TestImportReportTable` to `tests/test_ui/test_tables.py` — a plain list of rows
+with no queryset behind it, every column present, the outcome cell renders the outcome's own
+translated label, a failure reason containing markup is escaped, a created row's position links to
+the item while a failed row's does not, a created row with no citation key still links on its
+position, and the citation key itself renders as plain text beside it.
+
+**Verified:** `poetry run pytest tests/test_ui/test_tables.py::TestImportReportTable -v` —
+collection error (exit 1): `ImportError: cannot import name 'ImportReportTable' from
+'literature.ui.tables'`, the right reason.
+
+**Next:** T106 — `ImportReportTable`.
+
+**Watch:** `BoundRow.get_cell()` (the helper every other class in this module uses) returns a
+column's raw Python value with no escaping at all for a plain, unlinked column — escaping happens
+only in the outer table template's `{{ cell }}`, or inside `format_html()` for a linkified column.
+`ItemTable`'s own escaping tests only exercise a linkified column (`title`) and a `TemplateColumn`
+(`contributors`), both of which escape through a different mechanism, so this did not surface there.
+Discovered here because `reason` is a plain column; fixed by rendering the whole table through
+`as_html()` and reading the cell back out of the real HTML, the same path a page actually renders.
