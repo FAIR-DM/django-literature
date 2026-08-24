@@ -403,3 +403,18 @@ already renders that as a report rather than letting anything escape.
 
 **Watch:** none.
 
+## 2026-08-24T15:32+02:00 · Implementer Phase 2 · T202
+
+**Did:** Nothing in `literature/ui/views.py` or `forms.py`. T201's five cases were all green on
+first write (see above) — the empty-file path the brief flagged as the expected gap turned out to
+already be covered by `FileField`'s own `allow_empty_file=False` default, and `form_invalid`
+already renders rather than redirects because nothing in `ItemImportView`'s MRO overrides it. Per
+the brief's hazards, writing a validator for any of these five cases would be a second place the
+rule lives, so none is written.
+
+**Verified:** No new command — T201's own run above is the verification that nothing is missing.
+
+**Next:** T203 — the form-errors-render-beside-their-fields test.
+
+**Watch:** none.
+
