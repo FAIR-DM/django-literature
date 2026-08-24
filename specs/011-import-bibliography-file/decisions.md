@@ -257,3 +257,26 @@ Recorded rather than fixed, because both halves are approved specification text.
 means amending the specification and putting it back to the maintainer, not something planning may
 take on its own.
 
+## D13 — `RISParser`'s own docstring is amended in place, superseding spec 005's D19
+
+**Decision:** `RISParser.parse`'s class docstring, which stated "Expects `file` opened in
+**binary** mode" and cited spec 005's `decisions.md` D19 for why, is rewritten in place (T004) to
+say what T004 actually implements: either mode is accepted, a binary read is decoded here as
+before, and a text read passes through unchanged. It now names D10 as superseding D19 rather than
+silently disagreeing with it.
+
+**Why:** D19 is a real, still-true record of spec 005's own reasoning — RIS's decoding needs the
+raw bytes to name an encoding and a byte offset on failure, which is exactly what T004 preserves
+for the binary path. Leaving the docstring as "expects binary" after T004 lands would make the one
+piece of documentation next to the code actively wrong, which is worse than the stale-but-harmless
+module comment elsewhere in `ris.py` claiming "no RIS-to-CSL mapping yet" (unrelated to this task
+and out of this phase's scope to fix). D19 itself is not edited — it lives in a different spec's
+`decisions.md`, outside this phase's file scope (prohibitions), and it is not wrong about what it
+records; it is superseded by a later decision, which is a fact this phase's own D10 already states
+in prose. This entry is what makes that supersession discoverable from the code side, not just the
+spec-011 side.
+
+**Revisit if:** a third format is added whose own decoding failure needs something a text handle
+cannot supply — at that point the "text read passes through unchanged" half of D10 may need its
+own carve-out, and D19's original reasoning is the place to start.
+

@@ -71,11 +71,14 @@ class RISParser:
     before the first is available, which is what lets a caller consume one entry from a
     several-hundred-entry file and leave the rest unread.
 
-    Expects ``file`` opened in **binary** mode. Decoding is this parser's own job — ``utf-8-sig``,
-    so a byte-order mark is silently absorbed rather than becoming part of the first tag's value
-    (research.md R1) — because naming the attempted encoding and the byte offset on failure
-    (FR-034) needs the raw bytes, not whatever a caller's own text-mode decoding already turned
-    them into (decisions.md D19).
+    Accepts ``file`` opened in binary or text mode (011 Phase 0 decisions.md D10, superseding
+    spec 005's D19: both shipped formats now accept either). A binary read is decoded here —
+    ``utf-8-sig``, so a byte-order mark is silently absorbed rather than becoming part of the
+    first tag's value (research.md R1) — and naming the attempted encoding and the byte offset on
+    failure (FR-034) is only possible while the bytes are still in hand, before any decoding. A
+    text read has already been decoded by its caller and passes through unchanged; a caller in a
+    position to name the encoding of an already-decoded read gets no help catching a wrong guess
+    from this parser, but that caller also has no error to hand it in the first place.
     """
 
     #: Tolerant of the single-space and double-space-after-dash variants real producers emit
@@ -113,14 +116,17 @@ class RISParser:
         empty or whitespace-only file is not an error: it yields nothing (spec Edge Cases).
         """
         raw = file.read()
-        try:
-            text = raw.decode("utf-8-sig")
-        except UnicodeDecodeError as exc:
-            raise ParseError(
-                _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
-                    encoding=exc.encoding, offset=exc.start
-                )
-            ) from exc
+        if isinstance(raw, bytes):
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError as exc:
+                raise ParseError(
+                    _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
+                        encoding=exc.encoding, offset=exc.start
+                    )
+                ) from exc
+        else:
+            text = raw
 
         if not text.strip():
             return
