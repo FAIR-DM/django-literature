@@ -1339,3 +1339,25 @@ requirement citations, as `views.py` does throughout. That is the repo's establi
 source comments and Django strips `{% comment %}` before anything reaches a browser, so it was left
 alone — but it is the one place internal vocabulary ships inside the sdist, and whoever decides that
 convention should decide it deliberately rather than by omission.
+
+## 2026-08-24T23:40+02:00 · Convergence · Review findings, first pass
+
+**Did:** Fixed the two findings from the review that are defects in shipped behaviour rather than
+gaps in the tests. A one-step import left an earlier preview reachable and confirmable, so the
+reader could import a second file they had not asked for; the discard both submission paths need is
+now one method, and it clears the format and preview keys the old code left behind as well.
+Submitting to the preview address raised a configuration error from an inherited handler instead of
+being refused; the page now declares that it reads and does not write. Recorded as D34.
+
+**Verified:** reproduced both before touching anything — the duplicate import end to end through
+real requests, the server error by submitting to the address. Each fix carries a test watched red
+first. Full suite 1854 passed (1852 before, plus these two), pre-commit green across all eight
+hooks after a formatter reflow.
+
+**Next:** the review's remaining nine findings are unguarded guarantees rather than wrong behaviour
+— the filter's row mechanism, the sweep wiring, the breadcrumb, the dead confirmation branch, the
+component the template guards do not reach, and four smaller notes.
+
+**Watch:** staged uploads are written through the default storage, which is the host project's media
+root. A project serving media publicly is serving these files for the retention window, and neither
+the record nor the guide says so.

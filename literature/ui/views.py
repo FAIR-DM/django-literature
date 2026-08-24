@@ -485,6 +485,25 @@ class ItemImportView(MVPFormView):
         StagedUpload().sweep()
         return super().dispatch(request, *args, **kwargs)
 
+    def discard_staging(self):
+        """Drop whatever this session had staged, and return the staging.
+
+        Both submission paths supersede an earlier preview: this session can
+        no longer reach it, so nothing should hold its file for the rest of
+        the retention window.
+        """
+        staging = StagedUpload()
+        superseded = self.request.session.get(IMPORT_TOKEN_SESSION_KEY)
+        if superseded:
+            staging.discard(superseded)
+        for key in (
+            IMPORT_TOKEN_SESSION_KEY,
+            IMPORT_FORMAT_SESSION_KEY,
+            IMPORT_PREVIEW_SESSION_KEY,
+        ):
+            self.request.session.pop(key, None)
+        return staging
+
     def form_valid(self, form):
         # get_format() returns the class; import_file() is an instance
         # method (research.md "The view" seam) — the format is resolved by
@@ -493,6 +512,12 @@ class ItemImportView(MVPFormView):
         format_class = get_format(format_name)
 
         if form.cleaned_data["skip_preview"]:
+            # Importing in one step supersedes an earlier preview exactly as
+            # previewing again would. Without this, the reader finishes a
+            # one-step import and the earlier preview is still reachable and
+            # still offering to confirm — a second import they did not ask
+            # for, on top of the one they just carried out.
+            self.discard_staging()
             result = format_class().import_file(form.cleaned_data["file"])
             context = self.get_context_data(form=form)
             report = ImportReport(result)
@@ -504,12 +529,7 @@ class ItemImportView(MVPFormView):
             # written by it can be assumed (decisions.md D1, D31).
             return render(self.request, "literature/ui/import_report.html", context)
 
-        staging = StagedUpload()
-        superseded = self.request.session.get(IMPORT_TOKEN_SESSION_KEY)
-        if superseded:
-            # This session can no longer reach the earlier preview, so
-            # nothing should hold its file for the retention window.
-            staging.discard(superseded)
+        staging = self.discard_staging()
 
         token = staging.save(form.cleaned_data["file"])
         preview_id = get_random_string(22)
@@ -543,6 +563,12 @@ class ItemImportPreviewView(MVPFormView):
     crud_views = CRUD_VIEWS
     page_title = _("Preview import")
     page_subtitle = _("What importing this file would do. Nothing has been imported yet.")
+    # This page reads; it never writes. Confirming and restarting each have
+    # their own address, so nothing here submits to this one. Without this,
+    # the form base class answers a POST by looking for a success address
+    # this view has no reason to define, and the reader takes a server error
+    # instead of a refusal.
+    http_method_names = ["get", "head", "options"]
 
     def get(self, request, *args, **kwargs):
         context = self.get_context_data()

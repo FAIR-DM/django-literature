@@ -1715,6 +1715,13 @@ class TestItemImportPreviewPage:
         assert report.failed == 1
         assert report.created == 0
 
+    def test_submitting_to_the_preview_address_is_refused_not_a_server_error(self, client, db):
+        # Nothing on the page submits here — confirm and restart each have
+        # their own address — so a submission is a refusal, not a crash.
+        self._submit(client)
+        response = client.post(reverse("literature:item-import-preview"), {})
+        assert response.status_code == 405
+
 
 class TestItemImportRestart:
     """Restarting discards the staged file and returns to an empty import
@@ -1898,6 +1905,28 @@ class TestItemImportSkipPreview:
             {"format": "bibtex", "file": upload, "skip_preview": "on"},
         )
         assert "literature_import_token" not in client.session
+
+    def test_importing_in_one_step_discards_a_file_staged_before_it(self, client, db):
+        # An earlier preview left a file staged. Importing something else in
+        # one step supersedes it just as previewing again would: the reader
+        # cannot reach that preview any more, so nothing should still hold
+        # its file — least of all a confirm that would import it a second
+        # time on top of what they have just done.
+        staged = SimpleUploadedFile("staged.bib", b"@book{StagedEarlier2020, title={Staged Earlier}, year={2020}}")
+        client.post(reverse("literature:item-import"), {"format": "bibtex", "file": staged})
+        preview_id = client.get(reverse("literature:item-import-preview")).context["confirm_form"]["preview"].value()
+
+        one_step = SimpleUploadedFile("one-step.bib", b"@book{OneStepLater2021, title={One Step Later}, year={2021}}")
+        client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": one_step, "skip_preview": "on"},
+        )
+        after_one_step = set(Item.objects.values_list("citation_key", flat=True))
+        assert after_one_step == {"OneStepLater2021"}
+        assert "literature_import_token" not in client.session
+
+        client.post(reverse("literature:item-import-confirm"), {"preview": preview_id})
+        assert set(Item.objects.values_list("citation_key", flat=True)) == after_one_step
 
 
 class TestItemUpdateView:

@@ -936,3 +936,40 @@ rewrites a page wholesale: a replaced test class is not a superset of the one it
 guarantee the old class held needs its successor named rather than assumed.
 
 **ADR:** none — a defect fixed against a criterion already recorded.
+
+## D34 — The one-step path supersedes an earlier preview, and the preview page refuses a submission
+
+**Ambiguous:** nothing. Two defects the review reproduced, both fixed here.
+
+**The first is a duplicate import.** D28 settled that previewing again supersedes whatever came
+before, and that a superseded preview's file is discarded the moment it is superseded. The one-step
+path never did this: its branch returns after rendering the report, above the code that discards.
+So a reader who previewed one file, changed their mind, and imported a different file directly was
+left with the first preview still reachable and still offering to confirm. Confirming it imported
+that first file on top of the one they had just carried out. Reproduced end to end: after staging A
+and one-step importing B, the catalogue held B, the preview address still rendered A's report, and
+confirming it left the catalogue holding both.
+
+The test that should have caught it asserted the session held no staged token, but only ever ran
+from a clean session, so it proved nothing about supersession.
+
+**The second is a server error on a public address.** The preview view overrides only its read
+handler and inherited a submission handler from its base class, which answers by looking for a
+success address the view has no reason to define. A submission to the preview address therefore
+raised rather than being refused. Nothing in the interface submits there — confirming and restarting
+each have their own address — which is why no test found it.
+
+**Chosen:** the discard becomes one method both submission paths call, so supersession is a property
+of submitting rather than of one branch remembering to do it. It also clears the format and preview
+keys, which the old code left behind. The preview page declares that it reads and does not write, so
+a submission is refused with the status that means so.
+
+**Why defensible:** each fix has a test written against the reproduction and watched fail first. The
+supersession test stages a file, previews it, imports something else in one step, and then confirms
+the stale preview — it fails against the code as it stood and passes after.
+
+**Revisit when:** never for these two. The pattern worth carrying: a guarantee stated in one decision
+and implemented in one branch of a fork is not implemented, and a test that exercises only the empty
+case cannot tell you which.
+
+**ADR:** none — defects fixed against behaviour already recorded in D28.
