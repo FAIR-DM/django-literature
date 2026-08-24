@@ -342,7 +342,7 @@ class TestReporting:
         assert len(result.failed) == 1
         assert result.skipped[0].outcome == Outcome.SKIPPED
         assert result.failed[0].outcome == Outcome.FAILED
-        assert result.skipped[0].reason is None
+        assert result.skipped[0].reason == "a comment"
 
     def test_failures_are_in_the_result_even_with_logging_silenced(self, caplog):
         """FR-013, SC-005: the result is never the only place a failure appears from."""
@@ -670,6 +670,7 @@ class TestExceptionsOutsideTheContract:
         result = make_raising_format(entries, SkipEntry("trailing junk"), stage="parse")().import_file(io.StringIO())
 
         assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.SKIPPED]
+        assert result.skipped[0].reason == "trailing junk"
 
     def test_parseerror_from_the_converting_stage_is_filed_at_the_right_index(self):
         """Out of contract — ``ParseError`` belongs to ``parse`` — but when the

@@ -28,9 +28,12 @@ that skips something for a reason it cannot name still produces a valid result w
 - `RISFormat` names header material before the first record, and an entry carrying only a `TY` tag
   and no other content.
 
-The runner (`BibFormat.import_entry`) carries a `SkipEntry`'s message onto the skipped entry's
-reason where the format supplied one, the same handling `EntryError`'s message already receives for
-a failure.
+The runner carries a `SkipEntry`'s message onto the skipped entry's reason where the format supplied
+one, the same handling `EntryError`'s message already receives for a failure. Both places a format
+can raise `SkipEntry` do this: `BibFormat.import_entry`, for the conversion stage both shipped
+formats use, and `BibFormat.import_entries`, for a format that raises while the file is still being
+read. Whoever reads the report should not be able to tell which of the two recognised the element,
+only what was skipped and why.
 
 This changes the import contract, which FR-028 forbade changing outside a recorded decision. FR-028
 is amended rather than worked around: the change is additive (a reason on a skipped entry is a field
@@ -48,14 +51,9 @@ saying nothing.
   `ImportReportRow.reason`) — neither needed a code change, since neither ever branched on outcome to
   decide whether to carry a reason through.
 - A format with an unusual `SkipEntry` may still leave the reason `None`; nothing requires one.
-- **`literature/importers/base.py`'s reader-stage `SkipEntry` handling (`import_entries`, for a
-  format that raises `SkipEntry` directly from `parse` rather than from `to_csl_json`) is
-  deliberately left dropping the message.** Neither shipped format raises from there, and the one
-  test exercising it (`tests/test_importers/test_base.py`) was written against a test double built
-  before this decision, with a message it always expected to be discarded. Widening that path too
-  would flip that pre-existing test's assertion for a code path this story does not exercise for
-  either shipped format, so it is left alone; it is a candidate for a follow-up if a future format
-  ever needs it.
-- **Revisit if** a future format raises `SkipEntry` from `parse` and needs to name what it skipped —
-  at that point `import_entries`'s handling should be widened to match, and the pre-existing test
-  in `test_base.py` reconciled with the wider contract at the same time.
+- Two tests in `tests/test_importers/` asserted the old invariant directly and were written before
+  this decision, so both were reconciled with the wider contract rather than worked around:
+  `test_results.py`'s `test_reason_belongs_only_to_failure` no longer covers the skipped outcome,
+  and `test_base.py`'s `test_skipped_is_distinguishable_from_failed` now expects the reason its own
+  test double supplies. Neither test's purpose changed; each still holds a created entry to the old
+  rule and still separates a skip from a failure.

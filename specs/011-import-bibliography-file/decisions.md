@@ -506,3 +506,31 @@ that wants a record and a reviewer with the authority this phase was not given.
 **Revisit when:** whoever reviews this phase either grants the edit (bringing the test's assertion
 onto the amended contract, the same move D20 already made once) or decides the reader-stage path
 should carry a reason too, in which case the fix travels together with this test's update.
+
+## D22 — D21 resolved: both stages carry a skip's reason, and the pre-existing test is brought onto the amended contract
+
+**Ambiguous:** D21's own two-way question, left open for review.
+
+**Chosen:** both of its branches, because they turned out to be the same answer.
+
+`import_entries`'s reader-stage handler now carries a `SkipEntry`'s message through `_skip_reason`,
+exactly as `import_entry`'s conversion-stage handler does, and the existing test covering that path
+(`test_skipentry_from_the_reader_is_a_skip_not_an_escape`, which already supplied the message
+`"trailing junk"`) now asserts it arrives. `test_skipped_is_distinguishable_from_failed`'s final
+assertion moves from `reason is None` to the reason its own double supplies.
+
+**Why defensible:** an asymmetry between the two stages is not a smaller change than removing it —
+it is a permanent one. It would mean the contract answering "may a skipped entry name what was
+skipped?" with "depends which stage recognised it", a distinction the report cannot show and a
+reader has no way to interpret. Nothing in the amendment Sam approved draws that line: #107 is about
+a skipped row being readable, and where in the runner the format raised is an implementation detail
+of the format. The one-line widening removes a documented deviation instead of adding one.
+
+The test edit is the move D20 already made and D21 correctly declined to make unilaterally. Its
+assertion was true about the contract that preceded ADR-0027 and is false about the amended one;
+the test's stated purpose — FR-011, a recognised non-record is not reported as an error — is carried
+by its other four assertions, all untouched, and the invariant that a created entry carries no
+reason is still asserted in `test_results.py`.
+
+**Verified:** the full suite is green at 1,813 tests, including both edited tests and the widened
+reader-stage assertion.

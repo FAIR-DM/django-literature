@@ -213,16 +213,15 @@ class BibFormat(abc.ABC):
                 entry_index = index
                 index += 1
                 results.append(self.import_entry(raw, entry_index, dry_run=dry_run))
-        except SkipEntry:
+        except SkipEntry as exc:
             # Out of contract — ``SkipEntry`` belongs to ``to_csl_json`` — but
             # a format recognising a trailing non-record while reading is
             # asking for the same thing, and the alternative is filing a
-            # deliberate signal as a failure. Neither shipped format raises
-            # from here (only from ``to_csl_json``, handled in
-            # ``import_entry`` below), so there is no format-supplied reason
-            # to carry: this is the reader stopping mid-file, not a format
-            # naming what it recognised.
-            results.append(self.entry_skipped(index=index, handle=None))
+            # deliberate signal as a failure. A message given here is carried
+            # exactly as ``import_entry`` carries one (D18): whoever reads the
+            # report should not be able to tell which stage recognised the
+            # element, only what was skipped and why.
+            results.append(self.entry_skipped(index=index, handle=None, reason=_skip_reason(exc)))
         except Exception as exc:
             # A format may report the file as unreadable (``ParseError``),
             # report that the *next* entry is bad before converting it
