@@ -280,3 +280,35 @@ spec-011 side.
 cannot supply — at that point the "text read passes through unchanged" half of D10 may need its
 own carve-out, and D19's original reasoning is the place to start.
 
+## D14 — "import" is taught to `get_url_kwargs()` as a collection-level action
+
+**Ambiguous:** research.md R2 and the plan both settle on carrying the import URL through
+`CRUD_VIEWS` / `directory` / `show_import_action` — django-mvp's own mechanism — but neither names
+what `CRUDDirectoryMixin.get_url_kwargs()` actually does with an action it does not recognise.
+
+**Chosen:** `ItemListView` and `ItemTableView` each override `get_url_kwargs()` to return `{}` for
+`"import"`, the same as the base class already does for `"list"` and `"create"`.
+
+**Why defensible:** measured directly against the installed package
+(`CRUDDirectoryMixin.get_url_kwargs()`, `mvp/views/detail.py`): `if action in {"list", "create"}:
+return {}` — anything else falls through to `dict(self.kwargs) or None`. On a list view `self.kwargs`
+is always `{}` (no URL captures the route needs), so `dict({}) or None` is `None`, and
+`resolve_crud_url("import")` returns `None` before it ever reverses anything. Without this override
+`directory.import_url` never resolves and the toolbar action's `{% if directory.import_url %}` never
+renders — not a cosmetic gap, the whole seam this feature adds. The override is the narrowest fix:
+one `if`, delegating everything else to `super()`, on the two views that show the action — never on
+`CatalogueListMixin`, which the contributor page also composes and must not gain either the action
+or the URL (hazards, T114).
+
+The one test this forces a second look at is `tests/test_ui/test_urls.py`'s own
+`TestCRUDViewsReverse::test_every_action_the_view_shows_reverses`, which mirrors the same
+"collection-level actions take no pk" rule as a hardcoded `{"list", "create"}` set, independently of
+`get_url_kwargs()`. That set gains `"import"` too, in the same commit as this decision — not a
+weakened assertion (it still reverses every shown action with the right kwargs), a corrected mirror
+of a rule that genuinely has a third member now. Flagged in the completion report's `deviations`
+rather than silently folded in, since the brief names only one shipped test as sanctioned to edit.
+
+**Revisit if:** a future action joins `directory` that is genuinely object-level but not yet routed
+under a `pk` — the two-branch shape here (`{}` vs `dict(self.kwargs) or None`) would need a third
+case rather than a second hardcoded name.
+

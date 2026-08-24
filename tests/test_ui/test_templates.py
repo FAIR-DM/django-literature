@@ -66,7 +66,14 @@ class TestPackagedChain:
 
     def test_no_page_template_of_our_own_stands_in_for_a_packaged_one(self):
         # The catalogue list and the contributor page render through
-        # ``list_view.html``; neither has a template here.
+        # ``list_view.html``; neither has a template here. US-1's
+        # ``item_list_page.html`` (``ItemListView.template_name``) does not
+        # contradict this: it ``{% extends "list_view.html" %}`` and
+        # overrides only the ``page.actions`` block, a wrapper around the
+        # packaged template rather than a replacement of it — the file this
+        # test guards against is named ``item_list.html`` (no ``_page``) and
+        # would stand in for ``list_view.html`` wholesale, which is a
+        # different thing.
         assert not (TEMPLATES_DIR / "base.html").exists()
         assert not (TEMPLATES_DIR / "item_list.html").exists()
         assert not (TEMPLATES_DIR / "contributor_detail.html").exists()

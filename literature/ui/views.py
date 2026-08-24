@@ -194,6 +194,28 @@ class ItemListView(CatalogueListMixin, MVPFilteredListView):
     empty_state_heading = _("Nothing in the catalogue yet")
     empty_state_message = _("References imported or created will appear here.")
 
+    # US-1 (research R2, plan.md "The toolbar" seam): the card list has no
+    # actions hook of its own, so the action row is carried by a wrapper
+    # template that overrides list_view.html's page.actions block against a
+    # view-supplied list, the packaged default plus import. Set here,
+    # never on CatalogueListMixin — the contributor page composes that
+    # mixin too and must not gain either the import action or this
+    # template (FR-023, plan.md D-6).
+    template_name = "literature/ui/item_list_page.html"
+    directory: list[str] = ["create", "import"]
+    show_import_action = True
+    list_actions: list[str] = ["search", "sort", "filter", "create", "import"]
+
+    def get_url_kwargs(self, action):
+        # "import" is collection-level, like "list"/"create" — CRUDDirectoryMixin's
+        # own default only special-cases those two, so on a list view (whose
+        # self.kwargs is always {}) any other action falls through to
+        # `dict(self.kwargs) or None`, i.e. None, and directory.import_url
+        # never resolves (decisions.md D14).
+        if action == "import":
+            return {}
+        return super().get_url_kwargs(action)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -208,6 +230,7 @@ class ItemListView(CatalogueListMixin, MVPFilteredListView):
             context["applied_filters"] = active
             context["applied_filter_count"] = len(active)
 
+        context["list_actions"] = self.list_actions
         return context
 
 
@@ -234,11 +257,15 @@ class ItemTableView(MVPTableViewMixin, FilterView):
 
     page_title = CATALOGUE_TITLE
 
-    # The mixin's own default, ["search", "filter", "create"], applies as-is
-    # (plan.md D-3) — FS-009 switched search and filter off with this
-    # attribute; this feature is what reverses that.
-    directory: list[str] = ["create"]
+    # The mixin's own default was ["search", "filter", "create"] (plan.md
+    # D-3) — FS-009 switched search and filter off with this attribute;
+    # this feature is what reverses that. US-1 adds "import": the table
+    # view has its own actions hook (research R2), so naming it here is
+    # the whole change on this side of the toolbar.
+    actions: list[str] = ["search", "filter", "create", "import"]
+    directory: list[str] = ["create", "import"]
     show_create_action = True
+    show_import_action = True
     crud_views = CRUD_VIEWS
     search_fields = SEARCH_FIELDS
     filterset_class = ItemFilterSet
@@ -248,6 +275,14 @@ class ItemTableView(MVPTableViewMixin, FilterView):
     # overrides the other the same way to gate this row control, and this
     # feature checks nothing of its own.
     show_update_action = True
+
+    def get_url_kwargs(self, action):
+        # Same reasoning as ItemListView.get_url_kwargs() (decisions.md D14)
+        # — "import" is collection-level, and CRUDDirectoryMixin's default
+        # only knows "list"/"create" as such.
+        if action == "import":
+            return {}
+        return super().get_url_kwargs(action)
 
     # No order_by: MVPTableViewMixin raises ImproperlyConfigured at
     # instantiation if it finds one — ordering lives on the table class.

@@ -126,5 +126,8 @@ class TestCRUDViewsReverse:
             url_name = view_class.crud_views[action].format(
                 model_name=model_meta.model_name, app_name=model_meta.app_label
             )
-            kwargs = {} if action in {"list", "create"} else {"pk": 1}
+            # "import" joined the collection-level set at US-1 (decisions.md
+            # D14) — like "list"/"create" it names no object, so it takes no
+            # pk either.
+            kwargs = {} if action in {"list", "create", "import"} else {"pk": 1}
             reverse(url_name, kwargs=kwargs)  # raises NoReverseMatch if the action is not registered
