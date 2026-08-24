@@ -146,4 +146,34 @@ configured after import time still appears) and a `FileField`. Both carry transl
 
 **Next:** T103 — the report adapter's own red test.
 
+**Watch:** the T102 progress entry above landed in the same commit as T101's rather than its own
+(process slip, not a content error) — flagged in the completion report's `deviations`.
+
+## 2026-08-24T13:58+02:00 · Implementer Phase 1 · T103
+
+**Did:** Added `tests/test_ui/test_importing.py` — `TestImportReport` covers source order, position
+as index+1, outcome carried through unchanged, citation key present/absent with the source's own
+handle, reason present only on failures, a created row's item URL and a non-created row's absence
+of one, and the created/skipped/failed/total counts against the result's own. `TestImportReportRow`
+checks the row is frozen.
+
+**Verified:** `poetry run pytest tests/test_ui/test_importing.py -v` — collection error (exit 1):
+`ModuleNotFoundError: No module named 'literature.ui.importing'`, the right reason.
+
+**Next:** T104 — `ImportReportRow` and `ImportReport`.
+
+**Watch:** none.
+
+## 2026-08-24T14:00+02:00 · Implementer Phase 1 · T104
+
+**Did:** Added `literature/ui/importing.py` — `ImportReportRow` (frozen dataclass) and
+`ImportReport`, wrapping an `ImportResult` and exposing `rows`, `created`, `skipped`, `failed` and
+`total`. The item URL is resolved with `reverse("literature:item-detail", ...)` rather than
+`item.get_absolute_url()` — `Item` has none (`literature/ui/views.py`'s own comment on
+`ItemCreateView.success_url`).
+
+**Verified:** `poetry run pytest tests/test_ui/test_importing.py -q` — 11 passed (exit 0), green T103.
+
+**Next:** T105 — the report table's own red test.
+
 **Watch:** none.
