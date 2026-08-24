@@ -1775,9 +1775,7 @@ class TestItemImportConfirm:
 
     def test_the_message_left_behind_states_what_was_created(self, client, db):
         preview = self._preview(client)
-        response = client.post(
-            reverse("literature:item-import-confirm"), self._confirm_fields(preview), follow=True
-        )
+        response = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview), follow=True)
         assert "1 created" in response.content.decode()
 
     def test_following_the_redirect_renders_the_message_once(self, client, db):
@@ -1841,9 +1839,7 @@ class TestItemImportConfirm:
         stale = self._preview(client)
         self._preview_bytes(client, RIS_ONE_GOOD_ENTRY.encode(), "second.ris", "ris")
 
-        response = client.post(
-            reverse("literature:item-import-confirm"), self._confirm_fields(stale), follow=True
-        )
+        response = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(stale), follow=True)
 
         assert response.status_code == 200
         assert "nothing to confirm" in response.content.decode().lower()
