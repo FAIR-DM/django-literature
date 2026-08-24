@@ -190,7 +190,20 @@ position, and the citation key itself renders as plain text beside it.
 collection error (exit 1): `ImportError: cannot import name 'ImportReportTable' from
 'literature.ui.tables'`, the right reason.
 
-**Next:** T106 — `ImportReportTable`.
+## 2026-08-24T14:14+02:00 · Implementer Phase 1 · T106
+
+**Did:** Added `ImportReportTable(tables.Table)` to `literature/ui/tables.py` — `position`
+(linkified on `record.item_url`, so the link hangs on the position rather than the citation key,
+AS-10), `citation_key`, `outcome` (`render_outcome` returns the label, not the stored value) and
+`reason`. `Meta.orderable = False`: the report's order is fixed to the source file (FR-019), so no
+header advertises a sort control that would not do anything.
+
+**Verified:** `poetry run pytest tests/test_ui/test_tables.py -q` — 71 passed (exit 0), green T105
+and every pre-existing test in the module.
+
+**Next:** T107 — the import route's own red test.
+
+**Watch:** none.
 
 **Watch:** `BoundRow.get_cell()` (the helper every other class in this module uses) returns a
 column's raw Python value with no escaping at all for a plain, unlinked column — escaping happens

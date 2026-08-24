@@ -232,3 +232,40 @@ class ItemTable(tables.Table):
         # it: references sharing an issued date are otherwise ordered
         # arbitrarily, and each page of the catalogue is its own query.
         return queryset.order_by(ordering, "pk"), True
+
+
+class ImportReportTable(tables.Table):
+    """The import report, one row per entry the format found (US-1, FR-019).
+
+    Built over a plain list of :class:`~literature.ui.importing.ImportReportRow`,
+    never a queryset — the report has no model behind it (research R4). The
+    position column is the only link: a created row's citation key may be
+    absent (``EntryResult.handle`` is ``None`` by default, AS-10 forbids
+    inventing one), but its position never is, so the link hangs there
+    rather than on the key.
+    """
+
+    position = tables.Column(
+        verbose_name=_("Position"),
+        linkify=lambda record: record.item_url,
+        attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
+    )
+    citation_key = tables.Column(verbose_name=_("Citation key"))
+    outcome = tables.Column(verbose_name=_("Outcome"))
+    reason = tables.Column(verbose_name=_("Reason"))
+
+    class Meta:
+        template_name = "django_tables2/bootstrap5-mvp.html"
+        empty_text = _("Nothing to show.")
+        default = _("—")
+        # Fixed source order (FR-019) — nothing here is sortable, so no
+        # header advertises a control that would not do anything.
+        orderable = False
+
+    def render_outcome(self, value):
+        """The outcome's own translated label, not its stored value.
+
+        What keeps a failed entry distinguishable in place — the word
+        itself is the signal, not a colour or an icon a reader could miss.
+        """
+        return value.label
