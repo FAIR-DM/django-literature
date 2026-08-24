@@ -19,6 +19,7 @@ import urllib.request
 from pathlib import Path
 
 import pytest
+from django.test import RequestFactory
 from django.urls import reverse
 
 from demo.smoke import (
@@ -27,11 +28,13 @@ from demo.smoke import (
     CREATE_LINK_RE,
     DELETE_LINK_RE,
     EDIT_LINK_RE,
+    IMPORT_LINK_RE,
     ITEM_LINK_RE,
     ROW_RE,
     SECOND_PAGE_LINK_RE,
     DemoWalk,
     SmokeCheckFailed,
+    encode_multipart,
     form_fields,
 )
 from tests.factories import ItemFactory, ItemNameFactory
@@ -367,3 +370,40 @@ class TestFormFields:
         fields = form_fields(response.content.decode())
 
         assert list(fields) == ["csrfmiddlewaretoken"]
+
+
+class TestMultipartEncoder:
+    """``encode_multipart`` builds a body a real Django view parses back (T301/T302, D-9).
+
+    The walk's existing ``post`` urlencodes ``fields`` (T021), which cannot carry
+    a file — a browser upload is always multipart/form-data. Round-tripped
+    through ``django.test.RequestFactory``, which builds the same
+    ``WSGIRequest`` a live view receives and parses ``.POST``/``.FILES``
+    lazily from the body and ``Content-Type`` header exactly as the demo
+    server would, rather than against a hand-rolled parser this test would
+    also have to trust.
+    """
+
+    def test_a_view_parses_back_the_same_fields_and_file(self):
+        body, content_type = encode_multipart(
+            {"format": "bibtex"},
+            {"file": ("import-sample.bib", b"@book{Key2020, title={A Title}}", "application/octet-stream")},
+        )
+
+        request = RequestFactory().post("/catalogue/import/", data=body, content_type=content_type)
+
+        assert request.POST.get("format") == "bibtex"
+        uploaded = request.FILES["file"]
+        assert uploaded.name == "import-sample.bib"
+        assert uploaded.read() == b"@book{Key2020, title={A Title}}"
+
+
+class TestImportLinkPattern:
+    """The pattern the walk follows from the catalogue list to the import form (T301/T302)."""
+
+    def test_matches_the_anchor_the_catalogue_list_renders(self, client, db):
+        response = client.get(reverse("literature:item-list"))
+        match = IMPORT_LINK_RE.search(response.content.decode())
+
+        assert match is not None
+        assert match.group("path") == reverse("literature:item-import")

@@ -465,3 +465,36 @@ create/skip/fail mix `walk_import` (T304) will assert against.
 **Next:** T302 — the two red tests (`TestMultipartEncoder`, `TestImportLinkPattern`).
 
 **Watch:** none.
+
+## 2026-08-24T16:12+02:00 · Implementer Phase 3 · T302
+
+**Did:** Added `TestMultipartEncoder` and `TestImportLinkPattern` to `tests/test_demo/test_smoke.py`,
+importing `encode_multipart` and `IMPORT_LINK_RE` from `demo.smoke` — neither exists yet.
+`TestMultipartEncoder` round-trips an encoded body through `django.test.RequestFactory`, which
+builds the same `WSGIRequest` a live view receives and parses `.POST`/`.FILES` from the body and
+`Content-Type` header exactly as the demo server would. `TestImportLinkPattern` asserts the pattern
+against markup `client.get(reverse("literature:item-list"))` really renders, the same discipline
+`TestCreateLinkPattern` above it uses.
+
+**Verified:** `poetry run pytest tests/test_demo/test_smoke.py -k "TestMultipartEncoder or TestImportLinkPattern" -v`
+— collection error (exit 2): `ImportError: cannot import name 'IMPORT_LINK_RE' from 'demo.smoke'`.
+Red for the right reason — neither new name exists in `demo/smoke.py` yet.
+
+**Next:** T303 — `encode_multipart` and `IMPORT_LINK_RE` in `demo/smoke.py`. Green T302.
+
+**Watch:** none.
+
+## 2026-08-24T16:15+02:00 · Implementer Phase 3 · T303
+
+**Did:** `demo/smoke.py`: `IMPORT_LINK_RE` beside `CREATE_LINK_RE` (same shape — href only, no
+captured text), and `encode_multipart(fields, files)` beside `form_fields` — a second encoder for
+the import form's file upload, which cannot ride inside `post`'s urlencoded body. `post` itself is
+unchanged.
+
+**Verified:** `poetry run pytest tests/test_demo/test_smoke.py -k "TestMultipartEncoder or TestImportLinkPattern" -v`
+— 2 passed (exit 0). `poetry run pytest tests/test_demo/test_smoke.py -q` — 27 passed (exit 0), no
+regression in the file's other 25 tests.
+
+**Next:** T304 — `walk_import()`, wired into `run()` last.
+
+**Watch:** none.
