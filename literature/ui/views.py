@@ -211,7 +211,9 @@ class ItemListView(CatalogueListMixin, MVPFilteredListView):
         # own default only special-cases those two, so on a list view (whose
         # self.kwargs is always {}) any other action falls through to
         # `dict(self.kwargs) or None`, i.e. None, and directory.import_url
-        # never resolves (decisions.md D14).
+        # never resolves (decisions.md D14). ItemTableView carries the same
+        # override for the same reason — the two have no shared base that
+        # excludes ContributorDetailView, so edit them together.
         if action == "import":
             return {}
         return super().get_url_kwargs(action)
@@ -279,7 +281,7 @@ class ItemTableView(MVPTableViewMixin, FilterView):
     def get_url_kwargs(self, action):
         # Same reasoning as ItemListView.get_url_kwargs() (decisions.md D14)
         # — "import" is collection-level, and CRUDDirectoryMixin's default
-        # only knows "list"/"create" as such.
+        # only knows "list"/"create" as such. Edit the two together.
         if action == "import":
             return {}
         return super().get_url_kwargs(action)
