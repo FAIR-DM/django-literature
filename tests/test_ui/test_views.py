@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.template.loader import get_template
 from django.test import Client
@@ -25,6 +26,44 @@ from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
+
+#: Real, single-entry fixtures (T009's own precedent for reusing recorded
+#: fixtures rather than hand-rolling minimal ones) — one DOI-bearing article,
+#: shared by the BibTeX and RIS upload scenarios below.
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+
+#: A minimal, valid RIS entry (T109's own "same file as RIS" scenario).
+#: Deliberately not ``tests/data/publication.ris`` — that fixture's ``Y2``
+#: tag ("1/26/2023") trips a pre-existing date-parsing defect in
+#: ``literature.importers.ris`` unrelated to this phase and out of its file
+#: scope (prohibitions forbid touching ``literature/importers/**``); flagged
+#: in the completion report's `concerns` instead.
+RIS_ONE_GOOD_ENTRY = """TY  - JOUR
+AU  - Doe, Jane
+TI  - A Working RIS Reference
+PY  - 2020
+JO  - Journal of Testing
+ER  -
+"""
+
+#: A RIS file mixing an entry that converts with one the format's own
+#: contract refuses (T109's "mixed file" scenario). The second record's
+#: missing ``TY`` tag is ``RISFormat.to_csl_json``'s own documented
+#: ``EntryError`` ("This entry carries no 'TY' tag"), not an incidental
+#: malformation — deliberately chosen over an ISBN/DOI-style validation
+#: failure, which does not currently reach the model layer for a bibtex
+#: entry (a second, unrelated finding, also flagged in `concerns`).
+RIS_ONE_GOOD_ONE_BAD = """TY  - JOUR
+AU  - Doe, Jane
+TI  - A Working RIS Reference
+PY  - 2020
+JO  - Journal of Testing
+ER  -
+
+AU  - Roe, Jan
+T1  - A Record With No Reference Type
+ER  -
+"""
 
 
 def anchor_tag(content, href):
@@ -1430,6 +1469,69 @@ class TestItemCreateView:
         assert response.status_code == 200
         assert response.context["contributor_groups"] == []
         assert response.context["identifiers"] == []
+
+
+class TestItemImportView:
+    """Pick a format, attach a file, and see what became of every entry — US-1
+    (FR-005, FR-006, FR-010, FR-019, FR-023, AS-10)."""
+
+    def test_get_renders_the_form_page_with_a_format_choice_and_a_file_control(self, client, db):
+        response = client.get(reverse("literature:item-import"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "<select" in content
+        assert 'name="format"' in content
+        assert 'type="file"' in content
+
+    def test_a_valid_bibtex_upload_creates_the_reference_and_responds_with_the_report(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+
+        assert response.status_code == 200  # a report page, never a redirect
+        assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
+
+    def test_the_response_carries_the_counts_and_one_row_per_entry_in_source_order(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+
+        report = response.context["report"]
+        assert report.total == 1
+        assert report.created == 1
+        assert [row.position for row in report.rows] == [1]
+
+    def test_a_created_row_links_to_its_reference(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+
+        item = Item.objects.get(citation_key="10.1093/gji/ggz376")
+        content = response.content.decode()
+        assert f'href="{reverse("literature:item-detail", kwargs={"pk": item.pk})}"' in content
+
+    def test_the_same_file_uploaded_as_ris_behaves_the_same_way(self, client, db):
+        upload = SimpleUploadedFile("publication.ris", RIS_ONE_GOOD_ENTRY.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+
+        assert response.status_code == 200
+        assert response.context["report"].created == 1
+        assert response.context["report"].total == 1
+
+    def test_a_file_mixing_a_converting_entry_with_a_failing_one_reports_each_correctly(self, client, db):
+        upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+
+        report = response.context["report"]
+        assert report.created == 1
+        assert report.failed == 1
+        assert Item.objects.filter(title="A Working RIS Reference").exists()
+        assert not Item.objects.filter(title="A Record With No Reference Type").exists()
+
+    def test_the_report_is_not_paginated(self, client, db):
+        upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        assert "page_obj" not in response.context or response.context["page_obj"] is None
 
 
 class TestItemUpdateView:

@@ -235,6 +235,36 @@ T110.
 
 **Watch:** none.
 
+## 2026-08-24T14:35+02:00 · Implementer Phase 1 · T109
+
+**Did:** Added `TestItemImportView` to `tests/test_ui/test_views.py` — GET renders the form with a
+format choice and a file control; a valid BibTeX upload (`tests/data/publication.bib`) creates the
+reference and responds 200 with a report, never a redirect; the response carries the counts and one
+row per entry in source order; a created row links to its reference; the same shape uploaded as RIS
+behaves the same way; a file mixing a converting entry with a failing one reports each correctly and
+leaves the created one in the catalogue; the report carries no `page_obj` (not paginated).
+
+**Verified:** `poetry run pytest tests/test_ui/test_views.py::TestItemImportView -v` — 7 failed
+(exit 1), the right reason for six of them: `ItemImportView`'s stub carries no `form_class`, so
+`get_form()` raises `TypeError: 'NoneType' object is not callable` on every POST, and GET 404s with
+no template. Two design corrections made while writing the test, both recorded below rather than in
+`decisions.md` (neither is a design choice, both are facts about existing code discovered while
+building the fixture): `tests/data/publication.ris` cannot be used as the "same file as RIS" fixture
+— its `Y2` tag ("1/26/2023") trips a pre-existing date-parsing defect in `literature.importers.ris`,
+out of this phase's file scope to fix, so a minimal inline RIS entry is used instead. And a
+BibTeX-side "mixed file" (one entry converting, one failing on a bad ISBN) does not actually fail —
+`literature/converters.py`'s known-identifier lookup does not match bibtex.py's lowercase `isbn` key
+against `IdentifierType.ISBN`, so it silently stores the identifier unvalidated as a custom type
+instead of failing the entry (also out of scope, also a converters.py defect). The mixed-file
+scenario instead uses RIS's own documented `EntryError` for a record missing its `TY` tag — a
+genuine, contract-native single-entry failure, not a workaround.
+
+**Next:** T110 — `ItemImportView` itself.
+
+**Watch:** the `tests/data/publication.ris` date-parsing defect and the BibTeX/converters.py ISBN
+identifier-type case mismatch are both flagged in the completion report's `concerns` — neither is
+fixed here (prohibitions forbid touching `literature/importers/**` or `literature/converters.py`).
+
 **Watch:** `BoundRow.get_cell()` (the helper every other class in this module uses) returns a
 column's raw Python value with no escaping at all for a plain, unlinked column — escaping happens
 only in the outer table template's `{{ cell }}`, or inside `format_html()` for a linkified column.
