@@ -691,8 +691,26 @@ class BibTeXFormat(BibFormat):
         (FR-016). That is ``bibtexparser``'s own behaviour rather than a
         choice made here, and it is written down because a rule nothing
         states is a rule nobody can rely on.
+
+        Accepts a binary or a text handle (011 Phase 0 decisions.md D10): a
+        browser upload is always bytes, and this decodes them itself —
+        ``utf-8-sig``, so a byte-order mark is absorbed rather than leaking
+        into the first field, matching :class:`~literature.importers.ris.RISParser`
+        — raising the same shaped :class:`~literature.importers.exceptions.ParseError`
+        on undecodable bytes. A text read passes through unchanged.
         """
-        text = file.read()
+        raw = file.read()
+        if isinstance(raw, bytes):
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError as exc:
+                raise ParseError(
+                    _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
+                        encoding=exc.encoding, offset=exc.start
+                    )
+                ) from exc
+        else:
+            text = raw
         if text.strip() and not _BIBTEX_BLOCK_RE.search(text):
             raise ParseError(
                 _("No BibTeX entries found. Is this a BibTeX file?"),
