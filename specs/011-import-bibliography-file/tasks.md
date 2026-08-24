@@ -343,8 +343,9 @@ Issue #100. FR-011a, FR-015, FR-021, FR-023a. Decisions D17.
 
 # Second refinement, 2026-08-24
 
-The preview and the success page each become pages in their own right. See the second `**Refined**`
-note in `spec.md`, FR-045 to FR-055, and `decisions.md` D30.
+The preview becomes a page in its own right, and a carried-out import returns the reader to the
+catalogue. See the second `**Refined**` note in `spec.md`, FR-045 to FR-055, and `decisions.md` D30
+as amended by D31 and D32.
 
 ---
 
@@ -356,7 +357,8 @@ Issue #110. FR-045 to FR-055.
 
 - **T901** — `tests/test_ui/test_templates.py`: `TestOutcomeFilter` — the component renders one
   control per outcome plus a way back to all of them; each control names its outcome in translated
-  text; it carries no form action and no link, because it never issues a request.
+  text; it carries no form action and no link, because it never issues a request. Also that the
+  counts rendered above the table are the whole file's and are not written by the filter (FR-049a).
 - **T902** — `literature/ui/templates/cotton/filter.html`: a Cotton component in daisyUI's filter
   idiom, shipped here because django-mvp does not define one. Narrowing is client-side over rows
   already on the page, in the same JavaScript idiom the package already uses. No new dependency.
@@ -364,9 +366,9 @@ Issue #110. FR-045 to FR-055.
 
 ### The preview page
 
-- **T903** — `tests/test_ui/test_urls.py`: the preview and success routes reverse under the
-  `literature` namespace and resolve to their views.
-- **T904** — `literature/ui/urls.py`: `import/preview/` and `import/success/`. Green T903.
+- **T903** — `tests/test_ui/test_urls.py`: the preview route reverses under the `literature`
+  namespace and resolves to its view.
+- **T904** — `literature/ui/urls.py`: `import/preview/`. Green T903.
 - **T905** — `tests/test_ui/test_views.py`: `TestItemImportPreviewPage` — submitting the import form
   redirects to the preview address; a GET of that address rebuilds the preview from the staged file
   and imports nothing; reloading it changes nothing; reaching it with nothing staged says so and
@@ -380,25 +382,25 @@ Issue #110. FR-045 to FR-055.
 - **T908** — `literature/ui/templates/literature/ui/import_preview.html`: the page. Every string
   translated. Green T907.
 
-### Restart, confirm and success
+### Restart and confirm
 
 - **T909** — `tests/test_ui/test_views.py`: `TestItemImportRestart` — restarting discards the staged
   file and lands on an empty import form; restarting with nothing staged still lands there.
 - **T910** — `literature/ui/views.py` and `urls.py`: the restart route. Green T909.
-- **T911** — `tests/test_ui/test_views.py`: `TestItemImportSuccessPage` — confirming redirects to the
-  success address rather than rendering; the success page states what was created; reaching it with
-  nothing to report says so and does not raise; the staged file is gone by then.
-- **T912** — `literature/ui/views.py`: the confirm branch redirects, carrying its counts through the
-  messages framework the interface already renders. The success view. Green T911.
-- **T913** — `tests/test_ui/test_templates.py`: the success page states what was created and carries
-  exactly two controls.
-- **T914** — `literature/ui/templates/literature/ui/import_success.html`. Green T913.
+- **T911** — `tests/test_ui/test_views.py`: `TestItemImportConfirm` — confirming redirects to the
+  catalogue rather than rendering; the message it leaves behind states what was created; the staged
+  file is gone by then; following the redirect renders that message once.
+- **T912** — `literature/ui/views.py`: the confirm branch imports, leaves its counts as a message
+  through the framework the interface already renders, and redirects to the catalogue. Green T911.
+  *There is no success page and no success address — D31.*
+- **T913** — *removed by D31 with the success page.*
+- **T914** — *removed by D31 with the success page.*
 
 ### The breadcrumb, and what the reshape leaves behind
 
 - **T915** — `tests/test_ui/test_views.py`: `TestCatalogueBreadcrumb` — on the import form, the
-  preview, the success page and the create page, the step back to the catalogue is a link and reads
-  the catalogue's own title rather than the model's plural name.
+  preview and the create page, the step back to the catalogue is a link and reads the catalogue's
+  own title rather than the model's plural name.
 - **T916** — `literature/ui/views.py`: `show_list_action` and `list_view_title` set wherever either
   is missing. Green T915. *The create page has the mirror of the reported defect — it links but
   reads the model's plural name — so both halves are fixed here.*
@@ -407,8 +409,9 @@ Issue #110. FR-045 to FR-055.
   tests from Phase 7, not shipped ones, and removing them is the point of the reversal — but check
   each against the spec before deleting, and leave anything still required standing.
 - **T918** — `demo/smoke.py` and `tests/test_demo/test_smoke.py`: the walk follows the redirect to
-  the preview, reads it, confirms, and follows the redirect to the success page. Then break the
-  preview, the restart and the confirm in turn and confirm the walk fails each time.
+  the preview, reads it, confirms, follows the redirect to the catalogue and reads the message
+  waiting there. Then break the preview, the restart and the confirm in turn and confirm the walk
+  fails each time.
 
 **Phase exit:** full suite green, `forge verify` green, story comment on #110.
 
@@ -416,8 +419,9 @@ Issue #110. FR-045 to FR-055.
 
 ## Phase 10 — Documentation of the second refinement
 
-- **T1001** — `docs/importing-through-the-interface.md`: the two pages, the three controls, the
-  outcome filter, and that restarting discards the staged file.
+- **T1001** — `docs/importing-through-the-interface.md`: the preview page, the three controls, the
+  outcome filter, that restarting discards the staged file, and that confirming returns to the
+  catalogue.
 - **T1002** — `docs/api/ui.md` and `CHANGELOG.md`.
 - **T1003** — the humanizer pass over what this phase authored, and a check that no internal
   vocabulary reached any of it.

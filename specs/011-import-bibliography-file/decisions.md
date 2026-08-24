@@ -850,3 +850,56 @@ import page rendered it as plain text, which is what Sam reported. Checking the 
 showed the create page has the mirror defect — its breadcrumb links, but reads the model's plural
 name rather than the catalogue's own title. Only the reference page had both halves right. All of
 them now do, which is FR-055.
+
+## D31 — A carried-out import returns the reader to the catalogue, not to a page of its own
+
+**Ambiguous:** nothing. D30 gave the confirmed import a success page of its own. Sam paused the work
+to weigh that choice rather than build it, and settled on the redirect.
+
+**Chosen:** confirming redirects to the catalogue, carrying a message that states what was created.
+There is no success page and no success address. FR-052 amended, FR-053 reversed, FR-011 amended
+because its original wording forbade this ending.
+
+**Why defensible:** the success page had one piece of content — a sentence built from counts — and it
+came from the messages framework, which consumes a message on read. Reloading it would leave a page
+with nothing on it, which is a page shipped broken on second use. Holding the counts somewhere they
+survive a reload means storing a result, which is the thing this design has avoided since D16.
+
+The content was not worth that. Every per-entry detail was on the preview, which the reader has just
+read and acted on — that is what the preview is for. What they want next is their catalogue with the
+new references in it, and importing another file is one click away in the toolbar this feature added.
+Redirecting to the catalogue with a message is Django's own convention for a completed write and is
+what this app's create and edit flows already do.
+
+This does reinstate the shape rejected at intake, where a redirect with a summary message was refused
+because a count is not a report. That objection held then and does not now: it was aimed at a design
+where the count was the *only* thing the reader ever saw. With the preview in front of it, the count
+is a confirmation of something already read in full.
+
+**FR-011 is amended rather than struck** because its subject changed. It was written when the import
+ran first and the report described what had happened; the preview makes the report come first. What
+it was protecting — that nobody learns the outcome from a bare number — is now protected by FR-045 to
+FR-050, so the clause forbidding the redirect was defending a door that had moved.
+
+**ADR:** none. The feature-level record is D30 and this refines it; nothing outside this feature
+depends on where a confirmed import lands.
+
+## D32 — The outcome filter is built, and the counts do not move with it
+
+**Ambiguous:** whether the filter earns its place. I argued it is worth having on a long file and
+noise on a short one, and asked. Sam settled it: build it.
+
+**Chosen:** built as specified in D30 — client-side, radio inputs in daisyUI's filter idiom, shipped
+as a Cotton component here because django-mvp defines none. One addition, FR-049a: the counts above
+the table keep describing the whole file while the table is narrowed.
+
+**Why defensible:** the counts are the only thing on the page that says how big the file was. If they
+tracked the filter, a reader narrowing to failures would see "3 failed" beside three rows and have no
+way to tell three-of-four from three-of-four-hundred — and worse, a hidden row and a missing row look
+identical. Keeping them fixed makes the narrowing visibly a view of something larger. This is the one
+condition worth spending a requirement on, and it is cheap: the counts are rendered server-side and
+the filter never touches them.
+
+The component stays small deliberately. daisyUI's filter is radio inputs and CSS, so this is a
+handful of lines with no behaviour of its own beyond hiding rows. If it grows past that it has stopped
+being worth its keep.

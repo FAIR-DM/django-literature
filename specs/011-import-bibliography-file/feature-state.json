@@ -69,6 +69,11 @@
       "state": "PLAN",
       "at": "2026-08-24T21:10:00Z",
       "note": "second refinement: the preview and success pages get their own addresses; story US7 (#110) added, 21 tasks"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T19:10:00Z",
+      "note": "second refinement amended in session: the success page is dropped, a carried-out import redirects to the catalogue with a message (D31), and the outcome filter is confirmed with the counts fixed to the whole file (D32). T913 and T914 removed."
     }
   ],
   "gates": {
@@ -990,16 +995,6 @@
         },
         {
           "id": "T912",
-          "status": "todo",
-          "attempts": 0
-        },
-        {
-          "id": "T913",
-          "status": "todo",
-          "attempts": 0
-        },
-        {
-          "id": "T914",
           "status": "todo",
           "attempts": 0
         },
