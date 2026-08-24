@@ -57,6 +57,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **A skipped entry in an import report may now show why.** A `@comment` or `@preamble` block in a
+  BibTeX file, and header material or a reference-type-only record in an RIS file, each name what
+  they were in the report's reason column — the same column a failed entry's reason already uses.
+  Previously a skipped entry never carried a reason at all, however specific a cause the format
+  actually had, and the report showed a row with no citation key and no explanation. A created entry
+  still never carries one (issue #107).
+
 - **The catalogue serves as a table by default.** `literature.ui`'s catalogue page used to be a list
   of cards; a project installing the front end with no configuration now gets a row per reference —
   citation key, item type, title, the journal or book it appeared in, its credited names and its

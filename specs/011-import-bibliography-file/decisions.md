@@ -472,3 +472,37 @@ to cover as the default is covered as the default by `TestItemImportPreview`, `T
 and `TestItemImportSkipPreview`. The phase that wrote the refinement was not sanctioned to touch
 them and correctly stopped and reported instead; the edit is made here, deliberately and with this
 record, rather than inside the phase that had the motive to make them pass.
+
+## D21 — A pre-existing test in test_base.py is left red by ADR-0027, and reported rather than fixed
+
+**Ambiguous:** nothing in this phase's own brief, whose hazards name exactly one shipped test as
+sanctioned to edit (`test_results.py::TestEntryResult::test_reason_belongs_only_to_failure`) and say
+of any other: stop and report it, do not edit it.
+`tests/test_importers/test_base.py::TestReporting::test_skipped_is_distinguishable_from_failed`
+constructs `SkipEntry("a comment")` through the generic test double `make_echo_format` and asserts
+`result.skipped[0].reason is None`. ADR-0027 carries a `SkipEntry`'s message onto the skipped entry's
+reason in exactly the code path (`BibFormat.import_entry`'s conversion-stage handling) this test
+exercises, so the assertion is now false: the reason reads `"a comment"`.
+
+There is no way to carry a format's `SkipEntry` message through that shared runner method without
+also carrying this test double's — the runner does not, and should not, distinguish a real format
+from a test one. Widening `import_entries`'s separate reader-stage handling (the one path that could
+have been left untouched) would not have helped: this test's `"skip"` kind raises from `to_csl_json`,
+not from `parse`, and neither shipped format raises `SkipEntry` from `parse` at all.
+
+**Chosen:** report the failure, its cause and its file and line, without editing it. The same
+guardrail D20 records — a failing pre-existing test is evidence about intent the code may be
+contradicting — applies here, and this phase's own brief withheld authorization to resolve it.
+
+**Why defensible:** the same reasoning D20 gives for why an edit *can* be correct also gives the
+condition under which it is not this phase's to make: the intent genuinely changed, at a decision
+recorded before this phase touched any code (ADR-0027, issue #107) — but the phase that discovers a
+casualty of a sanctioned change is not automatically the phase authorized to adjudicate it, and this
+one's brief said so explicitly. `test_skipped_is_distinguishable_from_failed`'s own assertion is not
+wrong about what it once verified — a skip never carrying a reason — it is only wrong about the
+contract now, and updating a test to match a contract it predates is exactly the kind of correction
+that wants a record and a reviewer with the authority this phase was not given.
+
+**Revisit when:** whoever reviews this phase either grants the edit (bringing the test's assertion
+onto the amended contract, the same move D20 already made once) or decides the reader-stage path
+should carry a reason too, in which case the fix travels together with this test's update.
