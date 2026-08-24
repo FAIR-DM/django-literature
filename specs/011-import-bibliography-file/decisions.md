@@ -22,6 +22,8 @@ was rejected too. It makes the interface's behaviour depend on the data, so a re
 ever imported clean files never learns the report exists, and the first time they meet it is the
 first time something went wrong. It also gives the demo's guard two paths to walk instead of one.
 
+**ADR:** none — the issue itself ruled out the alternative in its own text, so there is no reasoning here a later reader would come looking for. The landing is described where the page is documented.
+
 ## D2 — Nothing about the run is stored
 
 **Ambiguous:** whether the report is a rendering that exists once, or a stored import record the
@@ -43,6 +45,8 @@ about repeat imports before the reader submits.
 If an import history is wanted later it arrives as its own issue, and it can be built without
 disturbing anything here — the contract already returns the whole result, so storing it is additive.
 
+**ADR:** `docs/adr/0028-an-import-previews-first-and-stages-its-file.md` — graduated. Its Consequences section carries this rule, including the one narrowing that previewing forced on it.
+
 ## D3 — The report counts entries from one, the contract counts from zero
 
 **Ambiguous:** the import contract identifies every entry result by a zero-based index, deliberately
@@ -61,6 +65,8 @@ This is written down because it is exactly the kind of inconsistency a later rea
 "fix" in one direction or the other, restoring the problem. Neither number is a mistake. The
 divergence is the decision.
 
+**ADR:** none — a presentation choice at the boundary between a machine-readable contract and a page a person reads. Both numbering schemes are documented where each is used.
+
 ## D4 — The report is one page, however long the file was
 
 **Ambiguous:** a four-hundred-entry file produces a four-hundred-row report, which in any other
@@ -74,6 +80,8 @@ and a reader who reloaded or navigated would lose all of it including the part t
 read. A long single page is honest about what the report is. It also keeps the thing a reader
 most needs, the failed entries, reachable by searching the page in their browser rather than by
 walking pages hunting for them.
+
+**ADR:** none — presentation, and revisitable the moment a report becomes something a reader can return to.
 
 ## D5 — No duplicate detection, and the import page says so
 
@@ -93,6 +101,8 @@ taken.
 
 Warning is not detection and costs nothing. It converts a surprise into an informed action, which
 is the whole of what the front end can honestly offer here.
+
+**ADR:** `docs/adr/0009-an-import-never-matches-against-stored-items.md` — graduated there already, before this feature. What this decision adds is that the page says so, which is interface text.
 
 ## D6 — The format is chosen, never sniffed
 
@@ -116,6 +126,8 @@ The choices offered are read from the installation's configured formats rather t
 front end, so a project that adds a format gets it in the interface for free and this feature never
 has to be revisited to add one.
 
+**ADR:** `docs/adr/0029-the-format-is-chosen-never-detected.md` — graduated.
+
 ## D7 — Both catalogue presentations carry the action
 
 **Ambiguous:** Sam named the table's toolbar. The package serves two catalogue presentations — the
@@ -131,6 +143,8 @@ would mean a project reading the routing setting had no way to know it was also 
 Naming the table rather than both is how the entry point was described, not a boundary that was
 drawn — the table is what the package serves by default, so it is what "the catalogue" means in
 conversation. Raised in the specification gate brief so it can be vetoed if that reading is wrong.
+
+**ADR:** none — it follows a precedent set for search and filtering in the previous feature, and the reasoning lives with that precedent rather than being restated per action.
 
 ## D8 — The front end reads the contract and does not extend it
 
@@ -151,6 +165,8 @@ raises a finding as its own issue rather than amending in place. The same rule a
 is written into the spec's assumptions so that whoever meets a genuine gap raises it rather than
 widening this feature to cover it.
 
+**ADR:** none — a scope statement about this feature, not a commitment beyond it. The contract it declines to extend is documented in its own right.
+
 ## D9 — Permissions are not introduced, and that is flagged rather than assumed
 
 **Ambiguous:** import is the most consequential write the front end offers, and nothing in the front
@@ -170,6 +186,8 @@ What makes this worth a decision rather than a silent inheritance is the size of
 create form adds one reference at a time; an import adds a file's worth, and a reader who reaches
 the page can fill a catalogue in one action. If Sam wants the front end gated, this is the feature
 where the cost of not having it is highest, so the gate brief names it as a veto point.
+
+**ADR:** `docs/adr/0022-the-front-ends-pages-are-open.md` — graduated there already. This decision applies that rule to the most consequential page and says so in the specification rather than inheriting it silently.
 
 ## D10 — The two formats are made to agree on what a file handle is, before any front-end work
 
@@ -207,6 +225,8 @@ this reads as bringing one format up to the other rather than as a new behaviour
 Raised on the tracker in its own right, so the defect has a record that does not depend on anyone
 reading this feature's specification.
 
+**ADR:** `docs/adr/0026-a-format-accepts-a-text-or-a-binary-handle.md` — graduated.
+
 ## D11 — FR-023 is narrowed to the guarantee that can be kept
 
 **Ambiguous:** the specification required that reloading the report not re-run the import. Planning
@@ -233,6 +253,8 @@ at no cost.
 If an import history is built later (D2), the redirect becomes available for free, because the
 result would then have somewhere to live that is not the session.
 
+**ADR:** none — superseded by D16 within the same run. What the report page guarantees is recorded in ADR-0028.
+
 ## D12 — The unauthenticated, unbounded upload is accepted and written down
 
 **Ambiguous:** nothing, in the sense of a choice left open — but this feature opens the project's
@@ -257,6 +279,8 @@ Recorded rather than fixed, because both halves are approved specification text.
 means amending the specification and putting it back to the maintainer, not something planning may
 take on its own.
 
+**ADR:** `docs/adr/0030-the-import-page-accepts-an-unbounded-upload-from-anyone.md` — graduated.
+
 ## D13 — `RISParser`'s own docstring is amended in place, superseding spec 005's D19
 
 **Decision:** `RISParser.parse`'s class docstring, which stated "Expects `file` opened in
@@ -279,6 +303,8 @@ spec-011 side.
 **Revisit if:** a third format is added whose own decoding failure needs something a text handle
 cannot supply — at that point the "text read passes through unchanged" half of D10 may need its
 own carve-out, and D19's original reasoning is the place to start.
+
+**ADR:** none — a docstring brought onto a decision recorded elsewhere (D10, ADR-0026). The supersession is annotated in the file itself, which is where a reader of that class meets it.
 
 ## D14 — "import" is taught to `get_url_kwargs()` as a collection-level action
 
@@ -312,6 +338,8 @@ rather than silently folded in, since the brief names only one shipped test as s
 under a `pk` — the two-branch shape here (`{}` vs `dict(self.kwargs) or None`) would need a third
 case rather than a second hardcoded name.
 
+**ADR:** none — how one upstream mechanism is configured. It constrains nothing beyond the two views that override it.
+
 ## D15 — The fixture's failing entry fails on an oversized `address`, not an unmapped type
 
 **Ambiguous:** T301 asks for "at least one [entry] that does not" convert, without saying what
@@ -342,6 +370,8 @@ test database before writing `walk_import`: two entries `CREATED`, the leading `
 **Revisit if:** a future importer contract adds field-level cleaning for every scalar (not only
 identifiers), at which point an oversized `address` might also start recovering rather than failing,
 and the fixture would need a different failure shape.
+
+**ADR:** none — the shape of one test fixture, chosen so its failure is about a field limit rather than about a mapping this package deliberately does not enforce.
 
 ## D16 — Importing previews by default, and the staged file lives on disk
 

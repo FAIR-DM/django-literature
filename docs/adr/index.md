@@ -39,4 +39,6 @@ rest of this documentation covers the how.
 0026-a-format-accepts-a-text-or-a-binary-handle
 0027-a-skipped-entry-may-carry-a-reason
 0028-an-import-previews-first-and-stages-its-file
+0029-the-format-is-chosen-never-detected
+0030-the-import-page-accepts-an-unbounded-upload-from-anyone
 ```
