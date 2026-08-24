@@ -1696,7 +1696,9 @@ class TestItemImportPreview:
         assert report.created == 0
         content = response.content.decode()
         assert "nothing has been imported" in content.lower()  # still labelled a preview (FR-039)
-        assert "<form" not in content
+        # The page carries an upload form of its own now (decisions.md D17),
+        # so what this asserts is the absence of the confirm control itself.
+        assert f'action="{reverse("literature:item-import-confirm")}"' not in content
 
 
 class TestItemImportConfirm:
@@ -1756,6 +1758,22 @@ class TestItemImportConfirm:
         assert "nothing to confirm" in response.content.decode().lower()
         assert Item.objects.count() == 0
 
+    def test_the_report_carries_the_upload_form_above_its_results(self, client, db):
+        # decisions.md D17 — confirming a preview is the default path
+        # through the feature, so this is the report a reader most often
+        # reads. It carries the same upload form every other report does,
+        # even though this view's own form declares no field.
+        self._preview(client)
+        content = client.post(reverse("literature:item-import-confirm")).content.decode()
+        file_index = content.index('type="file"')
+        assert file_index < content.index("1 created")
+
+    def test_nothing_to_confirm_carries_no_upload_form(self, client, db):
+        # The one state that does not: there is no report for a form to sit
+        # above, and the page's own buttons lead back to an empty one.
+        content = client.post(reverse("literature:item-import-confirm")).content.decode()
+        assert 'type="file"' not in content
+
     def test_a_second_confirmation_of_the_same_token_imports_nothing(self, client, db):
         self._preview(client)
         first = client.post(reverse("literature:item-import-confirm"))
@@ -1788,7 +1806,10 @@ class TestItemImportSkipPreview:
         )
         content = response.content.decode()
         assert "nothing has been imported" not in content.lower()
-        assert "<form" not in content  # no confirm control — there is nothing left to confirm
+        # No confirm control: there is nothing left to confirm. The upload
+        # form the page carries above its results (decisions.md D17) is a
+        # different form, submitting a new file to a new run.
+        assert f'action="{reverse("literature:item-import-confirm")}"' not in content
 
     def test_skipping_the_preview_stages_nothing(self, client, db):
         with (DATA_DIR / "publication.bib").open("rb") as handle:

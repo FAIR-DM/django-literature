@@ -22,14 +22,13 @@ The report now carries the upload form itself, above the results
 (decisions.md D17), which is what removes the tension D11 recorded: FR-023's
 promise that the report page runs nothing again was the best available
 answer while the report was a dead end, and it no longer is — the preview is
-what makes running it again safe. ``{% if form.fields.file %}`` is how that
-form is told apart from ``ConfirmImportForm`` (no fields of its own,
-decisions.md D16): ``ItemImportView`` always hands this template a bound
-``ImportForm`` (the preview state, and an ordinary report reached by
-skipping the preview), and ``ItemImportConfirmView`` never does, so an
-ordinary report reached by confirming a preview — and ``nothing_to_confirm``
-— render without it. Reported as a gap rather than routed around by
-touching the view (prohibitions).
+what makes running it again safe. Both views hand this template an
+``import_form`` of its own, kept separate from ``form``: ``ItemImportView``
+passes the submission it has just read, so the format the reader chose stays
+selected, and ``ItemImportConfirmView`` passes an unbound one, since its own
+``ConfirmImportForm`` declares no field (decisions.md D16). Only the
+``nothing_to_confirm`` state renders without it: there is no report
+there for it to sit above.
 {% endcomment %}
 {% block page.content %}
   {% if nothing_to_confirm %}
@@ -49,14 +48,14 @@ touching the view (prohibitions).
         {% endblocktranslate %}
       </c-alert>
     {% endif %}
-    {% if form.fields.file %}
+    {% if import_form %}
       {# The whole-file failure FR-023a names: the format found nothing to #}
       {# recover from the file at all, so the run is one synthetic failed #}
       {# entry and nothing else — never true of a file that read but whose #}
       {# entries individually failed alongside others that did not. #}
       <c-form method="post"
               action="{% url 'literature:item-import' %}"
-              :form-obj="form"
+              :form-obj="import_form"
               x-init="form.fileChanged = false"
               @change="if ($event.target.type === 'file') { form.fileChanged = true }"
               class="mb-4">

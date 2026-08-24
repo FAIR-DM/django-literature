@@ -553,7 +553,13 @@ class DemoWalk:
             self.fail(import_url, 200, "the preview carries no confirm control", preview_body)
         confirm_url = f"{self.base_url}{confirm_match.group('path')}"
 
-        report_body, report_url = self.post(confirm_url, import_url, form_fields(preview_body))
+        # ``form_fields`` walks a page's first <form>, and the preview page's
+        # first one is now the upload form sitting above the results
+        # (decisions.md D17). Reading from the confirm control's own opening
+        # tag onwards is what keeps this step posting the confirm form's
+        # fields rather than the upload form's.
+        confirm_form_body = preview_body[confirm_match.start() :]
+        report_body, report_url = self.post(confirm_url, import_url, form_fields(confirm_form_body))
         if report_url != confirm_url:
             self.fail(
                 report_url,

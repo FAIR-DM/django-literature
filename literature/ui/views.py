@@ -471,6 +471,11 @@ class ItemImportView(MVPFormView):
         format_name = form.cleaned_data["format"]
         format_class = get_format(format_name)
         context = self.get_context_data(form=form)
+        # The report page carries an upload form above its results
+        # (decisions.md D17). Handing it this submission's own form keeps the
+        # format the reader chose selected, so submitting another file of the
+        # same kind is one file selection rather than two choices.
+        context["import_form"] = form
 
         if form.cleaned_data["skip_preview"]:
             result = format_class().import_file(form.cleaned_data["file"])
@@ -539,6 +544,12 @@ class ItemImportConfirmView(MVPFormView):
         context["report"] = report
         context["table"] = ImportReportTable(report.rows)
         context["preview"] = False
+        # This view's own form declares no field, so it cannot be the upload
+        # form the report page puts above its results (decisions.md D17).
+        # Confirming a preview is the default path through the feature, and
+        # the page would otherwise be the one report without a way to import
+        # another file from it.
+        context["import_form"] = ImportForm()
         return render(self.request, "literature/ui/import_report.html", context)
 
 
