@@ -19,6 +19,12 @@ import urllib.parse
 import urllib.request
 import uuid
 from html.parser import HTMLParser
+from pathlib import Path
+
+# The import fixture (T301) sits beside this module's own seed data, never
+# reversed from a Django setting: the walk speaks HTTP only and has no
+# access to the demo's app registry to ask it (module docstring).
+IMPORT_FIXTURE_PATH = Path(__file__).resolve().parent / "seed" / "import-sample.bib"
 
 # The demo runs with DEBUG = True (plan.md D-5): an unbounded body on failure
 # would put Django's technical-500 page, including settings and the request
@@ -237,6 +243,13 @@ class DemoWalk:
         self.walk_narrowed_catalogue(list_url, list_body)
         self.walk_to_contributor(item_links)
         self.walk_write_pass(list_url, list_body)
+        # Last (T301, T304): unlike walk_write_pass, this leaves its
+        # references behind, and on a developer's persistent demo database
+        # they accumulate across runs. Every check above it has already run
+        # against the catalogue as the seed alone left it — putting this
+        # earlier would make walk_narrowed_catalogue's exact-membership
+        # assertions fail on the second run of the day.
+        self.walk_import(list_url, list_body)
 
     def walk_narrowed_catalogue(self, list_url, list_body):
         """A search, a filter, and a page move over a narrowed result (FR-033, decisions.md D22).
@@ -470,6 +483,82 @@ class DemoWalk:
                 list_url, 200, f"catalogue list still lists the deleted reference at {item_path}", list_after_delete
             )
 
+    def walk_import(self, list_url, list_body):
+        """Import the fixture file and confirm both the report and the catalogue show it (T301, T304).
+
+        Follows the catalogue's own Import link, the same discipline every
+        other step in this class uses (SC-003). The submission is asserted
+        never to redirect — the reader always lands on the report itself,
+        never on the catalogue with a message (plan.md D1, D11) — and the
+        report is asserted on its content: the two entries that converted,
+        and the one that did not, with the reason a reader could act on
+        (demo/seed/import-sample.bib, decisions.md D15). The catalogue is
+        then re-fetched to confirm the created references actually arrived,
+        not only that the report claimed they would.
+        """
+        import_match = IMPORT_LINK_RE.search(list_body)
+        if import_match is None:
+            self.fail(list_url, 200, "no Import link on the catalogue list", list_body)
+        import_url = f"{self.base_url}{import_match.group('path')}"
+
+        import_form_body = self.get(import_url)
+        fields = form_fields(import_form_body)
+        if "format" not in fields or "file" not in fields:
+            self.fail(
+                import_url, 200, "the import form carries no format or file control", import_form_body
+            )
+
+        text_fields = {key: value for key, value in fields.items() if key != "file"}
+        text_fields["format"] = "bibtex"
+        body, content_type = encode_multipart(
+            text_fields,
+            {"file": (IMPORT_FIXTURE_PATH.name, IMPORT_FIXTURE_PATH.read_bytes(), "application/octet-stream")},
+        )
+        request = urllib.request.Request(
+            import_url, data=body, headers={"Referer": import_url, "Content-Type": content_type}
+        )  # noqa: S310 — http(s) only, built from base_url argv, never external input
+        report_body, report_url = self.fetch(request, import_url)
+
+        if report_url != import_url:
+            self.fail(
+                report_url,
+                200,
+                f"submitting the import did not render the report directly (landed on {report_url})",
+                report_body,
+            )
+        for created_key in ("ImportFixtureAlpha2024", "ImportFixtureBeta2023"):
+            if created_key not in report_body:
+                self.fail(
+                    import_url,
+                    200,
+                    f"the import report does not carry the fixture's created entry {created_key!r}",
+                    report_body,
+                )
+        if "ImportFixtureGamma2022" not in report_body:
+            self.fail(
+                import_url,
+                200,
+                "the import report does not carry the fixture's failing entry 'ImportFixtureGamma2022'",
+                report_body,
+            )
+        if "Ensure this value has at most 255 characters" not in report_body:
+            self.fail(
+                import_url,
+                200,
+                "the import report does not carry the failing entry's own reason",
+                report_body,
+            )
+
+        list_after_import = self.get(list_url)
+        for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
+            if created_title not in list_after_import:
+                self.fail(
+                    list_url,
+                    200,
+                    f"the catalogue does not list the imported reference {created_title!r}",
+                    list_after_import,
+                )
+
     def get(self, url):
         """GET url, following redirects, and fail if any lands on a login page (FR-005, T015)."""
         body, _final_url = self.fetch(url, url)
@@ -533,7 +622,8 @@ def main(argv):
         print(f"FAILED: {exc}", file=sys.stderr)
         return 1
     print(
-        f"OK: walked the demo catalogue, its second page, a reference and a contributor, and created/corrected/removed a reference, at {base_url}"
+        f"OK: walked the demo catalogue, its second page, a reference and a contributor, "
+        f"created/corrected/removed a reference, and imported a bibliography file, at {base_url}"
     )
     return 0
 

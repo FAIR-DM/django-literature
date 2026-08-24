@@ -498,3 +498,34 @@ regression in the file's other 25 tests.
 **Next:** T304 — `walk_import()`, wired into `run()` last.
 
 **Watch:** none.
+
+## 2026-08-24T16:30+02:00 · Implementer Phase 3 · T304
+
+**Did:** `demo/smoke.py`: `DemoWalk.walk_import()` — follows `IMPORT_LINK_RE` from the already-fetched
+catalogue body, reads the import form's fields, submits `demo/seed/import-sample.bib` through
+`encode_multipart`, asserts the response lands back on the import URL itself (never a redirect, D1/
+D11), asserts the report names both created citation keys and the failing one with its reason, then
+re-fetches the catalogue and asserts both created titles are listed. Wired into `run()` last, after
+`walk_write_pass` — the code comment states why (T301/T304 hazards: it leaves its references behind
+and the catalogue accumulates across runs).
+
+**Verified against a running demo**, `DEMO_DB_PATH=/tmp/demo-smoke-T304.sqlite3` (a scratch database,
+never the developer's own):
+- `poetry run python manage.py migrate -v0`
+- `poetry run python manage.py seed_demo` — `seed_demo loaded 31 references from
+  .../demo/seed/catalogue.json`
+- `poetry run python manage.py runserver 127.0.0.1:8000 --noreload &`
+- `poetry run python demo/smoke.py http://127.0.0.1:8000` — twice in a row, against the same,
+  now-mutated database, to prove the persistence hazard T301/T304 name does not bite:
+  - Run 1: `OK: walked the demo catalogue, its second page, a reference and a contributor,
+    created/corrected/removed a reference, and imported a bibliography file, at
+    http://127.0.0.1:8000` — exit 0.
+  - Run 2 (against the database run 1 already left the fixture's references in): identical `OK`
+    line, exit 0. `walk_narrowed_catalogue`'s exact-membership assertions did not fail on the second
+    run, confirming the fixture collides with nothing it accumulates.
+
+`poetry run pytest tests/test_demo/ -q` — 51 passed (exit 0), no regression.
+
+**Next:** T305 — verify the guard fails when it should.
+
+**Watch:** none.
