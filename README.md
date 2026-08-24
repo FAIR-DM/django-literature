@@ -329,11 +329,12 @@ to the host project to add, the same way it would guard any other view.
 ### Importing a bibliography file
 
 The catalogue list carries an Import action too, opening a page with a format choice and a file
-control. Submitting previews the file by default — the same report a real import would produce,
-with nothing yet written to the catalogue — and a control on that page carries out the import it
-described. A checkbox on the form skips the preview for a one-step import instead. Either way
-you land on a report: how many entries were created, skipped and failed, and one row per entry in the
-order the file held them.
+control. Submitting previews the file by default, on a page of its own: the same report a real
+import would produce, with nothing yet written to the catalogue — how many entries would be
+created, skipped and failed, and one row per entry in the order the file held them, narrowable to
+one outcome without leaving the page. A control at the foot carries out the import it described
+and returns you to the catalogue with a message stating what was created. A checkbox on the form
+skips the preview for a one-step import instead, which lands on the same report of what it did.
 
 The format is chosen, never detected from the file itself — pick the wrong one and the format's
 own message says so on every entry, rather than the file being silently misread. Nothing checks

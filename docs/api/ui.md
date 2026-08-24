@@ -51,15 +51,38 @@ filters, which belong to the catalogue alone.
 
 `ItemImportView` serves the import page, reached from the Import action on either
 catalogue presentation. It renders the format choice and file control on a `GET`. On a
-valid `POST` it runs the chosen format over the uploaded file and renders the report
-directly rather than redirecting — as a preview by default, which reports every entry
-and leaves the catalogue untouched, or as a real import where the reader ticked the
-skip-preview control.
+valid `POST` it stages the uploaded file and redirects to the preview. Where the reader
+ticked the skip-preview control it instead runs the chosen format immediately and
+renders the report in that same response, which is the only path that still does.
 
-`ItemImportConfirmView` carries out the import a preview described. It takes no file and
-no token from the page: both come from the reader's own session, so a request can only
-confirm a file that same session staged. A `GET` has nothing to show without a prior
+`ItemImportPreviewView` serves the preview at an address of its own. It holds no result:
+every `GET` reads the staged file back and runs the format over it again with
+`dry_run=True`, so reloading the address reports the same outcomes and writes nothing
+either time. It carries no import form. The rows it hands the table each carry the
+outcome the filter below matches on, and the counts it renders above the table come
+straight off the report, so narrowing the table never changes them. Reaching the address
+with nothing staged sets `nothing_staged` in the context and renders a notice rather than
+raising.
+
+`ItemImportRestartView` discards the staged file, clears what the session held about it,
+and redirects to an empty import form. It answers `POST` only.
+
+`ItemImportConfirmView` carries out the import a preview described, then redirects to the
+catalogue with a message stating the counts. It renders no template of its own and there
+is no success page: the per-entry detail was on the preview, and the message here
+confirms what that preview said would happen. It takes no file and no token from the
+page, both coming from the reader's own session, so a request can only confirm a file
+that same session staged. A confirmation naming a preview the session has since replaced,
+or one whose file is gone, returns to the catalogue with a message saying there was
+nothing to confirm and imports nothing. A `GET` has nothing to show without a prior
 preview and redirects back to the import page.
+
+The routes these views are reachable at, all within the `literature` namespace:
+
+- `literature:item-import` — the format choice and file control.
+- `literature:item-import-preview` — the preview page.
+- `literature:item-import-restart` — discard the staged file and start again.
+- `literature:item-import-confirm` — carry out the previewed import.
 
 See [Importing a bibliography file](../importing-through-the-interface.md) for what a
 reader sees.
@@ -148,6 +171,11 @@ renders each row's outcome as a colour-coded badge, created, skipped and failed 
 variant. A created row's position number links to the reference it produced, and a skipped or
 failed row's does not.
 
+The preview builds the same table with per-row attributes, one expression per row naming that
+row's outcome, which is what lets the filter above the table hide rows without a request. The
+one-step report builds it without them, so its rows carry nothing that would need a filter on the
+page to make sense of.
+
 `OutcomeColumn` is that column. It is a template column, so the badge is rendered by a template
 and escaped like any other, rather than built as a marked-safe string in Python. It maps each
 outcome to its own badge variant and wraps the outcome's own translated label, which is what the
@@ -161,3 +189,20 @@ subclass the column and map the three outcomes to different variants.
    :undoc-members: False
    :show-inheritance:
 ```
+
+## Components
+
+`<c-filter>` is the outcome filter above the preview's table. It takes one attribute,
+`outcomes`, a sequence of value and label pairs, and renders a radio button per outcome
+plus a reset back to all of them. Choosing one writes the value into `outcome` on the
+surrounding scope, which every table row reads to decide whether to show itself, so
+narrowing the table issues no request and reloads nothing.
+
+The component opens no scope of its own and wraps itself in no form, both deliberately: it
+reads and writes the scope the page around it opens, and it has no server to submit to.
+Anything on a page that reads `outcome` narrows with it, and the counts the preview renders
+above it do not read it, which is what keeps them describing the whole file while the table
+beneath shows part of one.
+
+A project rendering its own import report can use the component the same way, by opening a
+scope holding `outcome` and giving its rows something that reads it.

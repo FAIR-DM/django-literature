@@ -10,21 +10,32 @@ All notable changes to this project are documented in this file. The format foll
 
 - **Importing a bibliography file through the front end.** The catalogue carries an Import
   action, on both presentations, that opens a page to choose a configured format and attach a
-  file. Submitting it previews by default — the same report a real import would produce, with
-  nothing yet written to the catalogue — and a control on that page carries out the import;
-  ticking a checkbox on the form skips the preview for a one-step import instead. Either way you
-  land on a report: how many entries were created, skipped and failed, and one row per entry in
-  source order, numbered from one, each outcome shown as a colour-coded badge, with a reason on
-  every failure and a link to the reference a created row produced.
+  file. Submitting it previews by default: the file is set aside and you land on a page of the
+  preview's own, saying plainly that nothing has been imported yet and showing the report a real
+  import would produce. It gives the counts — how many entries would be created, skipped and
+  failed — and one row per entry in source order, numbered from one, each outcome a colour-coded
+  badge, with a reason on every failure and on every skip, and a link to the reference a created
+  row would produce. A row of buttons above the table narrows it to one outcome and back again
+  without reloading the page or fetching anything, and the counts above those buttons go on
+  describing the whole file however far the table is narrowed. The preview is worked out from the
+  file afresh each time it is opened, so reloading it changes nothing and imports nothing.
+
+  The preview ends with three controls: back to the catalogue, restart, and confirm. Restarting
+  throws the file away and opens an empty import form. Confirming carries out the import and
+  returns you to the catalogue with a message stating what was created, rather than to a result
+  page of its own — the per-entry detail was on the preview you have just read. Where the chosen
+  format could not read the file at all, nothing would be created by confirming, so the preview
+  offers no confirmation and leaves only restart and the way back.
 
   A previewed file is held on disk only until it is confirmed, or swept automatically after 24
   hours if it never is. Its identity lives in the browser session rather than on the page, so a
   confirmation can only ever complete what that same session staged, and one whose staged file is
-  already gone says so plainly and imports nothing. The report page carries the upload form above
-  its results, divided from them, so another file can be submitted without leaving the page, and
-  ends with a button back to the catalogue and a second that opens an empty import form. Where the
-  attached file could not be read at all, the form's submit control reads Retry and stays disabled
-  until the attachment changes.
+  already gone says so plainly and imports nothing. Reaching the preview address with nothing set
+  aside says the same rather than showing an empty page.
+
+  Ticking the skip-preview checkbox on the form imports in one step instead. That path lands on a
+  report of what was imported, carrying the same counts and the same row per entry, and ending
+  with a button back to the catalogue and a second that opens an empty import form.
 
   The format is chosen, never detected from the file. Nothing checks whether a file has already
   been imported, so importing the same file twice creates the references twice, and the page warns
