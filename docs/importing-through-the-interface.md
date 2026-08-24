@@ -42,10 +42,12 @@ controls.
 
 ### Narrowing the table
 
-Between the counts and the table is a row of buttons: All, and one for each outcome. Choosing
-Failed hides every row that is not a failure, and All brings them back. Nothing is fetched and
-the page does not reload, because every row of the report is already on it. However long the
-file, the whole report is on one page and there is no second page to turn to.
+Between the counts and the table is a row of buttons: All, and one for each outcome. Each
+outcome's button is the same colour as that outcome's badge in the table below it, so you can see
+what a button will leave behind before you press it. Choosing Failed hides every row that is not a
+failure, and All brings them back. Nothing is fetched and the page does not reload, because every
+row of the report is already on it. However long the file, the whole report is on one page and
+there is no second page to turn to.
 
 The counts do not move when you narrow the table. They always describe the whole file. Narrow a
 four-hundred-entry file down to its three failures and the counts still say how many of the four

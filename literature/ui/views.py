@@ -34,7 +34,7 @@ from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
 from literature.ui.importing import ImportReport
 from literature.ui.links import web_url
 from literature.ui.staging import StagedUpload
-from literature.ui.tables import ImportReportTable, ItemTable
+from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
 
 #: What the catalogue calls itself, everywhere a reader is shown its name — the
 #: list page's own heading and the breadcrumb back to it from both other pages.
@@ -600,7 +600,12 @@ class ItemImportPreviewView(MVPFormView):
             report.rows,
             row_attrs={"x-show": lambda record: f"outcome === 'all' || outcome === '{record.outcome.value}'"},
         )
-        context["outcome_choices"] = Outcome.choices
+        # Value, label and the tone that outcome's badge already uses, so the
+        # control and the badge for one outcome read as the same thing and
+        # restyling the badges moves the filter with them.
+        context["outcome_choices"] = [
+            (outcome.value, outcome.label, OutcomeColumn.VARIANTS[outcome]) for outcome in Outcome
+        ]
         preview_id = request.session.get(IMPORT_PREVIEW_SESSION_KEY)
         context["confirm_form"] = ConfirmImportForm(initial={"preview": preview_id})
         return self.render_to_response(context)

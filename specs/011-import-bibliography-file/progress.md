@@ -1361,3 +1361,26 @@ component the template guards do not reach, and four smaller notes.
 **Watch:** staged uploads are written through the default storage, which is the host project's media
 root. A project serving media publicly is serving these files for the retention window, and neither
 the record nor the guide says so.
+
+## 2026-08-25T00:20+02:00 · Convergence · Two changes from the maintainer
+
+**Did:** Rewrote the import form's notice to the wording Sam supplied — three short paragraphs
+saying what the default does, how to skip the preview, and that duplicate files are not detected.
+Made the outcome filter's buttons small, and gave each one the colour of that outcome's own badge.
+The colour is not written out in the component: the badge column's existing variant mapping is
+passed through with the choices, so restyling the badges moves the filter with them and a project
+that subclasses the column to remap the outcomes gets a matching filter for free. The way back to
+all of them stays untoned, because it names no outcome. The guide and the API page both describe
+the correspondence.
+
+**Verified:** read the rendered markup rather than trusting the tests — the four controls come out
+as `btn btn-sm filter-reset`, `btn btn-sm btn-success`, `btn btn-sm btn-warning` and
+`btn btn-sm btn-error`, against badges rendering `badge-success` and `badge-warning` on the same
+page, and the notice renders as the three supplied paragraphs. Confirmed every class used is
+present in the served stylesheet before relying on it, since a class the upstream package does not
+itself use is absent from its build. Full suite 1858, pre-commit green across all eight hooks.
+
+**Next:** nothing in this pass. The review's nine remaining findings are still open.
+
+**Watch:** one shipped test pinned the old notice by a phrase from its copy. It is now on the new
+wording, but a test that asserts a sentence will break every time the sentence is edited.

@@ -193,10 +193,15 @@ subclass the column and map the three outcomes to different variants.
 ## Components
 
 `<c-filter>` is the outcome filter above the preview's table. It takes one attribute,
-`outcomes`, a sequence of value and label pairs, and renders a radio button per outcome
-plus a reset back to all of them. Choosing one writes the value into `outcome` on the
+`outcomes`, a sequence of value, label and variant triples, and renders a radio button per
+outcome plus a reset back to all of them. Choosing one writes the value into `outcome` on the
 surrounding scope, which every table row reads to decide whether to show itself, so
 narrowing the table issues no request and reloads nothing.
+
+The variant is the badge variant that outcome already uses, passed in rather than decided
+here, so a button and the badges it will leave behind carry the same colour. A project that
+subclasses `OutcomeColumn` to remap the outcomes moves the filter with it and cannot end up
+with the two disagreeing. The reset carries no outcome's colour, because it names no outcome.
 
 The component opens no scope of its own and wraps itself in no form, both deliberately: it
 reads and writes the scope the page around it opens, and it has no server to submit to.

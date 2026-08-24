@@ -7,6 +7,8 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
+from literature.ui.tables import OutcomeColumn
+
 APP_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
 TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
 #: The Cotton action component directory — widened here (T111, US-1) so the
@@ -555,7 +557,12 @@ class TestImportFormPage:
 
     def test_carries_the_repeat_import_warning(self, client, db):
         content = client.get(reverse("literature:item-import")).content.decode()
-        assert "imports the file again" in content
+        assert "Duplicate files are not detected and will be imported again" in content
+
+    def test_says_what_the_default_does_and_how_to_skip_it(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert "the file is previewed before import" in content
+        assert "Skip the preview and import immediately" in content
 
 
 class TestItemFormPageMarkup:
@@ -647,6 +654,10 @@ class TestOutcomeFilter:
         end = content.index("</div>", start)
         return content[start:end]
 
+    def _controls(self, content):
+        """Each radio in the filter, as its own chunk of markup."""
+        return ["<input" + chunk for chunk in self._filter_markup(content).split("<input")[1:]]
+
     def test_one_control_per_outcome_plus_a_way_back_to_all(self, client, db):
         markup = self._filter_markup(self._preview_content(client))
         assert markup.count('type="radio"') == 4  # All, created, skipped, failed
@@ -672,6 +683,26 @@ class TestOutcomeFilter:
         counts_line = content[max(counts_index - 200, 0) : counts_index + 50]
         assert "outcome" not in counts_line
         assert "x-" not in counts_line
+
+    def test_every_control_is_small(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        assert markup.count('type="radio"') == markup.count("btn-sm")
+
+    def test_each_outcome_control_carries_the_same_tone_as_that_outcome_s_badge(self, client, db):
+        # The control and the badge for one outcome must read as the same
+        # thing. Asserted against the badge's own mapping rather than against
+        # tone names written out here, so restyling the badges moves the
+        # filter with them and cannot leave the two disagreeing.
+        controls = self._controls(self._preview_content(client))
+        for outcome, variant in OutcomeColumn.VARIANTS.items():
+            control = next(c for c in controls if f'value="{outcome.value}"' in c)
+            assert f"btn-{variant}" in control, f"{outcome.value} control is not toned as its badge"
+
+    def test_the_way_back_to_all_carries_no_outcome_tone(self, client, db):
+        controls = self._controls(self._preview_content(client))
+        reset = next(c for c in controls if "filter-reset" in c)
+        for variant in OutcomeColumn.VARIANTS.values():
+            assert f"btn-{variant}" not in reset
 
 
 class TestImportPreviewTemplate:

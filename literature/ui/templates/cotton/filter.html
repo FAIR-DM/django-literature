@@ -8,6 +8,11 @@ does not define one — a plain radio group, one input per outcome plus a
 reset back to all of them, sharing one native ``name`` so the browser keeps
 them mutually exclusive.
 
+Each outcome's control carries that outcome's own badge tone, passed in
+with the choices rather than written out here, so the control and the badge
+in the table beneath it read as the same thing and restyling one moves the
+other. The way back to all of them is untoned, because it names no outcome.
+
 Deliberately no ``x-data`` of its own: ``x-model="outcome"`` reads and
 writes the ambient scope the page wraps this component in, the same idiom
 item_form.html already uses for ``form.*`` (cotton/form/index.html opens
@@ -18,15 +23,15 @@ never wired to this component (FR-049a) — they come straight from the
 report, untouched by any Alpine expression.
 {% endcomment %}
 <div class="filter {{ class }}" {{ attrs }}>
-  <input class="btn filter-reset"
+  <input class="btn btn-sm filter-reset"
          type="radio"
          name="import-outcome-filter"
          aria-label="{% translate 'All' %}"
          value="all"
          x-model="outcome"
          checked />
-  {% for value, label in outcomes %}
-    <input class="btn"
+  {% for value, label, variant in outcomes %}
+    <input class="btn btn-sm btn-{{ variant }}"
            type="radio"
            name="import-outcome-filter"
            aria-label="{{ label }}"

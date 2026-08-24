@@ -18,13 +18,23 @@ telling a reader something the feature it describes no longer does.
 {% endcomment %}
 {% block before_form %}
   <c-alert variant="info" class="mb-4">
-    {% blocktranslate %}
-      By default this previews the file — nothing is imported until you
-      read the report and confirm it. Ticking "Skip the preview and import
-      immediately" below imports the file directly instead. Either way
-      there is no duplicate detection, so a file already imported once
-      imports the file again rather than being caught.
-    {% endblocktranslate %}
+    <p>
+      {% blocktranslate %}
+        By default, the file is previewed before import. Review the report
+        and confirm the import to proceed.
+      {% endblocktranslate %}
+    </p>
+    <p>
+      {% blocktranslate %}
+        Select "Skip the preview and import immediately" to import the file
+        without a preview.
+      {% endblocktranslate %}
+    </p>
+    <p>
+      {% blocktranslate %}
+        Duplicate files are not detected and will be imported again.
+      {% endblocktranslate %}
+    </p>
   </c-alert>
 {% endblock before_form %}
 {% block actions %}
