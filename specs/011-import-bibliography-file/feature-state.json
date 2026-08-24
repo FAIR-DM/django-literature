@@ -3,7 +3,7 @@
   "feature": "011-import-bibliography-file",
   "branch": "011-import-bibliography-file",
   "repo": "FAIR-DM/django-literature",
-  "state": "PLAN",
+  "state": "IMPLEMENT",
   "state_history": [
     {
       "state": "SPECIFY",
@@ -39,6 +39,11 @@
       "state": "PLAN",
       "at": "2026-08-24T18:40:00Z",
       "note": "specification refined and re-approved in session; stories US4, US5, US6 and US9 added, 33 tasks"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T15:29:07Z",
+      "note": "US4 (preview and confirm) implemented, T501-T514; four shipped tests brought onto the refined default under D20"
     }
   ],
   "gates": {
@@ -470,78 +475,190 @@
       "id": "US4",
       "priority": "P1",
       "issue": 108,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T501",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T502",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T503",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T504",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T505",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T506",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T507",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T508",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T509",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T510",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T511",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T512",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T513",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         },
         {
           "id": "T514",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 0,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1806 passed)",
+              "poetry run pre-commit run --all-files  (all hooks pass)",
+              "forge verify --repo . --base main  (lint, typecheck, test, build, conformance, docs all green)",
+              "forge tamper-check --base 8cab6e0 --head HEAD  (5 flags, triaged; test edits sanctioned by decisions.md D20)"
+            ]
+          }
         }
       ]
     },
