@@ -4,10 +4,18 @@ import re
 from pathlib import Path
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
 
 APP_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
 TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
-TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html"))
+#: The Cotton action component directory — widened here (T111, US-1) so the
+#: i18n and utility-class guards below also reach the new toolbar action
+#: component. Before this phase the glob only ever reached
+#: ``literature/ui/templates/literature/ui/*.html``, so a component shipped
+#: under ``cotton/page/list/actions/`` was checked by neither guard.
+COTTON_ACTIONS_DIR = APP_TEMPLATES_DIR / "cotton" / "page" / "list" / "actions"
+TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html")) + sorted(COTTON_ACTIONS_DIR.glob("*.html"))
 PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
 
@@ -513,3 +521,58 @@ class TestI18nGuard:
 
     def test_ignores_configuration_attributes(self):
         assert unwrapped_reader_attributes('<c-text size="sm" muted><c-grid cols="1" md="2" gap="4">') == []
+
+
+# ---------------------------------------------------------------------------
+# T111 — the import pages themselves (US-1, FR-023, decisions.md D11).
+# ---------------------------------------------------------------------------
+
+#: A RIS record missing its own ``TY`` tag — the format's own documented
+#: ``EntryError`` (``literature/importers/ris.py``), reused here from
+#: ``tests/test_ui/test_views.py``'s own fixture so the report page under
+#: test always carries at least one row.
+IMPORT_RIS_FIXTURE = "TY  - JOUR\nAU  - Doe, Jane\nTI  - A Working RIS Reference\nPY  - 2020\nER  -\n"
+
+
+class TestImportFormPage:
+    """T111 — the import form page carries a multipart form, a file
+    control and the repeat-import warning (FR-006, FR-023)."""
+
+    def test_the_form_is_multipart(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert 'enctype="multipart/form-data"' in content
+
+    def test_carries_a_file_control(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert 'type="file"' in content
+
+    def test_carries_the_repeat_import_warning(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert "imports the file again" in content
+
+
+class TestImportReportPage:
+    """T111 — the report page carries the counts, the table and a link back
+    to the catalogue, and no control that would run the import again
+    (FR-023's surviving half, decisions.md D11)."""
+
+    def _report_content(self, client):
+        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        return response.content.decode()
+
+    def test_carries_the_counts(self, client, db):
+        content = self._report_content(client)
+        assert "1 created" in content
+
+    def test_carries_the_table(self, client, db):
+        content = self._report_content(client)
+        assert "Created" in content  # the outcome column's own translated label
+
+    def test_carries_a_link_back_to_the_catalogue(self, client, db):
+        content = self._report_content(client)
+        assert f'href="{reverse("literature:item-list")}"' in content
+
+    def test_carries_no_form_that_could_run_the_import_again(self, client, db):
+        content = self._report_content(client)
+        assert "<form" not in content

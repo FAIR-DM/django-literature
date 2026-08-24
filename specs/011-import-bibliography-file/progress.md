@@ -288,6 +288,29 @@ utility-class guard and the templates' own assertions).
 
 **Watch:** none.
 
+## 2026-08-24T14:55+02:00 · Implementer Phase 1 · T111/T112
+
+**Did:** Widened `tests/test_ui/test_templates.py`'s `TEMPLATE_PATHS` to also glob
+`literature/ui/templates/cotton/page/list/actions/*.html`, so the i18n and utility-class guards
+reach the toolbar action component T114 adds — before this it only ever reached
+`literature/ui/templates/literature/ui/*.html`. Added `TestImportFormPage` (multipart, a file
+control, the repeat-import warning) and `TestImportReportPage` (the counts, the outcome table, a
+link back to the catalogue, and no `<form>` at all — the surviving half of FR-023, an assertion of
+absence).
+
+**Verified:** `poetry run pytest tests/test_ui/test_templates.py -q` — 75 passed (exit 0), first run.
+`poetry run pytest tests/test_ui/ -q` — 569 passed (exit 0).
+
+**Next:** T113 — the toolbar action's own red test.
+
+**Watch:** T111 and T112 land as one entry, not a red/green pair — every assertion passed on first
+write. Both page templates were already built at T110, out of necessity: `ItemImportView`'s own
+tests (T109) cannot pass without a template to render, and `MVPFormView` cannot render at all
+without one (research.md R3). T111's genuinely new content — the widened glob — could not itself be
+red either: the Cotton actions directory does not exist yet (`import.html` is T114's), so globbing
+it returns an empty list rather than a collection error. Reported here rather than presented as a
+red/green pair that did not happen (craft-tdd: "report what you executed, not what you believe").
+
 **Watch:** `BoundRow.get_cell()` (the helper every other class in this module uses) returns a
 column's raw Python value with no escaping at all for a plain, unlinked column — escaping happens
 only in the outer table template's `{{ cell }}`, or inside `format_html()` for a linkified column.
