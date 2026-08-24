@@ -10,10 +10,21 @@ All notable changes to this project are documented in this file. The format foll
 
 - **Importing a bibliography file through the front end.** The catalogue carries an Import
   action, on both presentations, that opens a page to choose a configured format and attach a
-  file. Submitting reads it through the package's existing import contract and lands on a report:
-  how many entries were created, skipped and failed, and one row per entry in source order,
-  numbered from one, with a reason on every failure and a link to the reference a created row
-  produced.
+  file. Submitting it previews by default — the same report a real import would produce, with
+  nothing yet written to the catalogue — and a control on that page carries out the import;
+  ticking a checkbox on the form skips the preview for a one-step import instead. Either way you
+  land on a report: how many entries were created, skipped and failed, and one row per entry in
+  source order, numbered from one, each outcome shown as a colour-coded badge, with a reason on
+  every failure and a link to the reference a created row produced.
+
+  A previewed file is held on disk only until it is confirmed, or swept automatically after 24
+  hours if it never is. Its identity lives in the browser session rather than on the page, so a
+  confirmation can only ever complete what that same session staged, and one whose staged file is
+  already gone says so plainly and imports nothing. The report page carries the upload form above
+  its results, divided from them, so another file can be submitted without leaving the page, and
+  ends with a button back to the catalogue and a second that opens an empty import form. Where the
+  attached file could not be read at all, the form's submit control reads Retry and stays disabled
+  until the attachment changes.
 
   The format is chosen, never detected from the file. Nothing checks whether a file has already
   been imported, so importing the same file twice creates the references twice, and the page warns
