@@ -67,6 +67,12 @@ class TestImportReport:
         assert created.reason is None
         assert skipped.reason is None
 
+    def test_a_skipped_entrys_reason_is_carried_through(self):
+        """D18: a skipped entry's reason, when it has one, is not dropped."""
+        result = ImportResult(entries=[EntryResult(outcome=Outcome.SKIPPED, index=0, reason="a @comment block")])
+        row = ImportReport(result).rows[0]
+        assert row.reason == "a @comment block"
+
     def test_a_created_row_carries_the_url_of_its_item(self):
         item = ItemFactory()
         result = ImportResult(entries=[EntryResult(outcome=Outcome.CREATED, index=0, item=item)])

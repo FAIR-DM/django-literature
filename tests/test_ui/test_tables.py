@@ -544,6 +544,14 @@ class TestImportReportTable:
         assert "<script>" not in content
         assert "&lt;script&gt;" in content
 
+    def test_a_skipped_rows_reason_renders_in_the_same_column_a_failures_uses(self):
+        """T606, D18: no second column for a skip's reason — the same one a failure uses."""
+        row = ImportReportRow(
+            position=1, outcome=Outcome.SKIPPED, citation_key=None, reason="a @comment block", item_url=None
+        )
+        content = import_report_cell([row], "reason")
+        assert "a @comment block" in content
+
     def test_a_created_rows_position_links_to_the_item(self):
         row = ImportReportRow(
             position=1, outcome=Outcome.CREATED, citation_key="Doe2024", reason=None, item_url="/catalogue/1/"
