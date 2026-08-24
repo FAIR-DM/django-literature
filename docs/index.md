@@ -23,6 +23,7 @@ field-groups
 bibtex-mapping
 ris-mapping
 api/index
+adr/index
 ```
 
 ---
