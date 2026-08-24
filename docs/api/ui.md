@@ -50,11 +50,19 @@ prefetching a row needs. The contributor page composes it without the search box
 filters, which belong to the catalogue alone.
 
 `ItemImportView` serves the import page, reached from the Import action on either
-catalogue presentation. It renders the format choice and file control on a `GET`, and on
-a valid `POST` runs the chosen format over the uploaded file and renders the report
-directly rather than redirecting — see
-[Importing a bibliography file](../importing-through-the-interface.md) for what a reader
-sees.
+catalogue presentation. It renders the format choice and file control on a `GET`. On a
+valid `POST` it runs the chosen format over the uploaded file and renders the report
+directly rather than redirecting — as a preview by default, which reports every entry
+and leaves the catalogue untouched, or as a real import where the reader ticked the
+skip-preview control.
+
+`ItemImportConfirmView` carries out the import a preview described. It takes no file and
+no token from the page: both come from the reader's own session, so a request can only
+confirm a file that same session staged. A `GET` has nothing to show without a prior
+preview and redirects back to the import page.
+
+See [Importing a bibliography file](../importing-through-the-interface.md) for what a
+reader sees.
 
 ```{eval-rst}
 .. automodule:: literature.ui.views
@@ -73,8 +81,38 @@ configured after import time still appears. `ItemForm` is the one write form eve
 update page shares — see the README's "Adding, editing and removing a reference" section for what
 it does.
 
+`ConfirmImportForm` declares no field at all. It exists so that carrying out a previewed
+import is a `POST` protected against cross-site request forgery like any other, and
+nothing more: the staged file and the format it was staged as are read from the session,
+never posted back.
+
 ```{eval-rst}
 .. automodule:: literature.ui.forms
+   :members:
+   :undoc-members: False
+   :show-inheritance:
+```
+
+## `literature.ui.staging`
+
+`StagedUpload` holds an uploaded file between a preview and the confirmation that carries
+it out, since a browser will not re-populate a file input and asking for the file again
+would defeat the point of previewing. It saves through Django's storage API, so a project
+already configuring remote storage gets staging on it without further work, and it names
+each file by a random token that carries no relationship to the file's own name or
+contents.
+
+Four operations: `save` stages a file and returns its token, `open` reads it back or
+returns `None` where the token names nothing staged, `discard` removes it once the import
+it was staged for has run, and `sweep` removes anything left behind by a preview that was
+never confirmed. `RETENTION_WINDOW` is how long an abandoned staging survives a sweep,
+24 hours by default.
+
+Which reader staged which file is deliberately not this class's concern — the token lives
+in the session, held by the view.
+
+```{eval-rst}
+.. automodule:: literature.ui.staging
    :members:
    :undoc-members: False
    :show-inheritance:
