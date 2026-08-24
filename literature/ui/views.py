@@ -10,7 +10,7 @@ from collections import defaultdict
 from functools import cached_property
 
 from django.db.models import Prefetch
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
@@ -20,14 +20,16 @@ from mvp.integrations.django_tables.views import MVPTableViewMixin
 from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPFormView, MVPListView, MVPUpdateView
 
 from literature.choices import ItemType, NameRole
+from literature.importers import get_format
 from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
 from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
-from literature.ui.forms import ItemForm
+from literature.ui.forms import ImportForm, ItemForm
+from literature.ui.importing import ImportReport
 from literature.ui.links import web_url
-from literature.ui.tables import ItemTable
+from literature.ui.tables import ImportReportTable, ItemTable
 
 #: What the catalogue calls itself, everywhere a reader is shown its name — the
 #: list page's own heading and the breadcrumb back to it from both other pages.
@@ -392,17 +394,37 @@ class ItemCreateView(MVPCreateView):
 
 
 class ItemImportView(MVPFormView):
-    """Choose a format and a file, and see what became of every entry (US-1).
+    """Choose a format and a file, and see what became of every entry
+    (US-1, FR-005, FR-006, FR-010, FR-019, FR-023).
 
     ``model = Item`` even though the form below is not a ``ModelForm``:
     ``MVPFormView``'s context machinery raises ``ImproperlyConfigured`` on
     first render with no model at all (research.md R3), and the page's
-    breadcrumb genuinely belongs under the catalogue. Built out fully at
-    T110; this stub only wires the route this task adds.
+    breadcrumb genuinely belongs under the catalogue.
     """
 
     model = Item
+    form_class = ImportForm
+    template_name = "literature/ui/import_form.html"
     list_view_title = CATALOGUE_TITLE
+    page_title = _("Import references")
+
+    def form_valid(self, form):
+        # get_format() returns the class; import_file() is an instance
+        # method (research.md "The view" seam) — the format is resolved by
+        # name and instantiated fresh for this one run, never cached.
+        format_class = get_format(form.cleaned_data["format"])
+        result = format_class().import_file(form.cleaned_data["file"])
+        report = ImportReport(result)
+
+        # Rendered directly, never through get_success_url()/redirect: the
+        # reader always lands on the report, and a GET reload re-submitting
+        # the form is the browser's own resubmission prompt, not a control
+        # this page offers (FR-023, decisions.md D1, D11).
+        context = self.get_context_data(form=form)
+        context["report"] = report
+        context["table"] = ImportReportTable(report.rows)
+        return render(self.request, "literature/ui/import_report.html", context)
 
 
 class ItemUpdateView(MVPUpdateView):

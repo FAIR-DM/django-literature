@@ -265,6 +265,29 @@ genuine, contract-native single-entry failure, not a workaround.
 identifier-type case mismatch are both flagged in the completion report's `concerns` — neither is
 fixed here (prohibitions forbid touching `literature/importers/**` or `literature/converters.py`).
 
+## 2026-08-24T14:45+02:00 · Implementer Phase 1 · T110
+
+**Did:** Finished `ItemImportView(MVPFormView)` in `literature/ui/views.py` — `form_class =
+ImportForm`, `template_name = "literature/ui/import_form.html"`. `form_valid` resolves the format
+class through `get_format`, instantiates it (`get_format(name)().import_file(...)`, since
+`get_format` returns the class and `import_file` is an instance method), and renders
+`literature/ui/import_report.html` directly through `django.shortcuts.render` with an `ImportReport`
+and an `ImportReportTable` in the context — never `redirect()`, never `get_success_url()`. Added the
+two page templates (`import_form.html`, `import_report.html`) T112 was going to add anyway, because
+T109's GET/POST scenarios cannot go green without a template to render; `import_form.html` overrides
+only `form_view.html`'s `before_form` (the repeat-import warning) and `actions` (a single "Import"
+submit) blocks, so the packaged multipart handling, field rendering and page chrome are untouched.
+`import_report.html` extends `page_view.html` directly (neither a form nor a queryset-backed list)
+and carries the counts, the table and a link back to the catalogue.
+
+**Verified:** `poetry run pytest tests/test_ui/test_views.py::TestItemImportView -q` — 7 passed
+(exit 0), green T109. `poetry run pytest tests/test_ui/ -q` — 562 passed (exit 0).
+
+**Next:** T111 — the template-level red tests (the two pages already render; T111 is the i18n/
+utility-class guard and the templates' own assertions).
+
+**Watch:** none.
+
 **Watch:** `BoundRow.get_cell()` (the helper every other class in this module uses) returns a
 column's raw Python value with no escaping at all for a plain, unlinked column — escaping happens
 only in the outer table template's `{{ cell }}`, or inside `format_html()` for a linkified column.

@@ -1,0 +1,28 @@
+{% extends "form_view.html" %}
+{% load i18n %}
+{% comment %}
+Overrides only the two named blocks inside form_view.html's own page.content
+(US-1, plan.md "The view" seam) — before_form for the repeat-import warning
+(FR-023's surviving half, decisions.md D11) and actions for a single submit
+control. Nothing about the packaged form chrome, the multipart handling or
+the field rendering is rebuilt here: <c-form :form-obj="form"> already sets
+enctype="multipart/form-data" from ImportForm.is_multipart() (django-mvp
+cotton/form/index.html), and its default <c-form.render /> already renders
+the format select and the file control through crispy.
+{% endcomment %}
+{% block before_form %}
+  <c-alert variant="info" class="mb-4">
+    {% blocktranslate %}
+      Each submission imports the file again. There is no separate preview
+      step and no duplicate detection, so importing the same file twice
+      creates the references twice.
+    {% endblocktranslate %}
+  </c-alert>
+{% endblock before_form %}
+{% block actions %}
+  <c-button text="{% trans "Import" %}"
+            type="submit"
+            icon="arrow-right"
+            reverse
+            variant="primary" />
+{% endblock actions %}

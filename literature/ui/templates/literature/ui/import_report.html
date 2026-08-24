@@ -1,0 +1,19 @@
+{% extends "page_view.html" %}
+{% load i18n %}
+{% comment %}
+The report page (US-1, plan.md "The report" seam). Extends the plain page
+layout rather than form_view.html or list_view.html: this page is neither a
+form nor a queryset-backed list, and page_view.html's own page.content block
+is the one this app already leaves for a bare page (mvp/templates/page_view.html).
+Carries no <form> at all — FR-023's surviving half is an assertion of
+absence, so there is nothing here that could resubmit the import.
+{% endcomment %}
+{% block page.content %}
+  <c-text class="mb-4">
+    {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
+      {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
+    {% endblocktranslate %}
+  </c-text>
+  <c-addons.django-table :table="table" />
+  <c-link href="{% url 'literature:item-list' %}" class="mb-4">{% trans "Back to the catalogue" %}</c-link>
+{% endblock page.content %}
