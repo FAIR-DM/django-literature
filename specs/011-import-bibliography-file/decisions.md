@@ -431,3 +431,22 @@ depend on anyone reading this feature's specification.
 The alternative — the front end supplying its own words for a skipped row — was rejected outright. It
 would mean the interface inventing an explanation the importer never gave, which is worse than saying
 nothing.
+
+## D19 — The staging retention window is a judgement call, recorded rather than derived
+
+**Ambiguous:** FR-043 requires that a staged file left behind by an unconfirmed preview eventually be
+swept, but names no figure for how long it may sit first.
+
+**Chosen:** 24 hours, as `literature/ui/staging.py`'s `RETENTION_WINDOW` module constant.
+
+**Why defensible:** no requirement or clarification session settled a number, so this is implementation
+judgement rather than a reading of the spec, and is recorded here per `craft-increments` rather than
+left as an unexplained constant. A day is long enough that a reader who previews a file and is
+interrupted — a phone call, the end of a shift — can still come back and confirm it before it is gone,
+and short enough that the unauthenticated, unbounded upload endpoint D12 already accepts does not
+accumulate staged files on disk indefinitely between sweeps, which only run on entry to the import view
+(T507).
+
+**Revisit if:** a host reports either edge in practice — staged files disappearing before a reader
+returns to confirm them, or disk use from abandoned previews becoming a real cost — at which point the
+figure itself is what to change, not the mechanism.

@@ -711,3 +711,24 @@ carried no reason, which was the contract's rule and is what change 3 fixes.
 a refinement of #100. 33 tasks across four phases.
 
 **Next:** Phase 5.
+
+## 2026-08-24T19:05+02:00 · Implementer Phase 5 · T501/T502
+
+**Did:** `tests/test_ui/test_staging.py` (`TestStagedUpload`) written first — saving returns a token
+and the bytes read back match; an unissued token reads as nothing; discard removes a staged file and
+is a no-op on a token never staged; a file older than the retention window is swept and a fresh one
+is not; sweeping with nothing staged yet does not raise; two uploads sharing both a name and their
+bytes still get different tokens. Then `literature/ui/staging.py::StagedUpload` — save / open /
+discard / sweep over `django.core.files.storage.default_storage` by default, staged under a
+`literature-imports/` sub-path, tokens from `django.utils.crypto.get_random_string(43)`. No new
+dependency. `RETENTION_WINDOW = timedelta(hours=24)` recorded as `decisions.md` D19 — no requirement
+names a figure, so this is a judgement call written down rather than left silent.
+
+**Verified:** `poetry run pytest tests/test_ui/test_staging.py -v` — red first (`ModuleNotFoundError:
+No module named 'literature.ui.staging'`, the class not existing yet), then 7 passed after writing
+the module. Nothing outside `tests/test_ui/test_staging.py` and `literature/ui/staging.py` touched.
+
+**Next:** T503/T504 — the skip-preview control on `ImportForm`, and `ConfirmImportForm`.
+
+**Watch:** `StagedUpload` has no idea which session issued a token — that scoping (FR-042) is the
+view's job, exercised in `test_views.py`, not here.
