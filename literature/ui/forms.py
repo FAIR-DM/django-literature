@@ -10,7 +10,9 @@ opposite of the no-loss guarantee this feature exists for (D-3).
 """
 
 from django import forms
+from django.utils.translation import gettext_lazy as _
 
+from literature.importers import available_formats
 from literature.models import Item
 from literature.ui.fieldgroups import GROUPS
 
@@ -64,3 +66,31 @@ class ItemForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class ImportForm(forms.Form):
+    """Choose a configured format and a file to run it through (US-1, FR-005, FR-006).
+
+    Not a ``ModelForm``: nothing here maps to ``Item``, the format resolves
+    the file into entries and the entries into items, never this form
+    (FR-010 — the front end has no reading path of its own).
+    """
+
+    format = forms.ChoiceField(
+        label=_("Format"),
+        help_text=_("The bibliographic file syntax to read the upload as."),
+    )
+    file = forms.FileField(
+        label=_("File"),
+        help_text=_("The bibliography file to import."),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Read at __init__ time, not declared on the class: a ChoiceField
+        # built from available_formats() at class-definition time would
+        # freeze the set at import time, and a format configured afterwards
+        # would never appear (FR-005).
+        self.fields["format"].choices = [
+            (name, format_class.label) for name, format_class in available_formats().items()
+        ]
