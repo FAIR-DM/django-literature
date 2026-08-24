@@ -11,6 +11,7 @@ A Django app for storing, managing, and converting bibliographic references usin
 
 installation
 usage
+importing-through-the-interface
 ```
 
 ```{toctree}
