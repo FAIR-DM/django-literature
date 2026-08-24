@@ -95,7 +95,7 @@ there for it to sit above.
       </form>
     {% endif %}
   {% endif %}
-  <c-group breakpoint="md" wrap class="mt-4">
+  <c-group collapse wrap class="mt-4">
     <c-button href="{% url 'literature:item-list' %}" text="{% trans 'Back to the catalogue' %}" icon="arrow-left" />
     <c-button href="{% url 'literature:item-import' %}" text="{% trans 'Import another file' %}" />
   </c-group>

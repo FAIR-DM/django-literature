@@ -558,6 +558,16 @@ class TestImportFormPage:
         assert "imports the file again" in content
 
 
+class TestItemFormPageMarkup:
+    """The reference form page's own button row (item_form.html)."""
+
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+        # The same defect this page carried since its own phase: see
+        # TestImportReportPage's test of the same name.
+        content = client.get(reverse("literature:item-create")).content.decode()
+        assert "breakpoint=" not in content
+
+
 class TestImportReportPage:
     """T111 — the report page for an import that has already happened carries
     the counts, the table and a link back to the catalogue (FR-012, FR-013,
@@ -610,6 +620,14 @@ class TestImportReportPage:
     def test_carries_a_second_button_leading_to_an_empty_import_form(self, client, db):
         content = self._report_content(client)
         assert f'href="{reverse("literature:item-import")}"' in content
+
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+        # ``<c-group>`` declares row, collapse, wrap, class and gap. An
+        # attribute it does not declare is not ignored: Cotton writes it
+        # through to the rendered <div>, where it is invalid HTML and lays
+        # nothing out. Asserted on the rendered page rather than on the
+        # template so the check reads what a browser would receive.
+        assert "breakpoint=" not in self._report_content(client)
 
 
 class TestImportPreviewPage:

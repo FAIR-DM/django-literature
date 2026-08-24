@@ -587,3 +587,36 @@ cannot reach something it needs, report that rather than changing the view").
 contract (the move D20 made), and separately whether `ItemImportConfirmView` should hand the report
 template an unbound `ImportForm()` alongside `ConfirmImportForm()` so the upload form's presence stops
 depending on which of the two views rendered the page.
+
+## D24 — Both of D23's deferrals settled at convergence, and a third defect found beside them
+
+**Ambiguous:** D23 raised two questions and withheld both from the phase that found them: whether the
+two red tests come onto the amended contract, and whether `ItemImportConfirmView` should hand the
+report template an upload form of its own. Convergence is the step D20's precedent names for
+settling them.
+
+**Chosen, in three parts:**
+
+1. **The report template no longer sniffs `form` to tell the two forms apart.** Both views pass an
+   explicit `import_form`: `ItemImportView` passes the submission it has just read, so the format the
+   reader chose stays selected, and `ItemImportConfirmView` passes an unbound `ImportForm()`. Only
+   `nothing_to_confirm` renders without one, and a test pins that. Without this, the report reached
+   by confirming a preview — the default path end to end — was the one report with no way to import
+   another file from it, which is the opposite of what D17 was approved to do.
+2. **Both red tests keep their subject and lose their proxy.** Each asserted `"<form" not in content`
+   to mean *no confirm control*. The intent still holds; the proxy stopped tracking it the moment the
+   page gained a form of its own. Each now asserts the absence of the confirm action itself, so what
+   the test is about is what it reads.
+3. **`<c-group breakpoint="md">` configures nothing.** The component declares `row`, `collapse`,
+   `wrap`, `class` and `gap`; Cotton writes an undeclared attribute straight through to the rendered
+   `<div>`, where it is invalid HTML and lays nothing out. Both button rows stacked vertically at
+   every width. Fixed to `collapse` in `import_report.html` and in `item_form.html`, which carried the
+   same mistake from its own phase, with a rendered-output guard on each page.
+
+**Why defensible:** all three were verified against a running demo rather than by inspection — the
+report page's markup was read back from a live import, which is how the third was found at all. Each
+fix carries a test that fails against the defect it removes.
+
+**Revisit when:** the import contract carries a parse-failure marker through `EntryResult`, which
+would let the Retry state be exact rather than inferred from `report.total == report.failed == 1`
+(D23's own remaining note, still open and still harmless).
