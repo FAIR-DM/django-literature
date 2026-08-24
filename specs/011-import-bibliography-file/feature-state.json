@@ -49,6 +49,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-24T19:05:00Z",
       "note": "US5 (a skipped entry names why) implemented, T601-T608; D21's open finding adjudicated as D22 - both runner stages now carry a skip's reason and the pre-existing test is brought onto the amended contract"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T20:40:00Z",
+      "note": "US6 implemented and converged, T701-T705; convergence settled D23's two deferrals and fixed a third defect (D24)"
     }
   ],
   "gates": {
@@ -67,7 +72,7 @@
         "Formats offered are read from the installation's configuration rather than listed in the front end",
         "The feature reads the import contract and does not extend it; a genuine gap is raised as its own issue",
         "Refined 2026-08-24 with Sam's approval: importing previews by default and the staged file lives on disk (D12)",
-        "Refined 2026-08-24: the report's presentation — badges, buttons, the form above the results, a disabled Retry (D13)",
+        "Refined 2026-08-24: the report's presentation \u2014 badges, buttons, the form above the results, a disabled Retry (D13)",
         "Refined 2026-08-24: a skipped entry may carry a reason, amending the import contract (D14)"
       ]
     },
@@ -760,33 +765,73 @@
       "id": "US6",
       "priority": "P1",
       "issue": 100,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T701",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
         },
         {
           "id": "T702",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
         },
         {
           "id": "T703",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
         },
         {
           "id": "T704",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
         },
         {
           "id": "T705",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q  (1834 passed)",
+              "poetry run pre-commit run --all-files  (clean)",
+              "manage.py makemigrations --check --dry-run  (no changes)",
+              "poetry run python demo/smoke.py  (walked clean)"
+            ]
+          }
         }
       ]
     },
