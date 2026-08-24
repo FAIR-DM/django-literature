@@ -26,7 +26,7 @@ from literature.importers.bibtex import (
     NAME_FIELD_TABLE,
     BibTeXFormat,
 )
-from literature.importers.exceptions import SkipEntry
+from literature.importers.exceptions import ParseError, SkipEntry
 from literature.models import Item
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "bibtex"
@@ -189,6 +189,36 @@ class TestHandles:
             "w3c2024standards",
         ]
         assert set(Item.objects.values_list("citation_key", flat=True)) == {e.handle for e in result.created}
+
+
+class TestParseAcceptsEitherHandle:
+    """A browser upload is always bytes, and this format's own tests have always opened fixtures
+    as text — the two shipped formats disagreed about which one ``parse`` requires until this
+    story (011 Phase 0, decisions.md D10, research.md R1). A binary and a text read of the same
+    file must produce the same entries, and undecodable bytes must fail with a ``ParseError`` a
+    reader can act on, not an internal ``TypeError``.
+    """
+
+    @pytest.mark.django_db
+    def test_binary_and_text_handles_produce_the_same_entry_results(self):
+        with (FIXTURES / "clean_multi_type.bib").open("rb") as handle:
+            binary_result = BibTeXFormat().import_file(handle, dry_run=True)
+        with fixture("clean_multi_type.bib") as handle:
+            text_result = BibTeXFormat().import_file(handle, dry_run=True)
+
+        def as_pairs(result):
+            return [(e.outcome, e.handle) for e in result]
+
+        assert as_pairs(binary_result) == as_pairs(text_result)
+        assert binary_result.created, "the fixture is expected to produce created entries"
+
+    def test_undecodable_bytes_report_a_parse_error_not_a_type_error(self):
+        with (FIXTURES / "latin1_encoded.bib").open("rb") as handle:
+            with pytest.raises(ParseError) as excinfo:
+                list(BibTeXFormat().parse(handle))
+
+        message = str(excinfo.value)
+        assert "utf-8" in message
 
 
 class TestEntryTypes:
