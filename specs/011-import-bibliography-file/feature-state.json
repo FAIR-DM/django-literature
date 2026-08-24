@@ -54,6 +54,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-24T20:40:00Z",
       "note": "US6 implemented and converged, T701-T705; convergence settled D23's two deferrals and fixed a third defect (D24)"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T21:35:00Z",
+      "note": "US9 documentation landed, T801-T806; docs gate was red on OutcomeColumn and is now green (D26)"
     }
   ],
   "gates": {
@@ -839,38 +844,74 @@
       "id": "US9",
       "priority": "P4",
       "issue": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T801",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
         },
         {
           "id": "T802",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
         },
         {
           "id": "T803",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
         },
         {
           "id": "T804",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
         },
         {
           "id": "T805",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
         },
         {
           "id": "T806",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (conformance, docs, lint, typecheck, test, build all passed)",
+              "poetry run pytest -q  (1834 passed)"
+            ]
+          }
         }
       ]
     }

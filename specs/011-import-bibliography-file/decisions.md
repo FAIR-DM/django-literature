@@ -678,3 +678,28 @@ one step later instead of shipping.
 call about how much documentation is enough. Two prose corrections went in beside it: a semicolon
 joining two independent clauses in `README.md`, and a "now carries a reason too" in the walkthrough,
 which is changelog voice in a page a reader arrives at with no memory of what it used to do.
+
+## D27 — Triage of the branch's twelve pre-existing-test flags
+
+**Ambiguous:** the guardrail flags every modification to a test that existed at `origin/main` and
+pauses for triage rather than blocking. Twelve flags stand on this branch. Approving them wholesale
+because "the specification changed" is exactly the reasoning the guardrail exists to interrupt.
+
+**Chosen:** approved, each against the record that already explains it. Eleven are files, and every
+edit inside them falls into one of three groups already argued in this log: tests that asserted the
+one-step import was the default, when Sam's own refinement made previewing the default (D19, D20);
+tests that held a skipped entry to "may not carry a reason", when the contract was amended to let it
+(D22); and two that asserted no `<form>` on the report page as a proxy for no confirmation control,
+narrowed to read for the control itself when the page gained a form of its own (D24). No assertion
+was deleted, weakened or broadened in any of them — each was moved onto the amended contract and
+still fails if that contract is broken.
+
+The twelfth is a false positive. The check scans added lines for `# assert`, meaning an assertion
+commented out to silence it. It matched a prose comment that wraps onto a line beginning
+"# asserted." — `tests/test_ui/test_views.py:670`, the tail of a sentence explaining why the
+assertion below it gained a member. Read the line above before believing this one; the pattern
+cannot tell a commented-out assertion from a sentence about one.
+
+**Why defensible:** the whole suite is green at 1,834 tests with no skip, no xfail and no lowered
+coverage floor, and each of the three groups has a decision record written before the edits, not
+after them.
