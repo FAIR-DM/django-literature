@@ -119,3 +119,31 @@ formats may expect different modes" — but `docs/` is outside this phase's file
 
 **Watch:** the `TestOverridingImportEntry` ordering fragility noted at T005; ADR-0012's now-partly-
 superseded claim, out of this phase's scope to fix.
+
+## 2026-08-24T13:50+02:00 · Implementer Phase 1 · T101
+
+**Did:** Added `TestImportForm` to `tests/test_ui/test_forms.py` — the format choice must be
+exactly `available_formats()`'s own set, built at `__init__` time so a format configured after
+import time still appears, both fields required, a submission with neither invalid with a reason
+on each, and the form multipart.
+
+**Verified:** `poetry run pytest tests/test_ui/test_forms.py::TestImportForm -v` — collection error
+(exit 1): `ImportError: cannot import name 'ImportForm' from 'literature.ui.forms'`, the right
+reason — the class does not exist yet.
+
+**Next:** T102 — `ImportForm` itself.
+
+**Watch:** none.
+
+## 2026-08-24T13:52+02:00 · Implementer Phase 1 · T102
+
+**Did:** Added `ImportForm(forms.Form)` to `literature/ui/forms.py` — a `ChoiceField` whose choices
+are read from `available_formats()` inside `__init__` (never declared on the class, so a format
+configured after import time still appears) and a `FileField`. Both carry translated `label`/
+`help_text`.
+
+**Verified:** `poetry run pytest tests/test_ui/test_forms.py -q` — 12 passed (exit 0), green T101.
+
+**Next:** T103 — the report adapter's own red test.
+
+**Watch:** none.

@@ -7,9 +7,11 @@ it already held (D-3).
 """
 
 import pytest
+from django.test import override_settings
 
 from literature.choices import ItemType
-from literature.ui.forms import ItemForm
+from literature.importers import available_formats
+from literature.ui.forms import ImportForm, ItemForm
 from tests.factories import ItemFactory
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
@@ -54,3 +56,37 @@ class TestItemFormValidation:
         assert form.is_valid(), form.errors
         saved = form.save()
         assert saved.citation_key == "Doe2024"
+
+
+class TestImportForm:
+    """``ImportForm`` — choose a format and a file to import (US-1, FR-005, FR-006, FR-010)."""
+
+    def test_offers_exactly_the_configured_formats(self):
+        # FR-005 — not a hard-coded pair: whatever LITERATURE["BIB_FORMATS"]
+        # resolves to, and nothing else.
+        choices = dict(ImportForm().fields["format"].choices)
+        expected = {name: format_class.label for name, format_class in available_formats().items()}
+        assert choices == expected
+
+    def test_the_choices_are_built_when_the_form_is_instantiated(self):
+        # FR-005 — a format configured after import time still appears: the
+        # choices must be read from available_formats() in __init__, not
+        # frozen on the class at import time.
+        with override_settings(LITERATURE={"BIB_FORMATS": ["literature.importers.bibtex.BibTeXFormat"]}):
+            choices = dict(ImportForm().fields["format"].choices)
+        assert list(choices) == ["bibtex"]
+
+    def test_both_fields_are_required(self):
+        assert ImportForm().fields["format"].required
+        assert ImportForm().fields["file"].required
+
+    def test_a_form_submitted_with_neither_is_invalid_with_a_reason_on_each(self):
+        form = ImportForm(data={}, files={})
+        assert not form.is_valid()
+        assert "format" in form.errors
+        assert "file" in form.errors
+
+    def test_the_form_is_multipart(self):
+        # The file control cannot post without it (T111's own guard reads
+        # this off the rendered page).
+        assert ImportForm().is_multipart()
