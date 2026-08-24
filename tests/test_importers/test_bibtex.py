@@ -398,6 +398,26 @@ class TestBlocks:
         assert Item.objects.count() == 1
         assert Item.objects.get().citation_key == "after_the_blocks"
 
+    @pytest.mark.django_db
+    def test_a_preamble_names_itself_as_the_reason(self):
+        """D18: a format that knows exactly why it skipped something says so."""
+        with fixture("comments_and_preamble.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        preamble_result = result.skipped[0]
+        assert preamble_result.reason is not None
+        assert "preamble" in preamble_result.reason.lower()
+
+    @pytest.mark.django_db
+    def test_a_comment_names_itself_as_the_reason(self):
+        """D18: the sibling case — a `@comment` block, not a `@preamble` one."""
+        with fixture("comments_and_preamble.bib") as handle:
+            result = BibTeXFormat().import_file(handle)
+
+        comment_result = result.skipped[1]
+        assert comment_result.reason is not None
+        assert "comment" in comment_result.reason.lower()
+
     def test_a_field_repeated_in_one_entry_keeps_the_first_occurrence(self):
         """FR-016: the rule is documented here and in ``bibtex.py`` — first wins,
         which is ``bibtexparser``'s own field-parsing behaviour, not something
