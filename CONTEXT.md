@@ -173,6 +173,22 @@ was. Outcomes are observed rather than predicted, because the work genuinely hap
 transaction that is then rolled back. A dry run's entry results carry no `Item`, since those rows do
 not survive the rollback.
 
+### preview
+
+The **UI app**'s offer to carry out an import before it happens. Submitting the import form runs a
+**dry run** and renders the result as an **import report** labelled to say plainly that nothing has
+been imported yet, alongside a control that carries out the import it described. Carrying that out
+needs no second look at the file: what produced the preview is a **staged file**, read again from
+where it was held rather than asked for a second time. A form can skip a preview and import
+directly instead — that submission is not a preview at all, and its report is an ordinary one.
+
+### staged file
+
+An uploaded file held on disk between a preview and its confirmation, since a browser will not
+re-populate a file input. Identified only by a random token kept in the reader's own session, never
+on the page, so a confirmation can only ever complete what that same session staged. Removed the
+moment its import is carried out, and swept automatically if it never is.
+
 ### entry type
 
 The kind of record a source entry declares, in the source's own vocabulary — BibTeX's `@article`,
