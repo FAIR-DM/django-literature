@@ -59,6 +59,12 @@ DELETE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/delete/)"')
 # the page, which could belong to a different row.
 ROW_RE = re.compile(r"<tr\b.*?</tr>", re.DOTALL)
 
+# The import pass's own link (T301, T304): the catalogue's Import action.
+# Same shape as CREATE_LINK_RE — the button's visible text sits behind an
+# icon element (mvp's <c-button>), not immediately after the href's closing
+# ``>``, so only the address is captured.
+IMPORT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/import/)"')
+
 
 class FormFieldParser(HTMLParser):
     """Field name → current value for the first ``<form>`` on a page (T021, D-9).
@@ -163,6 +169,43 @@ def form_fields(body: str) -> dict[str, str]:
     parser = FormFieldParser()
     parser.feed(body)
     return parser.fields
+
+
+def encode_multipart(
+    fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]
+) -> tuple[bytes, str]:
+    """Build a ``multipart/form-data`` body and its ``Content-Type`` header value (T301, T303).
+
+    ``post`` below urlencodes a plain field dict, which is what every write-pass
+    form on the catalogue needs — none of them carries a file. The import form
+    does, and a file cannot ride inside a urlencoded body (D-9's own reasoning
+    for ``post`` does not extend to this), so this is a second encoder beside
+    it, not a change to it.
+
+    Args:
+        fields: Ordinary form fields, name to value.
+        files: File fields, name to ``(filename, content, content_type)``.
+
+    Returns:
+        ``(body, content_type)`` — ``content_type`` carries the boundary, and a
+        caller sends it as the request's own ``Content-Type`` header.
+    """
+    boundary = uuid.uuid4().hex
+    lines: list[bytes] = []
+    for name, value in fields.items():
+        lines.append(f"--{boundary}".encode())
+        lines.append(f'Content-Disposition: form-data; name="{name}"'.encode())
+        lines.append(b"")
+        lines.append(value.encode())
+    for name, (filename, content, content_type) in files.items():
+        lines.append(f"--{boundary}".encode())
+        lines.append(f'Content-Disposition: form-data; name="{name}"; filename="{filename}"'.encode())
+        lines.append(f"Content-Type: {content_type}".encode())
+        lines.append(b"")
+        lines.append(content)
+    lines.append(f"--{boundary}--".encode())
+    lines.append(b"")
+    return b"\r\n".join(lines), f"multipart/form-data; boundary={boundary}"
 
 
 class SmokeCheckFailed(Exception):
