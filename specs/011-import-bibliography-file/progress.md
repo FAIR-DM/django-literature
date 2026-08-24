@@ -1210,3 +1210,48 @@ opposite of what the checklist flags, which is why nothing else in scope moved.
 `makemigrations --check` across every app, and the completion report.
 
 **Watch:** none.
+
+## 2026-08-24T21:26+02:00 · Implementer Phase 9 · T901–T918
+
+**Did:** Built the whole of Phase 9 in fewer, larger slices than the task list's own numbering,
+because the pieces are tightly coupled in Django (a preview page's view, URL and template are not
+independently green) — recorded here as a deliberate ordering deviation rather than three separate
+per-task entries that would each describe a half-built page. Order actually run: T903/T904 (routes)
+→ T905/T906 (`ItemImportPreviewView`, redirect-on-submit, GET rebuild, `nothing_staged`) → T907/T908
+(`import_preview.html`) → T901/T902 (the outcome filter, added into the already-built preview
+template rather than before it, since it renders nowhere else) → T909/T910 (`ItemImportRestartView`)
+→ T911/T912 (`ItemImportConfirmView`) → T915/T916 (breadcrumb: `show_list_action` +
+`list_view_title` on `ItemImportView`, `ItemImportPreviewView` and `ItemCreateView`) → T917 (removed
+the upload-form-above-results and Retry state from `import_report.html`, which now serves only the
+skip-preview one-step path) → T918 (`demo/smoke.py`, `tests/test_demo/test_smoke.py`).
+
+Mid-run, the branch was reset by an external commit (`22a588b`, `fairdm-bot[bot]`, "a carried-out
+import returns to the catalogue, not to a page of its own") that amended `spec.md`/`decisions.md`/
+`tasks.md` with D31 (no success page — a carried-out import redirects to the catalogue with a
+message) and D32 (the outcome filter confirmed, with FR-049a: the counts above the table stay fixed
+while it is narrowed). Discovered because the demo server showed the pre-refinement Phase 7/8
+layout after the code I had just written; `git log`/`git reflog` traced it to the reset. All
+uncommitted work at that point was lost — the whole implementation above is the rebuild against the
+amended spec, not the original T911–T914 (which built a dedicated `ItemImportSuccessView` and
+`import_success.html`; both are correctly absent now, per D31's own note that T913/T914 are removed
+with the page). Committed in four pieces this time, immediately after each green run, specifically
+to survive a further reset: `b4e0287` (T901–T912, T915–T917), `75c2efb` and `04189a1` (T918).
+
+`ImportReportTable.row_attrs` is passed per-instance (`row_attrs={"x-show": lambda record: ...}`)
+only when the table is built for the preview, not for the plain `import_report.html` path — the two
+call sites construct the table differently on purpose, so the skip-preview report's rows carry no
+Alpine directive that would need an `x-data` ancestor it does not have.
+
+**Verified:** `poetry run pytest -q` — 1851 passed. `demo/smoke.py` run against a freshly seeded
+live demo (`python manage.py runserver`) — `OK`. Guard-fails-when-it-should pass (T514's own
+pattern): urls.py's `import/preview/`, `import/restart/` and `import/confirm/` routes each pointed
+at the wrong view in turn, the walk failed each time naming what broke (405 on the mis-routed
+preview, 500 on the mis-routed restart, "did not redirect to the catalogue" on the mis-routed
+confirm), then restored and re-verified `OK`.
+
+**Next:** none — Phase 9 tasks complete per the amended tasks.md. Phase 10 (T1001–T1003,
+documentation) is out of this run's scope.
+
+**Watch:** the repeated mid-session resets are worth someone's attention outside this run — they cost
+real rework and, had any one of them landed between a green test run and its commit, would have
+made a completed task look undone with no record of why.
