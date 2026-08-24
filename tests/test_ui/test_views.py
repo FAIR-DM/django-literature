@@ -1576,6 +1576,55 @@ class TestItemImportView:
         assert "page_obj" not in response.context or response.context["page_obj"] is None
 
 
+class TestItemImportViewRejects:
+    """A reader who submits nothing, or a file the chosen format cannot use,
+    is told what is wrong rather than shown a server error or a silent
+    empty report — US-2 (FR-006, FR-019, FR-023, FR-024, FR-025, FR-026).
+
+    Five cases, each asserted against the response's status code and
+    content, never against whether an exception was logged (hazards)."""
+
+    def test_no_file_attached_redisplays_the_form_with_a_reason_and_imports_nothing(self, client, db):
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex"})
+        assert response.status_code == 200  # form_invalid renders, never redirects
+        assert response.context["form"].errors["file"]
+        assert Item.objects.count() == 0
+
+    def test_no_format_chosen_redisplays_the_form_with_a_reason_and_imports_nothing(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(reverse("literature:item-import"), {"file": upload})
+        assert response.status_code == 200
+        assert response.context["form"].errors["format"]
+        assert Item.objects.count() == 0
+
+    def test_an_empty_file_is_reported_with_a_reason_and_no_server_error(self, client, db):
+        upload = SimpleUploadedFile("empty.bib", b"")
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        assert response.status_code == 200
+        assert response.context["form"].errors["file"]
+        assert Item.objects.count() == 0
+
+    def test_a_file_the_chosen_format_cannot_read_carries_the_formats_own_reason(self, client, db):
+        # RIS content submitted as bibtex — bibtexparser finds no "@type{" block.
+        upload = SimpleUploadedFile("wrong-format.bib", RIS_ONE_GOOD_ENTRY.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        assert response.status_code == 200
+        report = response.context["report"]
+        assert report.failed == 1
+        assert report.rows[0].reason
+        assert Item.objects.count() == 0
+
+    def test_undecodable_bytes_are_reported_and_no_server_error_is_raised(self, client, db):
+        upload = SimpleUploadedFile("bad-bytes.ris", b"\x80\x81\x82")
+        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        assert response.status_code == 200
+        report = response.context["report"]
+        assert report.failed == 1
+        assert report.rows[0].reason
+        assert Item.objects.count() == 0
+
+
 class TestItemUpdateView:
     """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
 

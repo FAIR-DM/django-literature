@@ -368,3 +368,38 @@ only in the outer table template's `{{ cell }}`, or inside `format_html()` for a
 (`contributors`), both of which escape through a different mechanism, so this did not surface there.
 Discovered here because `reason` is a plain column; fixed by rendering the whole table through
 `as_html()` and reading the cell back out of the real HTML, the same path a page actually renders.
+
+## 2026-08-24T15:30+02:00 · Implementer Phase 2 · T201
+
+**Did:** Added `TestItemImportViewRejects` to `tests/test_ui/test_views.py` — five cases: no file
+attached, no format chosen, an empty file, a file the chosen format cannot read (RIS content posted
+as bibtex), and undecodable bytes (posted as ris). Each asserts `response.status_code == 200`,
+`Item.objects.count() == 0`, and a stated reason — either on `form.errors` (the first three) or on
+the report's failed row (the last two).
+
+**Verified:** `poetry run pytest tests/test_ui/test_views.py::TestItemImportViewRejects -v` — 5
+passed (exit 0) on first write. Not RED: every case was already satisfied by existing behaviour, not
+by anything this task wrote. Confirmed each is the right pass for the right reason rather than a
+tautology, by printing the actual response content for all five cases outside pytest — `form.errors`
+carries "This field is required." (no file, no format) and "The submitted file is empty." (empty
+file); the report's single failed row carries "No BibTeX entries found. Is this a BibTeX file?"
+(wrong format) and "Could not decode this file as utf-8: invalid byte at offset 0." (undecodable
+bytes) — the exact messages `literature/importers/bibtex.py` and `ris.py` already raise. The
+`logger.warning(..., exc_info=True)` traceback these last two print to the test log is expected
+(hazards: "an assertion about the response, not about whether an exception was logged"), not a
+failure.
+
+**Why all five already pass:** Django's `forms.FileField` defaults `allow_empty_file=False` and
+`required=True`, and `forms.ChoiceField` defaults `required=True` — `ImportForm` (T102) declares
+neither field to override either default, so "no file", "no format" and "empty file" are all
+rejected by Django's own form validation before the view's `form_valid` ever runs, and
+`FormMixin.form_invalid` (inherited unchanged through `MVPFormView`'s MRO — confirmed no
+`form_invalid` override exists anywhere in it) renders rather than redirects. "Wrong format" and
+"undecodable bytes" are exactly what Phase 0's D10 fixed: both formats already turn a bad file into
+one failed `EntryResult` with a reader-actionable reason, and `ItemImportView.form_valid` (T110)
+already renders that as a report rather than letting anything escape.
+
+**Next:** T202 — whatever T201 shows is missing. Nothing is.
+
+**Watch:** none.
+
