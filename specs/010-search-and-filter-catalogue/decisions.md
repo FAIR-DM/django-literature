@@ -658,4 +658,3 @@ its own — at that point the guard could exercise that filter instead without t
 much language skew, though there is no reason to change it while the language route already works.
 
 **ADR:** none — how the demo's own check reaches a second page, local to the demo data.
-

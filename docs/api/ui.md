@@ -26,6 +26,11 @@ table and the card presentation narrow to the same set of references.
 To change what a project's catalogue filters on, subclass `ItemFilterSet` and point
 both views at the subclass.
 
+Two decisions behind this module are recorded as ADRs: why the searched fields carry
+no database index ([ADR 0024](../adr/0024-the-catalogue-search-adds-no-index.md)),
+and why the search and filter definition lives in exactly one place
+([ADR 0025](../adr/0025-one-definition-of-what-the-catalogue-narrows-by.md)).
+
 ```{eval-rst}
 .. automodule:: literature.ui.filters
    :members:
