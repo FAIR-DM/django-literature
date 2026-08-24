@@ -154,6 +154,18 @@ The result is the **only** reporting channel. Logging may carry the same failure
 visibility, but a failure that appears solely in a log is a defect: a caller must never have to
 compare a count of inputs against a count of stored items to discover something went wrong.
 
+### import report
+
+The **UI app**'s own rendering of one **import result**, on the page a reader lands on after
+submitting a file. It carries the same counts the result already holds and one row per entry
+result, in source order, numbered from one — a reader-facing count, deliberately different from
+the result's own zero-based index (see *import result / entry result*, above). Nothing is
+recomputed: an import report reads the result it wraps and adds no reporting logic of its own.
+
+Distinct from an **import result**: a result is the contract's own return value, and a report is
+what one interface — the UI app — chooses to show a person from it. A different interface could
+render the same result a different way without either term changing meaning.
+
 ### dry run
 
 An import that runs every stage and reports every outcome while leaving the catalogue exactly as it
