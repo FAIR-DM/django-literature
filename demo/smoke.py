@@ -77,6 +77,11 @@ IMPORT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/import/)"')
 # (decisions.md D16, import_report.html).
 CONFIRM_IMPORT_RE = re.compile(r'<form[^>]+action="(?P<path>/catalogue/import/confirm/)"')
 
+# The preview's own restart control (T918, US-6): same shape as
+# CONFIRM_IMPORT_RE — a <form>'s action, since discarding the staged file is
+# a POST, never a link (import_preview.html).
+RESTART_IMPORT_RE = re.compile(r'<form[^>]+action="(?P<path>/catalogue/import/restart/)"')
+
 
 class FormFieldParser(HTMLParser):
     """Field name → current value for the first ``<form>`` on a page (T021, D-9).
@@ -550,6 +555,47 @@ class DemoWalk:
                     f"the catalogue already lists {created_title!r} before the preview was confirmed",
                     list_before_confirm,
                 )
+
+        # Restart (FR-051): discards this preview's staged file and returns
+        # to an empty form. Exercised and confirmed before the real run
+        # below stages a fresh file of its own — restarting is a detour, not
+        # the ending this walk is here to prove.
+        restart_match = RESTART_IMPORT_RE.search(preview_body)
+        if restart_match is None:
+            self.fail(preview_url, 200, "the preview carries no restart control", preview_body)
+        restart_url = f"{self.base_url}{restart_match.group('path')}"
+        restart_form_body = preview_body[restart_match.start() :]
+        form_after_restart_body, landed_url = self.post(restart_url, preview_url, form_fields(restart_form_body))
+        if landed_url != import_url:
+            self.fail(
+                landed_url,
+                200,
+                f"restarting did not redirect to an empty import form (landed on {landed_url})",
+                form_after_restart_body,
+            )
+        restarted_fields = form_fields(form_after_restart_body)
+        if restarted_fields.get("file"):
+            self.fail(
+                import_url, 200, "the form restarting lands on still carries a file value", form_after_restart_body
+            )
+
+        # Re-stage the fixture for the real run: restart discarded the file
+        # staged above, so the walk previews it again exactly as a reader
+        # would after restarting.
+        body, content_type = encode_multipart(
+            text_fields,
+            {"file": (IMPORT_FIXTURE_PATH.name, IMPORT_FIXTURE_PATH.read_bytes(), "application/octet-stream")},
+        )
+        headers = {"Referer": import_url, "Content-Type": content_type}
+        request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
+        preview_body, landed_url = self.fetch(request, import_url)
+        if landed_url != preview_url:
+            self.fail(
+                landed_url,
+                200,
+                f"re-previewing after a restart did not redirect to the preview address (landed on {landed_url})",
+                preview_body,
+            )
 
         confirm_match = CONFIRM_IMPORT_RE.search(preview_body)
         if confirm_match is None:

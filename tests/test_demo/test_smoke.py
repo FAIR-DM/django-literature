@@ -32,6 +32,7 @@ from demo.smoke import (
     EDIT_LINK_RE,
     IMPORT_LINK_RE,
     ITEM_LINK_RE,
+    RESTART_IMPORT_RE,
     ROW_RE,
     SECOND_PAGE_LINK_RE,
     DemoWalk,
@@ -424,3 +425,16 @@ class TestConfirmImportPattern:
 
         assert match is not None
         assert match.group("path") == reverse("literature:item-import-confirm")
+
+
+class TestRestartImportPattern:
+    """The pattern the walk follows to discard a preview's staged file
+    (T918, US-6, FR-051)."""
+
+    def test_matches_the_form_the_preview_page_really_renders(self, client, db):
+        upload = SimpleUploadedFile("import.bib", b"@article{Key2020, title={A Title}, address={x}}")
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload}, follow=True)
+        match = RESTART_IMPORT_RE.search(response.content.decode())
+
+        assert match is not None
+        assert match.group("path") == reverse("literature:item-import-restart")
