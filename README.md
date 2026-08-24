@@ -326,6 +326,24 @@ catalogue can add, edit and remove a reference. That is intentional for a packag
 person managing their own library, and restricting these pages to particular users or groups is left
 to the host project to add, the same way it would guard any other view.
 
+### Importing a bibliography file
+
+The catalogue list carries an Import action too, opening a page with a format choice and a file
+control. Submitting reads the file through the package's import contract and lands on a report:
+how many entries were created, skipped and failed, and one row per entry in the order the file
+held them.
+
+The format is chosen, never detected from the file itself — pick the wrong one and the format's
+own message says so on every entry, rather than the file being silently misread. Nothing checks
+whether a file has already been imported, so submitting the same file twice creates the references
+twice; the page says so before you submit. A failure partway through the file does not undo what
+already succeeded — the entries created before it stay in the catalogue.
+
+Like the pages above, the import page carries no permission check of its own — anyone who can reach
+the catalogue can reach it too — and the package imposes no size limit of its own on the file it
+accepts. Restricting or bounding either is left to the host project, the same way it would guard any
+other view.
+
 ### Try it: the demo project
 
 The repository carries a runnable demo of everything above, wired the same way this section
