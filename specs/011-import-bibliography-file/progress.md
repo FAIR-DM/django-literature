@@ -1079,3 +1079,134 @@ what that helper now extracts, confirmed by running the walk rather than by insp
 
 **Watch:** D23 — the two `test_views.py` failures, and the `ItemImportConfirmView` gap, both named
 above with file, line and cause.
+
+## 2026-08-24T21:10+02:00 · Implementer Phase 8 · T801
+
+**Did:** Brought `docs/importing-through-the-interface.md` onto the refined default. Added a
+sentence to "Choosing a format and a file" naming the skip-preview checkbox, and a new
+"Previewing before anything is imported" section between it and "What the report shows" —
+submitting previews by default and creates nothing, the staged file lives only until confirmed or
+swept after 24 hours, confirming from another session or after a sweep says so and imports
+nothing, and ticking the skip control imports directly. "What the report shows" now describes the
+outcome badge, that a skipped row carries a reason naming what it was, the upload form above the
+results with its divider, the Retry state, and the two buttons at the foot of the page. "Before you
+upload" was reconciled in place rather than appended to: its first bullet used to assert that
+submitting creates the references, which the preview default makes false as the common case, so it
+now names both requests explicitly.
+
+**Verified:** `poetry run sphinx-build -W --keep-going -b html docs docs/_build/html` — exit 1, 12
+warnings, identical set to a same-command baseline taken before this task on the unmodified
+worktree (sorted `diff` of the two warning lists empty) — the edited page adds no warning of its
+own; the 12 are pre-existing and out of this task's scope. `poetry run pytest -q
+tests/test_ui/test_templates.py` — 102 passed (sanity check; no production file changed).
+
+**Next:** T802 — the README sentence.
+
+**Watch:** the 12 pre-existing sphinx warnings are flagged in the completion report's `concerns`,
+not fixed — none is caused by this run and fixing them is outside T801-T806's file scope (three are
+`literature/ui/filters.py`/`views.py` docstrings and one is `docs/ROADMAP.md`'s own broken
+cross-references, all under a `literature/` or file this phase does not own).
+
+## 2026-08-24T21:14+02:00 · Implementer Phase 8 · T802
+
+**Did:** Rewrote the first sentence of README.md's "Importing a bibliography file" section: a plain
+submission now previews rather than imports, with a control to carry out the import it described
+and a checkbox to skip straight to a one-step import. The rest of the section — format choice,
+repeat-import warning, partial-failure behaviour, no permission check — was already accurate and
+untouched.
+
+**Verified:** `poetry run sphinx-build -W --keep-going -b html docs docs/_build/html` — exit 1, 12
+warnings, identical set to the pre-run baseline (empty diff). `poetry run pytest -q
+tests/test_ui/test_packaging.py` — 7 passed.
+
+**Next:** T803 — verify the API reference.
+
+**Watch:** none.
+
+## 2026-08-24T21:18+02:00 · Implementer Phase 8 · T803
+
+**Did:** Verified rather than assumed: `docs/api/ui.md` already documented `literature.ui.staging`,
+`ItemImportConfirmView` and `ConfirmImportForm` (added by an earlier phase's own commit), and
+`literature.ui.tables.OutcomeColumn`'s badge behaviour already surfaces through the `automodule`
+directive's own docstring, so neither needed new prose. Found and fixed two stale spots instead:
+`ImportForm`'s paragraph still described "the format choice and file control" only, with no mention
+of the skip-preview checkbox added in an earlier phase, and `ImportReportRow`'s field list still
+called `reason` a "failure reason," which stopped being true the moment a skipped entry could carry
+one. Both corrected, and `ImportReportTable`'s paragraph gained a sentence naming the outcome badge
+for a reader who does not open the module itself.
+
+**Verified:** `poetry run sphinx-build -W --keep-going -b html docs docs/_build/html` — exit 1, 12
+warnings, identical set to the pre-run baseline (empty diff). `poetry run pytest -q
+tests/test_ui/test_tables.py tests/test_ui/test_forms.py tests/test_ui/test_importing.py` — 105
+passed. Grepped the edited file for `specs/`, `decisions.md`, `T80\d`, `US-\d` and `FS-011` after a
+first draft cited `decisions.md D16`/`D17` inline — caught by the same grep, removed before
+committing, since `decisions.md` is a `specs/` path and not something this package ships.
+
+**Next:** T804 — the glossary.
+
+**Watch:** none.
+
+## 2026-08-24T21:23+02:00 · Implementer Phase 8 · T804
+
+**Did:** Checked CONTEXT.md's own inclusion test before adding anything — the file states at its
+own top that it is "drafted from the source code (the authoritative reference)" — and grepped
+`literature/ui/staging.py`, `views.py` and `forms.py` for *preview* and *staged file*: both are
+used repeatedly as the code's own vocabulary (`StagedUpload`'s docstring, `ItemImportView`'s
+`preview=` keyword, the two session keys' own comment), not language invented for the page. Added
+both terms after *dry run*, in the shape that entry already establishes: *preview* as the UI app's
+rendering of a dry run with a confirm control, cross-referencing *staged file*, and *staged file*
+as what `literature.ui.staging` holds between the two requests, cross-referencing back.
+
+**Verified:** `poetry run sphinx-build -W --keep-going -b html docs docs/_build/html` — exit 1, 12
+warnings, identical set to the pre-run baseline (empty diff). `poetry run pytest -q
+tests/test_ui/test_staging.py tests/test_ui/test_importing.py` — 19 passed (sanity check; no
+production file changed). Grepped the new entries for `specs/`, `T80\d`, `US-\d`, `FS-011` — none.
+
+**Next:** T805 — the changelog.
+
+**Watch:** none.
+
+## 2026-08-24T21:27+02:00 · Implementer Phase 8 · T805
+
+**Did:** Folded the refinement into the existing "Importing a bibliography file through the front
+end" `### Added` entry rather than appending a second one. The skipped-reason change already has
+its own `### Changed` bullet from an earlier phase and was left alone. The `Added` entry's opening
+sentence now states the preview default and the skip control; a new middle paragraph covers the
+staged file's lifetime (confirmed, or swept after 24 hours), the session-scoped confirmation and
+what a confirmation with nothing staged says, the upload form above the results with its divider,
+and the Retry state; the closing paragraph (format choice, repeat-import warning, partial-failure
+behaviour, no permission check) is unchanged.
+
+**Verified:** `poetry run sphinx-build -W --keep-going -b html docs docs/_build/html` — exit 1, 12
+warnings, identical set to the pre-run baseline (empty diff). `poetry run pre-commit run --files
+CHANGELOG.md` — clean. Grepped the edited entry for `specs/`, `T80\d`, `US-\d`, `FS-011` — none.
+
+**Next:** T806 — the humanizer pass.
+
+**Watch:** none.
+
+## 2026-08-24T21:32+02:00 · Implementer Phase 8 · T806
+
+**Did:** Identified every public markdown file this refinement (Phase 5 through Phase 8) authored
+or rewrote: `README.md`, `docs/importing-through-the-interface.md`, `docs/api/ui.md`,
+`CONTEXT.md`, `CHANGELOG.md`, `docs/adr/0027-a-skipped-entry-may-carry-a-reason.md` and
+`docs/adr/index.md` — found from `git log 8cab6e0..HEAD -- docs README.md CHANGELOG.md CONTEXT.md`,
+the commit the refinement's own specification amendment landed on. Scanned all seven against the
+Wikipedia "Signs of AI writing" checklist (inflated significance, promotional language, superficial
+`-ing` analyses, vague attribution, rule-of-three padding, negative parallelism, AI-vocabulary
+words, em dash overuse relative to this repo's own established voice, curly quotes, emoji,
+collaborative-chat artefacts, inline-header lists) and separately for internal vocabulary (agent or
+tool names, phase/stage codes, `T`-prefixed task ids, `US-`/`FS-011` story codes, `specs/` paths).
+Proved the checks were live rather than trusting a clean read: ran the same pattern set against a
+deliberately seeded sentence carrying six of the tells and confirmed every one was caught, then ran
+it against the seven real files.
+
+**Verified:** zero matches across all seven files for both pattern sets. No edit was needed beyond
+the `decisions.md D16`/`D17` citations already caught and removed during T803. The repo's own
+established voice — long, specific, declarative, dense with concrete detail — already reads as the
+opposite of what the checklist flags, which is why nothing else in scope moved.
+
+**Next:** none — Phase 8 tasks complete. Remaining: full suite once, `pre-commit run --all-files`,
+`makemigrations --check` across every app, and the completion report.
+
+**Watch:** none.

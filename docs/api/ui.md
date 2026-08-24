@@ -73,13 +73,14 @@ reader sees.
 
 ## `literature.ui.forms`
 
-`ImportForm` is the format choice and file control the import page renders — a plain `forms.Form`,
-not a `ModelForm`, since nothing on it maps to `Item` directly. The format resolves the file into
-entries and the entries into items, never this form. Its format choices are read from
-`available_formats()` when the form is instantiated, not when the class is defined, so a format
-configured after import time still appears. `ItemForm` is the one write form every create and
-update page shares — see the README's "Adding, editing and removing a reference" section for what
-it does.
+`ImportForm` is the format choice, file control and skip-preview checkbox the import page renders
+— a plain `forms.Form`, not a `ModelForm`, since nothing on it maps to `Item` directly. The format
+resolves the file into entries and the entries into items, never this form. Its format choices are
+read from `available_formats()` when the form is instantiated, not when the class is defined, so a
+format configured after import time still appears. The skip-preview checkbox is unticked by
+default, so a plain submission previews rather than imports. `ItemForm` is the
+one write form every create and update page shares — see the README's "Adding, editing and
+removing a reference" section for what it does.
 
 `ConfirmImportForm` declares no field at all. It exists so that carrying out a previewed
 import is a `POST` protected against cross-site request forgery like any other, and
@@ -123,8 +124,9 @@ in the session, held by the view.
 `ImportReport` turns one `ImportResult` into what the import report page renders — `rows`, one
 `ImportReportRow` per entry in source order, plus the same `created`, `skipped`, `failed` and
 `total` counts the result already carries. `ImportReportRow` is the frozen row itself: a position
-numbered from one, the entry's outcome, its citation key where the source supplies one, its failure
-reason where it has one, and the URL of the reference it created where it created one.
+numbered from one, the entry's outcome, its citation key where the source supplies one, its reason
+where it has one — a failure's, or a skip's own reason for what it recognised and set aside —
+and the URL of the reference it created where it created one.
 
 ```{eval-rst}
 .. automodule:: literature.ui.importing
@@ -139,9 +141,17 @@ reason where it has one, and the URL of the reference it created where it create
 and the ordering it sorts by.
 
 `ImportReportTable` renders an import report's rows. It takes a plain list rather than a
-queryset, since a report is built from one import's result and never queried. A created
-row's position number links to the reference it produced, and a skipped or failed row's
-does not.
+queryset, since a report is built from one import's result and never queried. Its outcome column
+renders each row's outcome as a colour-coded badge, created, skipped and failed each their own
+variant. A created row's position number links to the reference it produced, and a skipped or
+failed row's does not.
+
+`OutcomeColumn` is that column. It is a template column, so the badge is rendered by a template
+and escaped like any other, rather than built as a marked-safe string in Python. It maps each
+outcome to its own badge variant and wraps the outcome's own translated label, which is what the
+cell carried before it was a badge — the colour is added to the label, never substituted for it.
+The mapping is a class attribute, `VARIANTS`, so a project that renders the report itself can
+subclass the column and map the three outcomes to different variants.
 
 ```{eval-rst}
 .. automodule:: literature.ui.tables
