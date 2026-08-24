@@ -61,7 +61,11 @@ class StagedUpload:
         requested.
         """
         token = get_random_string(43)
-        saved_name = self.storage.save(self._name(token), file)
+        # str(): the storage backend's own return type is untyped from here
+        # (self.storage carries no narrower annotation than Any), not
+        # because the value itself is ever anything but the str name save()
+        # always returns.
+        saved_name = str(self.storage.save(self._name(token), file))
         return saved_name.rsplit("/", 1)[-1]
 
     def open(self, token):
