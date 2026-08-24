@@ -3,7 +3,7 @@
   "feature": "011-import-bibliography-file",
   "branch": "011-import-bibliography-file",
   "repo": "FAIR-DM/django-literature",
-  "state": "IMPLEMENT",
+  "state": "REVIEW",
   "state_history": [
     {
       "state": "SPECIFY",
@@ -59,6 +59,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-24T21:35:00Z",
       "note": "US9 documentation landed, T801-T806; docs gate was red on OutcomeColumn and is now green (D26)"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-24T22:30:00Z",
+      "note": "refinement reviewed as a unit; two defects found and fixed (D28 stale preview confirms the wrong file, D29 sweep race), review outcome posted to PR #103"
     }
   ],
   "gates": {
