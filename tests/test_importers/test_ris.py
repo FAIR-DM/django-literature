@@ -620,6 +620,13 @@ class TestWholeFileOutcomes:
             result = RISFormat().import_file(handle)
         assert result.entries[0].outcome == Outcome.SKIPPED
 
+    def test_header_material_names_itself_as_the_reason(self):
+        """D18: the format knows this was header material, not a record."""
+        with fixture("constructed/header_before_first_entry.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.entries[0].reason is not None
+        assert "header" in result.entries[0].reason.lower()
+
     def test_header_material_produces_no_item(self):
         with fixture("constructed/header_before_first_entry.ris") as handle:
             result = RISFormat().import_file(handle)
@@ -707,6 +714,14 @@ class TestTyOnlySkipped:
     def test_to_csl_json_raises_skip_entry_for_a_ty_only_entry(self):
         with pytest.raises(SkipEntry):
             RISFormat().to_csl_json(entry())
+
+    @pytest.mark.django_db
+    def test_the_entry_names_ty_as_the_reason(self):
+        """D18: the format knows this entry carried only its reference-type tag."""
+        with fixture("constructed/ty_only.ris") as handle:
+            result = RISFormat().import_file(handle)
+        assert result.entries[0].reason is not None
+        assert "TY" in result.entries[0].reason
 
     def test_a_tag_present_with_an_empty_value_is_not_ty_only(self):
         """A second tag disqualifies the skip even when its value is empty — the check is on
