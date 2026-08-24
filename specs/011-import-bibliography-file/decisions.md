@@ -311,3 +311,34 @@ rather than silently folded in, since the brief names only one shipped test as s
 **Revisit if:** a future action joins `directory` that is genuinely object-level but not yet routed
 under a `pk` — the two-branch shape here (`{}` vs `dict(self.kwargs) or None`) would need a third
 case rather than a second hardcoded name.
+
+## D15 — The fixture's failing entry fails on an oversized `address`, not an unmapped type
+
+**Ambiguous:** T301 asks for "at least one [entry] that does not" convert, without saying what
+should make it fail. Several shapes were available: an unrecognised BibTeX entry type, a malformed
+identifier, an unresolvable date.
+
+**Chosen:** the failing entry (`ImportFixtureGamma2022`) is a well-formed `@article` whose `address`
+field is 331 characters — over `Item.publisher_place`'s 255-character limit (`literature/models.py`).
+
+**Why defensible:** every other shape recovers rather than fails. An unrecognised entry type maps to
+the CSL `document` fallback (`ENTRY_TYPE_TABLE`, `bibtex.py`) rather than failing the entry; a
+malformed DOI or ISBN is preserved under `custom` rather than raising (`bibtex.py`
+`to_csl_json`'s identifier branch); an unparseable date falls to CSL's `literal` slot. The only path
+that reaches `EntryResult.FAILED` for BibTeX is `Item.full_clean()` raising inside
+`from_csl_json` (`literature/importers/base.py::import_entry`) — a value that maps cleanly to a
+Django field but does not fit it. `address` (→ `publisher-place` → `Item.publisher_place`,
+`max_length=255`) is a plain scalar field with no cleaning step of its own, so an oversized value
+is the shortest path to a real, uncontrived failure: something a real `.bib` export could plausibly
+carry (a full institutional address line) and something the importer cannot recover from, reported
+as `"Ensure this value has at most 255 characters (it has 331)."` — a reason a reader can act on,
+which is what `walk_import` (T304) asserts against.
+
+Confirmed by running the fixture through `BibTeXFormat().import_file()` directly against a migrated
+test database before writing `walk_import`: two entries `CREATED`, the leading `%`-comment header
+`SKIPPED` (bibtexparser's own handling of text outside any entry, harmless to the report), and
+`ImportFixtureGamma2022` `FAILED` with exactly that reason.
+
+**Revisit if:** a future importer contract adds field-level cleaning for every scalar (not only
+identifiers), at which point an oversized `address` might also start recovering rather than failing,
+and the fixture would need a different failure shape.

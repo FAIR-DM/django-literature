@@ -443,3 +443,25 @@ are its swappable presentation.
 **Next:** none — Phase 2 complete pending final verification.
 
 **Watch:** none.
+
+## 2026-08-24T16:05+02:00 · Implementer Phase 3 · T301
+
+**Did:** Added `demo/seed/import-sample.bib` — three entries: `ImportFixtureAlpha2024` (`@report`,
+French, an institution) and `ImportFixtureBeta2023` (`@unpublished`, no language) convert cleanly;
+`ImportFixtureGamma2022` (`@article`) carries a 331-character `address`, over
+`Item.publisher_place`'s 255-character limit, so it fails at `full_clean()`. None of the three
+values collides with `demo/seed/catalogue.json` or with the specific strings
+`walk_narrowed_catalogue`'s exact-membership assertions name (`demo/smoke.py:218-256`) — see D15 and
+the completion report's `fixture_collision_check`.
+
+**Verified:** Ran the fixture through `BibTeXFormat().import_file()` directly, against a migrated
+`tests.settings` database, from a scratch `@pytest.mark.django_db` test written for this check only
+and deleted afterwards (never committed): `poetry run pytest tests/test_demo/test_scratch_fixture_check.py -q -s`
+printed `0 created ImportFixtureAlpha2024 None`, `1 created ImportFixtureBeta2023 None`,
+`2 failed ImportFixtureGamma2022 Ensure this value has at most 255 characters (it has 331).`,
+`3 skipped None None` (the leading `%`-comment header). Confirms the fixture produces exactly the
+create/skip/fail mix `walk_import` (T304) will assert against.
+
+**Next:** T302 — the two red tests (`TestMultipartEncoder`, `TestImportLinkPattern`).
+
+**Watch:** none.
