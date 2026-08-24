@@ -16,8 +16,8 @@ All notable changes to this project are documented in this file. The format foll
   produced.
 
   The format is chosen, never detected from the file. Nothing checks whether a file has already
-  been imported, so importing the same file twice creates the references twice; the page warns of
-  this before you submit. A failure partway through the file leaves the entries already created in
+  been imported, so importing the same file twice creates the references twice, and the page warns
+  of this before you submit. A failure partway through the file leaves the entries already created in
   place. The page carries no permission check of its own and imposes no size limit of its own on
   the file it accepts, the same as every other page in the front end.
 

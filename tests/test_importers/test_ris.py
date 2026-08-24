@@ -128,7 +128,7 @@ class TestGenuineCorpus:
 
     def test_the_matched_set_holds_the_same_dois_and_the_others_do_not(self):
         """The premise SC-005 rests on, asserted rather than assumed — the failure D35 caught was
-        this claim going unchecked from S3 research through to T028 (D36).
+        this claim going unchecked from the research that proposed it through to T028 (D36).
         """
 
         def dois(name: str) -> set[str]:

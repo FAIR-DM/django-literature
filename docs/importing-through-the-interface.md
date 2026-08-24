@@ -28,7 +28,7 @@ them, numbered from one.
 
 Each row carries the entry's outcome and, where the source format supplies one, its own citation
 key. A row for an entry that failed also carries the reason. A created row's position number links
-to the new reference; a skipped or failed row's does not, because there is nothing to link to.
+to the new reference. A skipped or failed row's does not, because there is nothing to link to.
 
 The whole report is on one page, however many entries the file held — there is no further page to
 turn to.

@@ -336,7 +336,7 @@ held them.
 The format is chosen, never detected from the file itself — pick the wrong one and the format's
 own message says so on every entry, rather than the file being silently misread. Nothing checks
 whether a file has already been imported, so submitting the same file twice creates the references
-twice; the page says so before you submit. A failure partway through the file does not undo what
+twice. The page says so before you submit. A failure partway through the file does not undo what
 already succeeded — the entries created before it stay in the catalogue.
 
 Like the pages above, the import page carries no permission check of its own — anyone who can reach
@@ -358,9 +358,10 @@ python manage.py runserver
 
 `migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
 `runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
-reference page and a contributor page are all live and populated. The Add, Edit and Delete
-actions on those pages are live too, so you can enter, correct and remove a reference the same way a
-host project's own users would.
+reference page and a contributor page are all live and populated. The Add, Edit, Delete and Import
+actions on those pages are live too, so you can enter, correct, remove and import references the
+same way a host project's own users would. `demo/seed/import-sample.bib` is there to import: it
+holds entries that convert and one that does not, so the report has something to show.
 
 `seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
 again returns the demo to the same seeded state whatever state it was in before — including
