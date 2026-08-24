@@ -44,6 +44,11 @@
       "state": "IMPLEMENT",
       "at": "2026-08-24T15:29:07Z",
       "note": "US4 (preview and confirm) implemented, T501-T514; four shipped tests brought onto the refined default under D20"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T19:05:00Z",
+      "note": "US5 (a skipped entry names why) implemented, T601-T608; D21's open finding adjudicated as D22 - both runner stages now carry a skip's reason and the pre-existing test is brought onto the amended contract"
     }
   ],
   "gates": {
@@ -62,7 +67,7 @@
         "Formats offered are read from the installation's configuration rather than listed in the front end",
         "The feature reads the import contract and does not extend it; a genuine gap is raised as its own issue",
         "Refined 2026-08-24 with Sam's approval: importing previews by default and the staged file lives on disk (D12)",
-        "Refined 2026-08-24: the report's presentation \u2014 badges, buttons, the form above the results, a disabled Retry (D13)",
+        "Refined 2026-08-24: the report's presentation — badges, buttons, the form above the results, a disabled Retry (D13)",
         "Refined 2026-08-24: a skipped entry may carry a reason, amending the import contract (D14)"
       ]
     },
@@ -666,48 +671,88 @@
       "id": "US5",
       "priority": "P2",
       "issue": 109,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T601",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_results.py::TestEntryResult -q  (red on the new test before T602, 8 passed after)"
+            ]
+          }
         },
         {
           "id": "T602",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_results.py -q  (21 passed)"
+            ]
+          }
         },
         {
           "id": "T603",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_bibtex.py -q  (red before T605, 245 passed after)"
+            ]
+          }
         },
         {
           "id": "T604",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_ris.py -q  (red before T605, 345 passed after)"
+            ]
+          }
         },
         {
           "id": "T605",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_importers/test_bibtex.py tests/test_importers/test_ris.py -q  (590 passed)"
+            ]
+          }
         },
         {
           "id": "T606",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest tests/test_ui/test_importing.py tests/test_ui/test_tables.py -q  (21 passed)"
+            ]
+          }
         },
         {
           "id": "T607",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "same run as T606 - the report row and table column already carried a reason unconditionally, no change needed"
+            ]
+          }
         },
         {
           "id": "T608",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "docs/adr/0027 added and listed in docs/adr/index.md; CHANGELOG entry citing #107; decisions.md D21 and D22"
+            ]
+          }
         }
       ]
     },
