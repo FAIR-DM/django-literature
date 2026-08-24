@@ -418,3 +418,28 @@ rule lives, so none is written.
 
 **Watch:** none.
 
+## 2026-08-24T15:40+02:00 · Implementer Phase 2 · T203
+
+**Did:** Added `TestImportFormPageFieldErrors` to `tests/test_ui/test_templates.py` — two cases (a
+missing file, a missing format), each asserting the field's own crispy-tailwind error id
+(`id="error_1_id_file"` / `id="error_1_id_format"`) is present in the response.
+
+**Verified:** `poetry run pytest tests/test_ui/test_templates.py::TestImportFormPageFieldErrors -v`
+— 2 passed (exit 0) on first write, for the reason recorded below rather than by chance.
+
+**Why this was already true:** `import_form.html` (T110) overrides only `before_form` and `actions`
+on `form_view.html` — never `formset`, which is what carries `<c-form.render />` (`cotton/form/
+index.html`) through to `{{ form|crispy }}` (`cotton/form/render.html`). `item_form.html` reaches
+crispy through a different route (`{{ field|as_crispy_field }}`, one call per field, since it
+overrides `page.content` in full for its group-by-group layout — plan.md D-3), but both routes
+terminate in the same `CRISPY_TEMPLATE_PACK = "tailwind"` field template, `crispy_tailwind/
+templates/tailwind/layout/field_errors.html`, which is what actually mints `id="error_{n}_
+{field.auto_id}"` beside the control. Confirmed by posting an invalid submission to the create page
+(`literature:item-create`) outside pytest before writing this test: it renders `id="error_1_
+id_type"` in the identical shape. Asserted against that id rather than the paragraph's `text-red-500
+text-xs italic` classes — the id is crispy-tailwind's own field-association mechanism, the classes
+are its swappable presentation.
+
+**Next:** none — Phase 2 complete pending final verification.
+
+**Watch:** none.

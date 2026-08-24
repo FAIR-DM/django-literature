@@ -583,3 +583,30 @@ class TestImportReportPage:
     def test_carries_no_form_that_could_run_the_import_again(self, client, db):
         content = self._report_content(client)
         assert "<form" not in content
+
+
+class TestImportFormPageFieldErrors:
+    """T203 — an invalid submission's field errors render beside their own
+    fields, in the idiom the create page already uses (FR-006, US-2).
+
+    Neither ``import_form.html`` nor this app renders that idiom itself:
+    ``ImportForm`` reaches the page through the same packaged
+    ``<c-form.render />`` → ``{{ form|crispy }}`` pipeline ``item_form.html``'s
+    own fields already go through (``cotton/form/render.html``), so a bound
+    field's error is crispy-tailwind's own ``field_errors.html``, minting
+    ``id="error_{n}_{field.auto_id}"`` right beside the control — confirmed
+    against the create page's own invalid-submission output before writing
+    this, which renders the identical ``id="error_1_id_type"`` shape for its
+    own required field. Asserted against that id, not the paragraph's
+    swappable colour/size classes, since the id is the mechanism, not the
+    theme.
+    """
+
+    def test_a_missing_files_reason_renders_beside_the_file_field(self, client, db):
+        content = client.post(reverse("literature:item-import"), {"format": "bibtex"}).content.decode()
+        assert 'id="error_1_id_file"' in content
+
+    def test_a_missing_formats_reason_renders_beside_the_format_field(self, client, db):
+        upload = SimpleUploadedFile("x.bib", b"@article{x, title={T}}")
+        content = client.post(reverse("literature:item-import"), {"file": upload}).content.decode()
+        assert 'id="error_1_id_format"' in content
