@@ -559,13 +559,21 @@ class TestImportFormPage:
 
 
 class TestImportReportPage:
-    """T111 — the report page carries the counts, the table and a link back
-    to the catalogue, and no control that would run the import again
-    (FR-023's surviving half, decisions.md D11)."""
+    """T111 — the report page for an import that has already happened carries
+    the counts, the table and a link back to the catalogue (FR-012, FR-013,
+    FR-021).
+
+    It no longer asserts the absence of a form. FR-023's second half was
+    retired by the 2026-08-24 refinement: the page carries the form
+    deliberately, and previewing is what makes submitting again safe
+    (spec.md FR-023, decisions.md D17)."""
 
     def _report_content(self, client):
         upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "ris", "file": upload, "skip_preview": "on"},
+        )
         return response.content.decode()
 
     def test_carries_the_counts(self, client, db):
@@ -580,9 +588,9 @@ class TestImportReportPage:
         content = self._report_content(client)
         assert f'href="{reverse("literature:item-list")}"' in content
 
-    def test_carries_no_form_that_could_run_the_import_again(self, client, db):
-        content = self._report_content(client)
-        assert "<form" not in content
+    def test_is_not_labelled_as_a_preview(self, client, db):
+        content = self._report_content(client).lower()
+        assert "nothing has been imported" not in content
 
 
 class TestImportPreviewPage:

@@ -1516,7 +1516,11 @@ class TestItemCreateView:
 
 class TestItemImportView:
     """Pick a format, attach a file, and see what became of every entry — US-1
-    (FR-005, FR-006, FR-010, FR-019, FR-023, AS-10)."""
+    (FR-005, FR-006, FR-010, FR-019, FR-023, AS-10).
+
+    Every submission here skips the preview, so the class asserts what a real
+    import does to the catalogue. Submitting without that choice previews
+    instead (FR-038), and `TestItemImportPreview` covers that path."""
 
     def test_get_renders_the_form_page_with_a_format_choice_and_a_file_control(self, client, db):
         response = client.get(reverse("literature:item-import"))
@@ -1529,7 +1533,9 @@ class TestItemImportView:
     def test_a_valid_bibtex_upload_creates_the_reference_and_responds_with_the_report(self, client, db):
         with (DATA_DIR / "publication.bib").open("rb") as handle:
             upload = SimpleUploadedFile("publication.bib", handle.read())
-        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        response = client.post(
+            reverse("literature:item-import"), {"format": "bibtex", "file": upload, "skip_preview": "on"}
+        )
 
         assert response.status_code == 200  # a report page, never a redirect
         assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
@@ -1537,7 +1543,9 @@ class TestItemImportView:
     def test_the_response_carries_the_counts_and_one_row_per_entry_in_source_order(self, client, db):
         with (DATA_DIR / "publication.bib").open("rb") as handle:
             upload = SimpleUploadedFile("publication.bib", handle.read())
-        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        response = client.post(
+            reverse("literature:item-import"), {"format": "bibtex", "file": upload, "skip_preview": "on"}
+        )
 
         report = response.context["report"]
         assert report.total == 1
@@ -1547,7 +1555,9 @@ class TestItemImportView:
     def test_a_created_row_links_to_its_reference(self, client, db):
         with (DATA_DIR / "publication.bib").open("rb") as handle:
             upload = SimpleUploadedFile("publication.bib", handle.read())
-        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        response = client.post(
+            reverse("literature:item-import"), {"format": "bibtex", "file": upload, "skip_preview": "on"}
+        )
 
         item = Item.objects.get(citation_key="10.1093/gji/ggz376")
         content = response.content.decode()
@@ -1555,7 +1565,9 @@ class TestItemImportView:
 
     def test_the_same_file_uploaded_as_ris_behaves_the_same_way(self, client, db):
         upload = SimpleUploadedFile("publication.ris", RIS_ONE_GOOD_ENTRY.encode())
-        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        response = client.post(
+            reverse("literature:item-import"), {"format": "ris", "file": upload, "skip_preview": "on"}
+        )
 
         assert response.status_code == 200
         assert response.context["report"].created == 1
@@ -1563,7 +1575,9 @@ class TestItemImportView:
 
     def test_a_file_mixing_a_converting_entry_with_a_failing_one_reports_each_correctly(self, client, db):
         upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
-        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        response = client.post(
+            reverse("literature:item-import"), {"format": "ris", "file": upload, "skip_preview": "on"}
+        )
 
         report = response.context["report"]
         assert report.created == 1
@@ -1573,7 +1587,9 @@ class TestItemImportView:
 
     def test_the_report_is_not_paginated(self, client, db):
         upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
-        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        response = client.post(
+            reverse("literature:item-import"), {"format": "ris", "file": upload, "skip_preview": "on"}
+        )
         assert "page_obj" not in response.context or response.context["page_obj"] is None
 
 
