@@ -7,6 +7,7 @@ it already held (D-3).
 """
 
 import pytest
+from django import forms
 from django.test import override_settings
 
 from literature.choices import ItemType
@@ -103,10 +104,16 @@ class TestImportForm:
 class TestConfirmImportForm:
     """Carries out a previewed import — US-4 (FR-042).
 
-    Deliberately empty: the staged file's token and the format it was
-    staged as both live in the reader's own session, never in this form or
-    in the page (decisions.md D16) — a hidden field here would be exactly
-    the design this feature declines to copy.
+    Nothing on this page may name the staged file. The token and the format
+    it was staged as both live in the reader's own session (decisions.md
+    D16), and a field carrying either would be exactly the design this
+    feature declines to copy — a request that confirms whatever it was
+    handed the name of.
+
+    It does carry which preview the page was showing (decisions.md D28).
+    That is a different thing: it names nothing on disk, and the view
+    imports only where it matches the confirming session's own value, so on
+    its own it reaches nothing at all.
     """
 
     def test_carries_no_file_field(self):
@@ -115,5 +122,20 @@ class TestConfirmImportForm:
     def test_carries_no_token_field(self):
         assert "token" not in ConfirmImportForm().fields
 
-    def test_carries_no_field_at_all(self):
-        assert ConfirmImportForm().fields == {}
+    def test_names_nothing_the_staged_file_can_be_found_by(self):
+        # The blanket "no fields at all" this replaced was a proxy for the
+        # rule, and stopped tracking it once a field that reaches nothing
+        # was added. This asserts the rule.
+        forbidden = {"file", "token", "name", "filename", "path", "format", "resource"}
+        assert forbidden.isdisjoint(ConfirmImportForm().fields)
+
+    def test_carries_only_which_preview_was_shown(self):
+        assert set(ConfirmImportForm().fields) == {"preview"}
+
+    def test_the_preview_field_is_hidden_and_not_required(self):
+        # Not required: a confirmation arriving without it is refused by the
+        # view as naming no preview, which is the same answer as naming the
+        # wrong one — never a field error on a page with nothing to correct.
+        field = ConfirmImportForm().fields["preview"]
+        assert isinstance(field.widget, forms.HiddenInput)
+        assert not field.required

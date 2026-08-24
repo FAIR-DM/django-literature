@@ -61,6 +61,28 @@ class TestStagedUpload:
     def test_sweeping_with_nothing_staged_yet_does_not_raise(self, staging):
         staging.sweep()
 
+    def test_a_file_removed_while_the_sweep_is_walking_it_does_not_raise(self, staging):
+        # Every entry to the import page sweeps, so two readers arriving at
+        # once both walk the same directory. Whichever removes a stale file
+        # first leaves the other holding a name that no longer resolves,
+        # between the listing and the check on its age.
+        token = staging.save(ContentFile(b"stale", name="stale.bib"))
+        path = staging.storage.path(f"{staging.directory}/{token}")
+        backdated = (timezone.now() - RETENTION_WINDOW - timedelta(minutes=1)).timestamp()
+        os.utime(path, (backdated, backdated))
+
+        real_get_modified_time = staging.storage.get_modified_time
+
+        def remove_it_first(name):
+            os.remove(staging.storage.path(name))
+            return real_get_modified_time(name)
+
+        staging.storage.get_modified_time = remove_it_first
+        try:
+            staging.sweep()
+        finally:
+            del staging.storage.get_modified_time
+
     def test_a_token_is_not_derivable_from_the_files_contents_or_name(self, staging):
         # Two uploads sharing both a name and its bytes must still be issued
         # different tokens — a token derived from either would collide here.

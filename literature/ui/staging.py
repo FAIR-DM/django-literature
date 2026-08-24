@@ -105,5 +105,13 @@ class StagedUpload:
         cutoff = timezone.now() - RETENTION_WINDOW
         for name in names:
             full_name = self._name(name)
-            if self.storage.get_modified_time(full_name) < cutoff:
-                self.storage.delete(full_name)
+            try:
+                if self.storage.get_modified_time(full_name) < cutoff:
+                    self.storage.delete(full_name)
+            except OSError:
+                # Every entry to the import page sweeps, so two readers
+                # arriving at once both walk this listing, and a confirm
+                # discards from under it. A name that stopped resolving
+                # between the listing and the check has already had done to
+                # it exactly what this loop was about to do.
+                continue

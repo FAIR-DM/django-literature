@@ -757,3 +757,57 @@ coverage floor, and each of the three groups has a decision record written befor
 after them.
 
 **ADR:** none — triage of a guardrail's flags against decisions already recorded. The false positive it names is a limit of the check, worth reporting upstream rather than recording here.
+
+## D28 — A confirmation names which preview it is confirming
+
+**Ambiguous:** nothing in the specification. A review of the refinement found the gap, and it
+contradicts a property ADR-0028 states in its own words.
+
+A session stages one file at a time, and previewing again replaces what came before. So a reader who
+previews one file, then previews another — a second tab, or going back and submitting again — leaves
+the first page still on screen, still showing the first preview and its confirmation control.
+Following it imported the *second* file. The page said one thing and the import did another, which is
+the precise failure previewing exists to prevent, and it fails the guarantee that what commits is
+what was previewed.
+
+**Chosen:** each preview is issued a short random identifier. The session holds the one it last
+produced, the page names the one it is describing, and a confirmation is carried out only where the
+two agree. A confirmation naming a superseded preview reports that there is nothing to confirm and
+imports nothing. It pops nothing and discards nothing while doing so — the reader's live preview is
+still theirs to confirm, and a stale tab must not take it from them. A superseded preview's file is
+discarded the moment it is superseded, rather than lingering for the retention window.
+
+**Why defensible:** this is the one hidden field the design was careful not to have, so it needs the
+distinction stated. `django-import-export` posts the staged file's *name* back, and its check is a
+permission that returns true for any admin user, so whoever holds a name can confirm the upload it
+refers to. This identifier names nothing on disk. It is checked against the confirming session's own
+value, so it reaches nothing on its own, and possessing one grants exactly what possessing a random
+string grants. The token itself is still never rendered.
+
+`ConfirmImportForm`'s test asserted "no fields at all", which was a proxy for the real rule — nothing
+on this page may name the staged file — and stopped tracking it the moment a field that names nothing
+was added. It now asserts the rule: no field called file, token, name, filename, path, format or
+resource, and the one field it does carry is hidden and optional.
+
+**ADR:** `docs/adr/0028-an-import-previews-first-and-stages-its-file.md` — graduated. Its Decision
+section already claimed this property. It now says how it is kept.
+
+## D29 — The sweep tolerates a file removed from under it
+
+**Ambiguous:** nothing. A review found it.
+
+`sweep()` listed the staging directory and then asked each name for its age. Every entry to the
+import page sweeps, so two readers arriving at once walk the same listing, and a confirmation
+discards from under it. `FileSystemStorage.get_modified_time` is `os.path.getmtime`, which raises for
+a name that has stopped resolving — so the loser of that race got a 500 on an ordinary page load.
+
+**Chosen:** a name that stops resolving mid-sweep is skipped. Whatever removed it did to it exactly
+what this loop was about to do.
+
+**Why defensible:** the caught exception is `OSError` around the age check and the delete together,
+not a check-then-act guard, because a guard would leave the same window one call later. Nothing else
+in the loop can raise it. Proved with a test that removes the file between the listing and the check
+and requires the sweep to complete.
+
+**ADR:** none — a race in one loop, fixed where it was. It commits nothing a later reader needs the
+reasoning for beyond the comment on the line.

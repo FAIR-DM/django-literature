@@ -41,7 +41,10 @@ what the design was read against.
   session staged.
 - **The format is carried with the staged file, not re-read from the confirmation.** Theirs takes the
   format and the resource from the confirming request, so what commits is not guaranteed to be what
-  was previewed.
+  was previewed. A confirmation also names which preview it is confirming, so a page still showing a
+  preview that has since been replaced imports nothing rather than carrying out the later one. That
+  identifier names nothing on disk and is checked against the confirming session's own value, so
+  unlike a staged filename it reaches nothing on its own.
 - **Abandoned stagings are swept.** Their removal is called in one place and not in a `finally`, so a
   preview that errors, or that the reader walks away from, leaves the file behind indefinitely. Every
   entry to the import page sweeps first.
@@ -58,7 +61,10 @@ there.
 - The report page's promise that it runs nothing again is narrowed rather than kept: one submission
   imports exactly once, and no control on the page re-runs the import it is describing. The page now
   carries an upload form for a *new* import, which previewing is what makes safe.
-- A confirmation whose staged file is gone — swept, already confirmed, or staged by another session —
-  says so and imports nothing, rather than failing.
+- A confirmation whose staged file is gone — swept, already confirmed, staged by another session, or
+  describing a preview this session has since replaced — says so and imports nothing, rather than
+  failing.
+- A session stages one file at a time. Previewing again discards what the previous preview staged, so
+  an abandoned preview costs disk only until the next one, not for the whole retention window.
 - The retention window is a judgement call rather than a derived figure. It is a module-level
   constant so a project can change it without touching the flow.

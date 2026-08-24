@@ -1709,24 +1709,38 @@ class TestItemImportConfirm:
             upload = SimpleUploadedFile(filename, handle.read())
         return client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
 
+    def _preview_bytes(self, client, content, filename, format_name):
+        upload = SimpleUploadedFile(filename, content)
+        return client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+
+    def _confirm_fields(self, preview):
+        """What this preview page's own confirm control posts back."""
+        content = preview.content.decode()
+        confirm = content[content.index(reverse("literature:item-import-confirm")) :]
+        return dict(re.findall(r'name="(preview)"[^>]*value="([^"]*)"', confirm))
+
     def test_confirming_imports_the_staged_file_and_matches_the_preview(self, client, db):
         preview = self._preview(client)
-        response = client.post(reverse("literature:item-import-confirm"))
+        response = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview))
         assert response.status_code == 200
         assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
         assert response.context["report"].created == preview.context["report"].created
 
     def test_the_reader_is_not_asked_for_the_file_again(self, client, db):
-        self._preview(client)
-        # No file, no format — the confirm route carries nothing of its own.
-        response = client.post(reverse("literature:item-import-confirm"), {})
+        preview = self._preview(client)
+        # No file and no format: what the confirm control posts back names
+        # only which preview the page was showing, which reaches nothing on
+        # its own (D28).
+        fields = self._confirm_fields(preview)
+        assert set(fields) == {"preview"}
+        response = client.post(reverse("literature:item-import-confirm"), fields)
         assert response.status_code == 200
         assert Item.objects.count() == 1
 
     def test_the_staged_file_is_gone_afterwards(self, client, db):
-        self._preview(client)
+        preview = self._preview(client)
         token = client.session["literature_import_token"]
-        client.post(reverse("literature:item-import-confirm"))
+        client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview))
         assert StagedUpload().open(token) is None
 
     def test_a_confirmation_from_a_session_that_staged_nothing_imports_nothing_and_says_so(self, client, db):
@@ -1758,13 +1772,35 @@ class TestItemImportConfirm:
         assert "nothing to confirm" in response.content.decode().lower()
         assert Item.objects.count() == 0
 
+    def test_confirming_a_superseded_preview_imports_nothing(self, client, db):
+        # Two previews from one session — a second tab, or going back and
+        # submitting again. The first tab still shows the first preview and
+        # its confirm control. Following it must not import the second file:
+        # what commits is what was previewed, or nothing.
+        stale = self._preview(client)
+        self._preview_bytes(client, RIS_ONE_GOOD_ENTRY.encode(), "second.ris", "ris")
+
+        response = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(stale))
+
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_a_superseded_previews_file_is_not_left_staged(self, client, db):
+        # The reader can no longer reach it, so nothing should be holding it
+        # on disk for the retention window.
+        self._preview(client)
+        superseded = client.session["literature_import_token"]
+        self._preview_bytes(client, RIS_ONE_GOOD_ENTRY.encode(), "second.ris", "ris")
+        assert StagedUpload().open(superseded) is None
+
     def test_the_report_carries_the_upload_form_above_its_results(self, client, db):
         # decisions.md D17 — confirming a preview is the default path
         # through the feature, so this is the report a reader most often
         # reads. It carries the same upload form every other report does,
         # even though this view's own form declares no field.
-        self._preview(client)
-        content = client.post(reverse("literature:item-import-confirm")).content.decode()
+        preview = self._preview(client)
+        content = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview)).content.decode()
         file_index = content.index('type="file"')
         assert file_index < content.index("1 created")
 
@@ -1775,10 +1811,11 @@ class TestItemImportConfirm:
         assert 'type="file"' not in content
 
     def test_a_second_confirmation_of_the_same_token_imports_nothing(self, client, db):
-        self._preview(client)
-        first = client.post(reverse("literature:item-import-confirm"))
+        preview = self._preview(client)
+        fields = self._confirm_fields(preview)
+        first = client.post(reverse("literature:item-import-confirm"), fields)
         assert Item.objects.count() == 1
-        second = client.post(reverse("literature:item-import-confirm"))
+        second = client.post(reverse("literature:item-import-confirm"), fields)
         assert Item.objects.count() == 1
         assert "nothing to confirm" in second.content.decode().lower()
         assert first.content != second.content

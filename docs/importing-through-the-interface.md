@@ -37,6 +37,10 @@ moment you do confirm. If you never confirm, it is swept automatically after 24 
 back to a preview whose file has already been swept, or trying to confirm one from a different
 session, tells you plainly that there is nothing to confirm and imports nothing.
 
+One file is held at a time. Previewing a second file replaces the first, so a page left open on the
+earlier preview no longer has anything to confirm, and following its button says so rather than
+importing the file you previewed afterwards.
+
 Ticking "Skip the preview and import immediately" bypasses all of this: the references are
 created in the same request that reads the file, and the report describes what was imported
 rather than what would be.

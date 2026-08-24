@@ -88,6 +88,7 @@ there for it to sit above.
       {# for the control to carry out. #}
       <form method="post" action="{% url 'literature:item-import-confirm' %}" class="mt-4">
         {% csrf_token %}
+        {{ confirm_form.preview }}
         <c-button text="{% trans 'Import these references' %}"
                   type="submit"
                   icon="check"

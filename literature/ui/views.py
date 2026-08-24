@@ -12,6 +12,7 @@ from functools import cached_property
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django_filters.views import FilterView
@@ -439,6 +440,16 @@ class ItemCreateView(MVPCreateView):
 IMPORT_TOKEN_SESSION_KEY = "literature_import_token"  # noqa: S105 — a session key name, not a secret
 IMPORT_FORMAT_SESSION_KEY = "literature_import_format"
 
+#: Which preview a confirmation is confirming. A session stages one file at a
+#: time, so previewing again supersedes whatever came before — and a page
+#: still showing the earlier preview would otherwise carry out the later one,
+#: which is the opposite of what previewing promises. The page names the
+#: preview it is describing, the session holds the one it last produced, and a
+#: confirmation is carried out only where the two agree. Unlike the token this
+#: is safe to render: on its own it authorises nothing, since it is checked
+#: against the confirming session's own value.
+IMPORT_PREVIEW_SESSION_KEY = "literature_import_preview"
+
 
 class ItemImportView(MVPFormView):
     """Choose a format and a file, and preview what it would do by default
@@ -482,9 +493,18 @@ class ItemImportView(MVPFormView):
             return self._render_report(context, result, preview=False)
 
         staging = StagedUpload()
+        superseded = self.request.session.get(IMPORT_TOKEN_SESSION_KEY)
+        if superseded:
+            # This session can no longer reach the earlier preview, so
+            # nothing should hold its file for the retention window.
+            staging.discard(superseded)
+
         token = staging.save(form.cleaned_data["file"])
+        preview_id = get_random_string(22)
         self.request.session[IMPORT_TOKEN_SESSION_KEY] = token
         self.request.session[IMPORT_FORMAT_SESSION_KEY] = format_name
+        self.request.session[IMPORT_PREVIEW_SESSION_KEY] = preview_id
+        context["confirm_form"] = ConfirmImportForm(initial={"preview": preview_id})
 
         with staging.open(token) as handle:
             result = format_class().import_file(handle, dry_run=True)
@@ -523,12 +543,23 @@ class ItemImportConfirmView(MVPFormView):
         return redirect("literature:item-import")
 
     def form_valid(self, form):
+        expected = self.request.session.get(IMPORT_PREVIEW_SESSION_KEY)
+        context = self.get_context_data(form=form)
+
+        if not expected or form.cleaned_data["preview"] != expected:
+            # A page describing a preview this session has since replaced.
+            # Nothing is popped and nothing is discarded: the reader's
+            # current preview is still theirs to confirm, and a stale tab
+            # must not take it away from them (FR-042).
+            context["nothing_to_confirm"] = True
+            return render(self.request, "literature/ui/import_report.html", context)
+
         token = self.request.session.pop(IMPORT_TOKEN_SESSION_KEY, None)
         format_name = self.request.session.pop(IMPORT_FORMAT_SESSION_KEY, None)
+        self.request.session.pop(IMPORT_PREVIEW_SESSION_KEY, None)
 
         staging = StagedUpload()
         handle = staging.open(token) if token else None
-        context = self.get_context_data(form=form)
 
         if handle is None:
             # Nothing this session staged, or it has already been confirmed

@@ -105,9 +105,16 @@ class ImportForm(forms.Form):
 class ConfirmImportForm(forms.Form):
     """Carry out the import a preview described (US-4, FR-041, FR-042).
 
-    Declares no field at all. The staged file's token and the format it was
-    staged as both live in the reader's own session, never in this form —
-    the whole point of FR-042 is that nothing on this page can name someone
-    else's staged upload, so there is nothing here to declare (decisions.md
-    D16).
+    The staged file's token and the format it was staged as both live in the
+    reader's own session, never in this form — the whole point of FR-042 is
+    that nothing on this page can name someone else's staged upload
+    (decisions.md D16).
+
+    The one field it does declare names which preview the page was showing.
+    That is not the same thing: on its own it reaches nothing, because the
+    view checks it against the confirming session's own value and imports
+    only where the two agree. What it prevents is a page still showing an
+    earlier preview carrying out a later one (decisions.md D28).
     """
+
+    preview = forms.CharField(widget=forms.HiddenInput, required=False)

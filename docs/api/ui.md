@@ -82,10 +82,12 @@ default, so a plain submission previews rather than imports. `ItemForm` is the
 one write form every create and update page shares — see the README's "Adding, editing and
 removing a reference" section for what it does.
 
-`ConfirmImportForm` declares no field at all. It exists so that carrying out a previewed
-import is a `POST` protected against cross-site request forgery like any other, and
-nothing more: the staged file and the format it was staged as are read from the session,
-never posted back.
+`ConfirmImportForm` names nothing the staged file can be found by. The file and the format it
+was staged as are read from the session, never posted back. Its one hidden field names which
+preview the page was describing, which is checked against the confirming session's own value —
+a page still showing a preview that has since been replaced confirms nothing rather than
+carrying out the later one. Carrying out a previewed import is a `POST` protected against
+cross-site request forgery like any other.
 
 ```{eval-rst}
 .. automodule:: literature.ui.forms
