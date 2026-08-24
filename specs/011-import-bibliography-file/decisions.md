@@ -450,3 +450,25 @@ accumulate staged files on disk indefinitely between sweeps, which only run on e
 **Revisit if:** a host reports either edge in practice — staged files disappearing before a reader
 returns to confirm them, or disk use from abandoned previews becoming a real cost — at which point the
 figure itself is what to change, not the mechanism.
+
+## D20 — Four shipped tests are brought onto the refined default, with reasoning
+
+**Ambiguous:** nothing in the specification. Four tests written for the original design assert what
+FR-038 makes false by construction: three that a plain submission writes to the catalogue
+(`TestItemImportView`'s BibTeX, created-row-link and mixed-file cases) and one that the report page
+carries no form (`TestImportReportPage`). No implementation of the refinement can satisfy them.
+
+**Chosen:** the three view tests now tick the skip-preview control, so they exercise the path that
+still imports in one step and keep asserting what a real import does to the catalogue. The
+report-page tests do the same, so the class reads a report rather than a preview. The no-form
+assertion is replaced by one that the page is not a preview.
+
+**Why defensible:** the guardrail on editing a shipped test exists because a failing test is usually
+evidence about intent that the code is contradicting. Here the intent is what changed, and it changed
+at a gate: FR-030 was reversed and FR-023's second half retired (D16, D17), both recorded in
+`spec.md` before any of this phase's code was written. The tests are not weakened — every assertion
+they made is still made, against the path that still behaves that way — and the behaviour they used
+to cover as the default is covered as the default by `TestItemImportPreview`, `TestItemImportConfirm`
+and `TestItemImportSkipPreview`. The phase that wrote the refinement was not sanctioned to touch
+them and correctly stopped and reported instead; the edit is made here, deliberately and with this
+record, rather than inside the phase that had the motive to make them pass.
