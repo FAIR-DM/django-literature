@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from django_filters.views import FilterView
 from mvp.integrations.django_filters.views import MVPFilteredListView
 from mvp.integrations.django_tables.views import MVPTableViewMixin
-from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPListView, MVPUpdateView
+from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPFormView, MVPListView, MVPUpdateView
 
 from literature.choices import ItemType, NameRole
 from literature.models import Item, ItemName, Name
@@ -60,6 +60,7 @@ CRUD_VIEWS = {
     "create": "literature:{model_name}-create",
     "update": "literature:{model_name}-update",
     "delete": "literature:{model_name}-delete",
+    "import": "literature:{model_name}-import",
 }
 
 #: Every ``ItemType`` value mapped to the group names its form shows by
@@ -388,6 +389,20 @@ class ItemCreateView(MVPCreateView):
         context = super().get_context_data(**kwargs)
         context.update(field_group_context(context["form"]))
         return context
+
+
+class ItemImportView(MVPFormView):
+    """Choose a format and a file, and see what became of every entry (US-1).
+
+    ``model = Item`` even though the form below is not a ``ModelForm``:
+    ``MVPFormView``'s context machinery raises ``ImproperlyConfigured`` on
+    first render with no model at all (research.md R3), and the page's
+    breadcrumb genuinely belongs under the catalogue. Built out fully at
+    T110; this stub only wires the route this task adds.
+    """
+
+    model = Item
+    list_view_title = CATALOGUE_TITLE
 
 
 class ItemUpdateView(MVPUpdateView):

@@ -28,6 +28,7 @@ urlpatterns = [
     # choice is made behind the name rather than by overriding the route.
     path("", catalogue, name="item-list"),
     path("add/", views.ItemCreateView.as_view(), name="item-create"),
+    path("import/", views.ItemImportView.as_view(), name="item-import"),
     path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("<int:pk>/update/", views.ItemUpdateView.as_view(), name="item-update"),
     path("<int:pk>/delete/", views.ItemDeleteView.as_view(), name="item-delete"),
