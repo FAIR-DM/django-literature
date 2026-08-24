@@ -529,3 +529,46 @@ never the developer's own):
 **Next:** T305 — verify the guard fails when it should.
 
 **Watch:** none.
+
+## 2026-08-24T17:05+02:00 · Implementer Phase 3 · T305
+
+**Did:** No file left changed — this task is verification only. Against a running demo
+(`DEMO_DB_PATH=/tmp/demo-smoke-T304.sqlite3`, `manage.py runserver 127.0.0.1:8000 --noreload`,
+restarted after each Python-code probe since `--noreload` caches imported modules; template edits
+alone did not need a restart but one was taken anyway for certainty), three probes, each made,
+observed failing, then reverted with `git checkout --` before the next:
+
+1. **Removed the toolbar action** — `literature/ui/templates/cotton/page/list/actions/import.html`,
+   `{% if directory.import_url %}` → `{% if False %}`. `poetry run python demo/smoke.py
+   http://127.0.0.1:8000` → `FAILED: http://127.0.0.1:8000/catalogue/ [200]: no Import link on the
+   catalogue list` (exit 1). Names exactly what was missing.
+2. **Broke the import** — `literature/ui/views.py`, `ItemImportView.form_valid`:
+   `format_class().import_file(form.cleaned_data["file"])` → `format_class().import_file(None)`.
+   `poetry run python demo/smoke.py http://127.0.0.1:8000` → `FAILED:
+   http://127.0.0.1:8000/catalogue/import/ [200]: the import report does not carry the fixture's
+   created entry 'ImportFixtureAlpha2024'` (exit 1). The response itself stayed 200 — `import_file`
+   catches the `AttributeError` a `None` file raises internally and reports one failed, handle-less
+   entry rather than crashing (FR-014, `base.py::import_entries`) — so this genuinely exercises
+   `walk_import`'s own content assertion, not just a status-code check (D1's own discipline).
+3. **Emptied the report** — `literature/ui/importing.py`, `ImportReport.rows`:
+   `return [self._row(entry) for entry in self.result]` → `return []`. `poetry run python
+   demo/smoke.py http://127.0.0.1:8000` → `FAILED: http://127.0.0.1:8000/catalogue/import/ [200]:
+   the import report does not carry the fixture's created entry 'ImportFixtureAlpha2024'` (exit 1).
+   The summary counts (`report.created`/`.skipped`/`.failed`) read off `self.result` directly and
+   stayed correct even with `rows` emptied — only the table went blank — so this is a genuine "the
+   table lost its rows" defect, not a coincidence of the first assertion this probe happened to hit.
+
+Each probe reverted with `git checkout -- <file>` immediately after its run, confirmed with `git
+diff --stat` (empty) before the next probe started. After the third revert and a server restart,
+`poetry run python demo/smoke.py http://127.0.0.1:8000` → the ordinary `OK` line, exit 0 — the walk
+is not left in a broken state itself. Server stopped (`pkill -f "manage.py runserver
+127.0.0.1:8000"`, confirmed no stray process with `ps aux | grep runserver`); scratch database and
+server log removed (`rm -f /tmp/demo-smoke-T304.sqlite3 /tmp/demo-smoke-server.log`). Final `git
+status --short` and `git diff --stat` in the worktree: both empty.
+
+**Verified:** the three `FAILED` runs above, plus the final clean `OK` run and the empty `git
+status`/`git diff` after every revert.
+
+**Next:** none — Phase 3 complete pending final verification.
+
+**Watch:** none.
