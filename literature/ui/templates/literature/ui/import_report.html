@@ -1,19 +1,60 @@
 {% extends "page_view.html" %}
 {% load i18n %}
 {% comment %}
-The report page (US-1, plan.md "The report" seam). Extends the plain page
-layout rather than form_view.html or list_view.html: this page is neither a
-form nor a queryset-backed list, and page_view.html's own page.content block
-is the one this app already leaves for a bare page (mvp/templates/page_view.html).
-Carries no <form> at all — FR-023's surviving half is an assertion of
-absence, so there is nothing here that could resubmit the import.
+The report page (US-1, US-4, plan.md "The report" seam). Extends the plain
+page layout rather than form_view.html or list_view.html: this page is
+neither a form nor a queryset-backed list, and page_view.html's own
+page.content block is the one this app already leaves for a bare page
+(mvp/templates/page_view.html).
+
+Three states share this one template rather than three separate ones
+(US-4, decisions.md D16):
+- ``nothing_to_confirm`` — a confirmation naming a file that is no longer
+  staged, or that this session never staged (FR-044). Carries no report at
+  all: there is nothing to describe.
+- ``preview`` — the default path through a submission (FR-038). Reports
+  exactly what a real import would, labelled as not having happened yet,
+  with a control that carries it out (FR-039).
+- neither — an ordinary completed report, from a confirm or from the
+  skip-preview path (FR-040). Carries no form of its own: FR-023's
+  surviving half still holds for a report describing work that is already
+  done, and this is the only one of the three states where that is true.
 {% endcomment %}
 {% block page.content %}
-  <c-text class="mb-4">
-    {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
-      {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
-    {% endblocktranslate %}
-  </c-text>
-  <c-addons.django-table :table="table" />
+  {% if nothing_to_confirm %}
+    <c-alert variant="warning" class="mb-4">
+      {% blocktranslate %}
+        There is nothing to confirm. The staged file is no longer
+        available — it may already have been imported, or this session
+        never staged one.
+      {% endblocktranslate %}
+    </c-alert>
+  {% else %}
+    {% if preview %}
+      <c-alert variant="warning" class="mb-4">
+        {% blocktranslate %}
+          This is a preview. Nothing has been imported yet — read the
+          report below, then confirm to carry it out.
+        {% endblocktranslate %}
+      </c-alert>
+    {% endif %}
+    <c-text class="mb-4">
+      {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
+        {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
+      {% endblocktranslate %}
+    </c-text>
+    <c-addons.django-table :table="table" />
+    {% if preview and report.created %}
+      {# AS-12 — nothing would be created by confirming, so there is nothing #}
+      {# for the control to carry out. #}
+      <form method="post" action="{% url 'literature:item-import-confirm' %}" class="mt-4">
+        {% csrf_token %}
+        <c-button text="{% trans 'Import these references' %}"
+                  type="submit"
+                  icon="check"
+                  variant="primary" />
+      </form>
+    {% endif %}
+  {% endif %}
   <c-link href="{% url 'literature:item-list' %}" class="mb-4">{% trans "Back to the catalogue" %}</c-link>
 {% endblock page.content %}

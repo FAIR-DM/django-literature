@@ -29,6 +29,11 @@ urlpatterns = [
     path("", catalogue, name="item-list"),
     path("add/", views.ItemCreateView.as_view(), name="item-create"),
     path("import/", views.ItemImportView.as_view(), name="item-import"),
+    # The preview's own confirm control (US-4, FR-041 through FR-044) — a
+    # distinct route, not a second branch on "import/", so the staged
+    # file's token and format are the only thing that ever says which
+    # upload this POST means (decisions.md D16).
+    path("import/confirm/", views.ItemImportConfirmView.as_view(), name="item-import-confirm"),
     path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("<int:pk>/update/", views.ItemUpdateView.as_view(), name="item-update"),
     path("<int:pk>/delete/", views.ItemDeleteView.as_view(), name="item-delete"),

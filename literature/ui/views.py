@@ -10,7 +10,7 @@ from collections import defaultdict
 from functools import cached_property
 
 from django.db.models import Prefetch
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
@@ -26,9 +26,10 @@ from literature.ui.contributors import contributor_groups
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
 from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
-from literature.ui.forms import ImportForm, ItemForm
+from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
 from literature.ui.importing import ImportReport
 from literature.ui.links import web_url
+from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable
 
 #: What the catalogue calls itself, everywhere a reader is shown its name — the
@@ -430,9 +431,19 @@ class ItemCreateView(MVPCreateView):
         return context
 
 
+#: The two session keys carrying a staged file's identity across the
+#: preview → confirm round trip (US-4, FR-042). Never in the page, never in
+#: ``ConfirmImportForm`` — a request can only confirm what its own session
+#: staged, because this is the only place the token is ever written down
+#: (decisions.md D16).
+IMPORT_TOKEN_SESSION_KEY = "literature_import_token"  # noqa: S105 — a session key name, not a secret
+IMPORT_FORMAT_SESSION_KEY = "literature_import_format"
+
+
 class ItemImportView(MVPFormView):
-    """Choose a format and a file, and see what became of every entry
-    (US-1, FR-005, FR-006, FR-010, FR-019, FR-023).
+    """Choose a format and a file, and preview what it would do by default
+    (US-1, US-4, FR-005, FR-006, FR-010, FR-019, FR-023, FR-038 through
+    FR-040).
 
     ``model = Item`` even though the form below is not a ``ModelForm``:
     ``MVPFormView``'s context machinery raises ``ImproperlyConfigured`` on
@@ -446,21 +457,88 @@ class ItemImportView(MVPFormView):
     list_view_title = CATALOGUE_TITLE
     page_title = _("Import references")
 
+    def dispatch(self, request, *args, **kwargs):
+        # Every entry to this view, GET or POST, sweeps abandoned stagings
+        # first (T507) — removal after a successful confirm is not the only
+        # cleanup path (FR-043).
+        StagedUpload().sweep()
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
         # get_format() returns the class; import_file() is an instance
         # method (research.md "The view" seam) — the format is resolved by
         # name and instantiated fresh for this one run, never cached.
-        format_class = get_format(form.cleaned_data["format"])
-        result = format_class().import_file(form.cleaned_data["file"])
-        report = ImportReport(result)
+        format_name = form.cleaned_data["format"]
+        format_class = get_format(format_name)
+        context = self.get_context_data(form=form)
 
+        if form.cleaned_data["skip_preview"]:
+            result = format_class().import_file(form.cleaned_data["file"])
+            return self._render_report(context, result, preview=False)
+
+        staging = StagedUpload()
+        token = staging.save(form.cleaned_data["file"])
+        self.request.session[IMPORT_TOKEN_SESSION_KEY] = token
+        self.request.session[IMPORT_FORMAT_SESSION_KEY] = format_name
+
+        with staging.open(token) as handle:
+            result = format_class().import_file(handle, dry_run=True)
+
+        return self._render_report(context, result, preview=True)
+
+    def _render_report(self, context, result, *, preview):
         # Rendered directly, never through get_success_url()/redirect: the
         # reader always lands on the report, and a GET reload re-submitting
         # the form is the browser's own resubmission prompt, not a control
         # this page offers (FR-023, decisions.md D1, D11).
-        context = self.get_context_data(form=form)
+        report = ImportReport(result)
         context["report"] = report
         context["table"] = ImportReportTable(report.rows)
+        context["preview"] = preview
+        return render(self.request, "literature/ui/import_report.html", context)
+
+
+class ItemImportConfirmView(MVPFormView):
+    """Carry out the import a preview described (US-4, FR-041 through FR-044).
+
+    ``ConfirmImportForm`` declares no field: the staged file's token and the
+    format it was staged as both come from the reader's own session, never
+    from this page (decisions.md D16). A GET here has nothing to show
+    without a prior preview, so it sends the reader back to the import page
+    rather than rendering a template of its own.
+    """
+
+    model = Item
+    form_class = ConfirmImportForm
+    template_name = "literature/ui/import_form.html"
+    list_view_title = CATALOGUE_TITLE
+    page_title = _("Confirm import")
+
+    def get(self, request, *args, **kwargs):
+        return redirect("literature:item-import")
+
+    def form_valid(self, form):
+        token = self.request.session.pop(IMPORT_TOKEN_SESSION_KEY, None)
+        format_name = self.request.session.pop(IMPORT_FORMAT_SESSION_KEY, None)
+
+        staging = StagedUpload()
+        handle = staging.open(token) if token else None
+        context = self.get_context_data(form=form)
+
+        if handle is None:
+            # Nothing this session staged, or it has already been confirmed
+            # or swept — either way there is nothing to import (FR-044).
+            context["nothing_to_confirm"] = True
+            return render(self.request, "literature/ui/import_report.html", context)
+
+        with handle:
+            result = get_format(format_name)().import_file(handle)
+        staging.discard(token)
+
+        report = ImportReport(result)
+        context["report"] = report
+        context["table"] = ImportReportTable(report.rows)
+        context["preview"] = False
         return render(self.request, "literature/ui/import_report.html", context)
 
 

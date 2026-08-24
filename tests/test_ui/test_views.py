@@ -25,6 +25,7 @@ from literature.choices import DateType, ItemType, NameRole
 from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import FieldGroups
+from literature.ui.staging import StagedUpload
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
 
 #: Real, single-entry fixtures (T009's own precedent for reusing recorded
@@ -1629,6 +1630,158 @@ class TestItemImportViewRejects:
         # what a reader can act on — and again, not an exception's repr.
         assert report.rows[0].reason == "Could not decode this file as utf-8: invalid byte at offset 0."
         assert Item.objects.count() == 0
+
+
+class TestItemImportPreview:
+    """Submitting the form previews by default rather than importing — US-4
+    (FR-038, FR-039, FR-042, decisions.md D16)."""
+
+    def _submit(self, client, filename="publication.bib", format_name="bibtex"):
+        with (DATA_DIR / filename).open("rb") as handle:
+            upload = SimpleUploadedFile(filename, handle.read())
+        return client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+
+    def test_a_default_submission_imports_nothing_and_the_catalogue_is_unchanged(self, client, db):
+        response = self._submit(client)
+        assert response.status_code == 200
+        assert Item.objects.count() == 0
+
+    def test_the_response_reports_every_entry_as_a_real_import_would(self, client, db):
+        response = self._submit(client)
+        report = response.context["report"]
+        assert report.total == 1
+        assert report.created == 1
+        assert [row.position for row in report.rows] == [1]
+
+    def test_the_response_states_nothing_was_imported_and_carries_a_confirm_control(self, client, db):
+        response = self._submit(client)
+        content = response.content.decode()
+        assert "nothing has been imported" in content.lower()
+        assert "<form" in content  # the confirm control — no other form on this page (D17's own tension)
+
+    def test_the_session_holds_the_staged_token_and_format(self, client, db):
+        self._submit(client)
+        assert client.session["literature_import_token"]
+        assert client.session["literature_import_format"] == "bibtex"
+
+    def test_the_page_does_not_contain_the_token(self, client, db):
+        self._submit(client)
+        token = client.session["literature_import_token"]
+        content = self._submit(client).content.decode()
+        assert token not in content
+
+    def test_a_preview_of_a_file_the_chosen_format_cannot_read_offers_no_confirmation(self, client, db):
+        # AS-12 — nothing would be created by confirming, so there is
+        # nothing for the control to carry out.
+        upload = SimpleUploadedFile("wrong-format.bib", RIS_ONE_GOOD_ENTRY.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        report = response.context["report"]
+        assert report.failed == 1
+        assert report.created == 0
+        content = response.content.decode()
+        assert "nothing has been imported" in content.lower()  # still labelled a preview (FR-039)
+        assert "<form" not in content
+
+
+class TestItemImportConfirm:
+    """Carrying out a previewed import — US-4 (FR-041 through FR-044)."""
+
+    def _preview(self, client, filename="publication.bib", format_name="bibtex"):
+        with (DATA_DIR / filename).open("rb") as handle:
+            upload = SimpleUploadedFile(filename, handle.read())
+        return client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+
+    def test_confirming_imports_the_staged_file_and_matches_the_preview(self, client, db):
+        preview = self._preview(client)
+        response = client.post(reverse("literature:item-import-confirm"))
+        assert response.status_code == 200
+        assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
+        assert response.context["report"].created == preview.context["report"].created
+
+    def test_the_reader_is_not_asked_for_the_file_again(self, client, db):
+        self._preview(client)
+        # No file, no format — the confirm route carries nothing of its own.
+        response = client.post(reverse("literature:item-import-confirm"), {})
+        assert response.status_code == 200
+        assert Item.objects.count() == 1
+
+    def test_the_staged_file_is_gone_afterwards(self, client, db):
+        self._preview(client)
+        token = client.session["literature_import_token"]
+        client.post(reverse("literature:item-import-confirm"))
+        assert StagedUpload().open(token) is None
+
+    def test_a_confirmation_from_a_session_that_staged_nothing_imports_nothing_and_says_so(self, client, db):
+        response = client.post(reverse("literature:item-import-confirm"))
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_a_confirmation_from_a_different_session_imports_nothing_and_says_so(self, client, db):
+        # AS-8 — a file staged by one session is not reachable through another.
+        self._preview(client)
+        other_client = Client()
+        response = other_client.post(reverse("literature:item-import-confirm"))
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_a_confirmation_whose_staged_file_has_been_swept_says_so_and_imports_nothing(self, client, db):
+        self._preview(client)
+        token = client.session["literature_import_token"]
+        # Simulate a sweep having already removed it, without waiting on
+        # the retention window StagedUpload.sweep() itself is tested against
+        # (tests/test_ui/test_staging.py) — the confirm view's own job is to
+        # cope with the file already being gone, however that happened.
+        StagedUpload().discard(token)
+
+        response = client.post(reverse("literature:item-import-confirm"))
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_a_second_confirmation_of_the_same_token_imports_nothing(self, client, db):
+        self._preview(client)
+        first = client.post(reverse("literature:item-import-confirm"))
+        assert Item.objects.count() == 1
+        second = client.post(reverse("literature:item-import-confirm"))
+        assert Item.objects.count() == 1
+        assert "nothing to confirm" in second.content.decode().lower()
+        assert first.content != second.content
+
+
+class TestItemImportSkipPreview:
+    """Ticking the skip control imports in one step — US-4 (FR-040)."""
+
+    def test_ticking_the_skip_control_imports_in_one_step(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload, "skip_preview": "on"},
+        )
+        assert response.status_code == 200
+        assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
+
+    def test_the_report_describes_what_was_imported_rather_than_what_would_be(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload, "skip_preview": "on"},
+        )
+        content = response.content.decode()
+        assert "nothing has been imported" not in content.lower()
+        assert "<form" not in content  # no confirm control — there is nothing left to confirm
+
+    def test_skipping_the_preview_stages_nothing(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload, "skip_preview": "on"},
+        )
+        assert "literature_import_token" not in client.session
 
 
 class TestItemUpdateView:

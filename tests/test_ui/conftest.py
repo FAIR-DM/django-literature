@@ -13,6 +13,21 @@ from literature.models import Item
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory
 
 
+@pytest.fixture(autouse=True)
+def _media_root_under_tmp_path(tmp_path, settings):
+    """Every UI test's ``MEDIA_ROOT`` is a throwaway ``tmp_path`` (US-4).
+
+    ``ItemImportView.dispatch()`` sweeps ``StagedUpload``'s storage
+    directory on every request, GET included (T507), so any test reaching
+    that view at all touches ``default_storage`` — not only the ones this
+    story added. Left at Django's own default, that resolves to the
+    process's working directory, and a test run leaves ``literature-imports/``
+    behind in the repo itself rather than in a directory pytest already
+    cleans up.
+    """
+    settings.MEDIA_ROOT = str(tmp_path)
+
+
 @pytest.fixture
 def populated_item(db):
     """A saved :class:`~literature.models.Item` with one contributor, one date

@@ -749,3 +749,75 @@ whole file: 16 passed. `ruff check`/`ruff format` clean.
 **Next:** T505/T506/T507 — the preview and confirm behaviour on the view.
 
 **Watch:** none.
+
+## 2026-08-24T19:38+02:00 · Implementer Phase 5 · T505/T506/T507/T508/T509
+
+**Did:** `tests/test_ui/test_views.py` gained `TestItemImportPreview` (default submission imports
+nothing and reports as a real import would, states nothing was imported, carries a confirm control,
+the session holds the token and format, the page never carries the token, and a preview of a file
+the chosen format cannot read is still labelled a preview but offers no confirm control — AS-12),
+`TestItemImportConfirm` (confirming imports the staged file and matches the preview, the reader is
+not asked for the file again, the staged file is gone afterwards, a session that staged nothing —
+or a different session, or one whose staged file was already discarded — says "nothing to confirm"
+and imports nothing, and a second confirmation of an already-confirmed token does the same), and
+`TestItemImportSkipPreview` (ticking the control imports in one step, reports what was imported
+rather than what would be, stages nothing).
+
+Then `literature/ui/views.py`: `ItemImportView.dispatch()` sweeps abandoned stagings on every entry
+to the view (T507's own requirement — removal after a successful confirm is not the only cleanup
+path); `form_valid` stages the upload and runs `import_file(..., dry_run=True)` on the reopened
+staged copy unless `skip_preview` is ticked, in which case it imports the uploaded file directly and
+stages nothing. `IMPORT_TOKEN_SESSION_KEY`/`IMPORT_FORMAT_SESSION_KEY` are the only two places the
+staged file's identity is written down — never the page, never `ConfirmImportForm` (FR-042). New
+`ItemImportConfirmView` pops both from the session, opens the staged file if the token still
+resolves to one, imports it for real, discards the staging, and renders the ordinary report; a token
+that resolves to nothing (never staged, already confirmed, or swept) renders `nothing_to_confirm`
+instead and imports nothing. New route `literature:item-import-confirm` in `urls.py`.
+`import_report.html` now branches three ways (`nothing_to_confirm` / `preview` / an ordinary
+completed report) sharing one template rather than three, and its confirm `<form>` only renders when
+`report.created` is non-zero (AS-12 — nothing to carry out otherwise, though the preview label
+itself still shows). `import_form.html`'s repeat-import warning was rewritten: its old wording
+stated plainly that a submission imports directly, which decisions.md D16 makes false by default —
+left unchanged it would have told a reader something the page no longer does.
+
+**Verified:** `poetry run pytest tests/test_ui/test_views.py -k "TestItemImportPreview or
+TestItemImportConfirm or TestItemImportSkipPreview"` — 11 of 16 red first (`NoReverseMatch` for
+`item-import-confirm`, `KeyError` for the session keys, and the immediate-import assertions), then
+16 passed after the view/template/urls work. `poetry run pytest tests/test_ui/` — 610 passed, 4
+failed, all four foreseen and named below. `ruff check`/`ruff format` clean (one `# noqa: S105` on
+`IMPORT_TOKEN_SESSION_KEY` — bandit's hardcoded-password heuristic matching a session key name, not
+a secret). `DJANGO_SETTINGS_MODULE=demo.settings poetry run python manage.py makemigrations --check
+--dry-run` — no changes detected.
+
+**Next:** T510/T511 — the preview/confirm presentation tests and any template gap they find; T512
+through T514 — the demo walk.
+
+**Watch — four pre-existing tests are red, and were left untouched rather than edited:**
+
+- `TestItemImportView::test_a_valid_bibtex_upload_creates_the_reference_and_responds_with_the_report`
+- `TestItemImportView::test_a_created_row_links_to_its_reference`
+- `TestItemImportView::test_a_file_mixing_a_converting_entry_with_a_failing_one_reports_each_correctly`
+- `TestImportReportPage::test_carries_no_form_that_could_run_the_import_again`
+
+Every one of them asserts the pre-refinement default — that submitting the import form imports
+immediately and the report page carries no form — which FR-038 and FR-039 now make false by
+definition: the default path previews (creates nothing) and, when it would create something, offers
+a confirm `<form>`. There is no implementation that satisfies FR-038/FR-039 and also satisfies these
+four assertions; the conflict is not a defect in this phase's work, it is the literal, named subject
+of decisions.md D16 and D17. The brief for this run states plainly not to modify a pre-existing test
+to make new work pass, so none of the four were touched. Each would go green again by adding
+`"skip_preview": "on"` to its POST payload — restoring what it actually verifies, an immediate
+one-step import — the same minimal, non-weakening shape decisions.md D14 used for the one shipped
+test that phase's own work was sanctioned to touch. That sanction is not given here, so this is
+reported rather than done. Full detail in the completion report.
+
+**Fixed in the same commit — a leak, not a new task.** `ItemImportView.dispatch()` sweeps
+`StagedUpload`'s storage directory on every request, so any test reaching the view at all — GET
+included, and every pre-existing test in `TestItemImportView`/`TestItemImportViewRejects` reaches
+it — now touches `default_storage`. With `MEDIA_ROOT` unset anywhere in the test settings, that
+resolved to the process's own working directory, and a full-suite run left a `literature-imports/`
+directory of real files sitting in the repository root afterwards (caught by `git status` after the
+first full run, deleted, not committed). `tests/test_ui/conftest.py` gained an autouse
+`_media_root_under_tmp_path` fixture pointing `MEDIA_ROOT` at `tmp_path` for every UI test, and the
+three per-class copies of the same override added while writing T505/T506/T508 were removed as
+redundant now that one fixture covers the whole directory.
