@@ -177,9 +177,7 @@ def form_fields(body: str) -> dict[str, str]:
     return parser.fields
 
 
-def encode_multipart(
-    fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]
-) -> tuple[bytes, str]:
+def encode_multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]) -> tuple[bytes, str]:
     """Build a ``multipart/form-data`` body and its ``Content-Type`` header value (T301, T303).
 
     ``post`` below urlencodes a plain field dict, which is what every write-pass
@@ -504,9 +502,7 @@ class DemoWalk:
         import_form_body = self.get(import_url)
         fields = form_fields(import_form_body)
         if "format" not in fields or "file" not in fields:
-            self.fail(
-                import_url, 200, "the import form carries no format or file control", import_form_body
-            )
+            self.fail(import_url, 200, "the import form carries no format or file control", import_form_body)
 
         text_fields = {key: value for key, value in fields.items() if key != "file"}
         text_fields["format"] = "bibtex"
@@ -514,9 +510,8 @@ class DemoWalk:
             text_fields,
             {"file": (IMPORT_FIXTURE_PATH.name, IMPORT_FIXTURE_PATH.read_bytes(), "application/octet-stream")},
         )
-        request = urllib.request.Request(
-            import_url, data=body, headers={"Referer": import_url, "Content-Type": content_type}
-        )  # noqa: S310 — http(s) only, built from base_url argv, never external input
+        headers = {"Referer": import_url, "Content-Type": content_type}
+        request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
         report_body, report_url = self.fetch(request, import_url)
 
         if report_url != import_url:
