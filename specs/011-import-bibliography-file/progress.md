@@ -888,3 +888,89 @@ that happened to need it first.
 
 **Watch:** the four pre-existing failures from T505-T509 stand unchanged; nothing in T512-T514 alters
 that picture.
+
+## 2026-08-24T19:00+02:00 · Implementer Phase 6 · T601/T602
+
+**Did:** `EntryResult.__post_init__` (`literature/importers/results.py`) relaxed for the skipped
+outcome only (D18): a reason is now permitted, still optional, on `SKIPPED`; still forbidden on
+`CREATED`; still required and non-blank on `FAILED` (unchanged). `test_results.py`'s
+`test_reason_belongs_only_to_failure` — the one shipped test this phase's brief sanctions editing —
+dropped `Outcome.SKIPPED` from its parametrize list, keeping `Outcome.CREATED`. Two new tests added:
+a skipped entry may carry a reason, and one without a reason is still valid.
+
+**Verified:** `poetry run pytest tests/test_importers/test_results.py::TestEntryResult -q` — red on
+the new test before the guard change (`ValueError: only a failed entry result may carry a reason`),
+21 passed after. `ruff check`/`ruff format` clean.
+
+**Next:** T603/T604 — both shipped formats name what they skipped.
+
+**Watch:** none new.
+
+## 2026-08-24T19:20+02:00 · Implementer Phase 6 · T603/T604/T605
+
+**Did:** Two new tests per format asserting a skipped entry's reason names what was skipped:
+`test_bibtex.py::TestBlocks` for a `@preamble` and a `@comment` block, `test_ris.py` for header
+material (`TestWholeFileOutcomes`) and a `TY`-only entry (`TestTyOnlySkipped`). Both red for the
+right reason (`reason` was `None`). Then: `bibtex.py` gained `_NonRecord(kind, text)`, wrapping
+`database.preambles`/`database.comments` so `to_csl_json` can tell a comment from a preamble — they
+were indistinguishable plain strings before, since `bibtexparser` merges anything outside a block
+into one flat list per kind. `ris.py`'s two `to_csl_json` `SkipEntry` sites (header material, a
+`TY`-only entry) each gained a message naming what was skipped. `base.py`'s `import_entry` now
+carries a caught `SkipEntry`'s message onto `entry_skipped`'s `reason` via a new `_skip_reason()`
+helper (parallel to the existing `_reason_for()`, but message-less stays `None` rather than being
+padded with the exception's type — skipping is not a failure that needs explaining).
+`import_entries`'s separate reader-stage `SkipEntry` handling is deliberately left alone: neither
+shipped format raises from there.
+
+**Verified:** `poetry run pytest tests/test_importers/test_bibtex.py -q` — 245 passed.
+`poetry run pytest tests/test_importers/test_ris.py -q` — 345 passed. `ruff check`/`ruff format`/
+`mypy` clean on the three changed modules.
+
+**Found and reported, not fixed:** `poetry run pytest tests/test_importers/test_base.py -q` — 1
+failed: `TestReporting::test_skipped_is_distinguishable_from_failed` asserts
+`result.skipped[0].reason is None` against a `SkipEntry("a comment")` raised by the generic test
+double `make_echo_format`, through the exact runner path this task widens. This is not the test the
+brief's hazards sanction editing, and there is no way to carry a real format's `SkipEntry` message
+through `import_entry` without also carrying this test double's — recorded as D21 rather than
+edited.
+
+**Next:** T606/T607 — the report renders a skipped row's reason.
+
+**Watch:** the one new red test above (D21); everything else from earlier phases unchanged.
+
+## 2026-08-24T19:40+02:00 · Implementer Phase 6 · T606/T607
+
+**Did:** One new test in each of `test_importing.py` (`ImportReport`'s row carries a skipped entry's
+reason through) and `test_tables.py` (a skipped row's reason renders in `ImportReportTable`'s
+existing `reason` column). Both passed on first run: `ImportReportRow`'s `reason=entry.reason` and
+the table's `reason` column never branched on outcome, so once T602 permitted a reason on `SKIPPED`
+the front end already carried and rendered it — T607 needed no code change in `literature/ui/`.
+Recorded here rather than silently treated as nothing to do (the same call T511 made in Phase 5).
+
+**Verified:** `poetry run pytest tests/test_ui/test_importing.py tests/test_ui/test_tables.py -q` —
+21 passed. `ruff check`/`ruff format` clean.
+
+**Next:** T608 — the decision record and changelog entry.
+
+**Watch:** unchanged from the previous entry.
+
+## 2026-08-24T20:00+02:00 · Implementer Phase 6 · T608
+
+**Did:** `docs/adr/0027-a-skipped-entry-may-carry-a-reason.md`, added to `docs/adr/index.md`'s
+toctree. Cites issue #107 and the amended FR-028, states the reader-stage carve-out (D18's own
+wording — "no existing caller can be reading it" — undersold `test_base.py`'s generic test double,
+which is exactly such a caller for the conversion-stage path this phase does widen). `CHANGELOG.md`
+gained a `### Changed` entry under `[Unreleased]` citing #107. `decisions.md` gained D21, recording
+the `test_base.py` finding from T603-605 with the reasoning for reporting it rather than fixing it,
+mirroring D20's own precedent for exactly this situation.
+
+**Verified:** `poetry run pytest -q` — 1812 passed, 1 failed (`test_skipped_is_distinguishable_from_failed`,
+D21, unchanged from the previous entry — no new failures). `poetry run pre-commit run --all-files` —
+clean (trim trailing whitespace, end-of-file, check yaml, poetry-check, ruff lint, ruff format, mypy,
+deptry all passed). `DJANGO_SETTINGS_MODULE=demo.settings poetry run python manage.py makemigrations
+--check --dry-run` — "No changes detected", exit 0.
+
+**Next:** Phase 6 complete pending review of D21's finding.
+
+**Watch:** D21 — one pre-existing test (`test_base.py::TestReporting::test_skipped_is_distinguishable_from_failed`)
+is red, by design of this phase's own sanctioned change, and not authorized for this phase to fix.
