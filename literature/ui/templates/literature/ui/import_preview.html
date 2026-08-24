@@ -46,11 +46,15 @@ show/hide.
         {% csrf_token %}
         <c-button text="{% trans 'Restart import' %}" type="submit" />
       </form>
-      <form method="post" action="{% url 'literature:item-import-confirm' %}">
-        {% csrf_token %}
-        {{ confirm_form.preview }}
-        <c-button text="{% trans 'Confirm import' %}" type="submit" icon="check" variant="primary" />
-      </form>
+      {% if report.created %}
+        {# AS-12 — nothing would be created by confirming, so there is nothing #}
+        {# to confirm and the control is not offered. #}
+        <form method="post" action="{% url 'literature:item-import-confirm' %}">
+          {% csrf_token %}
+          {{ confirm_form.preview }}
+          <c-button text="{% trans 'Confirm import' %}" type="submit" icon="check" variant="primary" />
+        </form>
+      {% endif %}
     </c-group>
   {% endif %}
 {% endblock page.content %}

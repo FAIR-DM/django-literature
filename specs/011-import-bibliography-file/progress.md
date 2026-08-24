@@ -1255,3 +1255,24 @@ documentation) is out of this run's scope.
 **Watch:** the repeated mid-session resets are worth someone's attention outside this run — they cost
 real rework and, had any one of them landed between a green test run and its commit, would have
 made a completed task look undone with no record of why.
+
+## 2026-08-24T22:55+02:00 · Convergence · Phase 9 verification
+
+**Did:** Verified Phase 9 (T901-T918) as a unit before converging it. Full suite, `pre-commit
+run --all-files` and `makemigrations --check --dry-run` across every app all green at bf30344, and
+every commit in the range bot-authored. Triaged the four pre-existing test files the range modified.
+Three are clean: `test_urls.py` and `test_smoke.py` add tests and remove none, and `test_views.py`'s
+replaced class has a named successor for each guarantee it held. The fourth surfaced a real defect —
+`TestItemImportPreview::test_a_preview_of_a_file_the_chosen_format_cannot_read_offers_no_confirmation`
+was replaced by a successor asserting only the failure count, and the rebuilt preview page had lost
+the `report.created` guard that acceptance criterion 12 requires. Recorded as D33 and fixed.
+
+**Verified:** proved the defect on a rendered page before touching the template — a RIS file imported
+as BibTeX reaches the preview with `report.created == 0` and the confirm action present in the
+markup. Wrote the test, watched it fail against the template as the reshape left it, restored the
+guard, watched it pass. Full suite 1852 passed (1851 before, plus this one), pre-commit green across
+all eight hooks, no migrations outstanding.
+
+**Next:** converge Phase 9 onto the feature branch, then Phase 10 (T1001-T1003, documentation).
+
+**Watch:** none.

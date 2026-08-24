@@ -903,3 +903,36 @@ the filter never touches them.
 The component stays small deliberately. daisyUI's filter is radio inputs and CSS, so this is a
 handful of lines with no behaviour of its own beyond hiding rows. If it grows past that it has stopped
 being worth its keep.
+
+## D33 — The reshape dropped AS-12's guard, and it is put back on the page that now owns it
+
+**Ambiguous:** nothing was ambiguous. This is a regression the reshape introduced and the tests that
+would have caught it were removed in the same commit.
+
+Acceptance criterion 12 says a preview of a file the chosen format cannot read reports the format's
+own reason and *offers no confirmation*. `import_report.html` carried that as
+`{% if preview and report.created %}`, with the criterion cited on the line above, and D24 had
+already refused to let the guarantee decay: when the page gained a form of its own and
+`"<form" not in content` stopped tracking it, both tests were rewritten to assert the absence of the
+confirm action itself rather than dropped.
+
+Moving the preview onto its own page (D30) rebuilt the foot from scratch and rendered the confirm
+control unconditionally on anything staged. `TestItemImportPreview` was replaced by
+`TestItemImportPreviewPage`, whose successor for the unreadable-file case asserts only that the
+report counts a failure — so the page offered a control that would import nothing, and no test said
+otherwise.
+
+**Chosen:** the `report.created` guard returns, on the preview page, with the criterion cited beside
+it as before. A file that reads as a total failure now ends with restart and the way back to the
+catalogue, and nothing else.
+
+**Why defensible:** verified against a rendered page rather than by reading the template — a BibTeX
+import of a RIS file reaches the preview, and the confirm action is absent from the markup while
+restart remains. The test fails against the template as the reshape left it and passes after the
+guard returns.
+
+**Revisit when:** never for this criterion. The wider lesson belongs to whoever reviews a phase that
+rewrites a page wholesale: a replaced test class is not a superset of the one it replaces, and each
+guarantee the old class held needs its successor named rather than assumed.
+
+**ADR:** none — a defect fixed against a criterion already recorded.

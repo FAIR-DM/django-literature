@@ -723,6 +723,16 @@ class TestImportPreviewTemplate:
         assert f'action="{reverse("literature:item-import-restart")}"' in footer
         assert f'action="{reverse("literature:item-import-confirm")}"' in footer
 
+    def test_a_file_the_format_cannot_read_offers_no_confirmation(self, client, db):
+        # AS-12 — confirming would create nothing, so the control that would
+        # carry it out is not offered. The reader is left with restart and the
+        # way back to the catalogue.
+        response = self._preview(client, filename="wrong-format.bib", format_name="bibtex")
+        content = response.content.decode()
+        assert response.context["report"].created == 0
+        assert f'action="{reverse("literature:item-import-confirm")}"' not in content
+        assert f'action="{reverse("literature:item-import-restart")}"' in content
+
 
 class TestImportFormPageFieldErrors:
     """T203 — an invalid submission's field errors render beside their own
