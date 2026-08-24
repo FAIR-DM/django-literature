@@ -43,6 +43,15 @@ def fixture(relative_path):
     return (DATA / relative_path).open("rb")
 
 
+def fixture_text(relative_path):
+    """Open a corpus file for reading, in text mode — the handle type a caller who has already
+    decoded a file would hand over (011 Phase 0, decisions.md D10). Plain ``utf-8``, not
+    ``utf-8-sig``: a text handle is expected to pass through :class:`RISParser` unchanged, with
+    no BOM-stripping of its own, so this helper must not do that stripping either.
+    """
+    return (DATA / relative_path).open(encoding="utf-8")
+
+
 def entry(ty="JOUR", index=0, **single_tags):
     """Build one :class:`RISEntry` directly, without going through the parser.
 
@@ -400,6 +409,25 @@ class TestRISParserEncoding:
         message = str(excinfo.value)
         assert "utf-8" in message
         assert "18" in message
+
+
+class TestParseAcceptsEitherHandle:
+    """The mirror of ``test_bibtex.py``'s class of the same name (011 Phase 0, decisions.md D10,
+    research.md R1): a text handle must produce the same entries a binary one already does.
+    """
+
+    @pytest.mark.django_db
+    def test_binary_and_text_handles_produce_the_same_entry_results(self):
+        with fixture("constructed/crlf_line_endings.ris") as handle:
+            binary_result = RISFormat().import_file(handle, dry_run=True)
+        with fixture_text("constructed/crlf_line_endings.ris") as handle:
+            text_result = RISFormat().import_file(handle, dry_run=True)
+
+        def as_pairs(result):
+            return [(e.outcome, e.handle) for e in result]
+
+        assert as_pairs(binary_result) == as_pairs(text_result)
+        assert binary_result.created, "the fixture is expected to produce created entries"
 
 
 class TestRISParserStreaming:
