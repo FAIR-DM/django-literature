@@ -85,8 +85,8 @@ rendering `<c-page.list.actions :actions="list_actions" />` against a view-suppl
 override must render the whole row: the block it replaces is the sole renderer of search, sort,
 filter and create, so an override emitting only the import link would strip them.
 
-The gap is worth raising upstream, narrowly — a *list* view has no supported way to add an action to
-its own toolbar, where a table view does — but this feature does not wait on it.
+The gap is raised upstream, narrowly — a *list* view has no supported way to add an action to its
+own toolbar, where a table view does (django-mvp/django-mvp#293). This feature does not wait on it.
 
 ## R3 — `MVPFormView` cannot render without a model
 
