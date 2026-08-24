@@ -84,6 +84,12 @@ class ImportForm(forms.Form):
         label=_("File"),
         help_text=_("The bibliography file to import."),
     )
+    skip_preview = forms.BooleanField(
+        label=_("Skip the preview and import immediately"),
+        help_text=_("Import the file in one step, without a preview to confirm first."),
+        required=False,
+        initial=False,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -94,3 +100,14 @@ class ImportForm(forms.Form):
         self.fields["format"].choices = [
             (name, format_class.label) for name, format_class in available_formats().items()
         ]
+
+
+class ConfirmImportForm(forms.Form):
+    """Carry out the import a preview described (US-4, FR-041, FR-042).
+
+    Declares no field at all. The staged file's token and the format it was
+    staged as both live in the reader's own session, never in this form —
+    the whole point of FR-042 is that nothing on this page can name someone
+    else's staged upload, so there is nothing here to declare (decisions.md
+    D16).
+    """

@@ -11,7 +11,7 @@ from django.test import override_settings
 
 from literature.choices import ItemType
 from literature.importers import available_formats
-from literature.ui.forms import ImportForm, ItemForm
+from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
 from tests.factories import ItemFactory
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
@@ -90,3 +90,30 @@ class TestImportForm:
         # The file control cannot post without it (T111's own guard reads
         # this off the rendered page).
         assert ImportForm().is_multipart()
+
+    def test_carries_a_skip_preview_control_unticked_by_default_and_not_required(self):
+        # FR-040 — previewing is the default path; ticking this is the only
+        # way to skip it, and a blank form is not itself invalid for lacking
+        # a tick (a checkbox left unticked, not one left unanswered).
+        field = ImportForm().fields["skip_preview"]
+        assert field.required is False
+        assert field.initial is False
+
+
+class TestConfirmImportForm:
+    """Carries out a previewed import — US-4 (FR-042).
+
+    Deliberately empty: the staged file's token and the format it was
+    staged as both live in the reader's own session, never in this form or
+    in the page (decisions.md D16) — a hidden field here would be exactly
+    the design this feature declines to copy.
+    """
+
+    def test_carries_no_file_field(self):
+        assert "file" not in ConfirmImportForm().fields
+
+    def test_carries_no_token_field(self):
+        assert "token" not in ConfirmImportForm().fields
+
+    def test_carries_no_field_at_all(self):
+        assert ConfirmImportForm().fields == {}

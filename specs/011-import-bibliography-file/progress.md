@@ -732,3 +732,20 @@ the module. Nothing outside `tests/test_ui/test_staging.py` and `literature/ui/s
 
 **Watch:** `StagedUpload` has no idea which session issued a token — that scoping (FR-042) is the
 view's job, exercised in `test_views.py`, not here.
+
+## 2026-08-24T19:12+02:00 · Implementer Phase 5 · T503/T504
+
+**Did:** `tests/test_ui/test_forms.py` gained `TestImportForm::test_carries_a_skip_preview_control_
+unticked_by_default_and_not_required` and a new `TestConfirmImportForm` (carries no `file` field, no
+`token` field, no field at all). Then `ImportForm` gained `skip_preview`
+(`BooleanField(required=False, initial=False)`, FR-040) and `ConfirmImportForm(forms.Form)` — no
+fields, since the staged file's token and format live in the session, never the page (FR-042,
+decisions.md D16).
+
+**Verified:** `poetry run pytest tests/test_ui/test_forms.py -q -k "skip_preview or
+ConfirmImportForm"` — red first (`ImportError: cannot import name 'ConfirmImportForm'`), then the
+whole file: 16 passed. `ruff check`/`ruff format` clean.
+
+**Next:** T505/T506/T507 — the preview and confirm behaviour on the view.
+
+**Watch:** none.
