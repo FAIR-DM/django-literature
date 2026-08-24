@@ -572,3 +572,110 @@ status`/`git diff` after every revert.
 **Next:** none — Phase 3 complete pending final verification.
 
 **Watch:** none.
+
+## 2026-08-24T17:20+02:00 · Implementer Phase 4 · T401
+
+**Did:** Added `docs/importing-through-the-interface.md` — reaching the page, choosing a format
+and a file, what the report shows, then a "Before you upload" list covering the four things a
+reader most needs to know: the format is chosen rather than detected, a repeat import creates the
+references again, entries created before a failure stay created, and the import runs while the
+reader waits with the host's own upload and request limits bounding a large file — plus D12's
+plain statement that the page carries no permission check of its own. Added to the Getting Started
+toctree in `docs/index.md`. Written from `literature/ui/views.py::ItemImportView`, `forms.py`,
+`importing.py`, both page templates, `tests/test_ui/test_views.py::TestItemImportView` and
+`::TestItemImportViewRejects`, and `decisions.md` D2/D3/D4/D5/D6/D9/D12 — no sentence describes
+behaviour this run did not check against one of those.
+
+**Verified:** every item on T401's own checklist is present in the page (recorded in the
+completion report's `t401_checklist`). `poetry run sphinx-build -W --keep-going -b html docs
+docs/_build/html` — exit 1, 38 warnings, identical set to a same-command baseline run taken before
+this task on the unmodified worktree (`diff` of the two sorted warning lists is empty) — the new
+page and toctree entry add no warning of their own; the 38 are pre-existing and out of this task's
+scope (`docs/ROADMAP.md`'s three broken cross-references, the ADR/agents pages carrying no
+toctree, one ambiguous `type` cross-reference, and `usage.md`'s dead link to `quickstart.md`).
+
+**Next:** T402 — the README section.
+
+**Watch:** the pre-existing 38 sphinx warnings are flagged in the completion report's `concerns`,
+not fixed — none is caused by this run and fixing them is outside T401-T406's file scope.
+
+## 2026-08-24T17:24+02:00 · Implementer Phase 4 · T402
+
+**Did:** Added "Importing a bibliography file" to `README.md`, directly after "Adding, editing and
+removing a reference," matching its neighbour's length and voice: what the Import action opens and
+what submitting produces, that the format is chosen rather than detected, that a repeat import
+creates the references again, that a partial failure leaves the earlier successes in place, and
+that the page carries no permission check and no size limit of its own — echoing D12's own wording
+for the size-limit claim.
+
+**Verified:** read against `literature/ui/views.py::ItemImportView.form_valid`,
+`tests/test_ui/test_views.py::TestItemImportView` (report shape, source order, position linking)
+and `::TestItemImportViewRejects` (the wrong-format reason), and `decisions.md` D5/D6/D9/D12.
+
+**Next:** T403 — the API reference entries.
+
+**Watch:** the "Try it: the demo project" section below this one still only names the Add, Edit
+and Delete actions as live, not Import — true before this task and unchanged by it, since T402's
+acceptance is the new section only. Flagged in the completion report's `concerns` rather than
+extended past scope.
+
+## 2026-08-24T17:27+02:00 · Implementer Phase 4 · T403
+
+**Did:** Added `## literature.ui.forms` and `## literature.ui.importing` to `docs/api/ui.md`,
+after the existing `literature.ui.views` section, matching its shape — one description paragraph
+then an `automodule` block. Content checked against `ImportForm.__init__` (choices read at
+instantiation, not class-definition time) and `ImportReportRow`'s field list in `importing.py`.
+
+**Verified:** `poetry run sphinx-build -W --keep-going -b html docs docs/_build/html` — exit 1, 38
+warnings, identical set to the pre-run baseline (empty diff) — both `automodule` directives resolve
+with no new warning.
+
+**Next:** T404 — the pointer from the code-facing importers page.
+
+**Watch:** none.
+
+## 2026-08-24T17:29+02:00 · Implementer Phase 4 · T404
+
+**Did:** Added one line to `docs/api/importers.md`, after its intro paragraph, naming that a
+project with the `ui` extra can run the same import from the front end with no code of its own,
+linking to `docs/importing-through-the-interface.md`.
+
+**Verified:** `poetry run sphinx-build -W --keep-going -b html docs docs/_build/html` — exit 1, 38
+warnings, identical set to the pre-run baseline (empty diff) — the new relative link resolves with
+no new warning.
+
+**Next:** T405 — the glossary entry.
+
+**Watch:** none.
+
+## 2026-08-24T17:31+02:00 · Implementer Phase 4 · T405
+
+**Did:** Added an `### import report` entry to `CONTEXT.md`'s glossary, directly after `import
+result / entry result`, in the established entry shape — defining it as the UI app's own rendering
+of one import result (FR-037), numbered from one where the result itself is zero-based (D3), and
+distinct from an import result as one interface's presentation of it rather than the contract's own
+return value.
+
+**Verified:** read against `literature/ui/importing.py::ImportReport`/`ImportReportRow` and
+`decisions.md` D3; cross-checked the new entry's two internal references (`import result / entry
+result`, `UI app`) both already exist as glossary terms in this file.
+
+**Next:** T406 — the changelog entry.
+
+**Watch:** none.
+
+## 2026-08-24T17:33+02:00 · Implementer Phase 4 · T406
+
+**Did:** Added an entry to `CHANGELOG.md`'s `## [Unreleased]` / `### Added`, ahead of the existing
+"Searching and filtering the catalogue" entry, matching its shape — a bolded lead sentence, then
+the behaviour a reader most needs before using the feature. No new runtime dependency line: `plan.md`'s
+Summary states this feature adds none.
+
+**Verified:** read against the same sources as T401/T402; no command run beyond composing and
+proofreading the entry against the shipped behaviour.
+
+**Next:** none — Phase 4 tasks complete. Remaining: docs build (already run and clean at each of
+T401/T403/T404 above), full suite once, `pre-commit run --all-files`, `makemigrations --check`
+across every app, and the completion report.
+
+**Watch:** none.
