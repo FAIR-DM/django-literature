@@ -6,7 +6,9 @@
 
 **Status**: Draft
 
-**Refined**: 2026-08-24 — a preview step, the presentation of the report, and a reason on skipped entries. Sam, in session, after using the shipped pages. See `decisions.md` D16-D18. `plan.md` and `tasks.md` carry the cascade.
+**Refined**: 2026-08-24 — a preview step, the presentation of the report, and a reason on skipped entries. Sam, in session, after using the shipped pages. See `decisions.md` D16-D18.
+
+**Refined again**: 2026-08-24 — the preview and the success page each become pages in their own right, with their own addresses, and the preview loses the form. Sam, in session, after using the preview. See FR-045 to FR-055 and `decisions.md` D30. `plan.md` and `tasks.md` carry the cascade.
 
 **Serves**: G4 (a full front end as an opt-in app built on django-mvp) · G5 (import references from common bibliography formats) · Roadmap R6 · Issue #50
 
@@ -158,6 +160,38 @@ A reader looks at a report and sees an entry that was neither created nor failed
 
 ---
 
+---
+
+### User Story 6 - The preview is a page, not a response (Priority: P1)
+
+*Added by the second 2026-08-24 refinement.*
+
+Someone submits a file and lands on a page of its own, titled for what it is, that tells them what they are looking at. If anything in the file was skipped or would fail, a warning above the table says so before they read a single row. They narrow the table to just the failures with one click, read them, and then choose from a single row of three: go back to the catalogue, start over with a different file, or go ahead. Going ahead lands them on a page saying what was created, offering the catalogue or another import.
+
+**Why this priority**: The preview is the step that makes the whole feature safe to use, and a page a reader cannot parse at a glance does not do that. It shares P1 with the stories it reshapes.
+
+**Independent Test**: Submit a mixed file, confirm the browser is at the preview's own address, that the page carries a warning naming the trouble, that the outcome control narrows the table without a request, and that the three controls do what they say. Confirm, and check the browser is at the success address with the counts on it.
+
+**Acceptance Scenarios**:
+
+1. **Given** the import form, **When** a file is submitted, **Then** the browser ends at the preview's own address rather than the form's.
+2. **Given** the preview page, **When** it is read, **Then** it carries no import form.
+3. **Given** the preview page, **When** it is read, **Then** it is titled for what it is and carries a description beneath the title.
+4. **Given** a file in which at least one entry was skipped or failed, **When** the preview is read, **Then** a warning above the table says so.
+5. **Given** a file in which every entry would be created, **When** the preview is read, **Then** no such warning appears.
+6. **Given** the preview page, **When** an outcome is chosen in the narrowing control, **Then** only rows of that outcome remain and no request is made.
+7. **Given** a narrowed table, **When** the control is cleared, **Then** every row returns.
+8. **Given** the preview page, **When** its foot is read, **Then** one row carries exactly three controls: back to the catalogue, restart, and confirm.
+9. **Given** the preview page, **When** restart is chosen, **Then** the staged file is discarded and the reader is returned to an empty import form.
+10. **Given** the preview page, **When** confirm is chosen, **Then** the browser ends at the success address rather than rendering the result in place.
+11. **Given** the success page, **When** it is read, **Then** it states what was created and offers exactly two controls: back to the catalogue and import another file.
+12. **Given** the preview address, **When** it is reached with nothing staged, **Then** the page says so plainly and does not raise.
+13. **Given** the success address, **When** it is reached with nothing to report, **Then** the page says so plainly and does not raise.
+14. **Given** the preview page, **When** it is reloaded, **Then** it shows the same preview and imports nothing.
+15. **Given** any page this feature adds, **When** its breadcrumb is read, **Then** the step back to the catalogue is a link and carries the catalogue's own title.
+
+---
+
 ### Edge Cases
 
 - A file containing exactly one entry produces a report of one row, with the same counts and the same structure as a long one.
@@ -191,7 +225,7 @@ A reader looks at a report and sees an entry that was neither created nor failed
 **The report**
 
 - **FR-011**: A completed import MUST render an import report, and MUST NOT redirect to the catalogue.
-- **FR-011a**: The report page MUST carry the import form above the results, separated from them by a divider, so a second file can be submitted without navigating away.
+- ~~**FR-011a**: The report page MUST carry the import form above the results, separated from them by a divider, so a second file can be submitted without navigating away.~~ **Reversed 2026-08-24 — the form on the results page was confusing to use. See FR-046 and `decisions.md` D30.**
 - **FR-012**: The report MUST state how many entries were created, how many skipped and how many failed.
 - **FR-013**: The report MUST list every entry in the file exactly once, in the order the entries appeared in it.
 - **FR-014**: The report MUST NOT be paginated.
@@ -204,7 +238,7 @@ A reader looks at a report and sees an entry that was neither created nor failed
 - **FR-021**: The report MUST offer a way back to the catalogue as a button carrying a backward arrow, and a second button that returns to an empty import form.
 - **FR-022**: A failure reason MUST be rendered as text, so that characters meaningful in markup cannot be interpreted.
 - **FR-023**: One submission MUST import the file exactly once. *(Narrowed during planning from "reloading the report must not re-run the import" — see `decisions.md` D11. The second half of this requirement, that the report carry no control running the import again, was removed by the 2026-08-24 refinement: the report now carries the form deliberately, and the preview step is what makes a second run safe.)*
-- **FR-023a**: Where the submitted file could not be read at all, the form's submit control MUST read *Retry* and MUST stay disabled until the attached file changes.
+- ~~**FR-023a**: Where the submitted file could not be read at all, the form's submit control MUST read *Retry* and MUST stay disabled until the attached file changes.~~ **Reversed 2026-08-24 with FR-011a, which it depended on. *Restart import* on the preview page is now the way back to an empty form. See `decisions.md` D30.**
 
 **Failing safely**
 
@@ -231,6 +265,20 @@ A reader looks at a report and sees an entry that was neither created nor failed
 - **FR-042**: The identity of a staged file, and the format it was staged as, MUST be held in the reader's session and MUST NOT be carried in the page, so that a request can only confirm a file that same session staged.
 - **FR-043**: A staged file MUST be removed once the import it was staged for is carried out, and staged files left behind by a preview that was never confirmed MUST be swept.
 - **FR-044**: A confirmation naming a file that is no longer staged, or that this session never staged, MUST report that plainly and MUST import nothing.
+
+**The preview page and the success page**
+
+- **FR-045**: The preview MUST have its own address, distinct from the import form's, and submitting the form MUST redirect to it rather than rendering it in the response.
+- **FR-046**: The preview page MUST NOT carry the import form.
+- **FR-047**: The preview page MUST be titled for what it is, and MUST carry a description of what the reader is looking at beneath that title.
+- **FR-048**: Where any entry was skipped or failed, the preview MUST carry a warning saying so above the table. Where none was, it MUST NOT.
+- **FR-049**: The preview MUST offer a control that narrows the table to one outcome, and back to all of them, without leaving the page or issuing a request.
+- **FR-050**: The preview MUST end with a single row of three controls: back to the catalogue, restart the import, and carry the import out.
+- **FR-051**: Restarting MUST discard the staged file and return the reader to an empty import form.
+- **FR-052**: A carried-out import MUST redirect to a success address rather than rendering its result in the response.
+- **FR-053**: The success page MUST state what was created, and MUST offer two controls: back to the catalogue, and import another file.
+- **FR-054**: Reaching the preview or the success address with nothing to show MUST say so plainly rather than raising or rendering an empty page.
+- **FR-055**: On every page this feature adds, the breadcrumb back to the catalogue MUST be a link, and MUST use the catalogue's own title rather than the model's plural name.
 
 **The demo and the documentation**
 

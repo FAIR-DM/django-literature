@@ -338,3 +338,88 @@ Issue #100. FR-011a, FR-015, FR-021, FR-023a. Decisions D17.
   a check that no internal vocabulary reached any of it.
 
 **Phase exit:** documentation gate green, `forge verify` green.
+
+---
+
+# Second refinement, 2026-08-24
+
+The preview and the success page each become pages in their own right. See the second `**Refined**`
+note in `spec.md`, FR-045 to FR-055, and `decisions.md` D30.
+
+---
+
+## Phase 9 — US-6: The preview is a page, not a response (P1)
+
+Issue #110. FR-045 to FR-055.
+
+### The outcome filter component
+
+- **T901** — `tests/test_ui/test_templates.py`: `TestOutcomeFilter` — the component renders one
+  control per outcome plus a way back to all of them; each control names its outcome in translated
+  text; it carries no form action and no link, because it never issues a request.
+- **T902** — `literature/ui/templates/cotton/filter.html`: a Cotton component in daisyUI's filter
+  idiom, shipped here because django-mvp does not define one. Narrowing is client-side over rows
+  already on the page, in the same JavaScript idiom the package already uses. No new dependency.
+  Green T901.
+
+### The preview page
+
+- **T903** — `tests/test_ui/test_urls.py`: the preview and success routes reverse under the
+  `literature` namespace and resolve to their views.
+- **T904** — `literature/ui/urls.py`: `import/preview/` and `import/success/`. Green T903.
+- **T905** — `tests/test_ui/test_views.py`: `TestItemImportPreviewPage` — submitting the import form
+  redirects to the preview address; a GET of that address rebuilds the preview from the staged file
+  and imports nothing; reloading it changes nothing; reaching it with nothing staged says so and
+  does not raise.
+- **T906** — `literature/ui/views.py`: the import form's valid branch stages, then redirects. The
+  preview view rebuilds the report from the staged file on GET. Green T905.
+- **T907** — `tests/test_ui/test_templates.py`: `TestImportPreviewTemplate` — the page carries no
+  import form; it is titled for what it is with a description beneath; a warning appears above the
+  table when any entry was skipped or failed and does not when none was; the filter component is
+  present above the table; the foot carries exactly three controls in one row.
+- **T908** — `literature/ui/templates/literature/ui/import_preview.html`: the page. Every string
+  translated. Green T907.
+
+### Restart, confirm and success
+
+- **T909** — `tests/test_ui/test_views.py`: `TestItemImportRestart` — restarting discards the staged
+  file and lands on an empty import form; restarting with nothing staged still lands there.
+- **T910** — `literature/ui/views.py` and `urls.py`: the restart route. Green T909.
+- **T911** — `tests/test_ui/test_views.py`: `TestItemImportSuccessPage` — confirming redirects to the
+  success address rather than rendering; the success page states what was created; reaching it with
+  nothing to report says so and does not raise; the staged file is gone by then.
+- **T912** — `literature/ui/views.py`: the confirm branch redirects, carrying its counts through the
+  messages framework the interface already renders. The success view. Green T911.
+- **T913** — `tests/test_ui/test_templates.py`: the success page states what was created and carries
+  exactly two controls.
+- **T914** — `literature/ui/templates/literature/ui/import_success.html`. Green T913.
+
+### The breadcrumb, and what the reshape leaves behind
+
+- **T915** — `tests/test_ui/test_views.py`: `TestCatalogueBreadcrumb` — on the import form, the
+  preview, the success page and the create page, the step back to the catalogue is a link and reads
+  the catalogue's own title rather than the model's plural name.
+- **T916** — `literature/ui/views.py`: `show_list_action` and `list_view_title` set wherever either
+  is missing. Green T915. *The create page has the mirror of the reported defect — it links but
+  reads the model's plural name — so both halves are fixed here.*
+- **T917** — remove what the reshape orphans: the form-above-the-results layout and its *Retry*
+  state (FR-011a and FR-023a, both reversed), and any test asserting them. These are this run's own
+  tests from Phase 7, not shipped ones, and removing them is the point of the reversal — but check
+  each against the spec before deleting, and leave anything still required standing.
+- **T918** — `demo/smoke.py` and `tests/test_demo/test_smoke.py`: the walk follows the redirect to
+  the preview, reads it, confirms, and follows the redirect to the success page. Then break the
+  preview, the restart and the confirm in turn and confirm the walk fails each time.
+
+**Phase exit:** full suite green, `forge verify` green, story comment on #110.
+
+---
+
+## Phase 10 — Documentation of the second refinement
+
+- **T1001** — `docs/importing-through-the-interface.md`: the two pages, the three controls, the
+  outcome filter, and that restarting discards the staged file.
+- **T1002** — `docs/api/ui.md` and `CHANGELOG.md`.
+- **T1003** — the humanizer pass over what this phase authored, and a check that no internal
+  vocabulary reached any of it.
+
+**Phase exit:** documentation gate green.

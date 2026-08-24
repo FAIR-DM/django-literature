@@ -3,7 +3,7 @@
   "feature": "011-import-bibliography-file",
   "branch": "011-import-bibliography-file",
   "repo": "FAIR-DM/django-literature",
-  "state": "REVIEW",
+  "state": "PLAN",
   "state_history": [
     {
       "state": "SPECIFY",
@@ -64,6 +64,11 @@
       "state": "REVIEW",
       "at": "2026-08-24T22:30:00Z",
       "note": "refinement reviewed as a unit; two defects found and fixed (D28 stale preview confirms the wrong file, D29 sweep race), review outcome posted to PR #103"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T21:10:00Z",
+      "note": "second refinement: the preview and success pages get their own addresses; story US7 (#110) added, 21 tasks"
     }
   ],
   "gates": {
@@ -83,7 +88,8 @@
         "The feature reads the import contract and does not extend it; a genuine gap is raised as its own issue",
         "Refined 2026-08-24 with Sam's approval: importing previews by default and the staged file lives on disk (D12)",
         "Refined 2026-08-24: the report's presentation \u2014 badges, buttons, the form above the results, a disabled Retry (D13)",
-        "Refined 2026-08-24: a skipped entry may carry a reason, amending the import contract (D14)"
+        "Refined 2026-08-24: a skipped entry may carry a reason, amending the import contract (D14)",
+        "Refined again 2026-08-24 with Sam's approval: the preview and the success page become pages in their own right, reversing FR-011a and FR-023a (D30)"
       ]
     },
     "plan": {
@@ -917,6 +923,129 @@
               "poetry run pytest -q  (1834 passed)"
             ]
           }
+        }
+      ]
+    },
+    {
+      "id": "US7",
+      "priority": "P1",
+      "issue": 110,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T901",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T902",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T903",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T904",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T905",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T906",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T907",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T908",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T909",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T910",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T911",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T912",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T913",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T914",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T915",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T916",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T917",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T918",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US10",
+      "priority": "P4",
+      "issue": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T1001",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T1002",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T1003",
+          "status": "todo",
+          "attempts": 0
         }
       ]
     }

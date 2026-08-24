@@ -811,3 +811,42 @@ and requires the sweep to complete.
 
 **ADR:** none — a race in one loop, fixed where it was. It commits nothing a later reader needs the
 reasoning for beyond the comment on the line.
+
+## D30 — The preview and the success page each get their own address, and the preview loses the form
+
+**Ambiguous:** nothing. D16 put the preview and the report on the import form's own address, rendered
+in the response to the upload, and D17 put the form above the results on that page. Using it, Sam
+found the form on the preview confusing, and asked for both pages to become pages in their own right.
+
+**Chosen:** submitting the form redirects to a preview address. The preview carries no form: a title,
+a description, a warning when any entry was skipped or failed, a control that narrows the table by
+outcome, the table, and one row of three controls — back to the catalogue, restart, and confirm.
+Confirming redirects to a success address stating what was created, with two controls.
+
+**Why defensible:** the form was there to save a reader a navigation, and it cost them the ability to
+tell what the page was for. A page showing what a file *would* do, that also carries the control for
+submitting a *different* file, is asking the reader to hold two things at once — and the two controls
+sit inches apart. *Restart import* replaces it and says what it does.
+
+The change is worth more than the shape, though, because it removes something the earlier design was
+working around. D11 narrowed FR-023 because the report was rendered in the response to the upload, so
+a reload re-submitted it; D17 then had to make a second run safe rather than prevent it. With the
+preview at its own address the upload is a redirect, so reloading the preview re-reads the staged
+file and re-runs the dry run, which changes nothing and stores nothing. The problem D11 conceded is
+simply gone, and the same holds for the success page.
+
+What makes this possible without storing a result is that the staged file already exists (D16). The
+preview is reconstructible from it on an ordinary GET, so the address is real rather than a token for
+a one-shot render. Nothing new is stored to support the redirect. The success page carries only its
+counts, through the messages framework the interface already renders.
+
+The outcome filter is client-side and deliberately so: every row is already on the page (D4 — the
+report is never paginated), so narrowing is showing and hiding, and a request would fetch data the
+browser is holding. django-mvp has no such component, so this package ships one rather than reaching
+for a dependency to hide rows.
+
+**Also fixed here, because it is the same page furniture:** the breadcrumb back to the catalogue. The
+import page rendered it as plain text, which is what Sam reported. Checking the neighbouring pages
+showed the create page has the mirror defect — its breadcrumb links, but reads the model's plural
+name rather than the catalogue's own title. Only the reference page had both halves right. All of
+them now do, which is FR-055.
