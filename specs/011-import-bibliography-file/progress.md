@@ -974,3 +974,108 @@ deptry all passed). `DJANGO_SETTINGS_MODULE=demo.settings poetry run python mana
 
 **Watch:** D21 — one pre-existing test (`test_base.py::TestReporting::test_skipped_is_distinguishable_from_failed`)
 is red, by design of this phase's own sanctioned change, and not authorized for this phase to fix.
+
+## 2026-08-24T20:20+02:00 · Implementer Phase 7 · T701/T702
+
+**Did:** `TestOutcomeColumn` (`tests/test_ui/test_tables.py`) — the three outcomes render three
+distinct `<c-badge>` variants, asserted on the variant (`badge-success`/`badge-warning`/`badge-error`)
+and on distinctness, never on a colour name (hazards). Red first: the outcome cell carried plain
+text, no `badge-` token anywhere. `ImportReportTable`'s `outcome` column is now `OutcomeColumn`, a
+`TemplateColumn` in the same shape as `ContributorsColumn`/`IssuedColumn`, rendering a new
+`table_outcome.html` around the outcome's own translated label — the settled mapping (created =
+success, skipped = warning, failed = error) lives on the column as `VARIANTS`, keyed by `Outcome`.
+`render_outcome` is gone from `ImportReportTable`: a `TemplateColumn` never calls a table's
+`render_<name>`, the same reason `ItemTable` carries no `render_contributors`/`render_issued`, so
+the label's translation now happens where `get_context_data` reads `record.outcome.label` instead.
+
+**Verified:** `poetry run pytest tests/test_ui/test_tables.py -q` — 77 passed. `poetry run ruff check`/
+`ruff format --check` on `literature/ui/tables.py` and the test module — clean.
+
+**Next:** T703/T704 — the report page's own presentation.
+
+**Watch:** nothing outstanding from earlier phases — D21 was resolved by D22 before this phase began.
+
+## 2026-08-24T20:40+02:00 · Implementer Phase 7 · T703/T704
+
+**Did:** The report page (`import_report.html`) now carries the upload form above the results, with
+a divider between them (decisions.md D17); a back-to-catalogue button with a backward arrow and a
+second button to an empty import form (FR-021), replacing the bare `<c-link>`; and, where the
+submitted file could not be read at all, the upload form's submit control reads *Retry* and stays
+disabled (a static `disabled` plus `x-bind:disabled="!form.fileChanged"`) until the attachment
+changes (`@change` on the form, delegated rather than bound to the file input directly, since
+crispy renders that field and this phase does not touch `forms.py`) — FR-023a.
+
+Two things this task worked out rather than invented, per hazards: which report is the *whole file
+unreadable* one, and which of the two forms a `ConfirmImportForm`/`ImportForm`-shaped `form` context
+variable is. Neither `ImportReportRow` nor `ImportReport` carries a flag for "unreadable" — a
+whole-file `ParseError` is folded into the run as one synthetic failed entry and nothing else
+(`literature/importers/base.py` `import_entries`), so `report.total == 1 and report.failed == 1` is
+the shape already available to key on, and it is true of no other outcome mix. And
+`{% if form.fields.file %}` is what tells `ImportForm` (has one) apart from `ConfirmImportForm` (has
+none) without a new context variable — `ItemImportView` always supplies the former (the preview
+state, and an ordinary report reached by skipping the preview), `ItemImportConfirmView` always
+supplies the latter, so the upload form appears in the two states the first view renders and not in
+the two the second one does.
+
+**Found and reported, not fixed — decisions.md D23:** two pre-existing tests in
+`tests/test_ui/test_views.py` assert the opposite of what T703/T704 now build, both written before
+D17: `TestItemImportPreview::test_a_preview_of_a_file_the_chosen_format_cannot_read_offers_no_confirmation`
+(line 1699, `assert "<form" not in content`) is exactly the Retry scenario, and
+`TestItemImportSkipPreview::test_the_report_describes_what_was_imported_rather_than_what_would_be`
+(line 1791, same assertion) is the ordinary report a skip-preview submission produces. Neither is
+edited — the same guardrail D20/D21 record, and this phase's own prohibitions withhold the
+authorization to adjudicate a casualty of a sanctioned change. D23 also names the gap the
+`views.py` prohibition leaves: an ordinary report reached by *confirming* a preview never gets the
+upload form, since `ItemImportConfirmView` never hands the template an `ImportForm`-shaped `form`.
+
+New assertions in `tests/test_ui/test_templates.py`: `TestImportReportPage` gained three (form above
+results with a divider, the back button's arrow, the second button's href), `TestImportPreviewPage`
+gained one (both forms present, neither's presence displacing the other), and a new
+`TestImportReportRetryState` (five tests) covers the Retry label, its starting-disabled state, the
+Alpine wiring being present in the markup (not executed — the Django test client renders markup, it
+does not run Alpine), and that a file which *did* read with a mix of created and failed entries
+reads *Import*, never *Retry*.
+
+**Verified:** `poetry run pytest tests/test_ui/test_templates.py tests/test_ui/test_tables.py -q` —
+177 passed. `poetry run ruff check`/`ruff format --check` on the changed template's sibling test
+module — clean (`ruff` does not lint `.html`).
+
+**Next:** T705 — re-run the i18n and utility-class guards over every template this phase touched.
+
+**Watch:** D23 (new) — the two `test_views.py` failures above, and the `ItemImportConfirmView` gap.
+
+## 2026-08-24T20:50+02:00 · Implementer Phase 7 · T705
+
+**Did:** Re-ran `TestUtilityClassAllowlist` and `TestI18nGuard` (`tests/test_ui/test_templates.py`)
+— both discover templates by globbing `literature/ui/templates/literature/ui/*.html`, so the new
+`table_outcome.html` and the edited `import_report.html` are covered without any change to the
+guards themselves. No code change: both classes were already green against this phase's templates.
+
+**Verified:** `poetry run pytest tests/test_ui/test_templates.py -q -k "Guard or Allowlist"` — 72
+passed.
+
+**Next:** Phase 7 exit checks.
+
+**Watch:** unchanged — D23.
+
+## 2026-08-24T21:00+02:00 · Implementer Phase 7 · exit
+
+**Did:** Phase exit verification.
+
+**Verified:** `poetry run pytest -q` — 1828 passed, 2 failed (D23's two `test_views.py` tests,
+exactly as reported — no other regressions; D21 was already resolved by D22 before this phase
+began, so this phase's own two are the only known-red tests in the suite). `poetry run pre-commit
+run --all-files` — clean (trim trailing whitespace, end-of-file, check yaml, poetry-check, ruff
+lint, ruff format, mypy, deptry all passed). `DJANGO_SETTINGS_MODULE=demo.settings poetry run
+python manage.py makemigrations --check --dry-run` — "No changes detected", exit 0 (this phase
+ships no migration, per prohibitions). `poetry run python demo/smoke.py` against a locally seeded
+and served demo — walked clean, including the import pass: the preview page's confirm step posts
+`form_fields(preview_body)`, which after this phase now reads the *first* `<form>` on the page (the
+new upload form, not the confirm form) — harmless in practice, since `ConfirmImportForm` declares no
+field and ignores whatever extra keys a POST carries, but noted here because it is a real change in
+what that helper now extracts, confirmed by running the walk rather than by inspection alone.
+
+**Next:** Phase 7 complete pending review of D23's finding.
+
+**Watch:** D23 — the two `test_views.py` failures, and the `ItemImportConfirmView` gap, both named
+above with file, line and cause.

@@ -558,6 +558,16 @@ class TestImportFormPage:
         assert "imports the file again" in content
 
 
+class TestItemFormPageMarkup:
+    """The reference form page's own button row (item_form.html)."""
+
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+        # The same defect this page carried since its own phase: see
+        # TestImportReportPage's test of the same name.
+        content = client.get(reverse("literature:item-create")).content.decode()
+        assert "breakpoint=" not in content
+
+
 class TestImportReportPage:
     """T111 — the report page for an import that has already happened carries
     the counts, the table and a link back to the catalogue (FR-012, FR-013,
@@ -591,6 +601,33 @@ class TestImportReportPage:
     def test_is_not_labelled_as_a_preview(self, client, db):
         content = self._report_content(client).lower()
         assert "nothing has been imported" not in content
+
+    def test_carries_the_import_form_above_the_results_with_a_divider_between_them(self, client, db):
+        """T703, decisions.md D17 — another file can be submitted from this
+        page without navigating away."""
+        content = self._report_content(client)
+        file_index = content.index('type="file"')
+        divider_index = content.index('class="divider')
+        counts_index = content.index("1 created")
+        assert file_index < divider_index < counts_index
+
+    def test_the_back_to_catalogue_button_carries_a_backward_arrow(self, client, db):
+        content = self._report_content(client)
+        back_href = f'href="{reverse("literature:item-list")}"'
+        back_index = content.index(back_href)
+        assert "bi-arrow-left" in content[max(back_index - 200, 0) : back_index + 200]
+
+    def test_carries_a_second_button_leading_to_an_empty_import_form(self, client, db):
+        content = self._report_content(client)
+        assert f'href="{reverse("literature:item-import")}"' in content
+
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+        # ``<c-group>`` declares row, collapse, wrap, class and gap. An
+        # attribute it does not declare is not ignored: Cotton writes it
+        # through to the rendered <div>, where it is invalid HTML and lays
+        # nothing out. Asserted on the rendered page rather than on the
+        # template so the check reads what a browser would receive.
+        assert "breakpoint=" not in self._report_content(client)
 
 
 class TestImportPreviewPage:
@@ -627,6 +664,91 @@ class TestImportPreviewPage:
         )
         content = response.content.decode()
         assert f'action="{reverse("literature:item-import-confirm")}"' not in content
+
+    def test_carries_the_import_form_as_well_as_the_confirm_control(self, client, db):
+        """T703, decisions.md D17's own hazard — the preview state already
+        carries the confirm control, so putting the import form above the
+        results gives this state two forms, neither nested in the other."""
+        content = self._preview_content(client)
+        assert 'type="file"' in content
+        assert f'action="{reverse("literature:item-import-confirm")}"' in content
+        assert content.count("<form") == 2
+
+
+#: One good RIS record and one carrying no reference type at all — reused
+#: locally from ``tests/test_ui/test_views.py``'s own ``RIS_ONE_GOOD_ONE_BAD``
+#: so this module's Retry-state tests can exercise a file that *is* read but
+#: whose entries do not all succeed (the state Retry is never for).
+RIS_ONE_GOOD_ONE_BAD = """TY  - JOUR
+AU  - Doe, Jane
+TI  - A Working RIS Reference
+PY  - 2020
+JO  - Journal of Testing
+ER  -
+
+AU  - Roe, Jan
+T1  - A Record With No Reference Type
+ER  -
+"""
+
+
+class TestImportReportRetryState:
+    """T703, FR-023a, decisions.md D17 — where the submitted file could not
+    be read at all, the report page's submit control reads *Retry* and stays
+    disabled until the attachment changes.
+
+    Keyed on the report's own shape (``report.total == report.failed == 1``)
+    rather than on a new context flag: a whole-file failure is reported as
+    one synthetic failed entry and nothing else (``literature/importers/base.py``
+    ``import_entries``), which is the only signal the template can already
+    reach without touching ``views.py`` (hazards, prohibitions)."""
+
+    def _unreadable_content(self, client):
+        # Valid RIS submitted as bibtex — bibtexparser recognises no
+        # ``@type{`` block anywhere in it, so the whole file fails to parse
+        # rather than any one entry within it.
+        upload = SimpleUploadedFile("wrong-format.bib", IMPORT_RIS_FIXTURE.encode())
+        return client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+
+    def test_is_the_whole_file_unreadable_shape(self, client, db):
+        report = self._unreadable_content(client).context["report"]
+        assert report.total == 1
+        assert report.failed == 1
+
+    def test_the_submit_control_reads_retry(self, client, db):
+        content = self._unreadable_content(client).content.decode()
+        assert ">Retry<" in content
+        assert ">Import<" not in content
+
+    def test_the_retry_control_starts_disabled(self, client, db):
+        content = self._unreadable_content(client).content.decode()
+        retry_index = content.index(">Retry<")
+        assert "disabled" in content[max(retry_index - 300, 0) : retry_index]
+
+    def test_the_retry_control_is_wired_to_activate_on_a_changed_attachment(self, client, db):
+        # Not executed here — the Django test client renders markup, it does
+        # not run Alpine — so this asserts the reactive wiring is present in
+        # the markup rather than that clicking works (D17's own reasoning:
+        # re-submitting the identical file reproduces the identical failure).
+        content = self._unreadable_content(client).content.decode()
+        assert "x-bind:disabled" in content
+        assert "fileChanged" in content
+
+    def test_a_file_that_read_with_some_entries_failing_reads_import_not_retry(self, client, db):
+        # Not the state Retry is for: the file *was* read, and an entry
+        # succeeded alongside one that did not (hazards).
+        upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "ris", "file": upload, "skip_preview": "on"},
+        )
+        report = response.context["report"]
+        assert report.total == 2
+        assert report.created == 1
+        assert report.failed == 1
+        content = response.content.decode()
+        assert ">Retry<" not in content
+        assert ">Import<" in content
 
 
 class TestImportFormPageFieldErrors:

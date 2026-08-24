@@ -16,9 +16,19 @@ Three states share this one template rather than three separate ones
   exactly what a real import would, labelled as not having happened yet,
   with a control that carries it out (FR-039).
 - neither — an ordinary completed report, from a confirm or from the
-  skip-preview path (FR-040). Carries no form of its own: FR-023's
-  surviving half still holds for a report describing work that is already
-  done, and this is the only one of the three states where that is true.
+  skip-preview path (FR-040).
+
+The report now carries the upload form itself, above the results
+(decisions.md D17), which is what removes the tension D11 recorded: FR-023's
+promise that the report page runs nothing again was the best available
+answer while the report was a dead end, and it no longer is — the preview is
+what makes running it again safe. Both views hand this template an
+``import_form`` of its own, kept separate from ``form``: ``ItemImportView``
+passes the submission it has just read, so the format the reader chose stays
+selected, and ``ItemImportConfirmView`` passes an unbound one, since its own
+``ConfirmImportForm`` declares no field (decisions.md D16). Only the
+``nothing_to_confirm`` state renders without it: there is no report
+there for it to sit above.
 {% endcomment %}
 {% block page.content %}
   {% if nothing_to_confirm %}
@@ -38,6 +48,35 @@ Three states share this one template rather than three separate ones
         {% endblocktranslate %}
       </c-alert>
     {% endif %}
+    {% if import_form %}
+      {# The whole-file failure FR-023a names: the format found nothing to #}
+      {# recover from the file at all, so the run is one synthetic failed #}
+      {# entry and nothing else — never true of a file that read but whose #}
+      {# entries individually failed alongside others that did not. #}
+      <c-form method="post"
+              action="{% url 'literature:item-import' %}"
+              :form-obj="import_form"
+              x-init="form.fileChanged = false"
+              @change="if ($event.target.type === 'file') { form.fileChanged = true }"
+              class="mb-4">
+        {% if report.total == 1 and report.failed == 1 %}
+          <c-button text="{% trans 'Retry' %}"
+                    type="submit"
+                    icon="arrow-right"
+                    reverse
+                    variant="primary"
+                    disabled
+                    x-bind:disabled="!form.fileChanged" />
+        {% else %}
+          <c-button text="{% trans 'Import' %}"
+                    type="submit"
+                    icon="arrow-right"
+                    reverse
+                    variant="primary" />
+        {% endif %}
+      </c-form>
+      <c-divider class="my-4" />
+    {% endif %}
     <c-text class="mb-4">
       {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
         {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
@@ -56,5 +95,8 @@ Three states share this one template rather than three separate ones
       </form>
     {% endif %}
   {% endif %}
-  <c-link href="{% url 'literature:item-list' %}" class="mb-4">{% trans "Back to the catalogue" %}</c-link>
+  <c-group collapse wrap class="mt-4">
+    <c-button href="{% url 'literature:item-list' %}" text="{% trans 'Back to the catalogue' %}" icon="arrow-left" />
+    <c-button href="{% url 'literature:item-import' %}" text="{% trans 'Import another file' %}" />
+  </c-group>
 {% endblock page.content %}

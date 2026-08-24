@@ -513,6 +513,52 @@ def import_report_cell(rows, column_name):
     return cells[IMPORT_REPORT_COLUMNS.index(column_name)]
 
 
+class TestOutcomeColumn:
+    """T701 — the outcome cell renders a badge, and the three outcomes render
+    three distinct variants (FR-019, decisions.md D17).
+
+    Asserted on the badge's own ``variant`` — the settled mapping
+    (created=success, skipped=warning, failed=error) — never on a colour name
+    or a daisyUI utility class: a theme is swappable, and pinning either
+    would break the moment it moves."""
+
+    @pytest.mark.parametrize(
+        ("outcome", "variant", "reason"),
+        [
+            (Outcome.CREATED, "success", None),
+            (Outcome.SKIPPED, "warning", None),
+            (Outcome.FAILED, "error", "broken"),
+        ],
+        ids=["created", "skipped", "failed"],
+    )
+    def test_each_outcome_renders_its_own_mapped_variant(self, outcome, variant, reason):
+        row = ImportReportRow(position=1, outcome=outcome, citation_key=None, reason=reason, item_url=None)
+        content = import_report_cell([row], "outcome")
+        assert f"badge-{variant}" in content
+
+    def test_the_three_outcomes_render_three_distinct_variants(self):
+        variants = set()
+        for outcome, reason in (
+            (Outcome.CREATED, None),
+            (Outcome.SKIPPED, None),
+            (Outcome.FAILED, "broken"),
+        ):
+            row = ImportReportRow(position=1, outcome=outcome, citation_key=None, reason=reason, item_url=None)
+            content = import_report_cell([row], "outcome")
+            match = re.search(r"badge-(\S+)", content)
+            assert match, content
+            variants.add(match.group(1))
+        assert len(variants) == 3
+
+    def test_the_cell_still_carries_the_outcomes_own_translated_label(self):
+        # The badge wraps the label, it does not replace it (hazards) — a
+        # badge showing only its variant, with the word gone, is a
+        # regression on FR-019's own distinguishing signal.
+        row = ImportReportRow(position=1, outcome=Outcome.FAILED, citation_key=None, reason="broken", item_url=None)
+        content = import_report_cell([row], "outcome")
+        assert "Failed" in content
+
+
 class TestImportReportTable:
     """``ImportReportTable`` — one row per import entry, no queryset behind it (US-1, FR-019)."""
 

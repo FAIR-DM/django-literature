@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from django_tables2.utils import A
 
 from literature.choices import DateType, NameRole
+from literature.importers.results import Outcome
 
 
 class ContributorsColumn(tables.TemplateColumn):
@@ -234,6 +235,34 @@ class ItemTable(tables.Table):
         return queryset.order_by(ordering, "pk"), True
 
 
+class OutcomeColumn(tables.TemplateColumn):
+    """The outcome cell (US-1, FR-019, decisions.md D17).
+
+    Renders django-mvp's ``<c-badge>`` around the outcome's own translated
+    label — the badge wraps the label, it does not replace it, so a failed
+    entry stays distinguishable by the word itself and not only by colour.
+    The variant mapping is settled and not re-litigated here: created =
+    success, skipped = warning, failed = error. Skipped is a warning rather
+    than a neutral tone because a skipped entry may now carry a reason
+    (D18), which is worth the reader's eye. Built as a ``TemplateColumn``,
+    the same way ``ContributorsColumn`` and ``IssuedColumn`` are, so the
+    template — not a ``mark_safe``/``format_html`` call here — is what
+    escapes the label.
+    """
+
+    VARIANTS = {
+        Outcome.CREATED: "success",
+        Outcome.SKIPPED: "warning",
+        Outcome.FAILED: "error",
+    }
+
+    def get_context_data(self, record, **kwargs):
+        context = super().get_context_data(record=record, **kwargs)
+        context["variant"] = self.VARIANTS[record.outcome]
+        context["label"] = record.outcome.label
+        return context
+
+
 class ImportReportTable(tables.Table):
     """The import report, one row per entry the format found (US-1, FR-019).
 
@@ -251,7 +280,11 @@ class ImportReportTable(tables.Table):
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
     citation_key = tables.Column(verbose_name=_("Citation key"))
-    outcome = tables.Column(verbose_name=_("Outcome"))
+    outcome = OutcomeColumn(
+        verbose_name=_("Outcome"),
+        template_name="literature/ui/table_outcome.html",
+        empty_values=(),
+    )
     reason = tables.Column(verbose_name=_("Reason"))
 
     class Meta:
@@ -261,11 +294,3 @@ class ImportReportTable(tables.Table):
         # Fixed source order (FR-019) — nothing here is sortable, so no
         # header advertises a control that would not do anything.
         orderable = False
-
-    def render_outcome(self, value):
-        """The outcome's own translated label, not its stored value.
-
-        What keeps a failed entry distinguishable in place — the word
-        itself is the signal, not a colour or an icon a reader could miss.
-        """
-        return value.label
