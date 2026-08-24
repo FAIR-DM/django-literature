@@ -22,6 +22,7 @@ FORBIDDEN_ROOTS = (
     "easy_icons",
     "flex_menu",
     "django_tables2",
+    "django_filters",
     "literature.ui",
 )
 
@@ -63,3 +64,31 @@ class TestCoreImportsNothingFromTheUIStack:
             if any(name == forbidden or name.startswith(f"{forbidden}.") for forbidden in FORBIDDEN_ROOTS)
         }
         assert not offending, f"{path} imports forbidden module(s): {offending}"
+
+
+class TestSearchAndFilterAreDeclaredOnce:
+    """FR-023, plan.md D-1 — what is searchable and what is filterable is
+    defined once, in ``literature/ui/filters.py``, and both presentations
+    (``literature/ui/views.py`` ``ItemListView``/``ItemTableView``) read it
+    from there rather than restating it. A test that both views return the
+    same references for the same query (T024) would still pass if someone
+    replaced the import with a copy — this is the one that would not.
+    """
+
+    def test_views_module_imports_search_fields_and_filterset_rather_than_declaring_them(self):
+        views_path = UI_ROOT / "views.py"
+        imported = imported_names(views_path)
+        assert "literature.ui.filters.SEARCH_FIELDS" in imported
+        assert "literature.ui.filters.ItemFilterSet" in imported
+
+        tree = ast.parse(views_path.read_text())
+        top_level_assignments = {
+            target.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        class_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)}
+        assert "SEARCH_FIELDS" not in top_level_assignments, "SEARCH_FIELDS is declared again in views.py"
+        assert "ItemFilterSet" not in class_names, "ItemFilterSet is declared again in views.py"

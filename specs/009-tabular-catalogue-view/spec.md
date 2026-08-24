@@ -188,7 +188,7 @@ Someone evaluating the package starts the demo and the catalogue they land on is
 
 **Boundaries**
 
-- **FR-025**: The table MUST NOT present a search box, a filter control, or any means of choosing which columns appear or in what order they sit.
+- **FR-025**: ~~The table MUST NOT present a search box, a filter control, or any means of choosing which columns appear or in what order they sit.~~ **Superseded in part by FS-010 (`specs/010-search-and-filter-catalogue/`, FR-001 and FR-009 to FR-013):** the table now presents both a search box and a filter control by design. Only the last clause survives — no means of choosing which columns appear or in what order they sit.
 - **FR-026**: The feature MUST NOT change any model, add any field, or ship any migration.
 
 **Packaging and the demo**

@@ -5,6 +5,7 @@ expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """
 
+import html
 import json
 import re
 from html.parser import HTMLParser
@@ -14,6 +15,7 @@ from urllib.parse import urljoin
 import pytest
 from django.db import connection
 from django.template.loader import get_template
+from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
@@ -33,15 +35,40 @@ def anchor_tag(content, href):
     return match.group(0)
 
 
+def table_header_row(content):
+    """The table's own ``<thead>...</thead>`` markup, so a column-order
+    assertion reads the header row rather than the whole rendered page
+    (decisions.md D16) — the filter modal renders ahead of the table and
+    emits some of the same words as literal field labels."""
+    match = re.search(r"<thead.*?</thead>", content, re.DOTALL)
+    assert match, "no table header row"
+    return match.group(0)
+
+
 def rendered_page_link(content, page_number):
     """The ``href`` the rendered pagination component's own numbered link to
     ``page_number`` carries — found by reading the markup, not by
     constructing ``?page=N`` ourselves. That distinction is what T019's
     page-2 assertion turns on (plan.md D-14): the address the reader's
-    click actually carries is the evidence, not one the test invents."""
+    click actually carries is the evidence, not one the test invents.
+
+    Unescaped (decisions.md D13): ``{% querystring %}`` HTML-escapes the
+    ``&`` joining two or more parameters, so a link carrying both ``sort``
+    and ``page`` renders as ``...&amp;page=2``. Read verbatim, the test
+    client parses that as a parameter literally named ``amp;page`` and no
+    ``page`` value ever reaches the view."""
     match = re.search(rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{page_number}\s*</a>', content)
     assert match, f"no rendered link to page {page_number}"
-    return match.group(1)
+    return html.unescape(match.group(1))
+
+
+def rendered_sort_link(content, column_label):
+    """The ``href`` a column heading's own sort link carries (T019, FR-019) —
+    the address a reader's click on that heading actually carries, unescaped
+    the same way ``rendered_page_link()`` is and for the same reason."""
+    match = re.search(rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{re.escape(column_label)}\s*<', content)
+    assert match, f"no rendered sort link for column {column_label!r}"
+    return html.unescape(match.group(1))
 
 
 def rendered_form_post_data(client, url, **overrides):
@@ -63,6 +90,21 @@ def rendered_form_post_data(client, url, **overrides):
     submit_button = re.search(r'<button[^>]*type="submit"[^>]*name="([^"]+)"[^>]*value="([^"]+)"', content)
     if submit_button:
         data[submit_button.group(1)] = submit_button.group(2)
+    data.update(overrides)
+    return data
+
+
+def rendered_filter_form_data(response, **overrides):
+    """Build a GET query dict from a rendered page's own filter form (T020).
+
+    ``response.context["filter"].form`` is the same GET-bound form the
+    filter modal renders — every field starts at what that form actually
+    carries, a hidden field included, so submitting the result reproduces
+    exactly what the modal's own ``c-form`` submits when a reader changes
+    one field and clicks "Apply filters", not a hand-typed dict that could
+    silently omit one."""
+    form = response.context["filter"].form
+    data = {name: (form[name].value() or "") for name in form.fields}
     data.update(overrides)
     return data
 
@@ -108,7 +150,14 @@ class TestItemListView:
     def test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size(self, client, db, route_name):
         ItemFactory.create_batch(30)
         response = client.get(reverse(route_name))
-        assert len(response.context["object_list"]) == 24
+        if route_name == "literature:item-list":
+            # The table route's own page (decisions.md D14): at 0.19.1
+            # MVPTableViewMixin.paginate_queryset() leaves the queryset
+            # whole and republishes the page from the table, so
+            # object_list there is the whole catalogue, not one page of it.
+            assert len(response.context["table"].page.object_list) == 24
+        else:
+            assert len(response.context["object_list"]) == 24
 
     @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
     def test_pagination_states_position_and_offers_navigation(self, client, db, route_name):
@@ -357,13 +406,103 @@ class TestTheCardListStaysAvailable:
             assert package_root in origin.parents, f"{template_name} resolved outside the package at {origin}"
 
 
+class TestTheCardListFiltersAndSearches:
+    """US-4, T022 — the card list narrows the same way the table does, now
+    that it is ``MVPFilteredListView`` (plan.md D-2, FR-024).
+    """
+
+    def test_a_search_term_narrows_the_card_list(self, client, db):
+        matching = ItemFactory(title="Whale Migration Patterns")
+        other = ItemFactory(title="Unrelated Reference")
+        content = client.get(reverse("item-list-cards"), {"q": "whale"}).content.decode()
+        assert matching.title in content
+        assert other.title not in content
+
+    def test_a_filter_narrows_the_card_list(self, client, db):
+        book = ItemFactory(type=ItemType.BOOK)
+        article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = client.get(reverse("item-list-cards"), {"type": ItemType.BOOK}).content.decode()
+        assert book.citation_key in content
+        assert article.citation_key not in content
+
+    def test_a_sort_with_no_filter_in_force_shows_no_applied_filter_badge(self, client, db):
+        # The finding this task exists for: MVPFilteredListView's own
+        # get_context_data() (mvp/integrations/django_filters/views.py)
+        # counts every non-empty field of filterset.form.cleaned_data, and
+        # "sort" (literature/ui/filters.py ItemFilterSet.sort) is a hidden
+        # field on that form carrying django-tables2's own ordering (plan.md
+        # D-7) — not one of the catalogue's own filters (decisions.md D21).
+        # Proven through the shared exclusion function, not a second copy of
+        # the table's own override (decisions.md D20).
+        ItemFactory()
+        response = client.get(reverse("item-list-cards"), {"sort": "-citation_key"})
+        assert not response.context.get("applied_filters")
+        content = response.content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
+
+
+def catalogue_pks(route_name, params):
+    """The primary keys a request against ``route_name`` narrows to, read
+    from whichever context key that route's own view populates (T024,
+    FR-024, SC-005) — the table's own paginated rows, or the card list's
+    plain ``object_list``."""
+    response = Client().get(reverse(route_name), params)
+    if route_name == "literature:item-list":
+        return {row.record.pk for row in response.context["table"].page.object_list}
+    return {obj.pk for obj in response.context["object_list"]}
+
+
+class TestBothPresentationsReturnTheSameReferences:
+    """FR-024, SC-005 — the card list and the table narrow to the same
+    references for the same search and the same filters, both reading
+    ``SEARCH_FIELDS`` and ``ItemFilterSet`` from ``literature.ui.filters``
+    (plan.md D-1). One test per scenario, each requesting both routes and
+    comparing what came back, rather than two near-identical tests per
+    scenario asserting the same narrowing on each route separately.
+    """
+
+    @pytest.fixture
+    def catalogue(self, db):
+        matching = ItemFactory(title="Whale Migration Patterns", type=ItemType.BOOK, language="en")
+        ItemDateFactory(item=matching, date_type=DateType.ISSUED, begin="2020")
+        ItemNameFactory(item=matching, name=NameFactory(family="Darwin"))
+        other = ItemFactory(title="Unrelated Reference", type=ItemType.ARTICLE_JOURNAL, language="fr")
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        return matching, other
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"q": "whale"},
+            {"type": ItemType.BOOK},
+            {"contributor": "darwin"},
+            {"language": "en"},
+            {"issued_year": 2020},
+            {"q": "whale", "type": ItemType.BOOK},
+        ],
+        ids=["search", "type", "contributor", "language", "issued_year", "search-and-filter"],
+    )
+    def test_the_two_routes_narrow_to_the_same_references(self, catalogue, params):
+        matching, _other = catalogue
+        table_pks = catalogue_pks("literature:item-list", params)
+        card_pks = catalogue_pks("item-list-cards", params)
+        assert table_pks == card_pks == {matching.pk}
+
+
 class TestItemTableView:
     """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021, plan.md D-2)."""
 
     def test_column_headers_appear_in_the_required_order(self, client, db):
+        # decisions.md D16: reads the table's own header row, not the whole
+        # rendered page — the filter modal (this feature's own FR-009 to
+        # FR-013) renders ahead of the table and emits "Type" as a literal
+        # filter-field label before the table's own "Type" column header, so
+        # a page-wide substring search stopped being a faithful proxy for
+        # "the table's columns sit in this order".
         content = client.get(reverse("literature:item-list")).content.decode()
+        header_row = table_header_row(content)
         headers = ["Citation key", "Type", "Title", "Container title", "Authors", "Issued"]
-        positions = [content.index(header) for header in headers]
+        positions = [header_row.index(header) for header in headers]
         assert positions == sorted(positions)
 
     def test_no_cell_renders_stored_text_unescaped(self, client, db):
@@ -405,15 +544,23 @@ class TestItemTableView:
         content = response.content.decode()
         assert response.status_code == 200
         assert "Citation key" in content
-        assert len(response.context["object_list"]) == 6
+        # The table's own page (decisions.md D14) — see the sibling
+        # assertion above for why object_list no longer means this here.
+        assert len(response.context["table"].page.object_list) == 6
 
     def test_query_count_does_not_grow_with_row_count(self, client, db):
         # FR-012 — proves T009's prefetches are actually being read, rather
         # than the manager (research R9): the credited-names cell filtering
         # record.item_names.filter(...) would cost one query per row.
+        #
+        # FR-026 — extended, not duplicated (tasks.md T012): every item's
+        # title carries the same term throughout, so a search for it goes on
+        # matching the whole catalogue as it grows, and the query count under
+        # search is compared against itself at two sizes exactly as the
+        # unfiltered count is above.
         def add_items(n):
             for _ in range(n):
-                item = ItemFactory()
+                item = ItemFactory(title="Whale Reference")
                 ItemNameFactory(item=item)
                 ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
 
@@ -428,6 +575,17 @@ class TestItemTableView:
         assert response.status_code == 200
 
         assert len(large_catalogue.captured_queries) == len(small_catalogue.captured_queries)
+
+        with CaptureQueriesContext(connection) as small_search:
+            response = client.get(reverse("literature:item-list"), {"q": "whale"})
+        assert response.status_code == 200
+
+        add_items(15)
+        with CaptureQueriesContext(connection) as large_search:
+            response = client.get(reverse("literature:item-list"), {"q": "whale"})
+        assert response.status_code == 200
+
+        assert len(large_search.captured_queries) == len(small_search.captured_queries)
 
     def test_the_edit_control_renders_and_points_at_each_rows_own_update_page(self, client, db):
         item = ItemFactory()
@@ -456,19 +614,38 @@ class TestItemTableView:
         assert client.get(reverse("literature:item-list")).status_code == 200
         assert client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).status_code == 200
 
-    def test_carries_no_search_box_filter_control_or_column_chooser(self, client, db):
-        # FR-025, asserted against the rendered page rather than only
-        # against the view's own actions/search_fields configuration — an
-        # upstream default reintroducing one of these would otherwise pass
-        # silently (T029).
+    def test_carries_search_and_filter_but_no_column_chooser(self, client, db):
+        # FS-009 wrote this test's ancestor for FR-025 to lock search and
+        # filter off; this feature's own FR-001 and FR-009 to FR-013 turn
+        # them back on over a signed-off specification, so the assertion
+        # follows the requirement rather than the old one (decisions.md D16
+        # — FS-009's FR-025 is annotated as superseded in place in
+        # specs/009-tabular-catalogue-view/spec.md). Still asserted against
+        # the rendered page rather than only the view's own configuration,
+        # and still closed in both directions, so an upstream default
+        # widening the action surface is still caught.
         ItemFactory()
         response = client.get(reverse("literature:item-list"))
         content = response.content.decode()
-        # The only action this view names (plan.md D-2) — the surface an
-        # upstream actions default would widen if it ever added one back.
-        assert response.context["table_actions"] == ["create"]
-        assert 'name="q"' not in content  # the search box's own input name
-        assert "filterModal" not in content  # the filter control's own modal id
+        assert response.context["table_actions"] == ["search", "filter", "create"]
+        assert 'name="q"' in content  # the search box's own input name
+        assert "filterModal" in content  # the filter control's own modal id
+        # No column-chooser ships in either django-tables2 or django-mvp
+        # today — nothing here builds one, and the closed actions list above
+        # is what would carry it if a future default introduced one.
+
+    def test_the_search_box_submits_through_the_filter_form(self, client, db):
+        # T008, research R4: the search input renders with `form="filterForm"`,
+        # and `filterForm` is only declared inside `{% if filter %}` — a
+        # context key only FilterView sets. Without filterset_class
+        # configured, the input would be wired to a form that does not
+        # exist and typing into it would do nothing. Asserted on the
+        # literal markup, not merely on both controls being present, so a
+        # future markup change that renamed either id would still be caught.
+        ItemFactory()
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert 'name="q" form="filterForm"' in content
+        assert 'id="filterForm"' in content
         # No column-chooser ships in either django-tables2 or django-mvp
         # today — nothing here builds one, and the closed actions list above
         # is what would carry it if a future default introduced one.
@@ -478,13 +655,25 @@ class TestItemTableView:
         # research R7). A join-based filter is deliberately not used, since
         # it risks row multiplication and interferes with the paginator's
         # count query.
+        #
+        # decisions.md D18: the annotation is a raw column value, typed
+        # DateTimeField (D12) so issued__year resolves, and its seconds
+        # component encodes the source date's precision rather than
+        # round-tripping through PartialDateField — compared here against
+        # the issued slot's own calendar date, not against a PartialDate.
+        # Still discriminating: the reference also carries an accessed date
+        # of 2021-01-01, so an annotation drawing from the wrong date slot
+        # still fails. Nothing renders this annotation directly — the
+        # rendered cell reads the prefetched ItemDate row instead
+        # (literature/ui/tables.py IssuedColumn), which is where the
+        # precision-and-range display rule lives.
         item = ItemFactory()
         issued_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020-05-01")
         issued_date.refresh_from_db()
         ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
         response = client.get(reverse("literature:item-list"))
         (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
-        assert annotated_item.issued == issued_date.begin
+        assert annotated_item.issued.date() == issued_date.begin.date
 
     def test_the_issued_annotation_is_none_for_a_reference_with_no_issued_date(self, client, db):
         item = ItemFactory()
@@ -492,6 +681,394 @@ class TestItemTableView:
         response = client.get(reverse("literature:item-list"))
         (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
         assert annotated_item.issued is None
+
+
+class TestCatalogueSearch:
+    """Searching the catalogue from an HTTP request — FR-002 through FR-005."""
+
+    @pytest.mark.parametrize(
+        "field",
+        ["citation_key", "title", "title_short", "original_title", "container_title"],
+    )
+    def test_matches_a_term_in_each_scalar_field(self, client, db, field):
+        matching = ItemFactory(**{field: "Whale Migration Patterns"})
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "whale"}).content.decode()
+        assert matching.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matches_a_contributors_family_name(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(family="Darwin"))
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "darwin"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matches_a_contributors_given_name(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(given="Charles"))
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "charles"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matches_an_organizational_literal_name(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(family="", given="", literal="Smithsonian Institution"))
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "smithsonian"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_matching_is_case_insensitive(self, client, db):
+        item = ItemFactory(title="Whale Migration Patterns")
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"q": "WHALE"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_a_fragment_living_only_in_the_abstract_or_a_keyword_finds_nothing(self, client, db):
+        # FR-004 — neither field is in SEARCH_FIELDS (tests/test_ui/test_filters.py
+        # ::TestSearchFields already pins the declared list itself).
+        ItemFactory(abstract="Discusses whale migration patterns at length.")
+        ItemFactory(keyword="whale, migration")
+        response = client.get(reverse("literature:item-list"), {"q": "whale"})
+        assert len(response.context["table"].page.object_list) == 0
+
+    def test_a_reference_matching_several_fields_appears_once(self, client, db):
+        # FR-005, plan D-4 — the shared fragment sits in three different
+        # searched paths (title, container_title, a contributor's family
+        # name) at once, over a distinct row so no other match can hide a
+        # duplicate.
+        item = ItemFactory(title="Zzyxq Behavior", container_title="The Zzyxq Journal")
+        ItemNameFactory(item=item, name=NameFactory(family="Zzyxqson"))
+        response = client.get(reverse("literature:item-list"), {"q": "zzyxq"})
+        matches = [row for row in response.context["table"].page.object_list if row.record.pk == item.pk]
+        assert len(matches) == 1
+
+    def test_a_one_character_fragment_matches_literally(self, client, db):
+        item = ItemFactory(title="Zebra Migration")
+        other = ItemFactory(title="Unrelated Reference")
+        content = client.get(reverse("literature:item-list"), {"q": "Z"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_a_term_of_only_spaces_is_a_no_op(self, client, db):
+        # FR-006 — the upstream mixin strips and checks truthiness before
+        # filtering at all, so this is the empty-query no-op (FR-008) under
+        # a different guise rather than a wildcard match.
+        ItemFactory.create_batch(3)
+        response = client.get(reverse("literature:item-list"), {"q": "   "})
+        assert len(response.context["table"].page.object_list) == 3
+
+    def test_a_percent_sign_is_matched_literally_not_as_a_wildcard(self, client, db):
+        # FR-006 — "%" is the database's own multi-character wildcard. A
+        # naive, unescaped `LIKE '%' || value || '%'` would match "100X..."
+        # too, since the user's own "%" would itself act as a wildcard;
+        # confirmed directly against this database with an unescaped raw
+        # query before writing this test. Django's ORM-level icontains
+        # escapes the value first, so only the literal substring matches.
+        literal_match = ItemFactory(title="100% Guaranteed Results")
+        decoy = ItemFactory(title="100X Guaranteed Results")
+        content = client.get(reverse("literature:item-list"), {"q": "100%"}).content.decode()
+        assert literal_match.citation_key in content
+        assert decoy.citation_key not in content
+
+    def test_an_underscore_is_matched_literally_not_as_a_wildcard(self, client, db):
+        # FR-006 — "_" is the database's own single-character wildcard,
+        # confirmed the same way as the "%" case above.
+        literal_match = ItemFactory(title="Sample_ID Formation")
+        decoy = ItemFactory(title="SampleXID Formation")
+        content = client.get(reverse("literature:item-list"), {"q": "Sample_ID"}).content.decode()
+        assert literal_match.citation_key in content
+        assert decoy.citation_key not in content
+
+    def test_a_search_matching_something_states_how_many(self, client, db):
+        # FR-007 — django-mvp's own position line, which already reads the
+        # table's narrowed page and paginator (no production change of this
+        # feature's own): confirmed the search reduces what it counts, not
+        # only what it lists.
+        ItemFactory.create_batch(3)
+        ItemFactory(title="Zzyxq Unique Match")
+        content = client.get(reverse("literature:item-list"), {"q": "zzyxq"}).content.decode()
+        assert "1-1 of 1" in content
+
+    def test_a_search_matching_nothing_states_so_and_keeps_its_controls(self, client, db):
+        # FR-028, plan.md D-8 — distinct from the genuinely-empty-catalogue
+        # message below, and the search box and filter control both stay on
+        # the page rather than disappearing along with the rows.
+        ItemFactory.create_batch(3)
+        content = client.get(reverse("literature:item-list"), {"q": "no-such-term-anywhere"}).content.decode()
+        assert "No references match your search" in content
+        assert "Nothing in the catalogue yet" not in content
+        assert 'name="q"' in content
+        assert "filterModal" in content
+
+    def test_a_genuinely_empty_catalogue_keeps_its_own_message(self, client, db):
+        # FR-028, plan.md D-8 — the two messages never appear together; this
+        # is the other half of the pair above, with no query in force at all.
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "Nothing in the catalogue yet" in content
+        assert "No references match your search" not in content
+
+    @pytest.mark.parametrize("clearing_params", [{"q": ""}, {}], ids=["empty-q", "no-q"])
+    def test_clearing_the_search_restores_the_unnarrowed_catalogue(self, client, db, clearing_params):
+        # FR-008 — a request carrying an empty q, and one carrying no q at
+        # all, each return the whole catalogue where the preceding search
+        # had narrowed it. Upstream's search mixin already no-ops on an
+        # empty term; this is the guard that it goes on doing so.
+        ItemFactory.create_batch(5)
+        narrowed = client.get(reverse("literature:item-list"), {"q": "no-such-term-anywhere"})
+        assert len(narrowed.context["table"].page.object_list) == 0
+        cleared = client.get(reverse("literature:item-list"), clearing_params)
+        assert len(cleared.context["table"].page.object_list) == 5
+
+
+class TestCatalogueFilters:
+    """Each filter on its own against the table — FR-009 through FR-013.
+
+    The filterset itself is already exercised directly in
+    ``tests/test_ui/test_filters.py``; this class proves the same behaviour
+    reaches an HTTP request through ``ItemTableView``, which is this story's
+    own scope (plan.md D-1, D-4, D-5).
+    """
+
+    def test_type_narrows_to_the_chosen_type(self, client, db):
+        book = ItemFactory(type=ItemType.BOOK)
+        article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        content = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK}).content.decode()
+        assert book.citation_key in content
+        assert article.citation_key not in content
+
+    def test_type_choices_offer_the_translatable_label_while_the_url_narrows_on_the_stored_value(self, client, db):
+        # FR-010 — the select option pairs the stored slug (the value the
+        # query string above narrows on) with its translated label, read
+        # from the filter control itself rather than a row's own type cell,
+        # which would pass even if the filter control's own choices broke.
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert re.search(r'<option value="article-journal"[^>]*>\s*Journal Article\s*</option>', content)
+
+    def test_contributor_narrows_to_references_crediting_them_in_any_role(self, client, db):
+        item = ItemFactory()
+        ItemNameFactory(item=item, name=NameFactory(family="Darwin"), role=NameRole.EDITOR)
+        other = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"contributor": "darwin"}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_a_reference_crediting_the_same_contributor_in_two_roles_is_returned_once(self, client, db):
+        item = ItemFactory()
+        darwin = NameFactory(family="Darwin")
+        ItemNameFactory(item=item, name=darwin, role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, name=darwin, role=NameRole.EDITOR)
+        response = client.get(reverse("literature:item-list"), {"contributor": "darwin"})
+        matches = [row for row in response.context["table"].page.object_list if row.record.pk == item.pk]
+        assert len(matches) == 1
+
+    def test_issued_year_narrows_on_a_year_only_stored_date(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        other = ItemFactory()
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        content = client.get(reverse("literature:item-list"), {"issued_year": 2020}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_issued_year_narrows_on_a_range_beginning_that_year(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
+        other = ItemFactory()
+        ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
+        content = client.get(reverse("literature:item-list"), {"issued_year": 2019}).content.decode()
+        assert item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_issued_year_excludes_a_reference_carrying_no_issued_date(self, client, db):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        undated = ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"issued_year": 2020}).content.decode()
+        assert item.citation_key in content
+        assert undated.citation_key not in content
+
+    def test_language_narrows_on_the_stored_value(self, client, db):
+        en_item = ItemFactory(language="en")
+        other = ItemFactory(language="fr")
+        content = client.get(reverse("literature:item-list"), {"language": "en"}).content.decode()
+        assert en_item.citation_key in content
+        assert other.citation_key not in content
+
+    def test_language_choices_offer_only_values_the_catalogue_holds(self, client, db):
+        ItemFactory(language="en")
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert re.search(r'<option value="en"[^>]*>\s*en\s*</option>', content)
+        assert 'value="de"' not in content
+
+
+class TestCatalogueFilterComposition:
+    """Composing filters and search — FR-014, FR-015, decisions.md D6.
+
+    "Articles or chapters, from 2019" is D6's own example: one filter
+    (type) widened to either value, another (year) narrowing what that
+    widened set returns.
+    """
+
+    def test_more_than_one_value_within_a_filter_widens_to_either(self, client, db):
+        article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        chapter = ItemFactory(type=ItemType.CHAPTER)
+        book = ItemFactory(type=ItemType.BOOK)
+        content = client.get(
+            reverse("literature:item-list"), {"type": [ItemType.ARTICLE_JOURNAL, ItemType.CHAPTER]}
+        ).content.decode()
+        assert article.citation_key in content
+        assert chapter.citation_key in content
+        assert book.citation_key not in content
+
+    def test_two_filters_narrow_to_both(self, client, db):
+        matching = ItemFactory(type=ItemType.BOOK, language="en")
+        wrong_type = ItemFactory(type=ItemType.ARTICLE_JOURNAL, language="en")
+        wrong_language = ItemFactory(type=ItemType.BOOK, language="fr")
+        content = client.get(
+            reverse("literature:item-list"), {"type": ItemType.BOOK, "language": "en"}
+        ).content.decode()
+        assert matching.citation_key in content
+        assert wrong_type.citation_key not in content
+        assert wrong_language.citation_key not in content
+
+    def test_a_filter_and_a_search_term_narrow_to_both_and_the_count_reflects_it(self, client, db):
+        matching = ItemFactory(type=ItemType.BOOK, title="Whale Migration Patterns")
+        wrong_type = ItemFactory(type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Patterns")
+        wrong_term = ItemFactory(type=ItemType.BOOK, title="Unrelated Reference")
+        response = client.get(reverse("literature:item-list"), {"q": "whale", "type": ItemType.BOOK})
+        content = response.content.decode()
+        assert matching.citation_key in content
+        assert wrong_type.citation_key not in content
+        assert wrong_term.citation_key not in content
+        assert "1-1 of 1" in content
+
+    def test_widening_within_type_still_narrows_against_a_second_filter(self, client, db):
+        # Both directions in one request: "articles or chapters, from 2019".
+        article_2019 = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        ItemDateFactory(item=article_2019, date_type=DateType.ISSUED, begin="2019")
+        chapter_2019 = ItemFactory(type=ItemType.CHAPTER)
+        ItemDateFactory(item=chapter_2019, date_type=DateType.ISSUED, begin="2019")
+        book_2019 = ItemFactory(type=ItemType.BOOK)
+        ItemDateFactory(item=book_2019, date_type=DateType.ISSUED, begin="2019")
+        article_2020 = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        ItemDateFactory(item=article_2020, date_type=DateType.ISSUED, begin="2020")
+        content = client.get(
+            reverse("literature:item-list"),
+            {"type": [ItemType.ARTICLE_JOURNAL, ItemType.CHAPTER], "issued_year": 2019},
+        ).content.decode()
+        assert article_2019.citation_key in content
+        assert chapter_2019.citation_key in content
+        assert book_2019.citation_key not in content
+        assert article_2020.citation_key not in content
+
+
+class TestCatalogueFilterVisibility:
+    """What is in force is visible on the page and clearable from it — FR-016.
+
+    django-mvp's own badge (``mvp/templates/cotton/page/list/actions/filter.html``)
+    reads ``applied_filters``/``applied_filter_count`` from the context, but
+    only ``MVPFilteredListView.get_context_data()`` (the card list's own base,
+    plan.md D-2) populates them — ``ItemTableView`` composes
+    ``MVPTableViewMixin, FilterView`` instead, and never ran that method, so
+    the table carried a filter control with no badge at all. Confirmed
+    directly before writing these tests: an unfiltered request already
+    leaves ``response.context["applied_filters"]`` at ``None``.
+    """
+
+    def test_no_badge_when_nothing_is_applied(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
+
+    def test_a_filter_in_force_is_counted_and_shown_as_a_badge(self, client, db):
+        ItemFactory(type=ItemType.BOOK)
+        response = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK})
+        assert response.context["applied_filter_count"] == 1
+        content = response.content.decode()
+        assert '<span class="indicator-item badge badge-secondary badge-xs">1</span>' in content
+
+    def test_two_filters_in_force_are_both_counted(self, client, db):
+        ItemFactory(type=ItemType.BOOK, language="en")
+        response = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK, "language": "en"})
+        assert response.context["applied_filter_count"] == 2
+        content = response.content.decode()
+        assert '<span class="indicator-item badge badge-secondary badge-xs">2</span>' in content
+
+    def test_a_search_term_alone_carries_no_filter_badge(self, client, db):
+        # The badge belongs to the Filter button specifically (FR-016 governs
+        # both controls, but django-mvp's own count is filter-only) — `q` is
+        # not one of `self.filterset.filters`, so it never reaches
+        # `filterset.form.cleaned_data`.
+        ItemFactory(title="Whale Migration Patterns")
+        content = client.get(reverse("literature:item-list"), {"q": "whale"}).content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
+
+    def test_the_chosen_value_stays_selected_on_the_rendered_control(self, client, db):
+        ItemFactory(type=ItemType.BOOK)
+        content = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK}).content.decode()
+        assert re.search(r'<option value="book"[^>]*\sselected[^>]*>\s*Book\s*</option>', content)
+
+    @pytest.mark.parametrize("clearing_params", [{"type": ""}, {}], ids=["empty-type", "no-params"])
+    def test_clearing_a_filter_restores_the_unfiltered_catalogue(self, client, db, clearing_params):
+        matching = ItemFactory(type=ItemType.BOOK)
+        other = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        narrowed = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK})
+        assert len(narrowed.context["table"].page.object_list) == 1
+        cleared = client.get(reverse("literature:item-list"), clearing_params)
+        cleared_pks = {row.record.pk for row in cleared.context["table"].page.object_list}
+        assert cleared_pks == {matching.pk, other.pk}
+
+
+class TestCatalogueFilterValidation:
+    """Invalid and unmatched filter values — FR-017, decisions.md D7.
+
+    Two cases and only two: a declared filter's value matching nothing, and
+    a declared filter's value that fails validation. Both already narrow to
+    nothing through the adopted components — django-filter's own ``strict``
+    default (``BaseFilterView.get()``) returns an empty queryset for an
+    invalid bound form, and an unmatched value is simply a filter that
+    matches no row — so this task proves the behaviour rather than building
+    it.
+    """
+
+    def test_an_unmatched_value_of_a_declared_filter_states_no_matches(self, client, db):
+        ItemFactory(language="en")
+        response = client.get(reverse("literature:item-list"), {"language": "zz"})
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert len(response.context["table"].page.object_list) == 0
+        assert "No references match your search" in content
+
+    def test_an_invalid_value_of_a_declared_filter_states_no_matches(self, client, db):
+        ItemFactory()
+        response = client.get(reverse("literature:item-list"), {"issued_year": "notanumber"})
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert len(response.context["table"].page.object_list) == 0
+        assert "No references match your search" in content
+
+    def test_neither_case_falls_back_to_the_unfiltered_catalogue(self, client, db):
+        ItemFactory.create_batch(3, language="en")
+        unmatched = client.get(reverse("literature:item-list"), {"language": "zz"})
+        assert len(unmatched.context["table"].page.object_list) == 0
+        invalid = client.get(reverse("literature:item-list"), {"issued_year": "notanumber"})
+        assert len(invalid.context["table"].page.object_list) == 0
+
+    def test_an_address_carrying_an_undeclared_key_is_ignored_not_rejected(self, client, db):
+        # FR-017 reads on a filter *value*, not an undefined key: a Django
+        # form simply ignores data it has no field for, so an address like
+        # this is neither of the two cases above, and this feature
+        # deliberately builds no rejection mechanism for it (tasks.md T016).
+        # Pinned as what actually happens — 200, no exception, the
+        # catalogue unnarrowed — not as a contract this feature owns.
+        item = ItemFactory()
+        response = client.get(reverse("literature:item-list"), {"bogus": "xyz"})
+        assert response.status_code == 200
+        assert [row.record.pk for row in response.context["table"].page.object_list] == [item.pk]
 
 
 #: One item-building override per plain sortable column, cycled by index so
@@ -579,14 +1156,6 @@ class TestCatalogueOrdering:
         citation_keys = [row.record.citation_key for row in response.context["table"].page.object_list]
         assert citation_keys == [second.citation_key, first.citation_key]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "django-mvp's pagination link replaces the whole query string and drops ?sort= "
-            "(plan.md D-14) — tracked here as issue #88, upstream as django-mvp/django-mvp#270. "
-            "Flips green once the fix lands and the ui floor in T001 carries it."
-        ),
-    )
     def test_sort_survives_following_the_rendered_link_to_page_2(self, client, db):
         # citation_key runs the opposite way to creation order, so a sort by
         # -citation_key produces a different row order than the catalogue's
@@ -600,10 +1169,197 @@ class TestCatalogueOrdering:
         second_page = client.get(urljoin(list_url, second_page_href))
         first_page_records = [row.record for row in first_page.context["table"].page.object_list]
         second_page_records = [row.record for row in second_page.context["table"].page.object_list]
-        # Still descending across the page boundary — fails today because
-        # the followed link carries no ?sort= and page 2 falls back to the
-        # catalogue's default newest-first order instead.
+        # Still descending across the page boundary.
         assert second_page_records[0].citation_key < first_page_records[-1].citation_key
+
+
+class TestCatalogueStateSurvivesAPageMove:
+    """A search and a filter each survive a page move too, and all three
+    survive together — FR-018, closing #88 alongside the sort case above.
+
+    Followed through the page's own rendered link (``rendered_page_link()``,
+    decisions.md D13), never a hand-built ``?page=2`` — asserted on the
+    second page's own results, not merely on the shape of the link that
+    reached it.
+    """
+
+    def test_a_search_survives_following_the_rendered_link_to_page_2(self, client, db):
+        for n in range(30):
+            ItemFactory(title=f"Whale Migration {n:03d}")
+        ItemFactory.create_batch(5, title="Unrelated Reference")
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"q": "whale"})
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        assert second_page_records
+        # Not merely "narrowed" — the second page's own rows, distinct from
+        # the first's. A ?page=2 read as the literal parameter "amp;page"
+        # falls back to page one, which would satisfy the narrowing
+        # assertion below without ever proving a page move happened.
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all("Whale Migration" in record.title for record in second_page_records)
+
+    def test_a_filter_survives_following_the_rendered_link_to_page_2(self, client, db):
+        ItemFactory.create_batch(30, type=ItemType.BOOK)
+        ItemFactory.create_batch(5, type=ItemType.ARTICLE_JOURNAL)
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"type": ItemType.BOOK})
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        assert second_page_records
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all(record.type == ItemType.BOOK for record in second_page_records)
+
+    def test_a_search_a_filter_and_a_sort_all_survive_together_following_the_rendered_link_to_page_2(self, client, db):
+        for n in range(30):
+            ItemFactory(type=ItemType.BOOK, title=f"Whale Migration {n:03d}", citation_key=f"Key{29 - n:03d}")
+        ItemFactory.create_batch(5, type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Decoy")
+        ItemFactory.create_batch(5, type=ItemType.BOOK, title="Unrelated Reference")
+        list_url = reverse("literature:item-list")
+        params = {"q": "whale", "type": ItemType.BOOK, "sort": "-citation_key"}
+        first_page = client.get(list_url, params)
+        first_page_records = [row.record for row in first_page.context["table"].page.object_list]
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = [row.record for row in second_page.context["table"].page.object_list]
+        assert second_page_records
+        assert all("Whale Migration" in record.title for record in second_page_records)
+        assert all(record.type == ItemType.BOOK for record in second_page_records)
+        assert second_page_records[0].citation_key < first_page_records[-1].citation_key
+
+
+class TestCatalogueStateSurvivesAPageMoveOnTheCardList:
+    """FR-018 on the card presentation — the same guarantee
+    ``TestCatalogueStateSurvivesAPageMove`` proves for the table, followed
+    through the card list's own rendered link rather than the table's.
+    """
+
+    def test_a_search_survives_following_the_rendered_link_to_page_2(self, client, db):
+        for n in range(30):
+            ItemFactory(title=f"Whale Migration {n:03d}")
+        ItemFactory.create_batch(5, title="Unrelated Reference")
+        list_url = reverse("item-list-cards")
+        first_page = client.get(list_url, {"q": "whale"})
+        first_page_records = list(first_page.context["object_list"])
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = list(second_page.context["object_list"])
+        assert second_page_records
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all("Whale Migration" in record.title for record in second_page_records)
+
+    def test_a_filter_survives_following_the_rendered_link_to_page_2(self, client, db):
+        ItemFactory.create_batch(30, type=ItemType.BOOK)
+        ItemFactory.create_batch(5, type=ItemType.ARTICLE_JOURNAL)
+        list_url = reverse("item-list-cards")
+        first_page = client.get(list_url, {"type": ItemType.BOOK})
+        first_page_records = list(first_page.context["object_list"])
+        second_page_href = rendered_page_link(first_page.content.decode(), 2)
+        second_page = client.get(urljoin(list_url, second_page_href))
+        second_page_records = list(second_page.context["object_list"])
+        assert second_page_records
+        assert {r.pk for r in second_page_records}.isdisjoint({r.pk for r in first_page_records})
+        assert all(record.type == ItemType.BOOK for record in second_page_records)
+
+
+class TestCatalogueStateSurvivesAChangeOfSort:
+    """A search and a filter survive a change of sort from a column heading,
+    and the new sort orders what they narrowed, not the whole catalogue —
+    FR-019. This direction already works; pinned here before T020 touches
+    the filter form for the opposite direction.
+    """
+
+    def test_search_and_a_filter_survive_a_change_of_sort_from_a_column_heading(self, client, db):
+        matching_high = ItemFactory(type=ItemType.BOOK, title="Whale Migration Zeta", citation_key="KeyZ")
+        matching_low = ItemFactory(type=ItemType.BOOK, title="Whale Migration Alpha", citation_key="KeyA")
+        wrong_type = ItemFactory(type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Beta", citation_key="KeyB")
+        wrong_term = ItemFactory(type=ItemType.BOOK, title="Unrelated Reference", citation_key="KeyC")
+        list_url = reverse("literature:item-list")
+        first_page = client.get(list_url, {"q": "whale", "type": ItemType.BOOK})
+        sort_href = rendered_sort_link(first_page.content.decode(), "Citation key")
+        sorted_response = client.get(urljoin(list_url, sort_href))
+        sorted_records = [row.record for row in sorted_response.context["table"].page.object_list]
+        # Narrowed to the two matches, not the whole four-row catalogue —
+        # the search and the filter are both still in force.
+        assert {r.pk for r in sorted_records} == {matching_high.pk, matching_low.pk}
+        assert wrong_type.pk not in {r.pk for r in sorted_records}
+        assert wrong_term.pk not in {r.pk for r in sorted_records}
+        # Ordered by the clicked column, over only the narrowed set.
+        assert [r.citation_key for r in sorted_records] == [matching_low.citation_key, matching_high.citation_key]
+
+
+class TestCatalogueStateSurvivesAChangeOfFilter:
+    """The sort survives a change of filter, carried as a hidden field on
+    ``ItemFilterSet``'s own form — plan.md D-7, decisions.md D-20's own
+    correction. The opposite direction from T019: there the sort came from
+    a column heading and django-tables2 already carried the rest of the
+    address; here the filter modal is our own GET form, and submitting it
+    replaces the query string with only what that form's own fields carry.
+    """
+
+    def test_sort_survives_a_change_of_filter_submitted_from_the_filter_form(self, client, db):
+        # citation_key runs the opposite way to creation order, so a sort
+        # by -citation_key produces a different row order than the
+        # catalogue's default (-created) — same reasoning as T017/T019's
+        # own fixtures, and for the same reason: a test where the two
+        # coincide would pass whether or not the sort actually survived.
+        older_last_key = ItemFactory(type=ItemType.BOOK, citation_key="KeyZ")
+        newer_first_key = ItemFactory(type=ItemType.BOOK, citation_key="KeyA")
+        ItemFactory(type=ItemType.ARTICLE_JOURNAL, citation_key="KeyM")
+        list_url = reverse("literature:item-list")
+        first_response = client.get(list_url, {"sort": "-citation_key"})
+        form_data = rendered_filter_form_data(first_response, type=ItemType.BOOK)
+        filtered_response = client.get(list_url, form_data)
+        filtered_records = [row.record for row in filtered_response.context["table"].page.object_list]
+        # Narrowed to the two BOOK rows, and still ordered by -citation_key
+        # (KeyZ before KeyA) — the catalogue's default (-created) would
+        # order them the other way (newer_first_key before older_last_key).
+        assert filtered_records == [older_last_key, newer_first_key]
+
+    def test_an_active_sort_is_not_counted_or_shown_as_an_applied_filter(self, client, db):
+        ItemFactory(type=ItemType.BOOK)
+        list_url = reverse("literature:item-list")
+        unsorted = client.get(list_url, {"type": ItemType.BOOK})
+        sorted_ = client.get(list_url, {"type": ItemType.BOOK, "sort": "-citation_key"})
+        assert sorted_.context["applied_filter_count"] == unsorted.context["applied_filter_count"]
+        assert set(sorted_.context["applied_filters"]) == set(unsorted.context["applied_filters"])
+        badge_re = r'<span class="indicator-item badge badge-secondary badge-xs">(\d+)</span>'
+        sorted_badge = re.search(badge_re, sorted_.content.decode())
+        unsorted_badge = re.search(badge_re, unsorted.content.decode())
+        assert sorted_badge.group(1) == unsorted_badge.group(1)
+
+    def test_a_sort_alone_carries_no_filter_badge(self, client, db):
+        ItemFactory()
+        content = client.get(reverse("literature:item-list"), {"sort": "-citation_key"}).content.decode()
+        assert "indicator-item badge badge-secondary badge-xs" not in content
+
+
+class TestCatalogueStateSurvivesReopeningTheAddress:
+    """A narrowed catalogue can be bookmarked and reopened to the same
+    result (FR-022, SC-004): the state lives in the address itself, not in
+    a session, so a second, entirely unrelated client reaching the same
+    address gets the same narrowed catalogue back.
+    """
+
+    def test_a_bookmarked_address_reopens_to_the_same_narrowed_result(self, db):
+        matching = ItemFactory(type=ItemType.BOOK, title="Whale Migration Patterns")
+        ItemFactory(type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Patterns")
+        ItemFactory(type=ItemType.BOOK, title="Unrelated Reference")
+        list_url = reverse("literature:item-list")
+        params = {"q": "whale", "type": ItemType.BOOK}
+        # Two independent clients, no cookies shared between them — if the
+        # narrowing lived in a session rather than the address, the second
+        # would come back to the unfiltered catalogue instead.
+        first_visit = Client().get(list_url, params)
+        reopened = Client().get(list_url, params)
+        first_pks = {row.record.pk for row in first_visit.context["table"].page.object_list}
+        reopened_pks = {row.record.pk for row in reopened.context["table"].page.object_list}
+        assert first_pks == {matching.pk}
+        assert reopened_pks == first_pks
 
 
 class TestItemCreateView:
@@ -1056,6 +1812,17 @@ class TestItemDeleteView:
 
 class TestContributorDetailView:
     """The contributor page — FR-032 through FR-038."""
+
+    def test_renders_neither_a_search_box_nor_a_filter_button(self, client, db):
+        # FR-025, plan.md D-6 — ItemListView's own base class change (T022)
+        # would otherwise hand this page a search box and four filters,
+        # since it used to subclass ItemListView directly.
+        contributor = NameFactory()
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk}))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'name="q"' not in content
+        assert "filterModal" not in content
 
     def test_credits_listed_with_roles(self, client, db):
         contributor = NameFactory()

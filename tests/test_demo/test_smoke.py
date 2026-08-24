@@ -63,12 +63,11 @@ class TestItemLinkPattern:
 class TestSecondPageLinkPattern:
     """The pattern the walk follows from the catalogue list to its second page.
 
-    Widened for plan.md D-14/D-12 (T025): today's pagination component
-    replaces the whole query string, so the real render never carries
-    ``page=2`` alongside another parameter (research R4) — but the pattern
-    has to already tolerate that shape for the day django-mvp/django-mvp#270
-    lands and the query string survives, without becoming so loose it
-    accepts a link that carries no page parameter at all.
+    Widened for plan.md D-14/D-12 (T025): the query string now survives a
+    page move (django-mvp/django-mvp#270, closed here as #88), so a link
+    carrying another parameter alongside ``page=2`` is the real render, not
+    a future one — the pattern tolerates that shape without becoming so
+    loose it accepts a link that carries no page parameter at all.
     """
 
     def test_matches_the_bare_link_the_paginated_list_renders(self, client, db):
@@ -79,6 +78,20 @@ class TestSecondPageLinkPattern:
 
         assert match is not None
         assert match.group("query") == "?page=2"
+
+    def test_matches_a_link_the_paginated_list_renders_when_a_filter_is_also_in_force(self, client, db):
+        # A second query parameter joins the pagination link with the HTML
+        # entity `&amp;`, not a bare `&` (`{% querystring %}`'s own
+        # escaping, decisions.md D13) — the guard reads this straight off
+        # raw HTML (demo/smoke.py), so the pattern itself has to tolerate
+        # the entity rather than relying on an unescape step upstream of it.
+        ItemFactory.create_batch(30, language="en")
+
+        response = client.get(reverse("literature:item-list"), {"language": "en"})
+        match = SECOND_PAGE_LINK_RE.search(response.content.decode())
+
+        assert match is not None
+        assert match.group("query") == "?language=en&amp;page=2"
 
     def test_matches_a_page_link_that_also_carries_a_leading_parameter(self):
         match = SECOND_PAGE_LINK_RE.search('href="?sort=title&page=2"')

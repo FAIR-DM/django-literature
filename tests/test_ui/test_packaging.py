@@ -79,6 +79,7 @@ class TestNoDemoOnlyDependencyEntersTheBuild:
         pyproject = load_pyproject()
         ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
         assert ui_extra == [
-            "django-mvp (>=0.19,<1.0) ; python_version >= '3.12'",
+            "django-mvp (>=0.19.1,<1.0) ; python_version >= '3.12'",
             "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
+            "django-filter (>=26.1,<27) ; python_version >= '3.12'",
         ]

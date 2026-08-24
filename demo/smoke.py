@@ -10,6 +10,7 @@ Not a test module: standard library only, run directly against a live
 server, not under pytest (conventions; constitution Article VII).
 """
 
+import html
 import http.cookiejar
 import re
 import sys
@@ -27,13 +28,21 @@ BODY_EXCERPT_LIMIT = 500
 ITEM_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/)"[^>]*>(?P<text>[^<]+)<')
 CONTRIBUTOR_LINK_RE = re.compile(r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<')
 
-# Today's pagination component replaces the whole query string on every page
-# link (plan.md D-14, tracked upstream as django-mvp/django-mvp#270 and here
-# as #88), so a rendered link is always the bare `?page=2`. This pattern
-# tolerates the link carrying other parameters either side of `page=2` so it
-# stays correct once that defect is fixed and a sort survives the page move,
-# without also matching a link that carries no page parameter at all.
-SECOND_PAGE_LINK_RE = re.compile(r'href="(?P<query>\?(?:[^"]*&)?page=2(?:&[^"]*)?)"')
+# The catalogue list's search box (FR-033): its `name="q"` input is rendered
+# outside the filter modal's own <form>, associated with it only by the
+# HTML5 `form="filterForm"` attribute (mvp's search.html), so it is
+# confirmed here rather than through ``form_fields``, which only walks a
+# page's first physically-nested <form>.
+SEARCH_INPUT_RE = re.compile(r'<input[^>]+name="q"[^>]+form="filterForm"')
+
+# A rendered pagination link carrying another parameter joins it to `page=2`
+# with the HTML entity `&amp;`, not a bare `&` (`{% querystring %}`'s own
+# escaping, decisions.md D13) — tolerated here so this still matches a link
+# that also carries a search, a filter or a sort, without also matching a
+# link that carries no page parameter at all. The captured group is raw
+# HTML: a caller unescapes it with ``html.unescape`` before using it to
+# build a URL.
+SECOND_PAGE_LINK_RE = re.compile(r'href="(?P<query>\?(?:[^"]*&(?:amp;)?)?page=2(?:&(?:amp;)?[^"]*)?)"')
 
 # The write pass's own links (T021, D-9): the catalogue's Add action, and a
 # reference page's Edit and Delete actions. Unlike the two patterns above,
@@ -182,16 +191,90 @@ class DemoWalk:
         if not item_links:
             self.fail(list_url, 200, "no reference link on the catalogue list — the seed did not load", list_body)
 
-        second_page_match = SECOND_PAGE_LINK_RE.search(list_body)
-        if second_page_match is None:
-            self.fail(list_url, 200, "no second-page link on the catalogue list", list_body)
-        second_page_url = f"{list_url}{second_page_match.group('query')}"
-        second_page_body = self.get(second_page_url)
-        if not ITEM_LINK_RE.search(second_page_body):
-            self.fail(second_page_url, 200, "no reference link on the catalogue's second page", second_page_body)
-
+        self.walk_narrowed_catalogue(list_url, list_body)
         self.walk_to_contributor(item_links)
         self.walk_write_pass(list_url, list_body)
+
+    def walk_narrowed_catalogue(self, list_url, list_body):
+        """A search, a filter, and a page move over a narrowed result (FR-033, decisions.md D22).
+
+        Each step submits one query parameter alone, the same as a browser
+        leaving every other filter control untouched — a multi-select
+        control with nothing chosen contributes no key to a real form
+        submission, so filling in the rest from ``form_fields`` would
+        submit a value no reader ever chose. Confirmed present first
+        (``SEARCH_INPUT_RE``, and ``form_fields`` already proves ``type``
+        and ``language`` are rendered controls), then asserted on the
+        references present and absent in what comes back — never on a
+        status code alone, so a search or filter that silently stopped
+        narrowing would not be missed.
+        """
+        fields = form_fields(list_body)
+        if "type" not in fields or "language" not in fields:
+            self.fail(list_url, 200, "the catalogue list's filter form carries no type or language control", list_body)
+        if SEARCH_INPUT_RE.search(list_body) is None:
+            self.fail(list_url, 200, "no search box on the catalogue list", list_body)
+
+        # A search: SEARCH_FIELDS (literature/ui/filters.py) includes
+        # citation_key, and every seeded citation key is unique.
+        search_url = f"{list_url}?{urllib.parse.urlencode({'q': 'Shannon1948'})}"
+        search_body = self.get(search_url)
+        if "A Mathematical Theory of Communication" not in search_body:
+            self.fail(
+                search_url, 200, "searching citation key 'Shannon1948' did not return its own reference", search_body
+            )
+        if "Attention Is All You Need" in search_body:
+            self.fail(
+                search_url,
+                200,
+                "searching citation key 'Shannon1948' also returned an unrelated reference",
+                search_body,
+            )
+
+        # A filter: the seed carries exactly one `dataset` reference (demo/seed/catalogue.json).
+        filter_url = f"{list_url}?{urllib.parse.urlencode({'type': 'dataset'})}"
+        filter_body = self.get(filter_url)
+        if "Physical oceanography during POLARSTERN cruise ANT-II/3" not in filter_body:
+            self.fail(
+                filter_url,
+                200,
+                "filtering to type=dataset did not return the seed's one dataset reference",
+                filter_body,
+            )
+        if "A Mathematical Theory of Communication" in filter_body:
+            self.fail(filter_url, 200, "filtering to type=dataset also returned a non-dataset reference", filter_body)
+
+        # A page move over a narrowed result: the seed's dominant language
+        # clears the page size (decisions.md D22), so a reader following
+        # the rendered page-2 link lands on a genuine second page of a
+        # genuinely narrowed set.
+        narrowed_url = f"{list_url}?{urllib.parse.urlencode({'language': 'en'})}"
+        narrowed_body = self.get(narrowed_url)
+        if "Cien años de soledad" in narrowed_body:
+            self.fail(
+                narrowed_url, 200, "filtering to language=en also returned a Spanish-language reference", narrowed_body
+            )
+        first_page_paths = {path for path, _text in ITEM_LINK_RE.findall(narrowed_body)}
+        if not first_page_paths:
+            self.fail(narrowed_url, 200, "filtering to language=en returned no references at all", narrowed_body)
+
+        second_page_match = SECOND_PAGE_LINK_RE.search(narrowed_body)
+        if second_page_match is None:
+            self.fail(narrowed_url, 200, "no second-page link on the language=en narrowed result", narrowed_body)
+        second_page_url = f"{list_url}{html.unescape(second_page_match.group('query'))}"
+        second_page_body = self.get(second_page_url)
+        if "Cien años de soledad" in second_page_body:
+            self.fail(second_page_url, 200, "the language filter was lost on the page move", second_page_body)
+        second_page_paths = {path for path, _text in ITEM_LINK_RE.findall(second_page_body)}
+        if not second_page_paths:
+            self.fail(second_page_url, 200, "no reference link on the narrowed result's second page", second_page_body)
+        if second_page_paths & first_page_paths:
+            self.fail(
+                second_page_url,
+                200,
+                "the narrowed result's second page repeats a reference from its first page",
+                second_page_body,
+            )
 
     def walk_to_contributor(self, item_links):
         """Follow the list's reference links in order until one has a contributor (plan.md D-5)."""

@@ -150,8 +150,15 @@ extend_exclude = ["tasks.py", "tests/", "demo/", "docs/"]
 # groups but no extra, so there deptry falls back to guessing `django_mvp` and
 # reports literature/ui/views.py's `from mvp.views import ...` as undeclared.
 # Stating the mapping makes the check answer the same either way.
+#
+# django-filter has the same problem in the other direction: uninstalled,
+# deptry's guess replaces "-" with "_" and gets `django_filter` (singular) —
+# the real module `literature/ui/filters.py` imports is `django_filters`
+# (plural). Confirmed against deptry.dependency.Dependency directly (T001):
+# without this entry it warns and assumes the wrong name.
 [tool.deptry.package_module_name_map]
 django-mvp = "mvp"
+django-filter = "django_filters"
 
 [tool.deptry.per_rule_ignores]
 DEP003 = ["literature"]
@@ -193,14 +200,21 @@ classifiers = [
 # reaches it as a guarded optional integration and declares no dependency on
 # it, so the extra names it directly.
 #
-# The django-mvp floor is 0.19 because the full-screen table layout, the
+# The django-mvp floor was 0.19 because the full-screen table layout, the
 # column width classes and the refusal of a view-level ordering all arrived
 # there; 0.17 and 0.18 import the same module and render the previous layout.
-# It rises again once django-mvp/django-mvp#270 ships — until then a chosen
-# sort is discarded when the reader moves to another page (#88).
+# It now rises to 0.19.1, which carries django-mvp/django-mvp#270's fix
+# (commit e413b36): the pagination link renders through {% querystring %}
+# instead of a hard-coded ?page=N, so a chosen sort survives a page move
+# (#88, research R6).
+#
+# django-filter is what the catalogue's search and filter controls need —
+# django-mvp's own FilterView integration imports it directly and raises if
+# it is absent (research R2). 26 is the current major on the package index.
 ui = [
-    "django-mvp (>=0.19,<1.0) ; python_version >= '3.12'",
+    "django-mvp (>=0.19.1,<1.0) ; python_version >= '3.12'",
     "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
+    "django-filter (>=26.1,<27) ; python_version >= '3.12'",
 ]
 
 [project.urls]

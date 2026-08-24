@@ -751,6 +751,25 @@ files = [
 django = ">=4.2"
 
 [[package]]
+name = "django-filter"
+version = "26.1"
+description = "Django-filter is a reusable Django application for allowing users to filter querysets dynamically."
+optional = true
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version >= \"3.12\" and extra == \"ui\""
+files = [
+    {file = "django_filter-26.1-py3-none-any.whl", hash = "sha256:7d98ef2899218e6242619b532cb1b95af14e09dfcf74844aecb550ad27b59ff2"},
+    {file = "django_filter-26.1.tar.gz", hash = "sha256:66ea04031b068c77c86e1ac26ced7a3f8f13ce797f5795751707e3deefc58054"},
+]
+
+[package.dependencies]
+Django = ">=5.2"
+
+[package.extras]
+drf = ["djangorestframework"]
+
+[[package]]
 name = "django-flex-menus"
 version = "0.4.3"
 description = "Flexible site menus for Django"
@@ -788,15 +807,15 @@ rich = ">=13"
 
 [[package]]
 name = "django-mvp"
-version = "0.19.0"
+version = "0.19.1"
 description = "MVP framework for Django - scaffold production-ready applications with sophisticated layouts and UI patterns designed for data-centric applications."
 optional = true
 python-versions = "<4.0,>=3.12"
 groups = ["main"]
 markers = "python_version >= \"3.12\" and extra == \"ui\""
 files = [
-    {file = "django_mvp-0.19.0-py3-none-any.whl", hash = "sha256:559d85974dfceee20d11aebc5a7ce769cd412a9af87795a916f87d1a2dd51a19"},
-    {file = "django_mvp-0.19.0.tar.gz", hash = "sha256:c441d6f596467c2aa35c4d3a2376562d1272c181645402abea9c834e1a1f18dc"},
+    {file = "django_mvp-0.19.1-py3-none-any.whl", hash = "sha256:d21df16a771be9eaed1e2ad08ee815013ed93523987aec304d4cf55800a93127"},
+    {file = "django_mvp-0.19.1.tar.gz", hash = "sha256:3ba67909f4209ba8832d5468ef7af91808e1e74434c237f22109c15a5441f846"},
 ]
 
 [package.dependencies]
@@ -3596,9 +3615,9 @@ files = [
 dev = ["pytest", "setuptools"]
 
 [extras]
-ui = ["django-mvp", "django-tables2"]
+ui = ["django-filter", "django-mvp", "django-tables2"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "0212e634904e2cf9e90258ad80e3d28cdbe1560743406cd724f2351893432802"
+content-hash = "2f254bb50acbddae49db757e8d4e04e1bdebd0b395c784036518863254db9107"
