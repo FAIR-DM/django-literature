@@ -89,6 +89,23 @@ class TestImportRouteReverses:
         assert resolve("/catalogue/import/").func.view_class is views.ItemImportView
 
 
+class TestImportPreviewAndRestartRoutesReverse:
+    """T903/T904/T909/T910 — the preview and restart addresses, added by
+    US-6 (FR-045, FR-051)."""
+
+    def test_item_import_preview_reverses(self):
+        assert reverse("literature:item-import-preview") == "/catalogue/import/preview/"
+
+    def test_item_import_preview_resolves_to_the_preview_view(self):
+        assert resolve("/catalogue/import/preview/").func.view_class is views.ItemImportPreviewView
+
+    def test_item_import_restart_reverses(self):
+        assert reverse("literature:item-import-restart") == "/catalogue/import/restart/"
+
+    def test_item_import_restart_resolves_to_the_restart_view(self):
+        assert resolve("/catalogue/import/restart/").func.view_class is views.ItemImportRestartView
+
+
 class TestCRUDViewsReverse:
     """plan.md D-6 — an action a view *shows* must have a resolvable route, or
     ``get_breadcrumbs()`` raises ``NoReverseMatch`` at render time instead of

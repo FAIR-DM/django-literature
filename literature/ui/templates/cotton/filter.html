@@ -1,0 +1,36 @@
+{% load i18n %}
+<c-vars outcomes class />
+{% comment %}
+Narrows the import report's table to one outcome, client-side (US-6, FR-049,
+decisions.md D30). daisyUI's own filter idiom
+(https://daisyui.com/components/filter/), shipped here because django-mvp
+does not define one — a plain radio group, one input per outcome plus a
+reset back to all of them, sharing one native ``name`` so the browser keeps
+them mutually exclusive.
+
+Deliberately no ``x-data`` of its own: ``x-model="outcome"`` reads and
+writes the ambient scope the page wraps this component in, the same idiom
+item_form.html already uses for ``form.*`` (cotton/form/index.html opens
+that one) — a second ``x-data`` here would shadow it instead of sharing it.
+No ``<form>`` and no ``<a>``: narrowing shows and hides rows already on the
+page, so this issues no request of its own. The counts above the table are
+never wired to this component (FR-049a) — they come straight from the
+report, untouched by any Alpine expression.
+{% endcomment %}
+<div class="filter {{ class }}" {{ attrs }}>
+  <input class="btn filter-reset"
+         type="radio"
+         name="import-outcome-filter"
+         aria-label="{% translate 'All' %}"
+         value="all"
+         x-model="outcome"
+         checked />
+  {% for value, label in outcomes %}
+    <input class="btn"
+           type="radio"
+           name="import-outcome-filter"
+           aria-label="{{ label }}"
+           value="{{ value }}"
+           x-model="outcome" />
+  {% endfor %}
+</div>

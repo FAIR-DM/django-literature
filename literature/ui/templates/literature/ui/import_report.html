@@ -1,101 +1,25 @@
 {% extends "page_view.html" %}
 {% load i18n %}
 {% comment %}
-The report page (US-1, US-4, plan.md "The report" seam). Extends the plain
-page layout rather than form_view.html or list_view.html: this page is
-neither a form nor a queryset-backed list, and page_view.html's own
-page.content block is the one this app already leaves for a bare page
-(mvp/templates/page_view.html).
+The report for a completed, one-step (skip-preview) import (US-1, US-2,
+FR-011 through FR-022, FR-040). The preview has its own address now, and a
+confirmed import redirects back to the catalogue with a message
+(US-6, decisions.md D30, D31) — this template renders only the path that
+imported directly, with no preview step to have shown the same detail
+already.
 
-Three states share this one template rather than three separate ones
-(US-4, decisions.md D16):
-- ``nothing_to_confirm`` — a confirmation naming a file that is no longer
-  staged, or that this session never staged (FR-044). Carries no report at
-  all: there is nothing to describe.
-- ``preview`` — the default path through a submission (FR-038). Reports
-  exactly what a real import would, labelled as not having happened yet,
-  with a control that carries it out (FR-039).
-- neither — an ordinary completed report, from a confirm or from the
-  skip-preview path (FR-040).
-
-The report now carries the upload form itself, above the results
-(decisions.md D17), which is what removes the tension D11 recorded: FR-023's
-promise that the report page runs nothing again was the best available
-answer while the report was a dead end, and it no longer is — the preview is
-what makes running it again safe. Both views hand this template an
-``import_form`` of its own, kept separate from ``form``: ``ItemImportView``
-passes the submission it has just read, so the format the reader chose stays
-selected, and ``ItemImportConfirmView`` passes an unbound one, since its own
-``ConfirmImportForm`` declares no field (decisions.md D16). Only the
-``nothing_to_confirm`` state renders without it: there is no report
-there for it to sit above.
+T917 — the upload form this page carried above its results (FR-011a) and
+the disabled *Retry* state (FR-023a) were both reversed by the second
+2026-08-24 refinement: the preview page (FR-046) carries no form either, and
+*Restart import* there replaces Retry.
 {% endcomment %}
 {% block page.content %}
-  {% if nothing_to_confirm %}
-    <c-alert variant="warning" class="mb-4">
-      {% blocktranslate %}
-        There is nothing to confirm. The staged file is no longer
-        available — it may already have been imported, or this session
-        never staged one.
-      {% endblocktranslate %}
-    </c-alert>
-  {% else %}
-    {% if preview %}
-      <c-alert variant="warning" class="mb-4">
-        {% blocktranslate %}
-          This is a preview. Nothing has been imported yet — read the
-          report below, then confirm to carry it out.
-        {% endblocktranslate %}
-      </c-alert>
-    {% endif %}
-    {% if import_form %}
-      {# The whole-file failure FR-023a names: the format found nothing to #}
-      {# recover from the file at all, so the run is one synthetic failed #}
-      {# entry and nothing else — never true of a file that read but whose #}
-      {# entries individually failed alongside others that did not. #}
-      <c-form method="post"
-              action="{% url 'literature:item-import' %}"
-              :form-obj="import_form"
-              x-init="form.fileChanged = false"
-              @change="if ($event.target.type === 'file') { form.fileChanged = true }"
-              class="mb-4">
-        {% if report.total == 1 and report.failed == 1 %}
-          <c-button text="{% trans 'Retry' %}"
-                    type="submit"
-                    icon="arrow-right"
-                    reverse
-                    variant="primary"
-                    disabled
-                    x-bind:disabled="!form.fileChanged" />
-        {% else %}
-          <c-button text="{% trans 'Import' %}"
-                    type="submit"
-                    icon="arrow-right"
-                    reverse
-                    variant="primary" />
-        {% endif %}
-      </c-form>
-      <c-divider class="my-4" />
-    {% endif %}
-    <c-text class="mb-4">
-      {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
-        {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
-      {% endblocktranslate %}
-    </c-text>
-    <c-addons.django-table :table="table" />
-    {% if preview and report.created %}
-      {# AS-12 — nothing would be created by confirming, so there is nothing #}
-      {# for the control to carry out. #}
-      <form method="post" action="{% url 'literature:item-import-confirm' %}" class="mt-4">
-        {% csrf_token %}
-        {{ confirm_form.preview }}
-        <c-button text="{% trans 'Import these references' %}"
-                  type="submit"
-                  icon="check"
-                  variant="primary" />
-      </form>
-    {% endif %}
-  {% endif %}
+  <c-text class="mb-4">
+    {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
+      {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
+    {% endblocktranslate %}
+  </c-text>
+  <c-addons.django-table :table="table" />
   <c-group collapse wrap class="mt-4">
     <c-button href="{% url 'literature:item-list' %}" text="{% trans 'Back to the catalogue' %}" icon="arrow-left" />
     <c-button href="{% url 'literature:item-import' %}" text="{% trans 'Import another file' %}" />

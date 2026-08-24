@@ -569,14 +569,16 @@ class TestItemFormPageMarkup:
 
 
 class TestImportReportPage:
-    """T111 — the report page for an import that has already happened carries
+    """T111 — the report page for a one-step (skip-preview) import carries
     the counts, the table and a link back to the catalogue (FR-012, FR-013,
     FR-021).
 
-    It no longer asserts the absence of a form. FR-023's second half was
-    retired by the 2026-08-24 refinement: the page carries the form
-    deliberately, and previewing is what makes submitting again safe
-    (spec.md FR-023, decisions.md D17)."""
+    T917 — the form-above-the-results layout (FR-011a) and the Retry state
+    (FR-023a) were both reversed by the second 2026-08-24 refinement
+    (decisions.md D30): the preview is now its own page with no form of its
+    own, and *Restart import* on it replaces Retry. This page goes back to
+    carrying no form of its own, which is what it did before Phase 7 added
+    either."""
 
     def _report_content(self, client):
         upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
@@ -602,19 +604,20 @@ class TestImportReportPage:
         content = self._report_content(client).lower()
         assert "nothing has been imported" not in content
 
-    def test_carries_the_import_form_above_the_results_with_a_divider_between_them(self, client, db):
-        """T703, decisions.md D17 — another file can be submitted from this
-        page without navigating away."""
+    def test_carries_no_import_form_of_its_own(self, client, db):
+        # T917 — FR-011a's own upload form, above the results, is what the
+        # refinement removes; the preview is where a form-carrying page
+        # lives now (FR-046 governs that one instead).
         content = self._report_content(client)
-        file_index = content.index('type="file"')
-        divider_index = content.index('class="divider')
-        counts_index = content.index("1 created")
-        assert file_index < divider_index < counts_index
+        assert 'type="file"' not in content
 
     def test_the_back_to_catalogue_button_carries_a_backward_arrow(self, client, db):
+        # T915/T916 (US-6, FR-055) gave this page's own breadcrumb a working
+        # link to the catalogue too, so the first occurrence of this href is
+        # now the breadcrumb's, not the button's — the last one is.
         content = self._report_content(client)
         back_href = f'href="{reverse("literature:item-list")}"'
-        back_index = content.index(back_href)
+        back_index = content.rindex(back_href)
         assert "bi-arrow-left" in content[max(back_index - 200, 0) : back_index + 200]
 
     def test_carries_a_second_button_leading_to_an_empty_import_form(self, client, db):
@@ -630,125 +633,95 @@ class TestImportReportPage:
         assert "breakpoint=" not in self._report_content(client)
 
 
-class TestImportPreviewPage:
-    """T510 — the preview state of the report page (US-4, FR-039, FR-042)."""
+class TestOutcomeFilter:
+    """T901 — the outcome filter narrows the preview's table client-side,
+    with no request of its own (FR-049, decisions.md D30, D32)."""
 
     def _preview_content(self, client):
         upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
-        return response.content.decode()
+        client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        return client.get(reverse("literature:item-import-preview")).content.decode()
 
-    def test_is_labelled_as_a_preview(self, client, db):
+    def _filter_markup(self, content):
+        start = content.index('class="filter')
+        end = content.index("</div>", start)
+        return content[start:end]
+
+    def test_one_control_per_outcome_plus_a_way_back_to_all(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        assert markup.count('type="radio"') == 4  # All, created, skipped, failed
+
+    def test_each_control_names_its_outcome_in_translated_text(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        for label in ("All", "Created", "Skipped", "Failed"):
+            assert f'aria-label="{label}"' in markup
+
+    def test_it_carries_no_form_action_and_no_link(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        assert "<form" not in markup
+        assert "<a " not in markup
+
+    def test_the_counts_above_the_table_describe_the_whole_file_not_the_filter(self, client, db):
+        # FR-049a — the counts are rendered from ``report`` directly and sit
+        # outside the filter's own x-data scope, so they read the same
+        # whatever the table is narrowed to (proved here by their absence of
+        # any Alpine binding at all, since the Django test client renders
+        # markup rather than running Alpine).
         content = self._preview_content(client)
-        assert "preview" in content.lower()
+        counts_index = content.index("1 created")
+        counts_line = content[max(counts_index - 200, 0) : counts_index + 50]
+        assert "outcome" not in counts_line
+        assert "x-" not in counts_line
 
-    def test_states_nothing_has_been_imported(self, client, db):
-        content = self._preview_content(client)
-        assert "nothing has been imported" in content.lower()
 
-    def test_carries_the_confirm_control(self, client, db):
-        content = self._preview_content(client)
-        assert f'action="{reverse("literature:item-import-confirm")}"' in content
+class TestImportPreviewTemplate:
+    """T907 — the preview page carries no import form, is titled and
+    described, warns above the table when warranted, carries the outcome
+    filter, and ends with exactly three controls in one row (US-6, FR-046
+    through FR-050)."""
 
-    def test_carries_no_token(self, client, db):
-        content = self._preview_content(client)
-        token = client.session["literature_import_token"]
-        assert token
-        assert token not in content
+    def _preview(self, client, filename="import.ris", format_name="ris", content=None):
+        upload = SimpleUploadedFile(filename, (content or IMPORT_RIS_FIXTURE).encode())
+        client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+        return client.get(reverse("literature:item-import-preview"))
 
-    def test_the_report_page_after_a_real_import_carries_no_confirm_control(self, client, db):
-        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        response = client.post(
-            reverse("literature:item-import"),
-            {"format": "ris", "file": upload, "skip_preview": "on"},
-        )
+    def test_carries_no_import_form(self, client, db):
+        content = self._preview(client).content.decode()
+        assert 'type="file"' not in content
+
+    def test_is_titled_for_what_it_is_with_a_description_beneath(self, client, db):
+        content = self._preview(client).content.decode()
+        assert "Preview import" in content
+        assert "Nothing has been imported yet" in content
+
+    def test_a_warning_appears_above_the_table_when_an_entry_was_skipped_or_failed(self, client, db):
+        response = self._preview(client, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n")
         content = response.content.decode()
-        assert f'action="{reverse("literature:item-import-confirm")}"' not in content
+        table_index = content.index("<table")
+        warning_index = content.index("alert-warning")
+        assert warning_index < table_index
 
-    def test_carries_the_import_form_as_well_as_the_confirm_control(self, client, db):
-        """T703, decisions.md D17's own hazard — the preview state already
-        carries the confirm control, so putting the import form above the
-        results gives this state two forms, neither nested in the other."""
-        content = self._preview_content(client)
-        assert 'type="file"' in content
-        assert f'action="{reverse("literature:item-import-confirm")}"' in content
-        assert content.count("<form") == 2
+    def test_no_warning_when_every_entry_was_created(self, client, db):
+        content = self._preview(client).content.decode()
+        assert "alert-warning" not in content
 
+    def test_the_filter_component_sits_above_the_table(self, client, db):
+        content = self._preview(client).content.decode()
+        filter_index = content.index('class="filter')
+        table_index = content.index("<table")
+        assert filter_index < table_index
 
-#: One good RIS record and one carrying no reference type at all — reused
-#: locally from ``tests/test_ui/test_views.py``'s own ``RIS_ONE_GOOD_ONE_BAD``
-#: so this module's Retry-state tests can exercise a file that *is* read but
-#: whose entries do not all succeed (the state Retry is never for).
-RIS_ONE_GOOD_ONE_BAD = """TY  - JOUR
-AU  - Doe, Jane
-TI  - A Working RIS Reference
-PY  - 2020
-JO  - Journal of Testing
-ER  -
-
-AU  - Roe, Jan
-T1  - A Record With No Reference Type
-ER  -
-"""
-
-
-class TestImportReportRetryState:
-    """T703, FR-023a, decisions.md D17 — where the submitted file could not
-    be read at all, the report page's submit control reads *Retry* and stays
-    disabled until the attachment changes.
-
-    Keyed on the report's own shape (``report.total == report.failed == 1``)
-    rather than on a new context flag: a whole-file failure is reported as
-    one synthetic failed entry and nothing else (``literature/importers/base.py``
-    ``import_entries``), which is the only signal the template can already
-    reach without touching ``views.py`` (hazards, prohibitions)."""
-
-    def _unreadable_content(self, client):
-        # Valid RIS submitted as bibtex — bibtexparser recognises no
-        # ``@type{`` block anywhere in it, so the whole file fails to parse
-        # rather than any one entry within it.
-        upload = SimpleUploadedFile("wrong-format.bib", IMPORT_RIS_FIXTURE.encode())
-        return client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
-
-    def test_is_the_whole_file_unreadable_shape(self, client, db):
-        report = self._unreadable_content(client).context["report"]
-        assert report.total == 1
-        assert report.failed == 1
-
-    def test_the_submit_control_reads_retry(self, client, db):
-        content = self._unreadable_content(client).content.decode()
-        assert ">Retry<" in content
-        assert ">Import<" not in content
-
-    def test_the_retry_control_starts_disabled(self, client, db):
-        content = self._unreadable_content(client).content.decode()
-        retry_index = content.index(">Retry<")
-        assert "disabled" in content[max(retry_index - 300, 0) : retry_index]
-
-    def test_the_retry_control_is_wired_to_activate_on_a_changed_attachment(self, client, db):
-        # Not executed here — the Django test client renders markup, it does
-        # not run Alpine — so this asserts the reactive wiring is present in
-        # the markup rather than that clicking works (D17's own reasoning:
-        # re-submitting the identical file reproduces the identical failure).
-        content = self._unreadable_content(client).content.decode()
-        assert "x-bind:disabled" in content
-        assert "fileChanged" in content
-
-    def test_a_file_that_read_with_some_entries_failing_reads_import_not_retry(self, client, db):
-        # Not the state Retry is for: the file *was* read, and an entry
-        # succeeded alongside one that did not (hazards).
-        upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
-        response = client.post(
-            reverse("literature:item-import"),
-            {"format": "ris", "file": upload, "skip_preview": "on"},
-        )
-        report = response.context["report"]
-        assert report.total == 2
-        assert report.created == 1
-        assert report.failed == 1
-        content = response.content.decode()
-        assert ">Retry<" not in content
-        assert ">Import<" in content
+    def test_the_foot_carries_exactly_three_controls_in_one_row(self, client, db):
+        content = self._preview(client).content.decode()
+        # <c-group> renders to this literal opening class, and this page's
+        # footer is the only place it appears after the table.
+        footer_index = content.rindex('class="flex flex-col items-stretch')
+        footer = content[footer_index:]
+        assert footer.count("<a ") == 1  # back to the catalogue
+        assert footer.count("<form") == 2  # restart, confirm
+        assert reverse("literature:item-list") in footer
+        assert f'action="{reverse("literature:item-import-restart")}"' in footer
+        assert f'action="{reverse("literature:item-import-confirm")}"' in footer
 
 
 class TestImportFormPageFieldErrors:
