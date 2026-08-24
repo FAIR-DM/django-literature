@@ -748,9 +748,7 @@ class TestCatalogueImportAction:
 
     def test_the_contributor_page_carries_no_import_link(self, client, db):
         contributor = NameFactory()
-        content = client.get(
-            reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
-        ).content.decode()
+        content = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})).content.decode()
         assert f'href="{reverse("literature:item-import")}"' not in content
 
     def test_the_table_catalogue_still_renders_search_filter_and_create(self, client, db):

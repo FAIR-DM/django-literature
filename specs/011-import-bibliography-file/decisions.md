@@ -311,4 +311,3 @@ rather than silently folded in, since the brief names only one shipped test as s
 **Revisit if:** a future action joins `directory` that is genuinely object-level but not yet routed
 under a `pk` — the two-branch shape here (`{}` vs `dict(self.kwargs) or None`) would need a third
 case rather than a second hardcoded name.
-

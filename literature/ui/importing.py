@@ -9,10 +9,12 @@ scattered across module functions. Its mirror test is
 """
 
 from dataclasses import dataclass
+from typing import cast
 
 from django.urls import reverse
 
 from literature.importers.results import EntryResult, ImportResult, Outcome
+from literature.models import Item
 
 
 @dataclass(frozen=True)
@@ -54,9 +56,16 @@ class ImportReport:
         return [self._row(entry) for entry in self.result]
 
     def _row(self, entry: EntryResult) -> ImportReportRow:
+        # EntryResult.item is typed as bare ``object`` (contracts/importers.md):
+        # the import contract makes no promise about what a format stores, only
+        # that a real run's created entry carries the object it made. This
+        # front end is written against ``BibFormat``'s own guarantee that the
+        # stored object is always an ``Item`` (literature/importers/base.py
+        # entry_created()), so the cast documents that guarantee rather than
+        # narrowing the contract's own, deliberately looser, type.
         item_url = None
         if entry.item is not None:
-            item_url = reverse("literature:item-detail", kwargs={"pk": entry.item.pk})
+            item_url = reverse("literature:item-detail", kwargs={"pk": cast(Item, entry.item).pk})
         return ImportReportRow(
             position=entry.index + 1,
             outcome=entry.outcome,
