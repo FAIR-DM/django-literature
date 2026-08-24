@@ -6,12 +6,6 @@ a format owns, :meth:`~RISFormat.parse` and :meth:`~RISFormat.to_csl_json`; the 
 atomicity, per-entry reporting and dry runs all come from
 :class:`~literature.importers.base.BibFormat` unchanged.
 
-This module is the foundational phase only — :class:`RISParser` and the :class:`RISFormat`
-skeleton. There is no RIS-to-CSL mapping yet: that is US-1 (issue #36). Until it lands, only a
-file with no entries (an empty file, or one holding nothing but header material) converts
-cleanly; a real entry's :meth:`~RISFormat.to_csl_json` raises, and is reported as a failed entry
-like any other conversion the contract cannot complete (plan.md "Story boundaries").
-
 One format reads EndNote, Web of Science and Scopus alike, with no producer detection (FR-029):
 the parser reads what the primary RIS specification defines, and the tags that only some
 producers use are read by the tags themselves rather than by which tool wrote the file.
