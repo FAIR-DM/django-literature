@@ -49,6 +49,13 @@ described in the README.
 prefetching a row needs. The contributor page composes it without the search box and
 filters, which belong to the catalogue alone.
 
+`ItemImportView` serves the import page, reached from the Import action on either
+catalogue presentation. It renders the format choice and file control on a `GET`, and on
+a valid `POST` runs the chosen format over the uploaded file and renders the report
+directly rather than redirecting — see
+[Importing a bibliography file](../importing-through-the-interface.md) for what a reader
+sees.
+
 ```{eval-rst}
 .. automodule:: literature.ui.views
    :members:
@@ -83,6 +90,23 @@ reason where it has one, and the URL of the reference it created where it create
 
 ```{eval-rst}
 .. automodule:: literature.ui.importing
+   :members:
+   :undoc-members: False
+   :show-inheritance:
+```
+
+## `literature.ui.tables`
+
+`ItemTable` is the catalogue's table presentation — the columns `ItemTableView` renders,
+and the ordering it sorts by.
+
+`ImportReportTable` renders an import report's rows. It takes a plain list rather than a
+queryset, since a report is built from one import's result and never queried. A created
+row's position number links to the reference it produced, and a skipped or failed row's
+does not.
+
+```{eval-rst}
+.. automodule:: literature.ui.tables
    :members:
    :undoc-members: False
    :show-inheritance:
