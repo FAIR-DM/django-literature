@@ -205,6 +205,36 @@ and every pre-existing test in the module.
 
 **Watch:** none.
 
+## 2026-08-24T14:22+02:00 · Implementer Phase 1 · T107
+
+**Did:** Added `TestImportRouteReverses` to `tests/test_ui/test_urls.py` — the route reverses under
+the `literature` namespace and resolves to `views.ItemImportView`.
+
+**Verified:** `poetry run pytest tests/test_ui/test_urls.py::TestImportRouteReverses -v` — 2 failed
+(exit 1): `NoReverseMatch: Reverse for 'item-import' not found` and a matching `Resolver404`, the
+right reason — neither the route nor the view exists yet.
+
+**Next:** T108 — the route itself.
+
+**Watch:** none.
+
+## 2026-08-24T14:24+02:00 · Implementer Phase 1 · T108
+
+**Did:** Added `path("import/", views.ItemImportView.as_view(), name="item-import")` to
+`literature/ui/urls.py`, ahead of the `<int:pk>/` patterns so it is never shadowed. Added
+`"import": "literature:{model_name}-import"` to `CRUD_VIEWS`, matching the other four actions'
+naming convention. Added a minimal `ItemImportView(MVPFormView)` stub (`model = Item`,
+`list_view_title = CATALOGUE_TITLE`) so the route resolves to a real class — built out fully at
+T110.
+
+**Verified:** `poetry run pytest tests/test_ui/test_urls.py -q` — 16 passed (exit 0), green T107.
+`poetry run pytest tests/test_ui/ -q` — 549 passed (exit 0), nothing else disturbed by the new
+`CRUD_VIEWS` key (no view shows `import` yet, so `TestCRUDViewsReverse` does not iterate it).
+
+**Next:** T109 — the import view's own red test.
+
+**Watch:** none.
+
 **Watch:** `BoundRow.get_cell()` (the helper every other class in this module uses) returns a
 column's raw Python value with no escaping at all for a plain, unlinked column — escaping happens
 only in the outer table template's `{{ cell }}`, or inside `format_html()` for a linkified column.

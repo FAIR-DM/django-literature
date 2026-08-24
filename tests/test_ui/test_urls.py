@@ -79,6 +79,16 @@ class TestDeleteRouteReverses:
         assert reverse("literature:item-delete", kwargs={"pk": 1}) == "/catalogue/1/delete/"
 
 
+class TestImportRouteReverses:
+    """T107/T108 — the import route, added by US-1 (plan.md "The three seams")."""
+
+    def test_item_import_reverses(self):
+        assert reverse("literature:item-import") == "/catalogue/import/"
+
+    def test_item_import_resolves_to_the_import_view(self):
+        assert resolve("/catalogue/import/").func.view_class is views.ItemImportView
+
+
 class TestCRUDViewsReverse:
     """plan.md D-6 — an action a view *shows* must have a resolvable route, or
     ``get_breadcrumbs()`` raises ``NoReverseMatch`` at render time instead of
