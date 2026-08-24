@@ -620,3 +620,36 @@ fix carries a test that fails against the defect it removes.
 **Revisit when:** the import contract carries a parse-failure marker through `EntryResult`, which
 would let the Retry state be exact rather than inferred from `report.total == report.failed == 1`
 (D23's own remaining note, still open and still harmless).
+
+## D25 — Phase 8: what "the glossary's own test" meant, and a stale docstring found but not fixed
+
+**Ambiguous:** the brief for documenting this refinement said to add *preview* and *staged file* to
+`CONTEXT.md` "if and only if the glossary's own test says they are terms this package now uses,"
+and to "read that test before deciding." No file in the repository is a runnable test of glossary
+membership — `CONTEXT.md` carries no pytest coverage of its own vocabulary.
+
+**Chosen:** read "the glossary's own test" as the standard `CONTEXT.md` states about itself, in its
+own opening comment: it is "drafted at onboarding from the source code (the authoritative
+reference)." Applied literally — grepped `literature/ui/staging.py`, `views.py` and `forms.py` for
+both terms — and both are the code's own words, not language invented for a reader: `StagedUpload`,
+`RETENTION_WINDOW`'s docstring, `ItemImportView`'s `preview=` keyword and its `_render_report`
+argument, `ImportForm.skip_preview`'s label. Both entries were added on that basis (T804).
+
+**Why defensible:** a literal pytest interpretation would have blocked the task on a file that does
+not exist, which is not what "read that test" was asking for — the phrase reads more naturally as
+pointing at the glossary's own documented inclusion rule than at an undiscovered fixture. If a
+runnable glossary test is later added, this decision is what it should be checked against.
+
+**A second, unrelated finding from the same verify-rather-than-assume instruction, reported rather
+than fixed:** `literature/ui/importing.py`'s `ImportReportRow.reason` docstring still reads "Why the
+entry failed, or `None` for anything that did not" — true before ADR-0027 and false since, because a
+skipped entry may carry one too (D18). `docs/api/ui.md`'s own paragraph carried the identical stale
+phrase and was corrected in T803, since that file is this phase's to edit. The docstring in
+`literature/ui/importing.py` is not: this phase's prohibitions name `literature/` off limits, "This
+phase is documentation only." Reported here with file and line rather than edited, the same move
+D21 and D23 made for a casualty of a sanctioned change this phase did not cause and was not
+authorised to adjudicate.
+
+**Revisit when:** whoever reviews this phase decides whether to correct
+`ImportReportRow.reason`'s docstring to match the amended contract (the same edit T803 already made
+to its public restatement).
