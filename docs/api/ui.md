@@ -55,3 +55,35 @@ filters, which belong to the catalogue alone.
    :undoc-members: False
    :show-inheritance:
 ```
+
+## `literature.ui.forms`
+
+`ImportForm` is the format choice and file control the import page renders — a plain `forms.Form`,
+not a `ModelForm`, since nothing on it maps to `Item` directly; the format resolves the file into
+entries and the entries into items, never this form. Its format choices are read from
+`available_formats()` when the form is instantiated, not when the class is defined, so a format
+configured after import time still appears. `ItemForm` is the one write form every create and
+update page shares — see the README's "Adding, editing and removing a reference" section for what
+it does.
+
+```{eval-rst}
+.. automodule:: literature.ui.forms
+   :members:
+   :undoc-members: False
+   :show-inheritance:
+```
+
+## `literature.ui.importing`
+
+`ImportReport` turns one `ImportResult` into what the import report page renders — `rows`, one
+`ImportReportRow` per entry in source order, plus the same `created`, `skipped`, `failed` and
+`total` counts the result already carries. `ImportReportRow` is the frozen row itself: a position
+numbered from one, the entry's outcome, its citation key where the source supplies one, its failure
+reason where it has one, and the URL of the reference it created where it created one.
+
+```{eval-rst}
+.. automodule:: literature.ui.importing
+   :members:
+   :undoc-members: False
+   :show-inheritance:
+```
