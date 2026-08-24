@@ -432,22 +432,87 @@
         {
           "id": "T022",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestTheCardListFiltersAndSearches::test_a_search_term_narrows_the_card_list",
+              "tests/test_ui/test_views.py::TestTheCardListFiltersAndSearches::test_a_filter_narrows_the_card_list",
+              "tests/test_ui/test_views.py::TestTheCardListFiltersAndSearches::test_a_sort_with_no_filter_in_force_shows_no_applied_filter_badge"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py::TestTheCardListFiltersAndSearches -x",
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_architecture.py tests/test_ui/test_contributors.py",
+              "poetry run ruff check literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py"
+            ]
+          }
         },
         {
           "id": "T023",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestContributorDetailView::test_renders_neither_a_search_box_nor_a_filter_button"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py::TestContributorDetailView::test_renders_neither_a_search_box_nor_a_filter_button",
+              "poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_contributors.py",
+              "poetry run pytest -q tests/test_ui/test_urls.py tests/test_ui/test_tables.py tests/test_demo/test_smoke.py",
+              "poetry run ruff check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
         },
         {
           "id": "T024",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestBothPresentationsReturnTheSameReferences::test_the_two_routes_narrow_to_the_same_references[search]",
+              "tests/test_ui/test_views.py::TestBothPresentationsReturnTheSameReferences::test_the_two_routes_narrow_to_the_same_references[type]",
+              "tests/test_ui/test_views.py::TestBothPresentationsReturnTheSameReferences::test_the_two_routes_narrow_to_the_same_references[contributor]",
+              "tests/test_ui/test_views.py::TestBothPresentationsReturnTheSameReferences::test_the_two_routes_narrow_to_the_same_references[language]",
+              "tests/test_ui/test_views.py::TestBothPresentationsReturnTheSameReferences::test_the_two_routes_narrow_to_the_same_references[issued_year]",
+              "tests/test_ui/test_views.py::TestBothPresentationsReturnTheSameReferences::test_the_two_routes_narrow_to_the_same_references[search-and-filter]"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py::TestBothPresentationsReturnTheSameReferences -v",
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
         },
         {
           "id": "T025",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_architecture.py::TestSearchAndFilterAreDeclaredOnce::test_views_module_imports_search_fields_and_filterset_rather_than_declaring_them",
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMoveOnTheCardList::test_a_search_survives_following_the_rendered_link_to_page_2",
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMoveOnTheCardList::test_a_filter_survives_following_the_rendered_link_to_page_2"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_architecture.py -v",
+              "poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMoveOnTheCardList -v",
+              "poetry run pytest -q tests/test_ui/test_architecture.py tests/test_ui/test_views.py",
+              "poetry run ruff check tests/test_ui/test_architecture.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_architecture.py tests/test_ui/test_views.py",
+              "poetry run pytest -q",
+              "poetry run ruff check .",
+              "poetry run ruff format --check .",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py",
+              "poetry run deptry .",
+              "poetry run pre-commit run --all-files"
+            ]
+          }
         }
       ],
       "issue": 94
@@ -461,27 +526,88 @@
         {
           "id": "T026",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_demo/test_seed.py::TestSeedCatalogue::test_has_language_values_across_several_distinct_languages"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_demo/test_seed.py::TestSeedCatalogue::test_has_language_values_across_several_distinct_languages",
+              "poetry run pytest -q tests/test_demo/test_seed.py",
+              "poetry run ruff check tests/test_demo/test_seed.py",
+              "poetry run ruff format --check tests/test_demo/test_seed.py",
+              "DEMO_DB_PATH=<tmp> poetry run python manage.py migrate -v0",
+              "DEMO_DB_PATH=<tmp> poetry run python manage.py seed_demo"
+            ]
+          }
         },
         {
           "id": "T027",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_demo/test_seed.py::TestSeedCatalogue::test_filtering_to_the_dominant_language_still_leaves_more_than_one_page"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_demo/test_seed.py::TestSeedCatalogue::test_filtering_to_the_dominant_language_still_leaves_more_than_one_page",
+              "poetry run pytest -q tests/test_demo/test_seed.py",
+              "poetry run ruff check tests/test_demo/test_seed.py",
+              "poetry run ruff format --check tests/test_demo/test_seed.py"
+            ]
+          }
         },
         {
           "id": "T028",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_demo/test_smoke.py::TestSecondPageLinkPattern::test_matches_a_link_the_paginated_list_renders_when_a_filter_is_also_in_force"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_demo/test_smoke.py::TestSecondPageLinkPattern",
+              "poetry run pytest -q tests/test_demo/",
+              "poetry run pytest -q tests/test_ui/ tests/test_demo/",
+              "poetry run ruff check demo/smoke.py tests/test_demo/test_smoke.py",
+              "poetry run ruff format --check demo/smoke.py tests/test_demo/test_smoke.py",
+              "poetry run mypy demo/smoke.py",
+              "poetry run python demo/smoke.py http://127.0.0.1:8123",
+              "poetry run python demo/smoke.py http://127.0.0.1:8124"
+            ]
+          }
         },
         {
           "id": "T029",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q tests/test_documentation.py",
+              "poetry run pre-commit run --files README.md CHANGELOG.md"
+            ]
+          }
         },
         {
           "id": "T030",
           "status": "done",
-          "attempts": 1
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run ruff check .",
+              "poetry run ruff format --check .",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py demo/smoke.py",
+              "poetry run deptry .",
+              "poetry run pre-commit run --all-files",
+              "DJANGO_SETTINGS_MODULE=tests.settings poetry run python manage.py makemigrations --check --dry-run",
+              "cd literature && poetry run django-admin makemessages -l en",
+              "msgfmt --check literature/locale/en/LC_MESSAGES/django.po -o /tmp/django.mo",
+              "DEMO_DB_PATH=<tmp> poetry run python manage.py migrate -v0",
+              "DEMO_DB_PATH=<tmp> poetry run python manage.py seed_demo",
+              "poetry run python demo/smoke.py http://127.0.0.1:8125"
+            ]
+          }
         }
       ],
       "issue": 95
