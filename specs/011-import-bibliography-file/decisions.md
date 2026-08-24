@@ -534,3 +534,56 @@ reason is still asserted in `test_results.py`.
 
 **Verified:** the full suite is green at 1,813 tests, including both edited tests and the widened
 reader-stage assertion.
+
+## D23 — Two pre-existing tests in test_views.py are left red by the Phase 7 refinement, reported rather than fixed
+
+**Ambiguous:** nothing in Phase 7's own brief, whose prohibitions name the same rule D20/D21 already
+established: a shipped test going red is reported with its file, its line and what it asserts, and
+is not edited to make this phase's own change pass.
+
+T703/T704 put the upload form above the report's results (decisions.md D17) whenever the page's
+`form` context variable is the one `ItemImportView` supplies — the preview state, and an ordinary
+report reached by skipping the preview. Two tests written before D17 assert the opposite of exactly
+that:
+
+- `tests/test_ui/test_views.py:1699`
+  (`TestItemImportPreview::test_a_preview_of_a_file_the_chosen_format_cannot_read_offers_no_confirmation`)
+  asserts `"<form" not in content` for a preview whose file could not be read at all (AS-12: nothing
+  would be created by confirming). That is precisely FR-023a's Retry scenario — the one D17 names as
+  the item in this refinement with reasoning behind it — so the page now carries the upload form,
+  its submit control reading *Retry*.
+- `tests/test_ui/test_views.py:1791`
+  (`TestItemImportSkipPreview::test_the_report_describes_what_was_imported_rather_than_what_would_be`)
+  asserts `"<form" not in content` for the ordinary report a skip-preview submission produces. D17
+  draws no exception for that path — "the form sits above the results on the report page" is the
+  report page's own presentation now, not conditioned on how the report was reached — so this page
+  carries the form too, reading *Import*.
+
+**Chosen:** report both failures, their cause and their file and line, without editing either. The
+same guardrail D20 and D21 record applies here: a failing pre-existing test is evidence about intent
+the code may be contradicting, and the intent here changed at a decision recorded before this
+phase's own code was written (D17, Sam's own reading of the shipped report). But the phase that
+discovers a casualty of a sanctioned change is not the phase authorized to adjudicate it — its own
+brief withheld that authorization, in the same words D21's brief did.
+
+**Why defensible:** both tests are not wrong about what they once verified — a report page carrying
+no control that re-runs the import. They are only wrong about the contract now. D20 already made the
+matching edit once, for this same `TestImportReportPage` class, at a convergence step outside the
+phase that motivated it; the correct move here is the same one, deferred the same way.
+
+**A gap this same constraint leaves, named rather than silently accepted:** `ItemImportConfirmView`
+never hands this template a `form` shaped like `ImportForm` — its own `form` is `ConfirmImportForm`,
+which declares no fields, so `{% if form.fields.file %}` (the guard `import_report.html` uses to tell
+the two apart without a new context flag) is false for every report that view produces, including the
+`nothing_to_confirm` state, and including an ordinary report reached by confirming a preview — the
+default path through this feature end to end. That report shows the back-to-catalogue and
+empty-import-form buttons (FR-021), so a reader can always start a new import, but does not show the
+upload form D17 describes sitting above the results. Closing this gap needs `ItemImportConfirmView`
+to hand the template a real `ImportForm()`, which is `literature/ui/views.py`, out of this phase's
+prohibited scope (prohibitions: "Do not change literature/ui/views.py... If a template genuinely
+cannot reach something it needs, report that rather than changing the view").
+
+**Revisit when:** whoever reviews this phase decides whether to bring the two tests onto the amended
+contract (the move D20 made), and separately whether `ItemImportConfirmView` should hand the report
+template an unbound `ImportForm()` alongside `ConfirmImportForm()` so the upload form's presence stops
+depending on which of the two views rendered the page.
