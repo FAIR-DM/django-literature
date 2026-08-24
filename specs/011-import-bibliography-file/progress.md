@@ -821,3 +821,24 @@ first full run, deleted, not committed). `tests/test_ui/conftest.py` gained an a
 `_media_root_under_tmp_path` fixture pointing `MEDIA_ROOT` at `tmp_path` for every UI test, and the
 three per-class copies of the same override added while writing T505/T506/T508 were removed as
 redundant now that one fixture covers the whole directory.
+
+## 2026-08-24T19:52+02:00 · Implementer Phase 5 · T510/T511
+
+**Did:** `tests/test_ui/test_templates.py` gained `TestImportPreviewPage` — the preview is labelled
+as one, states nothing has been imported, carries the confirm control (asserted on the form's
+`action`, not just any `<form`), carries no token (the session's own token string is confirmed
+absent from the body), and the report page after a real (skip-preview) import carries no confirm
+control.
+
+**Verified:** all five passed on first run — T507's own work already built the presentation these
+tests check (`import_report.html`'s `preview`/`nothing_to_confirm` branches, `import_form.html`'s
+warning), so there was nothing left for T511 to add. Recorded here rather than silently treated as
+"nothing to do": these tests still needed writing test-first in the sense that they exist to lock
+the behaviour in place, they simply did not have code missing under them when written. `poetry run
+pytest tests/test_ui/test_templates.py -q` — 87 passed, 1 failed (the same, already-reported
+`TestImportReportPage::test_carries_no_form_that_could_run_the_import_again`, no new failures).
+`ruff check`/`ruff format` clean.
+
+**Next:** T512/T513/T514 — the demo walk's preview step.
+
+**Watch:** none new.

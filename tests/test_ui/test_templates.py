@@ -585,6 +585,42 @@ class TestImportReportPage:
         assert "<form" not in content
 
 
+class TestImportPreviewPage:
+    """T510 — the preview state of the report page (US-4, FR-039, FR-042)."""
+
+    def _preview_content(self, client):
+        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        return response.content.decode()
+
+    def test_is_labelled_as_a_preview(self, client, db):
+        content = self._preview_content(client)
+        assert "preview" in content.lower()
+
+    def test_states_nothing_has_been_imported(self, client, db):
+        content = self._preview_content(client)
+        assert "nothing has been imported" in content.lower()
+
+    def test_carries_the_confirm_control(self, client, db):
+        content = self._preview_content(client)
+        assert f'action="{reverse("literature:item-import-confirm")}"' in content
+
+    def test_carries_no_token(self, client, db):
+        content = self._preview_content(client)
+        token = client.session["literature_import_token"]
+        assert token
+        assert token not in content
+
+    def test_the_report_page_after_a_real_import_carries_no_confirm_control(self, client, db):
+        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "ris", "file": upload, "skip_preview": "on"},
+        )
+        content = response.content.decode()
+        assert f'action="{reverse("literature:item-import-confirm")}"' not in content
+
+
 class TestImportFormPageFieldErrors:
     """T203 — an invalid submission's field errors render beside their own
     fields, in the idiom the create page already uses (FR-006, US-2).
