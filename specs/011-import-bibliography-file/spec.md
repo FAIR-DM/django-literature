@@ -6,6 +6,8 @@
 
 **Status**: Draft
 
+**Refined**: 2026-08-24 — a preview step, the presentation of the report, and a reason on skipped entries. Sam, in session, after using the shipped pages. See `decisions.md` D16-D18. `plan.md` and `tasks.md` carry the cascade.
+
 **Serves**: G4 (a full front end as an opt-in app built on django-mvp) · G5 (import references from common bibliography formats) · Roadmap R6 · Issue #50
 
 **Input**: The package already reads BibTeX and RIS files, but only from code. Someone using the interface should be able to hand it a file exported from their reference manager and have the references land in the catalogue without writing anything. Afterwards they need to see what became of every entry in the file, including which ones failed and why, rather than guessing from a count.
@@ -106,6 +108,56 @@ The demo project offers the import path over its own front end, and the guard th
 
 ---
 
+---
+
+### User Story 4 - Preview an import before it happens (Priority: P1)
+
+*Added by the 2026-08-24 refinement.*
+
+Someone attaches a file and submits it. Instead of the references appearing, they get the same report they would have got — every entry, its outcome, its citation key, its reason — under a heading saying nothing has been imported yet, and a button to go ahead. They read it, see that four entries would fail, and either accept that and confirm, or fix the file and start again. Nothing was written to the catalogue while they decided. Someone who does not want the extra step ticks a box on the form and the import happens directly.
+
+**Why this priority**: A file from a reference manager is the least trustworthy input this package takes, and the report is only useful before the fact if reading it can still change the outcome. It shares P1 with the story it modifies, because previewing is now the default path through the feature rather than an addition to it.
+
+**Independent Test**: Submit a mixed file, confirm the catalogue is unchanged and the page says so, confirm the preview, and confirm the same entries the preview described are now the ones in the catalogue. Then repeat with the skip box ticked and confirm the references arrive in one step.
+
+**Acceptance Scenarios**:
+
+1. **Given** the import form, **When** a file is submitted with the default settings, **Then** the catalogue is unchanged and the page states that nothing has been imported.
+2. **Given** a preview, **When** it is read, **Then** it reports every entry exactly as a real import of the same file would.
+3. **Given** a preview, **When** it is read, **Then** it offers a control that carries out the import it described.
+4. **Given** a preview, **When** its import is carried out, **Then** the entries it reported as created are the ones now in the catalogue.
+5. **Given** a preview, **When** its import is carried out, **Then** the reader is not asked to attach the file again.
+6. **Given** the import form, **When** the skip control is ticked and the form submitted, **Then** the references are imported in one step and the report describes what was imported rather than what would be.
+7. **Given** the import form, **When** it is first opened, **Then** the skip control is not ticked.
+8. **Given** a file staged by one session, **When** another session attempts to confirm it, **Then** nothing is imported and the attempt is reported as having nothing to confirm.
+9. **Given** a preview that was never confirmed, **When** the staged file is looked for later, **Then** it has been swept.
+10. **Given** a confirmation for a file that is no longer staged, **When** it is submitted, **Then** the page says so plainly and imports nothing.
+11. **Given** a confirmed import, **When** it completes, **Then** the file it was staged from is no longer held.
+12. **Given** a preview of a file the chosen format cannot read, **When** it is read, **Then** it reports the format's own reason and offers no confirmation.
+
+---
+
+### User Story 5 - Read why an entry was skipped (Priority: P2)
+
+*Added by the 2026-08-24 refinement.*
+
+A reader looks at a report and sees an entry that was neither created nor failed. Today the row says "skipped" and stops, with no key and no explanation, which tells them nothing they can act on. The format always knows why — it was a comment block, or header material before the first record, or a fragment carrying no type — and it should say so.
+
+**Why this priority**: A row a reader cannot interpret is a defect in the thing this feature exists to provide. It sits below the preview because a skipped entry is not a loss, only an unexplained one.
+
+**Independent Test**: Import a file containing a comment block and a truncated trailing entry, and confirm each skipped row carries a reason naming what it was.
+
+**Acceptance Scenarios**:
+
+1. **Given** an entry a format skips, **When** its result is read, **Then** it carries a reason saying why.
+2. **Given** a BibTeX file containing a comment or preamble block, **When** it is imported, **Then** that block is reported skipped with a reason naming what it was.
+3. **Given** an RIS file with header material before its first record, **When** it is imported, **Then** that material is reported skipped with a reason naming what it was.
+4. **Given** a skipped entry, **When** its row in the report is read, **Then** the reason appears in the same place a failure's reason appears.
+5. **Given** a created entry, **When** its result is read, **Then** it carries no reason, exactly as before.
+6. **Given** an existing caller reading a result, **When** it inspects a skipped entry, **Then** nothing that worked before has changed except that a reason is now present.
+
+---
+
 ### Edge Cases
 
 - A file containing exactly one entry produces a report of one row, with the same counts and the same structure as a long one.
@@ -139,18 +191,20 @@ The demo project offers the import path over its own front end, and the guard th
 **The report**
 
 - **FR-011**: A completed import MUST render an import report, and MUST NOT redirect to the catalogue.
+- **FR-011a**: The report page MUST carry the import form above the results, separated from them by a divider, so a second file can be submitted without navigating away.
 - **FR-012**: The report MUST state how many entries were created, how many skipped and how many failed.
 - **FR-013**: The report MUST list every entry in the file exactly once, in the order the entries appeared in it.
 - **FR-014**: The report MUST NOT be paginated.
-- **FR-015**: Each entry MUST show its outcome as one of created, skipped or failed, using the vocabulary the package already fixes for it.
+- **FR-015**: Each entry MUST show its outcome as one of created, skipped or failed, using the vocabulary the package already fixes for it, rendered as a badge whose colour encodes which of the three it is.
 - **FR-016**: Each entry MUST be numbered by its position in the file counting from one.
 - **FR-017**: Each entry MUST show its citation key where the format carries or mints one, and MUST show nothing in its place where there is none.
-- **FR-018**: Every failed entry MUST show its reason.
+- **FR-018**: Every failed entry MUST show its reason, and every skipped entry MUST show why it was skipped.
 - **FR-019**: Failed entries MUST be distinguishable from the rest without being lifted out of source order.
 - **FR-020**: Each created entry MUST link to that reference's page in the catalogue.
-- **FR-021**: The report MUST offer a way back to the catalogue.
+- **FR-021**: The report MUST offer a way back to the catalogue as a button carrying a backward arrow, and a second button that returns to an empty import form.
 - **FR-022**: A failure reason MUST be rendered as text, so that characters meaningful in markup cannot be interpreted.
-- **FR-023**: One submission MUST import the file exactly once, and the report MUST offer no control that runs the import again. *(Narrowed during planning from "reloading the report must not re-run the import" — see `decisions.md` D11. Holding the wider form would mean carrying the result between two requests, which needs a session backend the host may not run, and Article X forbids the package requiring structural changes of its host.)*
+- **FR-023**: One submission MUST import the file exactly once. *(Narrowed during planning from "reloading the report must not re-run the import" — see `decisions.md` D11. The second half of this requirement, that the report carry no control running the import again, was removed by the 2026-08-24 refinement: the report now carries the form deliberately, and the preview step is what makes a second run safe.)*
+- **FR-023a**: Where the submitted file could not be read at all, the form's submit control MUST read *Retry* and MUST stay disabled until the attached file changes.
 
 **Failing safely**
 
@@ -161,18 +215,28 @@ The demo project offers the import path over its own front end, and the guard th
 
 **Boundaries**
 
-- **FR-028**: The feature MUST NOT change the import contract, any model, or any converter, and MUST ship no migration.
+- **FR-028**: The feature MUST NOT change any model, MUST NOT change any converter, and MUST ship no migration. *(Amended 2026-08-24: the import contract does change, in one respect — a skipped entry may now carry a reason. See FR-018 and `decisions.md` D18.)*
 - **FR-029**: The feature MUST NOT add duplicate detection, and MUST NOT compare an incoming entry against anything already stored.
-- **FR-030**: The feature MUST NOT offer a preview or dry run.
-- **FR-031**: The feature MUST NOT store anything about the run.
+- ~~**FR-030**: The feature MUST NOT offer a preview or dry run.~~ **Reversed 2026-08-24 — see FR-038 to FR-044 and `decisions.md` D16.**
+- **FR-031**: The feature MUST NOT store any record of a completed import — no model, no table, no history. *(Amended 2026-08-24: a submitted file is now held between the preview and the confirmation, which is staging rather than a record. See FR-041 to FR-044.)*
 - **FR-032**: A core-only install MUST resolve nothing this feature adds.
 - **FR-033**: Every user-facing string this feature introduces MUST be translatable.
+
+**Previewing before importing**
+
+- **FR-038**: Submitting the import form MUST, by default, run the file as a preview that reports every entry exactly as a real import would and leaves the catalogue untouched.
+- **FR-039**: A preview MUST be labelled as one, MUST state that nothing has been imported, and MUST offer a control that carries out the import it previewed.
+- **FR-040**: The import form MUST offer a way to skip the preview and import directly, and that choice MUST default to previewing.
+- **FR-041**: Carrying out a previewed import MUST NOT require the reader to attach the file a second time.
+- **FR-042**: The identity of a staged file, and the format it was staged as, MUST be held in the reader's session and MUST NOT be carried in the page, so that a request can only confirm a file that same session staged.
+- **FR-043**: A staged file MUST be removed once the import it was staged for is carried out, and staged files left behind by a preview that was never confirmed MUST be swept.
+- **FR-044**: A confirmation naming a file that is no longer staged, or that this session never staged, MUST report that plainly and MUST import nothing.
 
 **The demo and the documentation**
 
 - **FR-034**: The demo MUST serve the import path, and MUST carry a bibliography file containing both entries that convert and at least one that does not.
-- **FR-035**: The demo's guard MUST reach the import page from the catalogue, submit that file, read the report, and MUST fail when the action, the import or the report stops working.
-- **FR-036**: The documentation MUST describe importing a file through the interface, state that the format is the reader's choice rather than detected, state that a repeated import creates the references again, state that entries created before a failure stay created, and state that the import runs while the reader waits.
+- **FR-035**: The demo's guard MUST reach the import page from the catalogue, submit that file, read the preview, carry out the import it previewed, read the report, and MUST fail when the action, the preview, the confirmation or the report stops working.
+- **FR-036**: The documentation MUST describe importing a file through the interface, state that the format is the reader's choice rather than detected, state that a repeated import creates the references again, state that entries created before a failure stay created, state that the import runs while the reader waits, and describe the preview step including how to skip it.
 - **FR-037**: `CONTEXT.md` MUST define *import report* as the front end's rendering of an import result.
 
 ### Key Entities
@@ -191,7 +255,12 @@ No new entity, no changed field and no migration. The report renders what the im
 - **SC-006**: The import path is reachable from both catalogue presentations.
 - **SC-007**: The feature ships no migration and changes no model.
 - **SC-008**: Installing the core alone resolves nothing this feature added.
-- **SC-009**: The demo's guard fails when the import action, the import itself, or the report stops working.
+- **SC-009**: The demo's guard fails when the import action, the preview, the confirmation or the report stops working.
+- **SC-010**: A reader sees what a file would do to the catalogue before any of it happens, and can decline.
+- **SC-011**: A reader who wants the one-step import can have it, and has to ask for it.
+- **SC-012**: No session can carry out an import staged by another session.
+- **SC-013**: A preview that is never confirmed leaves nothing behind.
+- **SC-014**: Every row of a report says what happened to that entry and, where it was not created, why.
 
 ## Assumptions
 

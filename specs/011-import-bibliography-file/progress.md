@@ -679,3 +679,35 @@ T401/T403/T404 above), full suite once, `pre-commit run --all-files`, `makemigra
 across every app, and the completion report.
 
 **Watch:** none.
+
+## 2026-08-24T18:45+02:00 · Refinement
+
+**Ledger backfilled.** Implementation of T001–T407 had landed and been committed while the ledger
+stayed at PLAN with every task open. Repaired from the per-task entries above and the branch
+commits, verified independently rather than asserted: lint, type checks, the full suite, the build,
+the structure checks and the documentation checks all green. The three story completion comments
+were also missing and have been posted.
+
+**Documentation gate.** The 26 decision records were reachable from no navigation, which the gate
+caught because this branch amended one of them. They now have an index page, listed explicitly
+rather than by glob so that adding a record is a visible act.
+
+**Specification refined and re-approved in session.** Three changes, from using the shipped pages:
+
+1. Importing previews by default, with a control to carry out the previewed import and a checkbox to
+   skip the preview. Reverses FR-030 and amends FR-031. The submitted file is staged between the two
+   requests, its identity held in the session rather than in the page. Recorded as D16.
+2. The report's presentation — colour-coded outcome badges, a back button with a backward arrow, an
+   "import another file" button, the form above the results with a divider, and a *Retry* control
+   disabled until the attachment changes. Recorded as D17.
+3. A skipped entry may carry a reason, amending the import contract and so FR-028. Recorded as D18,
+   tracked in its own right as #107.
+
+Two behaviours were queried and are not defects: an unmapped entry type falls back to a generic
+document rather than failing, which spec 004 settled as recovery over rejection; and a skipped entry
+carried no reason, which was the contract's rule and is what change 3 fixes.
+
+**Stories added:** #108 (US-4, preview) and #109 (US-5, skipped reason). The report's presentation is
+a refinement of #100. 33 tasks across four phases.
+
+**Next:** Phase 5.

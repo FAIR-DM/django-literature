@@ -211,3 +211,130 @@ Depends on Phase 3. Documentation ships in this PR (Article VI).
 
 **Phase exit:** documentation gate green, full verify green, and `makemigrations --check` across
 every app confirms the run ships no migration (SC-007), which nothing local otherwise asserts.
+
+---
+
+# Refinement, 2026-08-24
+
+Everything above landed. What follows is the cascade from the specification amendment — see the
+`**Refined**` note in `spec.md` and decisions D16–D18. Phases run in order; Phase 5 is the largest
+and the other three sit on it.
+
+---
+
+## Phase 5 — US-4: Preview an import before it happens (P1)
+
+Issue #108. FR-038 to FR-044, plus the amended FR-035.
+
+### Staging
+
+- **T501** — `tests/test_ui/test_staging.py`: `TestStagedUpload` — saving a file returns a token and
+  writes the bytes where they can be read back; reading with a token this session did not issue
+  returns nothing; a staged file is removed on discard; a staged file older than the retention
+  window is swept and a fresh one is not; a token is not derivable from the file's contents or name.
+- **T502** — `literature/ui/staging.py`: `StagedUpload` — a class holding save / open / discard /
+  sweep over a directory obtained from Django's storage API, with a random token as the stored name
+  and the retention window a module constant. No new dependency. Green T501.
+
+### The two-step view
+
+- **T503** — `tests/test_ui/test_forms.py`: `TestImportForm` gains the skip control — present,
+  unticked by default, labelled; and `TestConfirmImportForm` — carries no file field and no token
+  field, because the token comes from the session (FR-042).
+- **T504** — `literature/ui/forms.py`: the skip-preview `BooleanField` (`required=False`,
+  `initial=False`) and, if the confirmation needs a form at all, one carrying nothing the page can
+  set. Green T503.
+- **T505** — `tests/test_ui/test_views.py`: `TestItemImportPreview` — a default submission imports
+  nothing and the catalogue is unchanged; the response reports every entry as a real import would;
+  the response states nothing was imported and carries a confirm control; the session holds the
+  staged token and format; the page does not contain the token.
+- **T506** — `tests/test_ui/test_views.py`: `TestItemImportConfirm` — confirming imports the staged
+  file and the created entries match what the preview reported; the reader is not asked for the file
+  again; the staged file is gone afterwards; a confirmation from a session that staged nothing
+  imports nothing and says so; a confirmation whose staged file has been swept says so and imports
+  nothing; a second confirmation of the same token imports nothing.
+- **T507** — `literature/ui/views.py`: `form_valid` stages the upload, runs `import_file(...,
+  dry_run=True)` and renders the preview; a confirm route reads the token and format from the
+  session, re-opens the staged file, runs the real import, discards the staging and renders the
+  report. Sweep stale stagings on entry to the import view. Green T505/T506.
+- **T508** — `tests/test_ui/test_views.py`: `TestItemImportSkipPreview` — ticking the skip control
+  imports in one step, reports what was imported rather than what would be, and stages nothing.
+- **T509** — `literature/ui/views.py`: the skip branch. Green T508.
+
+### Presentation and the guard
+
+- **T510** — `tests/test_ui/test_templates.py`: the preview page is labelled as a preview, says
+  nothing was imported, carries the confirm control, and carries no token; the report page after a
+  real import carries no confirm control.
+- **T511** — `literature/ui/templates/literature/ui/`: the preview state of the report page. Every
+  string translated.
+- **T512** — `tests/test_demo/test_smoke.py`: the confirm-control pattern matches the markup the
+  preview really renders.
+- **T513** — `demo/smoke.py`: `walk_import()` submits, reads the preview, asserts the catalogue is
+  still unchanged at that point, confirms, then asserts the references arrived. Green T512.
+- **T514** — verify the guard fails when it should: break the preview, then the confirmation, and
+  confirm the walk fails each time naming what was missing. Restore.
+
+**Phase exit:** full suite green, `forge verify` green, story comment on #108.
+
+---
+
+## Phase 6 — US-5: Read why an entry was skipped (P2)
+
+Issue #109, contract change tracked as #107. FR-018, amended FR-028.
+
+- **T601** — `tests/test_importers/test_results.py`: a skipped entry may carry a reason and one
+  without a reason is still valid; a created entry carrying a reason still raises; a failed entry
+  without one still raises.
+- **T602** — `literature/importers/results.py`: relax `EntryResult.__post_init__` for the skipped
+  outcome only. Green T601.
+- **T603** — `tests/test_importers/test_bibtex.py`: a `@comment` and a `@preamble` block each report
+  skipped with a reason naming what it was.
+- **T604** — `tests/test_importers/test_ris.py`: header material before the first record, and a
+  record whose only tag is `TY`, each report skipped with a reason naming what it was.
+- **T605** — `literature/importers/`: both formats pass a reason when they raise `SkipEntry`, and the
+  runner carries it onto the result. Green T603/T604.
+- **T606** — `tests/test_ui/test_tables.py` and `test_importing.py`: a skipped row shows its reason
+  in the column a failure's reason uses.
+- **T607** — `literature/ui/`: the report renders it. Green T606.
+- **T608** — `docs/adr/`: a decision record for a reason on a skipped entry, superseding nothing but
+  citing the contract it amends. `CHANGELOG.md` entry citing #107.
+
+**Phase exit:** full suite green, story comment on #109.
+
+---
+
+## Phase 7 — US-1 refinement: what the report looks like (P1)
+
+Issue #100. FR-011a, FR-015, FR-021, FR-023a. Decisions D17.
+
+- **T701** — `tests/test_ui/test_tables.py`: the outcome cell renders a badge, and the three
+  outcomes render three distinct variants — asserted on the variant, never on a colour name.
+- **T702** — `literature/ui/tables.py`: the outcome column renders django-mvp's badge component.
+  Green T701.
+- **T703** — `tests/test_ui/test_templates.py`: the report page carries the import form above the
+  results with a divider between them; a back-to-catalogue button carrying a backward arrow; a
+  second button leading to an empty import form; and where the file could not be read, a submit
+  control reading *Retry* that is disabled until the attached file changes.
+- **T704** — `literature/ui/templates/literature/ui/`: the report page layout. The Retry state is
+  Alpine on the file input, in the idiom the package already uses. Green T703.
+- **T705** — re-run the module's i18n and utility-class guards over every template this phase
+  touched.
+
+**Phase exit:** full suite green.
+
+---
+
+## Phase 8 — Documentation of the refinement
+
+- **T801** — `docs/importing-through-the-interface.md`: the preview step, how to skip it, that a
+  staged file is held only until it is confirmed or swept, and that a skipped entry now says why.
+- **T802** — `README.md` import section: the preview, in a sentence.
+- **T803** — `docs/api/ui.md`: the staging module.
+- **T804** — `CONTEXT.md`: *preview* and *staged file*, if the glossary's own test says they are
+  terms this package now uses.
+- **T805** — `CHANGELOG.md`: one entry for the refinement.
+- **T806** — the humanizer pass over every public markdown this refinement authored or rewrote, and
+  a check that no internal vocabulary reached any of it.
+
+**Phase exit:** documentation gate green, `forge verify` green.

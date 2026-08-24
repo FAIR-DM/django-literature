@@ -19,6 +19,26 @@
       "state": "PLAN",
       "at": "2026-08-24T10:50:00Z",
       "note": "plan, research and tasks authored; handle-type defect found and filed as #104, FR-023 narrowed"
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-24T11:20:00Z",
+      "note": "one reviewer, three lenses; amendments applied to plan, research and tasks"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T15:40:00Z",
+      "note": "US0-US4 implemented and committed, T001-T407"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T18:05:00Z",
+      "note": "ledger backfilled: implementation had landed while the ledger stayed at PLAN with every task open"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-24T18:40:00Z",
+      "note": "specification refined and re-approved in session; stories US4, US5, US6 and US9 added, 33 tasks"
     }
   ],
   "gates": {
@@ -35,12 +55,15 @@
         "The report is one page and is never paginated",
         "The format is chosen by the reader and never detected from the file",
         "Formats offered are read from the installation's configuration rather than listed in the front end",
-        "The feature reads the import contract and does not extend it; a genuine gap is raised as its own issue"
+        "The feature reads the import contract and does not extend it; a genuine gap is raised as its own issue",
+        "Refined 2026-08-24 with Sam's approval: importing previews by default and the staged file lives on disk (D12)",
+        "Refined 2026-08-24: the report's presentation \u2014 badges, buttons, the form above the results, a disabled Retry (D13)",
+        "Refined 2026-08-24: a skipped entry may carry a reason, amending the import contract (D14)"
       ]
     },
     "plan": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-24T11:40:00Z"
     },
     "merge": {
       "approved_by": null,
@@ -52,38 +75,68 @@
       "id": "US0",
       "priority": "P0",
       "issue": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T001",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T002",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T003",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T004",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T005",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T006",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         }
       ]
     },
@@ -91,78 +144,148 @@
       "id": "US1",
       "priority": "P1",
       "issue": 100,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T101",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T102",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T103",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T104",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T105",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T106",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T107",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T108",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T109",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T110",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T111",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T112",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T113",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T114",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         }
       ]
     },
@@ -170,23 +293,38 @@
       "id": "US2",
       "priority": "P2",
       "issue": 101,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T201",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T202",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T203",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         }
       ]
     },
@@ -194,75 +332,336 @@
       "id": "US3",
       "priority": "P3",
       "issue": 102,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T301",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T302",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T303",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
         },
         {
           "id": "T304",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T305",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US8",
+      "priority": "P4",
+      "issue": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T401",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T402",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T403",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T404",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T405",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T406",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        },
+        {
+          "id": "T407",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "forge verify --repo . --base origin/main  (lint, typecheck, test, build, conformance, docs all green)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P1",
+      "issue": 108,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T501",
           "status": "todo",
           "attempts": 0
         },
         {
-          "id": "T305",
+          "id": "T502",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T503",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T504",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T505",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T506",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T507",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T508",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T509",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T510",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T511",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T512",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T513",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T514",
           "status": "todo",
           "attempts": 0
         }
       ]
     },
     {
-      "id": "US4",
+      "id": "US5",
+      "priority": "P2",
+      "issue": 109,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T601",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T602",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T603",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T604",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T605",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T606",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T607",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T608",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US6",
+      "priority": "P1",
+      "issue": 100,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T701",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T702",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T703",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T704",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T705",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US9",
       "priority": "P4",
       "issue": null,
       "status": "todo",
       "replans": 0,
       "tasks": [
         {
-          "id": "T401",
+          "id": "T801",
           "status": "todo",
           "attempts": 0
         },
         {
-          "id": "T402",
+          "id": "T802",
           "status": "todo",
           "attempts": 0
         },
         {
-          "id": "T403",
+          "id": "T803",
           "status": "todo",
           "attempts": 0
         },
         {
-          "id": "T404",
+          "id": "T804",
           "status": "todo",
           "attempts": 0
         },
         {
-          "id": "T405",
+          "id": "T805",
           "status": "todo",
           "attempts": 0
         },
         {
-          "id": "T406",
-          "status": "todo",
-          "attempts": 0
-        },
-        {
-          "id": "T407",
+          "id": "T806",
           "status": "todo",
           "attempts": 0
         }

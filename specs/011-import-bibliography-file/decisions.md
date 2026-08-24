@@ -342,3 +342,92 @@ test database before writing `walk_import`: two entries `CREATED`, the leading `
 **Revisit if:** a future importer contract adds field-level cleaning for every scalar (not only
 identifiers), at which point an oversized `address` might also start recovering rather than failing,
 and the fixture would need a different failure shape.
+
+## D16 — Importing previews by default, and the staged file lives on disk
+
+**Ambiguous:** nothing, at specification time. FR-030 forbade a preview and FR-031 stored nothing.
+Sam reversed both after using the shipped pages, on the grounds that a report which arrives after
+the fact cannot change anything.
+
+**Chosen:** submitting the form runs a dry run and reports it as a preview; a control on that page
+carries out the import it described. A checkbox on the form skips the preview. The submitted file is
+staged on disk between the two requests.
+
+**Why defensible:** the report is the feature. Its whole value is telling a reader what a file did to
+their catalogue, and a reader who can only learn that afterwards is left undoing it by hand — with no
+duplicate detection (D5) to help them, because a re-import after a bad one doubles the damage. The
+importer already supports exactly this: a dry run runs every stage and reports identically inside a
+transaction that is rolled back, and it was built at the same time as the contract for this purpose.
+The front end was declining to use a capability the core already had.
+
+The cost is that FR-031 no longer holds literally. A file has to survive between the preview and the
+confirmation, because a browser will not re-populate a file input and asking a reader to re-attach a
+file to confirm it defeats the point of previewing. This is staging, not a record: it is one file, it
+is removed when the import it was staged for is carried out, and abandoned ones are swept. No history
+of imports is kept and D2 stands unchanged.
+
+django-import-export solves the same problem the same way, and reading its implementation is what
+settled the design. Three things in it are not copied and are the reason this is worth writing down:
+
+- **The staged file's identity lives in the session, not in the page.** Its confirm form posts the
+  temp filename back as a hidden field, and `process_import` checks only that the requester has import
+  permission — which returns true for any admin user unless a setting is configured. Anyone holding a
+  name can confirm someone else's staged upload. Here the name is never in the page at all, so a
+  request can only confirm what its own session staged. That is FR-042, and it costs nothing.
+- **The format is carried with the staged file, not re-read from the confirmation.** Theirs takes the
+  format and resource from the confirming POST, so what commits is not guaranteed to be what was
+  previewed.
+- **Abandoned stagings are swept.** Their `remove()` is called in one place and not in a `finally`, so
+  a preview that errors, or that the reader walks away from, leaves the file behind indefinitely.
+
+Their exposure is bounded by the admin being staff-only. Ours would not be — this front end has no
+permission model at all (D9) — so the same design without those three changes would be worse here
+than it is there.
+
+## D17 — What the report looks like, settled by use rather than by specification
+
+**Ambiguous:** the specification said what the report must contain and left its presentation open.
+Reading a real one showed the difference.
+
+**Chosen:** outcomes render as colour-coded badges. The way back to the catalogue is a button with a
+backward arrow, beside a second button that returns to an empty form. The form sits above the results
+on the report page, divided from them, so another file can be submitted without navigating away. Where
+the file could not be read at all, the submit control reads *Retry* and stays disabled until the
+attached file changes.
+
+**Why defensible:** these are Sam's, from using the pages, and that is the right source for them — a
+specification can require that failures be distinguishable (FR-019) without being able to say what
+makes them so on a screen. The one with reasoning worth keeping is the disabled Retry: re-submitting a
+file the format could not read produces the identical failure, so a control that invites it is
+inviting a wasted round trip. Requiring the attachment to change before the control activates makes the
+page say what the reader has to do differently.
+
+Keeping the form on the report page also removes the tension D11 recorded. FR-023's second half — that
+the report carry no control re-running the import — was the best available answer when the report was a
+dead end. It now carries one deliberately, and the preview is what makes running it again safe.
+
+## D18 — A skipped entry may carry a reason
+
+**Ambiguous:** the import contract sets a reason if and only if an entry failed, and actively raises if
+a skipped entry carries one. So a format that knows exactly why it skipped something has nowhere to
+put it, and the report shows a row with no key and no explanation.
+
+**Chosen:** a skipped entry may carry a reason, and both shipped formats supply one. A created entry
+still may not.
+
+**Why defensible:** the contract's rule was a reasonable reading of "a reason explains a problem", and
+using it showed the reading was too narrow. Skipping is not a failure but it is still something the
+reader did not ask for, and every skip in the package has a specific, nameable cause the format
+already knows: a comment or preamble block, header material before the first record, a fragment
+carrying no type. Withholding it produces a row that a reader cannot act on or even interpret, which
+is the outcome the whole feature exists to prevent.
+
+This changes the import contract, which FR-028 forbade, so FR-028 is amended rather than worked
+around. The change is additive: a reason on a skipped entry is a field that was previously always
+absent, no existing caller can be reading it, and the invariant that a created entry carries none is
+untouched. Raised on the tracker in its own right so the contract change has a record that does not
+depend on anyone reading this feature's specification.
+
+The alternative — the front end supplying its own words for a skipped row — was rejected outright. It
+would mean the interface inventing an explanation the importer never gave, which is worse than saying
+nothing.
