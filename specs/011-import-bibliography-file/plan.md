@@ -40,8 +40,8 @@ bound.
 constraints); every user-facing string translatable (Article VIII); test modules mirror the source
 tree with class grouping (Article XIV); new lines ≥85% covered, package ≥90% (`codecov.yml`).
 
-**Scale/Scope**: one form, one view, two templates, one table, one presentation module, two
-four-line layout wrappers, one core fix, one demo fixture and one demo walk step.
+**Scale/Scope**: one form, one view, two page templates, one action component, one four-line card-list
+wrapper, one table, one presentation module, one core fix, one demo fixture and one demo walk step.
 
 ## Constitution Check
 
@@ -95,12 +95,13 @@ literature/
     ├── tables.py               # + ImportReportTable
     ├── urls.py                 # + import route
     ├── views.py                # + ItemImportView; import action on both catalogue views
-    └── templates/literature/ui/
-        ├── catalogue_actions.html    # NEW — the shared action row
-        ├── item_list_page.html       # NEW — card list, action row
-        ├── item_table_page.html      # NEW — table, action row
-        ├── import_form.html          # NEW
-        └── import_report.html        # NEW
+    └── templates/
+        ├── cotton/page/list/actions/
+        │   └── import.html           # NEW — the action itself, a component django-mvp does not define
+        └── literature/ui/
+            ├── item_list_page.html   # NEW — card-list wrapper, action row only
+            ├── import_form.html      # NEW
+            └── import_report.html    # NEW
 
 demo/
 ├── seed/import-sample.bib      # NEW — entries that convert, and one that does not
@@ -125,24 +126,37 @@ form, and by Article XV, which wants the row-building grouped on a class rather 
 
 1. **The toolbar.** `"import"` joins `CRUD_VIEWS`; both `ItemListView` and `ItemTableView` gain
    `"import"` in `directory` and `show_import_action = True`, so `directory.import_url` resolves
-   through django-mvp's own mechanism. Rendering is a `page.actions` block override: one partial
-   (`catalogue_actions.html`) included by two wrappers, one extending `list_view.html` and one
-   extending `table_view.html`, set as `template_name` on the two views **directly, never on
-   `CatalogueListMixin`** — the mixin also serves the contributor page, which stays as it is.
+   through django-mvp's own mechanism. The action renders as one Cotton component,
+   `cotton/page/list/actions/import.html`, a name django-mvp does not define (`research.md` R2).
+   The two presentations reach it differently, because only one of them has a hook:
+   - `ItemTableView` sets `actions = ["search", "filter", "create", "import"]`. No template.
+   - `ItemListView` needs a `page.actions` block override, because `list_view.html` renders the
+     component with no attribute and a `c-vars` default cannot be reached from the context. The
+     wrapper (`item_list_page.html`) renders `<c-page.list.actions :actions="list_actions" />`
+     against a list the view supplies, and that list is the packaged default **plus** import —
+     search, sort, filter, create, import. Rendering only the import link would strip the rest of
+     the row. `template_name` is set on `ItemListView` **directly, never on `CatalogueListMixin`**;
+     the mixin also serves the contributor page, which stays as it is.
 
 2. **The view.** `ItemImportView(MVPFormView)` with `model = Item` (`research.md` R3),
-   `form_class = ImportForm`. `form_valid` resolves the format with `get_format`, calls
-   `import_file(request.FILES[...])`, and renders the report template with an `ImportReport` in the
-   context. It does not redirect and does not touch `success_url`.
+   `form_class = ImportForm`. `form_valid` resolves the format class with `get_format`, **instantiates
+   it**, calls `import_file(request.FILES[...])` on the instance — `get_format` returns the class
+   (`importers/config.py:100-110`) and `import_file` is an instance method (`importers/base.py:117`)
+   — and renders the report template with an `ImportReport` in the context. It does not redirect and
+   does not touch `success_url`.
 
 3. **The report.** `ImportReport` wraps an `ImportResult` and yields one row per entry carrying
    position (index + 1), outcome, citation key, reason and the created item's URL. `ImportReportTable`
-   renders those rows through django-mvp's table template. The counts come off `ImportResult`'s own
-   `created` / `skipped` / `failed` properties.
+   renders those rows through django-mvp's table template. The link to a created reference hangs on
+   the position number, which every row has, rather than on the citation key, which the contract
+   permits a created entry to lack (`EntryResult.handle` is `None` by default and AS-10 forbids
+   inventing one). The counts come off `ImportResult`'s own `created` / `skipped` / `failed`
+   properties.
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | A core change (both formats accept either handle) inside a front-end feature | A browser upload is bytes; BibTeX currently fails every one of them with an internal type error reported as an entry failure. The feature cannot work without it. | Decoding in the view was rejected: it puts a per-format handle table in the front end, contradicts ADR 0012 and FR-010, and breaks for any third format a project configures. |
-| Three new template files for one toolbar action | django-mvp offers no way for a view to add an action to its own toolbar, and the two catalogue layouts do not share a template. | Shadowing django-mvp's action component was rejected: `literature.ui` is installed after `mvp`, so the shadow never resolves from inside this package. Duplicating the markup in two wrappers was rejected for the obvious reason. |
+| One wrapper template for the card list, where the table needs none | django-mvp's table mixin publishes an `actions` attribute a view can extend; its card list renders the same component with no attribute, so the list has no hook and template inheritance is the only way in (`research.md` R2). | Shadowing django-mvp's `page.list.actions.index` component was rejected: `literature.ui` is installed after `mvp`, so the shadow never resolves from inside this package. Wrapping the table as well was rejected once the `actions` hook was measured — it is unnecessary work and puts a second copy of the toolbar under our maintenance. |
+| An unauthenticated upload endpoint that parses an unbounded file in the request | Both halves are approved spec assumptions, restated in `decisions.md` D12. | Nothing is rejected here; the plan takes no position it may not take. Changing either means amending `spec.md` and putting it back to the maintainer. |

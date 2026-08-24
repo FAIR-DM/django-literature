@@ -47,33 +47,46 @@ accepted. This is a core change inside a front-end feature and is called out as 
 `decisions.md`, and it is raised on the tracker in its own right so the defect has a record
 independent of this feature.
 
-## R2 — There is no view attribute for adding a toolbar action
+## R2 — The table view has an actions hook; the card list does not
 
-**Checked:** django-mvp 0.19.1 at `/home/sam/projects/django-mvp/django-mvp/mvp/`, matching the copy
-resolved into this project's environment.
+**Checked:** the django-mvp 0.19.1 copy this project actually resolves —
+`<venv>/lib/python3.14/site-packages/mvp`, `django_mvp-0.19.1.dist-info`, confirmed with
+`poetry run python -c "import mvp; print(mvp.__path__)"`. A separate working checkout at
+`/home/sam/projects/django-mvp/` carries the same version number and different code. It is not what
+this project runs, and reading it instead is what an earlier pass of this section got wrong.
 
-**Found:** the action row is rendered by `cotton/page/list/actions/index.html`, whose action list is
-a Cotton `c-vars` default of `['search','sort','filter','create']`. A `c-vars` default shadows any
-context variable of the same name, so a view cannot add to the list by putting `actions` in its
-context. There is no `toolbar_actions`, `list_actions` or `get_*_actions()` hook anywhere in
-`mvp/views/` or `mvp/integrations/` — django-mvp's documented design is that each control follows
-the thing that drives it (`search_fields` draws search, a FilterSet draws filter, and so on).
+**Found:** the two catalogue layouts differ, and only one of them lacks a hook.
 
-What does exist is `CRUDDirectoryMixin` (`mvp/views/detail.py:101-163`), which resolves arbitrary
-named actions to URLs — its docstring says a custom action added to `directory` stays hidden until
-the view opts in with a `show_<name>_action` attribute. So the URL half of a custom action is
-supported; only the rendering half is missing.
+- **Table.** `MVPTableViewMixin` declares `actions = ["search", "filter", "create"]` and publishes it
+  as `context["table_actions"]` (`mvp/integrations/django_tables/views.py:43,108`);
+  `mvp/templates/table_view.html:76-78` renders `<c-page.list.actions :actions="table_actions" />`.
+  A table view adds an action by naming it on the class. This repo already depends on that hook —
+  `tests/test_ui/test_views.py::TestItemTableView` asserts the exact list.
+- **Card list.** `mvp/templates/list_view.html:3-5` renders `<c-page.list.actions />` with no
+  attribute, so the row falls back to the component's own `c-vars` default of
+  `['search','sort','filter','create']`, and no list mixin declares an `actions` attribute. A
+  `c-vars` default shadows a context variable of the same name, so the only way in is to pass the
+  list as an attribute — which means overriding the block that renders the component.
 
-**What the plan does:** carries the URL through the supported mechanism — `"import"` joins
-`CRUD_VIEWS`, `directory` and `show_import_action` on both catalogue views — and renders it by
-overriding the `page.actions` block, which is Django template inheritance rather than a fork of
-anyone's markup. One partial holds the markup; two four-line wrappers put it into each parent
-layout. Shadowing `cotton/page/list/actions/index.html` from inside this package was considered and
-rejected: template resolution follows `INSTALLED_APPS` order and `literature.ui` is installed after
-`mvp`, so the shadow would never win. A host project could do it; a package cannot.
+`cotton/page/list/actions/index.html` iterates the list as
+`<c-component is="page.list.actions.{{ action_item }}" />`, and the shipped component directory holds
+only `create`, `filter`, `index`, `search`, `share` and `sort`. `page.list.actions.import` is a name
+django-mvp does not define, so supplying it from this package **adds** a component rather than
+shadowing one, and the `INSTALLED_APPS`-order problem that would sink a shadow does not arise.
 
-The gap is worth raising upstream — a list view has no supported way to add an action to its own
-toolbar — but this feature does not wait on it.
+`CRUDDirectoryMixin` (`mvp/views/detail.py:101-163`) resolves the URL half: a custom action added to
+`directory` stays hidden until the view sets `show_<name>_action`.
+
+**What the plan does:** carries the URL through `CRUD_VIEWS` / `directory` / `show_import_action` on
+both catalogue views, ships one component at
+`literature/ui/templates/cotton/page/list/actions/import.html`, and reaches it two ways — the table
+view names `"import"` in its own `actions`, and the card list gets a `page.actions` block override
+rendering `<c-page.list.actions :actions="list_actions" />` against a view-supplied list. The
+override must render the whole row: the block it replaces is the sole renderer of search, sort,
+filter and create, so an override emitting only the import link would strip them.
+
+The gap is worth raising upstream, narrowly — a *list* view has no supported way to add an action to
+its own toolbar, where a table view does — but this feature does not wait on it.
 
 ## R3 — `MVPFormView` cannot render without a model
 

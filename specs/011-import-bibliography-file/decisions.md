@@ -232,3 +232,28 @@ at no cost.
 
 If an import history is built later (D2), the redirect becomes available for free, because the
 result would then have somewhere to live that is not the session.
+
+## D12 — The unauthenticated, unbounded upload is accepted and written down
+
+**Ambiguous:** nothing, in the sense of a choice left open — but this feature opens the project's
+first file-upload boundary, and the specification approved both halves of what that means without
+naming the combination.
+
+**Chosen:** no change to the design. The two assumptions stand as approved: nothing in the front end
+checks permissions, so the import page is reachable by whoever can reach the catalogue, and the
+package imposes no size limit of its own on the submitted file. FR-007 additionally forbids the
+front end inspecting the file, so an extension or content-type allowlist is ruled out by
+requirement, not by choice. What changes is that the documentation says so plainly rather than
+leaving a reader to infer it.
+
+**Why defensible:** the endpoint grants no privilege the already-open create page does not. What it
+adds is throughput — one anonymous request now parses a caller-sized file in the worker and can
+create thousands of references and their related rows, where the create page makes one. That is a
+real difference in kind of exposure, and it is the host project's own upload size, request timeout
+and access rules that bound it, because a reusable app cannot bound them for its host without
+imposing the structural assumptions Article X rules out.
+
+Recorded rather than fixed, because both halves are approved specification text. Changing either
+means amending the specification and putting it back to the maintainer, not something planning may
+take on its own.
+

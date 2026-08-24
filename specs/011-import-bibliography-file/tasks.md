@@ -22,8 +22,8 @@ is always bytes. See `research.md` R1, `decisions.md` D10 and issue #104.
 - **T003** — `tests/test_importers/test_ris.py`: add `TestParseAcceptsEitherHandle`, the mirror of
   T001 — a `.ris` fixture opened as text produces the same results as the same fixture opened in
   binary. Red first.
-- **T004** — `literature/importers/ris.py`: `parse` accepts a text read as well as a bytes read.
-  Green T003.
+- **T004** — `literature/importers/ris.py`: `RISParser.parse` (`ris.py:116-124`, where the decode
+  lives — `RISFormat.parse` only delegates) accepts a text read as well as a bytes read. Green T003.
 - **T005** — `literature/importers/base.py`: `import_file`'s docstring states what a handle may be,
   replacing "an open file object, or anything with a `read()`". `tests/test_importers/test_base.py`
   gains an assertion that both handle types reach `parse` unchanged.
@@ -61,11 +61,14 @@ Issue #100. Depends on Phase 0.
 ### The table
 
 - **T105** — `tests/test_ui/test_tables.py`: `TestImportReportTable` — renders a list of rows with
-  no queryset; every column present; the outcome cell renders the outcome's own translated label;
-  a failure reason containing markup characters is escaped in the output; a created row's citation
-  key links to the item and a failed row's does not.
+  no queryset; every column present; the outcome cell renders the outcome's own translated label,
+  which is what keeps a failed entry distinguishable in place (FR-019); a failure reason containing
+  markup characters is escaped in the output; **a created row's position number links to the item, a
+  failed row's does not, and a created row whose entry carries no citation key still links** — the
+  link hangs on the position, never on the key (`EntryResult.handle` is `None` by default and AS-10
+  forbids inventing one); the citation key renders as plain text beside it.
 - **T106** — `literature/ui/tables.py`: `ImportReportTable` over `ImportReportRow`, using
-  django-mvp's table template. Green T105.
+  django-mvp's table template, with the item URL on the position column. Green T105.
 
 ### The view and its route
 
@@ -80,15 +83,21 @@ Issue #100. Depends on Phase 0.
   same way for a `.ris` fixture; a file mixing entries that convert with one that does not reports
   each correctly and leaves the created ones in the catalogue; the report is not paginated.
 - **T110** — `literature/ui/views.py`: `ItemImportView(MVPFormView)` with `model = Item`,
-  `form_valid` resolving the format through `get_format`, calling `import_file` on the uploaded
-  file, and rendering the report template with an `ImportReport` and an `ImportReportTable` in the
-  context. Green T109.
+  `form_valid` resolving the format class through `get_format`, **instantiating it** —
+  `get_format(name)().import_file(...)`, because `get_format` returns the class and `import_file` is
+  an instance method — and rendering the report template with an `ImportReport` and an
+  `ImportReportTable` in the context. Green T109.
 
 ### The templates
 
 - **T111** — `tests/test_ui/test_templates.py`: the import form page carries a multipart form, a
   file control and the repeat-import warning; the report page carries the counts, the table and a
-  link back to the catalogue; both pass the suite's existing i18n and utility-class guards.
+  link back to the catalogue, **and carries no form posting to the import route and no other control
+  that would run the import again** — the surviving half of FR-023, which is an assertion of absence
+  and so has to be written as one. Both pages pass the suite's existing i18n and utility-class
+  guards — and widen that module's template glob so it also reaches the Cotton component directory.
+  Today it globs `literature/ui/templates/literature/ui/*.html` only, so the new action component
+  would be checked by neither guard.
 - **T112** — `literature/ui/templates/literature/ui/import_form.html` extending `form_view.html`,
   and `import_report.html` extending the page layout, carrying the counts, the table and the way
   back. Every string translated. Green T111.
@@ -97,12 +106,32 @@ Issue #100. Depends on Phase 0.
 
 - **T113** — `tests/test_ui/test_views.py`: `TestCatalogueImportAction` — the rendered table
   catalogue carries a link to the import route; the rendered card catalogue carries the same link;
-  the contributor page carries none.
+  the contributor page carries none; **and both catalogues still render the search box, the filter
+  control and the create action** — the card list reaches its action row by replacing the block that
+  renders the whole row, so the regression this guards against is silent and shipped tests
+  (`TestItemTableView::test_carries_search_and_filter_but_no_column_chooser`,
+  `TestItemListView::test_the_add_link_renders_and_points_at_the_create_page`) are evidence about
+  intent, never something to edit green.
 - **T114** — `literature/ui/views.py` and templates: `"import"` joins `CRUD_VIEWS`; `ItemListView`
-  and `ItemTableView` each gain `"import"` in `directory` and `show_import_action = True`;
-  `catalogue_actions.html` holds the action markup; `item_list_page.html` and `item_table_page.html`
-  override `page.actions` and are set as `template_name` on the two views directly, never on
-  `CatalogueListMixin`. Green T113.
+  and `ItemTableView` each gain `"import"` in `directory` and `show_import_action = True`; the action
+  ships as `literature/ui/templates/cotton/page/list/actions/import.html`. The two presentations then
+  diverge (`research.md` R2):
+  - `ItemTableView` sets `actions = ["search", "filter", "create", "import"]` and gets no template.
+    Update the existing assertion on that list, which is the one place a shipped test legitimately
+    changes here.
+  - `ItemListView` supplies `list_actions = ["search", "sort", "filter", "create", "import"]` to its
+    context and sets `item_list_page.html` as `template_name` **directly, never on
+    `CatalogueListMixin`**; that wrapper overrides `page.actions` with
+    `<c-page.list.actions :actions="list_actions" />`. The packaged default must be carried through,
+    not replaced by the import link alone.
+
+  Also refresh the docstring on
+  `tests/test_ui/test_templates.py::TestPackagedChain::test_no_page_template_of_our_own_stands_in_for_a_packaged_one`,
+  which says neither catalogue has a template here. The assertion still holds — it names `base.html`,
+  `item_list.html` and `contributor_detail.html` — but the docstring needs a line distinguishing a
+  wrapper that *extends* a packaged template from one that stands in for it.
+
+  Green T113.
 
 **Phase exit:** `pytest tests/test_ui/` green, full suite green, story comment posted on #100.
 
@@ -132,7 +161,10 @@ Issue #101. Depends on Phase 1.
 Issue #102. Depends on Phase 2.
 
 - **T301** — `demo/seed/import-sample.bib`: a small BibTeX file holding entries that convert and at
-  least one that does not, so the walk exercises a failure row.
+  least one that does not, so the walk exercises a failure row. Its entries must carry no citation
+  key, title, item type or language that the narrowing assertions at `demo/smoke.py:218-256` name —
+  those are exact-membership assertions over the whole catalogue, and an imported reference sharing
+  a seeded value makes them fail for a reason that has nothing to do with importing.
 - **T302** — `tests/test_demo/test_smoke.py`: `TestMultipartEncoder` — the encoder produces a body
   and a content type Django parses back into the same fields and file; and `TestImportLinkPattern` —
   the import-link regex matches the anchor the catalogue really renders, asserted against markup
@@ -142,7 +174,9 @@ Issue #102. Depends on Phase 2.
 - **T304** — `demo/smoke.py`: `walk_import()` — from the already-fetched catalogue body, find the
   import action, follow it, read the form, submit the fixture, assert on where it landed and on the
   report's content (the created references present, the failing entry reported with a reason), then
-  re-fetch the catalogue and assert the references arrived. Wired into `run()`.
+  re-fetch the catalogue and assert the references arrived. Wired into `run()` **last**, after
+  `walk_narrowed_catalogue()` and `walk_write_pass()`: unlike the write pass it leaves its references
+  behind, and on a developer's persistent demo database that accumulates across runs.
 - **T305** — verify the guard fails when it should: remove the toolbar action, then break the
   import, then empty the report, and confirm the walk fails each time with a reason naming what was
   missing. Restore.
@@ -160,7 +194,10 @@ Depends on Phase 3. Documentation ships in this PR (Article VI).
   page, choosing a format, what the report shows, that the format is chosen rather than detected,
   that a repeated import creates the references again, that entries created before a failure stay
   created, and that the import runs while the reader waits with the host's own upload and request
-  limits bounding a large file. Added to the Getting Started toctree in `docs/index.md`.
+  limits bounding a large file. It must also say plainly that **the import page carries no permission
+  check of its own** — it is reachable by anyone who can reach the catalogue, and a host that needs
+  it restricted restricts it at its own routing (D12). Added to the Getting Started toctree in
+  `docs/index.md`.
 - **T402** — `README.md`: an import section beside "Adding, editing and removing a reference",
   matching the depth of its neighbours.
 - **T403** — `docs/api/ui.md`: `literature.ui.forms` and `literature.ui.importing` entries.
@@ -172,4 +209,5 @@ Depends on Phase 3. Documentation ships in this PR (Article VI).
 - **T407** — run the humanizer over every public markdown this run authored or rewrote, and confirm
   no internal vocabulary reached any of it.
 
-**Phase exit:** documentation gate green, full verify green.
+**Phase exit:** documentation gate green, full verify green, and `makemigrations --check` across
+every app confirms the run ships no migration (SC-007), which nothing local otherwise asserts.
