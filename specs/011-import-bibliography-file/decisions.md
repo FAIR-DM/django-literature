@@ -384,6 +384,8 @@ Their exposure is bounded by the admin being staff-only. Ours would not be — t
 permission model at all (D9) — so the same design without those three changes would be worse here
 than it is there.
 
+**ADR:** `docs/adr/0028-an-import-previews-first-and-stages-its-file.md` — graduated.
+
 ## D17 — What the report looks like, settled by use rather than by specification
 
 **Ambiguous:** the specification said what the report must contain and left its presentation open.
@@ -405,6 +407,8 @@ page say what the reader has to do differently.
 Keeping the form on the report page also removes the tension D11 recorded. FR-023's second half — that
 the report carry no control re-running the import — was the best available answer when the report was a
 dead end. It now carries one deliberately, and the preview is what makes running it again safe.
+
+**ADR:** none — presentation. What a page looks like is settled by reading a real one and changes with the page. It commits nothing structural that a later reader would need the reasoning for.
 
 ## D18 — A skipped entry may carry a reason
 
@@ -432,6 +436,8 @@ The alternative — the front end supplying its own words for a skipped row — 
 would mean the interface inventing an explanation the importer never gave, which is worse than saying
 nothing.
 
+**ADR:** `docs/adr/0027-a-skipped-entry-may-carry-a-reason.md` — graduated.
+
 ## D19 — The staging retention window is a judgement call, recorded rather than derived
 
 **Ambiguous:** FR-043 requires that a staged file left behind by an unconfirmed preview eventually be
@@ -450,6 +456,8 @@ accumulate staged files on disk indefinitely between sweeps, which only run on e
 **Revisit if:** a host reports either edge in practice — staged files disappearing before a reader
 returns to confirm them, or disk use from abandoned previews becoming a real cost — at which point the
 figure itself is what to change, not the mechanism.
+
+**ADR:** none — a value, not a decision. The window is a module-level constant a project can change. ADR-0028 records that it is a judgement call, which is the part worth keeping.
 
 ## D20 — Four shipped tests are brought onto the refined default, with reasoning
 
@@ -472,6 +480,8 @@ to cover as the default is covered as the default by `TestItemImportPreview`, `T
 and `TestItemImportSkipPreview`. The phase that wrote the refinement was not sanctioned to touch
 them and correctly stopped and reported instead; the edit is made here, deliberately and with this
 record, rather than inside the phase that had the motive to make them pass.
+
+**ADR:** none — reconciliation of existing tests with a decision recorded elsewhere (D16, ADR-0028). The reasoning a later reader needs is in that record, not in the edits it forced.
 
 ## D21 — A pre-existing test in test_base.py is left red by ADR-0027, and reported rather than fixed
 
@@ -507,6 +517,8 @@ that wants a record and a reviewer with the authority this phase was not given.
 onto the amended contract, the same move D20 already made once) or decides the reader-stage path
 should carry a reason too, in which case the fix travels together with this test's update.
 
+**ADR:** none — a hand-off inside one run, superseded by D22 the same day. Nothing durable survives it.
+
 ## D22 — D21 resolved: both stages carry a skip's reason, and the pre-existing test is brought onto the amended contract
 
 **Ambiguous:** D21's own two-way question, left open for review.
@@ -534,6 +546,8 @@ reason is still asserted in `test_results.py`.
 
 **Verified:** the full suite is green at 1,813 tests, including both edited tests and the widened
 reader-stage assertion.
+
+**ADR:** `docs/adr/0027-a-skipped-entry-may-carry-a-reason.md` — graduated. Its Consequences section records both places a format can raise a skip and the two tests it reconciled.
 
 ## D23 — Two pre-existing tests in test_views.py are left red by the Phase 7 refinement, reported rather than fixed
 
@@ -588,6 +602,8 @@ contract (the move D20 made), and separately whether `ItemImportConfirmView` sho
 template an unbound `ImportForm()` alongside `ConfirmImportForm()` so the upload form's presence stops
 depending on which of the two views rendered the page.
 
+**ADR:** none — a hand-off inside one run, settled by D24. Nothing durable survives it.
+
 ## D24 — Both of D23's deferrals settled at convergence, and a third defect found beside them
 
 **Ambiguous:** D23 raised two questions and withheld both from the phase that found them: whether the
@@ -620,6 +636,8 @@ fix carries a test that fails against the defect it removes.
 **Revisit when:** the import contract carries a parse-failure marker through `EntryResult`, which
 would let the Retry state be exact rather than inferred from `report.total == report.failed == 1`
 (D23's own remaining note, still open and still harmless).
+
+**ADR:** none — implementation of decisions already recorded (D16, D17). The context variable it introduces is documented on the page that ships, not in a record of why.
 
 ## D25 — Phase 8: what "the glossary's own test" meant, and a stale docstring found but not fixed
 
@@ -654,6 +672,8 @@ authorised to adjudicate.
 `ImportReportRow.reason`'s docstring to match the amended contract (the same edit T803 already made
 to its public restatement).
 
+**ADR:** none — a reading of one instruction inside one run, plus a defect report. Neither constrains anything after this branch.
+
 ## D26 — The documentation gate was red on a name the phase's own change introduced
 
 **Ambiguous:** Phase 8 reported its documentation verified by diffing Sphinx's warning set against a
@@ -679,6 +699,8 @@ call about how much documentation is enough. Two prose corrections went in besid
 joining two independent clauses in `README.md`, and a "now carries a reason too" in the walkthrough,
 which is changelog voice in a page a reader arrives at with no memory of what it used to do.
 
+**ADR:** none — a gate failure and its fix. What a public name needs is already the repo's documented standard; this is compliance with it, not a decision about it.
+
 ## D27 — Triage of the branch's twelve pre-existing-test flags
 
 **Ambiguous:** the guardrail flags every modification to a test that existed at `origin/main` and
@@ -703,3 +725,5 @@ cannot tell a commented-out assertion from a sentence about one.
 **Why defensible:** the whole suite is green at 1,834 tests with no skip, no xfail and no lowered
 coverage floor, and each of the three groups has a decision record written before the edits, not
 after them.
+
+**ADR:** none — triage of a guardrail's flags against decisions already recorded. The false positive it names is a limit of the check, worth reporting upstream rather than recording here.

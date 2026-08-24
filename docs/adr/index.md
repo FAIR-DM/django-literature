@@ -38,4 +38,5 @@ rest of this documentation covers the how.
 0025-one-definition-of-what-the-catalogue-narrows-by
 0026-a-format-accepts-a-text-or-a-binary-handle
 0027-a-skipped-entry-may-carry-a-reason
+0028-an-import-previews-first-and-stages-its-file
 ```
