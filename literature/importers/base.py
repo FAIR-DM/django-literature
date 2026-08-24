@@ -58,6 +58,18 @@ def _reason_for(exc: Exception) -> str:
     return _("{error} (no further detail)").format(error=type(exc).__name__)
 
 
+def _skip_reason(exc: SkipEntry) -> str | None:
+    """What a format said it skipped, if it said anything (D18).
+
+    Unlike :func:`_reason_for`, a message-less ``SkipEntry`` stays ``None``
+    rather than being padded with the exception's type: skipping is not a
+    failure that needs explaining, and a format remains free to skip without
+    naming why.
+    """
+    text = str(exc).strip()
+    return text or None
+
+
 class BibFormat(abc.ABC):
     """A plug-in for one bibliographic file syntax, such as BibTeX or RIS.
 
@@ -205,7 +217,11 @@ class BibFormat(abc.ABC):
             # Out of contract — ``SkipEntry`` belongs to ``to_csl_json`` — but
             # a format recognising a trailing non-record while reading is
             # asking for the same thing, and the alternative is filing a
-            # deliberate signal as a failure.
+            # deliberate signal as a failure. Neither shipped format raises
+            # from here (only from ``to_csl_json``, handled in
+            # ``import_entry`` below), so there is no format-supplied reason
+            # to carry: this is the reader stopping mid-file, not a format
+            # naming what it recognised.
             results.append(self.entry_skipped(index=index, handle=None))
         except Exception as exc:
             # A format may report the file as unreadable (``ParseError``),
@@ -240,8 +256,8 @@ class BibFormat(abc.ABC):
 
         try:
             csl_json = self.to_csl_json(raw)
-        except SkipEntry:
-            return self.entry_skipped(index=index, handle=handle)
+        except SkipEntry as exc:
+            return self.entry_skipped(index=index, handle=handle, reason=_skip_reason(exc))
         except Exception as exc:
             # Deliberately every exception, not the contract's three. A
             # format is third-party code reading untrusted content, and
@@ -287,9 +303,13 @@ class BibFormat(abc.ABC):
         """
         return EntryResult(outcome=Outcome.CREATED, index=index, handle=handle, item=None if dry_run else item)
 
-    def entry_skipped(self, *, index: int, handle: str | None) -> EntryResult:
-        """Report one entry as recognised but not a bibliographic record."""
-        return EntryResult(outcome=Outcome.SKIPPED, index=index, handle=handle)
+    def entry_skipped(self, *, index: int, handle: str | None, reason: str | None = None) -> EntryResult:
+        """Report one entry as recognised but not a bibliographic record.
+
+        ``reason`` is optional (D18): a format that knows what it skipped
+        passes it along, and one that does not is not required to invent one.
+        """
+        return EntryResult(outcome=Outcome.SKIPPED, index=index, handle=handle, reason=reason)
 
     def entry_failed(self, *, index: int, handle: str | None, reason: str) -> EntryResult:
         """Report one entry as unable to be stored, with the reason why."""

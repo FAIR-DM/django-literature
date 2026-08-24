@@ -1065,14 +1065,14 @@ class RISFormat(BibFormat):
         the skip.
         """
         if isinstance(raw, str):
-            raise SkipEntry
+            raise SkipEntry(_("This is header material, not a record."))
 
         ty_values = raw.values("TY")
         if not ty_values:
             raise EntryError(_("This entry carries no 'TY' (reference type) tag."))
 
         if all(tag == "TY" for tag, _ in raw.tags):
-            raise SkipEntry
+            raise SkipEntry(_("This entry carries only a 'TY' (reference type) tag and no other content."))
 
         ref_type = ty_values[0].strip()
 
