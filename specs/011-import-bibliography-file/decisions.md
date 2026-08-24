@@ -1,0 +1,172 @@
+# Decisions — 011 Import a bibliography file through the front end
+
+Rationale too long to sit inside `spec.md`, plus every ambiguity resolved without escalating. The
+spec stands alone; this file explains why it says what it says.
+
+## D1 — The reader always lands on a report, never on the catalogue with a message
+
+**Ambiguous:** the issue's closing sentence offers two landings — a report page, or a redirect back
+to the catalogue carrying a message summarising the import.
+
+**Chosen:** always the report page.
+
+**Why defensible:** the same issue's preceding sentence rules the redirect out. "Rather than
+guessing from a count" is a requirement that the reader be able to see which entries failed and
+why, and a flash message on the catalogue is a count. The two sentences only look like a choice
+because the second one lists the shapes a response can take; read against the first, the redirect
+is not an acceptable variant of the requirement, it is the outcome the requirement exists to
+prevent. Confirmed with Sam at intake.
+
+A conditional redirect — report on failures, redirect on a clean run — was the obvious middle and
+was rejected too. It makes the interface's behaviour depend on the data, so a reader who has only
+ever imported clean files never learns the report exists, and the first time they meet it is the
+first time something went wrong. It also gives the demo's guard two paths to walk instead of one.
+
+## D2 — Nothing about the run is stored
+
+**Ambiguous:** whether the report is a rendering that exists once, or a stored import record the
+reader can return to.
+
+**Chosen:** it exists once. No model, no table, no history.
+
+**Why defensible:** an import record is a different feature with its own requirements that nobody
+has stated — who may see whose imports, how long they are kept, whether the file itself is kept,
+what happens to a record whose references were later deleted. Every one of those is a decision, and
+adding a model to this feature would take all of them silently and by default. The issue asks for
+the reader to see what became of every entry, which the response satisfies.
+
+The cost is real and worth naming: a reader who navigates away loses the report, and re-running the
+import to see it again creates the references a second time, because nothing is de-duplicated
+(D5). That is why the report is one page rather than paginated (D4) and why the import page warns
+about repeat imports before the reader submits.
+
+If an import history is wanted later it arrives as its own issue, and it can be built without
+disturbing anything here — the contract already returns the whole result, so storing it is additive.
+
+## D3 — The report counts entries from one, the contract counts from zero
+
+**Ambiguous:** the import contract identifies every entry result by a zero-based index, deliberately
+and for good reason. The report shows entries to a person.
+
+**Chosen:** the report numbers the first entry as one. The contract keeps its zero-based index
+unchanged.
+
+**Why defensible:** these are two different jobs. The contract's index is an identifier in a
+returned data structure, where zero-based is the convention of the language it is returned in and
+matches the position in the list it is returned as. The report's number is a counting word offered
+to a reader who is looking at their own file: nobody scrolling a `.bib` export calls the first entry
+"entry zero". Aligning them would mean either making the code awkward or making the interface wrong.
+
+This is written down because it is exactly the kind of inconsistency a later reader will find and
+"fix" in one direction or the other, restoring the problem. Neither number is a mistake. The
+divergence is the decision.
+
+## D4 — The report is one page, however long the file was
+
+**Ambiguous:** a four-hundred-entry file produces a four-hundred-row report, which in any other
+listing in this package would be paginated.
+
+**Chosen:** no pagination.
+
+**Why defensible:** pagination assumes the pages can be returned to. This report cannot be — it is
+not stored (D2), so a second page would have to be reachable only from the first, in one session,
+and a reader who reloaded or navigated would lose all of it including the part they had already
+read. A long single page is honest about what the report is. It also keeps the thing a reader
+most needs, the failed entries, reachable by searching the page in their browser rather than by
+walking pages hunting for them.
+
+## D5 — No duplicate detection, and the import page says so
+
+**Ambiguous:** a reader importing a file they have imported before gets the references twice, and
+the interface is the first place anyone would expect that to be caught.
+
+**Chosen:** it is not caught. The import page states plainly, before the reader submits, that a
+repeated import creates the references again.
+
+**Why defensible:** the package has settled this twice and refused both times — ADR 0009 states
+that no import compares an incoming entry against anything already stored, and ADR 0023 removed
+even the batch-scoped collision handling that survived the first decision. `Item.citation_key` is
+indexed and deliberately not unique. Acquiring detection in the front end would mean the same file
+imported from the interface behaved differently from the same file imported from code, which is a
+worse outcome than either behaviour on its own, and it would do it without the decision ever being
+taken.
+
+Warning is not detection and costs nothing. It converts a surprise into an informed action, which
+is the whole of what the front end can honestly offer here.
+
+## D6 — The format is chosen, never sniffed
+
+**Ambiguous:** the front end could detect the format from the file's extension or its first bytes
+rather than asking.
+
+**Chosen:** the reader chooses. The front end does not look at the file.
+
+**Why defensible:** Sam specified the choice at intake, and the reasons hold independently.
+Detection is a guess that fails silently in the one case that matters: a file whose extension or
+opening lines suggest one format while its body is another gets imported as the wrong thing, and
+what comes back is entries reported as created and quietly wrong. Spec 004 made the same argument
+when it refused to read BibLaTeX as classic BibTeX, and reached the same conclusion — a refusal a
+reader can act on beats a silent misreading.
+
+When the choice is wrong, the format itself says so in words already written for that purpose
+("No BibTeX entries found. Is this a BibTeX file?"), reported through the ordinary report rather
+than as an error. So the mismatched case is already handled, by the layer that knows.
+
+The choices offered are read from the installation's configured formats rather than listed in the
+front end, so a project that adds a format gets it in the interface for free and this feature never
+has to be revisited to add one.
+
+## D7 — Both catalogue presentations carry the action
+
+**Ambiguous:** Sam named the table's toolbar. The package serves two catalogue presentations — the
+table by default, and a card list a project can route to instead.
+
+**Chosen:** both, from one definition of the action.
+
+**Why defensible:** FS-010 settled this exact fork for search and filtering, and the reasoning
+transfers without modification: a project that chooses the card presentation must not silently lose
+a capability, or a documented routing choice becomes a trap. Giving the import to the table alone
+would mean a project reading the routing setting had no way to know it was also giving up importing.
+
+Naming the table rather than both is how the entry point was described, not a boundary that was
+drawn — the table is what the package serves by default, so it is what "the catalogue" means in
+conversation. Raised in the specification gate brief so it can be vetoed if that reading is wrong.
+
+## D8 — The front end reads the contract and does not extend it
+
+**Ambiguous:** whether anything the report needs is missing from what the import contract returns.
+
+**Chosen:** nothing is. The feature adds no reading path, changes no converter, and ships no
+migration.
+
+**Why defensible:** the contract was written to be exactly this — spec 003 settled the shared import
+surface before any format existed, so that adding a format was a mapping exercise rather than a new
+public API, and it fixed per-entry outcome reporting as the point of the whole thing. The result
+carries an outcome, a position, a handle where the syntax offers one, a reason on every failure, and
+the created object. That is the report's every column.
+
+Spec 005 set the precedent for what happens if that turns out to be wrong: RIS was positioned as the
+proof of the contract, with the rule that a format unable to ship without changing the contract
+raises a finding as its own issue rather than amending in place. The same rule applies here, and it
+is written into the spec's assumptions so that whoever meets a genuine gap raises it rather than
+widening this feature to cover it.
+
+## D9 — Permissions are not introduced, and that is flagged rather than assumed
+
+**Ambiguous:** import is the most consequential write the front end offers, and nothing in the front
+end checks permissions.
+
+**Chosen:** no permission checks, matching FS-008 for creating, editing and deleting references —
+but stated in the spec rather than left implicit, and raised in the gate brief.
+
+**Why defensible:** the precedent is unambiguous and recent. FS-008 shipped create, edit and delete
+with no permission model, FS-009 and FS-010 left it alone, and a package that gates one write path
+and not the others is more confusing than one that gates none — a host reading the code would
+reasonably conclude the ungated paths were an oversight. Access control for the front end is a
+feature in its own right, and taking it here, for one view, would prejudge how it works everywhere
+else.
+
+What makes this worth a decision rather than a silent inheritance is the size of the difference. A
+create form adds one reference at a time; an import adds a file's worth, and a reader who reaches
+the page can fill a catalogue in one action. If Sam wants the front end gated, this is the feature
+where the cost of not having it is highest, so the gate brief names it as a veto point.
