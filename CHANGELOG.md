@@ -36,6 +36,12 @@ All notable changes to this project are documented in this file. The format foll
   django-mvp version this release requires preserves it instead, closing
   [#88](https://github.com/FAIR-DM/django-literature/issues/88).
 
+- BibTeX imports no longer fail on every file uploaded through a browser. `BibTeXFormat.parse`
+  required a text handle and raised an internal `TypeError` on the bytes every upload actually is;
+  it now decodes a binary handle itself, the way `RISFormat` already did, and `RISFormat` now
+  accepts a text handle the same way in return — both formats accept either, closing
+  [#104](https://github.com/FAIR-DM/django-literature/issues/104).
+
 ### Changed
 
 - **The catalogue serves as a table by default.** `literature.ui`'s catalogue page used to be a list

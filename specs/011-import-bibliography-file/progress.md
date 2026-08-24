@@ -98,3 +98,24 @@ the file instead, where the full file (61 tests) and the whole `tests/test_impor
 (752 tests) both pass. Flagged in the completion report's `concerns` for Forge to triage —
 `TestOverridingImportEntry::test_overriding_import_entry_changes_only_that_step` is missing
 `@pytest.mark.django_db` and its current pass is order-dependent, not correct in its own right.
+
+## 2026-08-24T13:26+02:00 · Implementer Phase 0 · T006
+
+**Did:** Added a `CHANGELOG.md` entry under `### Fixed`, matching its neighbour's shape (a lead
+sentence naming the user-visible defect, then the mechanism, then the closing issue link), citing
+issue #104.
+
+Checked `docs/` for anything this phase's docstring changes made false. `docs/api/importers.md`
+states nothing about handle type and its `## Reference` section auto-generates from
+`literature.importers`'s own docstrings via Sphinx `automodule`, so it already inherits T005's
+corrected wording with no manual edit needed. `docs/adr/0012-a-format-owns-its-own-decoding.md`
+does make a claim this phase supersedes — "the format documents the mode it expects" and "two
+formats may expect different modes" — but `docs/` is outside this phase's file scope
+(prohibitions), so it is not edited; named in the completion report's `concerns` instead.
+
+**Verified:** `poetry run pytest -q` — full suite, reported in the completion report below.
+
+**Next:** none — Phase 0 complete.
+
+**Watch:** the `TestOverridingImportEntry` ordering fragility noted at T005; ADR-0012's now-partly-
+superseded claim, out of this phase's scope to fix.
