@@ -116,6 +116,14 @@ ROOT_URLCONF = "demo.urls"
 # (README.md, tests/settings.py).
 STATIC_URL = "static/"
 
+# Where a preview's staged upload lives between the two requests (US-4,
+# literature/ui/staging.py). Django's own default falls back to the
+# process's working directory, which left a literature-imports/ directory
+# behind at the repository root the first time this was run by hand — named
+# explicitly here instead, under demo/, which .gitignore already excludes
+# via its media/ entry.
+MEDIA_ROOT = BASE_DIR / "demo" / "media"
+
 # Every icon the shell renders resolves through django-easy-icons; without a
 # "default" renderer configured, opening any page in the UI app raises
 # ImproperlyConfigured (README.md, tests/settings.py).

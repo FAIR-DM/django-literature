@@ -842,3 +842,49 @@ pytest tests/test_ui/test_templates.py -q` — 87 passed, 1 failed (the same, al
 **Next:** T512/T513/T514 — the demo walk's preview step.
 
 **Watch:** none new.
+
+## 2026-08-24T20:10+02:00 · Implementer Phase 5 · T512/T513/T514
+
+**Did:** `tests/test_demo/test_smoke.py` gained `TestConfirmImportPattern` — a preview really submitted
+against the front end carries a `<form action="/catalogue/import/confirm/">`, matched by a new
+`CONFIRM_IMPORT_RE` in `demo/smoke.py` (a form's `action`, not an `<a>`'s `href` — every other pattern
+in the module is the latter). Then `demo/smoke.py::DemoWalk.walk_import()` rewritten for the two-step
+flow: submit the fixture, assert the response lands directly and is labelled a preview, assert the
+preview reports the same two created entries and the one failing entry with its own reason
+(`_check_import_report()`, factored out since a preview and the real report both have to satisfy the
+same three checks — decisions.md D15's fixture), assert the catalogue is still unchanged, follow the
+preview's own confirm control (`CONFIRM_IMPORT_RE`, submitted with `form_fields()` off the preview
+page — the confirm form is the only form the page carries, so this is the same "read the form"
+discipline every other write step in the walk already uses), assert the same three checks against
+the real report, then re-fetch the catalogue to confirm the references arrived.
+
+**Verified:**
+- `poetry run pytest tests/test_demo/test_smoke.py -q` — red first for `TestConfirmImportPattern`
+  (`ImportError: cannot import name 'CONFIRM_IMPORT_RE'`), then 28 passed.
+- Ran the walk against a live demo (`DEMO_DB_PATH` pointed at a scratch file, `manage.py migrate` +
+  `seed_demo` + `runserver --settings=demo.settings`, `python demo/smoke.py http://…`) — passed
+  clean: `OK: walked the demo catalogue, its second page, a reference and a contributor,
+  created/corrected/removed a reference, and imported a bibliography file, at http://…`.
+- T514, against the same live server: forced `preview = False` in `ItemImportView._render_report` —
+  walk failed with `a default submission was not rendered as a preview`, naming exactly what broke.
+  Restored, reran clean. Then forced the confirm branch to run `import_file(..., dry_run=True)`
+  instead of a real import — walk failed with `the catalogue does not list the imported reference
+  'Field Notes on Alpine Meltwater Monitoring'`. Restored (`git diff literature/ui/views.py` empty
+  against the last commit before either sabotage), reran clean.
+- `poetry run pytest -q` — 1802 passed, 4 failed (the same four, already reported, no new ones).
+- `ruff check`/`ruff format` clean.
+
+**Found and fixed along the way, not a separate task:** running the live demo surfaced the same
+storage leak the test suite had, one layer up — `demo/settings.py` carried no `MEDIA_ROOT` of its
+own, so a staged upload under `runserver` landed in the process's working directory (the repo root)
+rather than anywhere the demo already cleans up. Added `MEDIA_ROOT = BASE_DIR / "demo" / "media"`,
+which `.gitignore`'s existing `media/` entry already excludes. Separately, the same leak reappeared
+in the test suite because `tests/test_demo/test_smoke.py`'s new test reaches the import view too, and
+the autouse `MEDIA_ROOT` override T507 added lived only in `tests/test_ui/conftest.py` — moved to the
+suite root `tests/conftest.py` so it covers every package that can reach a UI view, not just the one
+that happened to need it first.
+
+**Next:** Phase 5 complete. Full suite, pre-commit, and the completion report.
+
+**Watch:** the four pre-existing failures from T505-T509 stand unchanged; nothing in T512-T514 alters
+that picture.

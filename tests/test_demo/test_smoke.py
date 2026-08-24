@@ -19,11 +19,13 @@ import urllib.request
 from pathlib import Path
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.urls import reverse
 
 from demo.smoke import (
     BODY_EXCERPT_LIMIT,
+    CONFIRM_IMPORT_RE,
     CONTRIBUTOR_LINK_RE,
     CREATE_LINK_RE,
     DELETE_LINK_RE,
@@ -407,3 +409,15 @@ class TestImportLinkPattern:
 
         assert match is not None
         assert match.group("path") == reverse("literature:item-import")
+
+
+class TestConfirmImportPattern:
+    """The pattern the walk follows from a preview to carrying it out (T512, US-4)."""
+
+    def test_matches_the_form_the_preview_page_really_renders(self, client, db):
+        upload = SimpleUploadedFile("import.bib", b"@article{Key2020, title={A Title}, address={x}}")
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        match = CONFIRM_IMPORT_RE.search(response.content.decode())
+
+        assert match is not None
+        assert match.group("path") == reverse("literature:item-import-confirm")

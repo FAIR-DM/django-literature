@@ -71,6 +71,12 @@ ROW_RE = re.compile(r"<tr\b.*?</tr>", re.DOTALL)
 # ``>``, so only the address is captured.
 IMPORT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/import/)"')
 
+# The preview's own confirm control (T512, US-4): unlike every other pattern
+# in this module it matches a <form>'s action, not an <a>'s href — the
+# control that carries out a previewed import is a POST, never a link
+# (decisions.md D16, import_report.html).
+CONFIRM_IMPORT_RE = re.compile(r'<form[^>]+action="(?P<path>/catalogue/import/confirm/)"')
+
 
 class FormFieldParser(HTMLParser):
     """Field name → current value for the first ``<form>`` on a page (T021, D-9).
@@ -482,17 +488,24 @@ class DemoWalk:
             )
 
     def walk_import(self, list_url, list_body):
-        """Import the fixture file and confirm both the report and the catalogue show it (T301, T304).
+        """Preview the fixture file, confirm it, and confirm both the report and the
+        catalogue show it (T301, T304, T513, US-4).
 
         Follows the catalogue's own Import link, the same discipline every
-        other step in this class uses (SC-003). The submission is asserted
-        never to redirect — the reader always lands on the report itself,
-        never on the catalogue with a message (plan.md D1, D11) — and the
-        report is asserted on its content: the two entries that converted,
-        and the one that did not, with the reason a reader could act on
-        (demo/seed/import-sample.bib, decisions.md D15). The catalogue is
-        then re-fetched to confirm the created references actually arrived,
-        not only that the report claimed they would.
+        other step in this class uses (SC-003). Submitting the form is
+        asserted never to redirect — the reader always lands on the report
+        itself, never on the catalogue with a message (plan.md D1, D11) —
+        and, since previewing is the default path through the feature now
+        (decisions.md D16), that first response is asserted to be a
+        preview: labelled as one, reporting the same two entries that would
+        convert and the one that would not with the reason a reader could
+        act on (demo/seed/import-sample.bib, decisions.md D15), and the
+        catalogue is checked to still hold none of them. Only then is the
+        preview's own confirm control followed, and the same three
+        assertions repeated against the report that comes back — the point
+        of a preview is that it reports exactly what a real import would —
+        before the catalogue is re-fetched to confirm the references
+        actually arrived, not only that the report claimed they would.
         """
         import_match = IMPORT_LINK_RE.search(list_body)
         if import_match is None:
@@ -512,37 +525,43 @@ class DemoWalk:
         )
         headers = {"Referer": import_url, "Content-Type": content_type}
         request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
-        report_body, report_url = self.fetch(request, import_url)
+        preview_body, preview_url = self.fetch(request, import_url)
 
-        if report_url != import_url:
+        if preview_url != import_url:
+            self.fail(
+                preview_url,
+                200,
+                f"submitting the import did not render the preview directly (landed on {preview_url})",
+                preview_body,
+            )
+        if "preview" not in preview_body.lower():
+            self.fail(import_url, 200, "a default submission was not rendered as a preview", preview_body)
+        self._check_import_report(import_url, preview_body, "the preview")
+
+        list_before_confirm = self.get(list_url)
+        for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
+            if created_title in list_before_confirm:
+                self.fail(
+                    list_url,
+                    200,
+                    f"the catalogue already lists {created_title!r} before the preview was confirmed",
+                    list_before_confirm,
+                )
+
+        confirm_match = CONFIRM_IMPORT_RE.search(preview_body)
+        if confirm_match is None:
+            self.fail(import_url, 200, "the preview carries no confirm control", preview_body)
+        confirm_url = f"{self.base_url}{confirm_match.group('path')}"
+
+        report_body, report_url = self.post(confirm_url, import_url, form_fields(preview_body))
+        if report_url != confirm_url:
             self.fail(
                 report_url,
                 200,
-                f"submitting the import did not render the report directly (landed on {report_url})",
+                f"confirming the preview did not render the report directly (landed on {report_url})",
                 report_body,
             )
-        for created_key in ("ImportFixtureAlpha2024", "ImportFixtureBeta2023"):
-            if created_key not in report_body:
-                self.fail(
-                    import_url,
-                    200,
-                    f"the import report does not carry the fixture's created entry {created_key!r}",
-                    report_body,
-                )
-        if "ImportFixtureGamma2022" not in report_body:
-            self.fail(
-                import_url,
-                200,
-                "the import report does not carry the fixture's failing entry 'ImportFixtureGamma2022'",
-                report_body,
-            )
-        if "Ensure this value has at most 255 characters" not in report_body:
-            self.fail(
-                import_url,
-                200,
-                "the import report does not carry the failing entry's own reason",
-                report_body,
-            )
+        self._check_import_report(confirm_url, report_body, "the report")
 
         list_after_import = self.get(list_url)
         for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
@@ -553,6 +572,21 @@ class DemoWalk:
                     f"the catalogue does not list the imported reference {created_title!r}",
                     list_after_import,
                 )
+
+    def _check_import_report(self, url, body, what):
+        """The three assertions a preview and a real report both have to satisfy (T513).
+
+        A preview reports exactly what a real import would (FR-038), so
+        ``walk_import`` runs this once against each response rather than
+        keeping two copies of the same three checks.
+        """
+        for created_key in ("ImportFixtureAlpha2024", "ImportFixtureBeta2023"):
+            if created_key not in body:
+                self.fail(url, 200, f"{what} does not carry the fixture's created entry {created_key!r}", body)
+        if "ImportFixtureGamma2022" not in body:
+            self.fail(url, 200, f"{what} does not carry the fixture's failing entry 'ImportFixtureGamma2022'", body)
+        if "Ensure this value has at most 255 characters" not in body:
+            self.fail(url, 200, f"{what} does not carry the failing entry's own reason", body)
 
     def get(self, url):
         """GET url, following redirects, and fail if any lands on a login page (FR-005, T015)."""
