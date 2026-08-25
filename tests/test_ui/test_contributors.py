@@ -5,7 +5,7 @@ from django.utils.translation import override
 
 from literature.choices import NameRole
 from literature.models import ItemName
-from literature.ui.contributors import ContributorGroups, contributor_groups
+from literature.ui.contributors import ContributorGroups, contributor_groups, stored_contributor_names
 from tests.factories import ItemFactory, ItemNameFactory, NameFactory
 
 
@@ -111,3 +111,28 @@ class TestContributorGroups:
         prefetched = type(item).objects.prefetch_related("item_names__name").get(pk=item.pk)
         with django_assert_num_queries(0):
             contributor_groups(prefetched)
+
+
+@pytest.mark.django_db
+class TestStoredContributorNames:
+    """The stored-name suggestions offered to every contributor row's
+    family-name input (plan.md D-1, D-12, T008)."""
+
+    def test_returns_the_distinct_stored_family_names(self):
+        NameFactory(family="Aardvark")
+        NameFactory(family="Zebra")
+        assert set(stored_contributor_names()) == {"Aardvark", "Zebra"}
+
+    def test_a_name_stored_twice_appears_once(self):
+        NameFactory(family="Repeated")
+        NameFactory(family="Repeated")
+        assert list(stored_contributor_names()).count("Repeated") == 1
+
+    def test_an_unparsed_organizational_name_carries_no_family_and_is_excluded(self):
+        NameFactory(family="", given="", literal="United Nations")
+        assert "" not in stored_contributor_names()
+
+    def test_the_result_is_ordered(self):
+        NameFactory(family="Zebra")
+        NameFactory(family="Aardvark")
+        assert list(stored_contributor_names()) == sorted(stored_contributor_names())

@@ -18,6 +18,7 @@ from operator import attrgetter
 from django.utils.translation import ngettext_lazy
 
 from literature.choices import NameRole
+from literature.models import Name
 
 
 class ContributorGroups:
@@ -108,3 +109,16 @@ class ContributorGroups:
 def contributor_groups(item):
     """``ContributorGroups(item).groups()`` — the form the two views call."""
     return ContributorGroups(item).groups()
+
+
+def stored_contributor_names():
+    """Distinct, non-empty family names the catalogue already holds
+    (plan.md D-1, D-12, T008).
+
+    Read once per page and offered as ``<datalist>`` suggestions to every
+    contributor row's family-name input — a spelling aid only. Accepting a
+    suggestion writes its text and links the reference to nothing (FR-005,
+    FR-006); an unparsed organizational name has no family part to suggest,
+    so it is excluded here rather than offering an empty option.
+    """
+    return list(Name.objects.exclude(family="").order_by("family").values_list("family", flat=True).distinct())

@@ -33,11 +33,11 @@ from literature.choices import ItemType, NameRole
 from literature.importers import get_format
 from literature.importers.results import Outcome
 from literature.models import Item, ItemName, Name
-from literature.ui.contributors import contributor_groups
+from literature.ui.contributors import contributor_groups, stored_contributor_names
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
 from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
-from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
+from literature.ui.forms import CONTRIBUTOR_NAMES_DATALIST_ID, ConfirmImportForm, ImportForm, ItemForm
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
 from literature.ui.links import web_url
@@ -127,6 +127,21 @@ def field_group_context(form, forced_groups=frozenset()):
         "field_groups": groups,
         "type_groups_json": TYPE_GROUPS_JSON,
         "forced_groups_json": json.dumps(sorted(forced_groups)),
+    }
+
+
+def contributor_datalist_context():
+    """The stored-name suggestions every contributor row's family input
+    references through ``list=`` (plan.md D-1, D-12, T008).
+
+    Shared by both write views rather than computed on a common base: the
+    two do not otherwise share a base beyond django-mvp's inline mixin, and
+    one dict built the same way both times is simpler than a mixin neither
+    view needs for anything else.
+    """
+    return {
+        "contributor_names_datalist_id": CONTRIBUTOR_NAMES_DATALIST_ID,
+        "contributor_names": stored_contributor_names(),
     }
 
 
@@ -484,6 +499,7 @@ class ItemCreateView(MVPInlineCreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(field_group_context(context["form"]))
+        context.update(contributor_datalist_context())
         return context
 
 
@@ -765,6 +781,7 @@ class ItemUpdateView(MVPInlineUpdateView):
         # FR-010/FR-014 ask for — a group the stored type would not
         # otherwise show still renders when a value already lives in it.
         context.update(field_group_context(context["form"], FieldGroups.groups_holding_values(self.object)))
+        context.update(contributor_datalist_context())
         return context
 
 

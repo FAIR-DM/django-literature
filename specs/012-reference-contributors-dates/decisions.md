@@ -223,3 +223,25 @@ why the guarantee took the shape it did; an omitted row is simply not there, whi
 failure with a different fix. So the guarantee is upheld explicitly — a slot holding a value is
 always rendered, the parts of a date the form does not offer are never declared and so never
 written, and removal is explicit through the formset rather than implied by absence.
+
+## D15 — The contributor set renders through the packaged component
+
+**Self-resolved.** T009 reached the role headings a 26-role, one-page list needs by copying
+`cotton/form/formset/index.html` into `item_form.html` and editing the copy — its Alpine
+initialisation, its management-form handling, its column-heading grid, its template filters and its
+script tag, all duplicated. That is django-mvp's own internal surface, forked. It had already
+drifted: the copy switched its headings at `md` while the packaged row it wraps switches to a grid
+at `sm`, so between those widths the columns rendered with no headings and no field label either —
+the row's own label is already `sr-only` at that width.
+
+T012a removes the fork. The set renders through `<c-form.formset layout="tabular" />`, exactly as
+the date and identifier sets do. `ContributorInline.sort_forms()` stays — it is the base class's own
+display hook, not a fork, and it is what keeps one role's rows adjacent so their positions still
+read as a coherent sequence. No heading is missed: each row's own role field is its first column and
+names the role directly.
+
+Per-row grouping (a heading marking where one role's rows end and the next begin) and a row-level
+disclosure (folding the particles, the suffix and the unparsed name out of the row's own columns)
+are both genuine gaps in the packaged component, not something this feature can build without
+forking it again. Both are raised with django-mvp. Until a release carries the disclosure, the
+particles, the suffix and the unparsed name ship as ordinary columns.

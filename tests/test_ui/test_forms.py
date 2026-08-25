@@ -10,10 +10,11 @@ import pytest
 from django import forms
 from django.test import override_settings
 
-from literature.choices import ItemType
+from literature.choices import ItemType, NameRole
 from literature.importers import available_formats
-from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
-from tests.factories import ItemFactory
+from literature.models import Name
+from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm, NameForm
+from tests.factories import ItemFactory, ItemNameFactory, NameFactory
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
 
@@ -139,3 +140,68 @@ class TestConfirmImportForm:
         field = ConfirmImportForm().fields["preview"]
         assert isinstance(field.widget, forms.HiddenInput)
         assert not field.required
+
+
+@pytest.mark.django_db
+class TestNameForm:
+    """``NameForm`` — the contributor row form over ``ItemName`` (plan.md D-3,
+    T006). Family and given are the row's own columns; the particles, the
+    suffix and the unparsed organizational form are reachable rather than
+    laid out (FR-009, FR-008). The three citation-processor flags are never
+    declared, so ``ModelForm`` cannot write them (FR-010).
+    """
+
+    def test_declares_neither_the_name_fk_nor_order(self):
+        # ``name`` is written in save(), not posted; ``order`` is
+        # ``editable=False`` and excluded from any generated form (D-4).
+        fields = NameForm().fields
+        assert "name" not in fields
+        assert "order" not in fields
+
+    def test_never_declares_the_citation_processor_flags(self):
+        fields = NameForm().fields
+        assert "comma_suffix" not in fields
+        assert "static_ordering" not in fields
+        assert "parse_names" not in fields
+
+    def test_declares_family_and_given_and_the_disclosure_fields(self):
+        fields = NameForm().fields
+        for name in ("family", "given", "dropping_particle", "non_dropping_particle", "suffix", "literal"):
+            assert name in fields
+
+    def test_a_contributor_with_only_an_unparsed_name_saves(self, item):
+        form = NameForm(data={"role": NameRole.AUTHOR, "literal": "United Nations"})
+        assert form.is_valid(), form.errors
+        item_name = form.save(commit=False)
+        item_name.item = item
+        item_name.save()
+        assert item_name.name.literal == "United Nations"
+        assert item_name.name.family == ""
+
+    def test_a_contributor_with_neither_family_nor_unparsed_name_is_rejected(self):
+        form = NameForm(data={"role": NameRole.AUTHOR, "given": "Jane"})
+        assert not form.is_valid()
+        assert not Name.objects.exists()
+
+    def test_the_rejection_names_no_specific_field_but_carries_a_message(self):
+        # FR-011 — "returns the form saying so" rather than storing anything;
+        # neither family nor literal is individually required at the field
+        # level, so the message belongs to the form as a whole.
+        form = NameForm(data={"role": NameRole.AUTHOR})
+        assert not form.is_valid()
+        assert form.non_field_errors()
+
+    def test_a_valid_contributor_with_family_and_given_saves(self, item):
+        form = NameForm(data={"role": NameRole.AUTHOR, "family": "Doe", "given": "Jane"})
+        assert form.is_valid(), form.errors
+        item_name = form.save(commit=False)
+        item_name.item = item
+        item_name.save()
+        assert item_name.name.family == "Doe"
+        assert item_name.name.given == "Jane"
+
+    def test_editing_an_existing_row_seeds_initial_values_from_its_linked_name(self):
+        item_name = ItemNameFactory(name=NameFactory(family="Aardvark", given="Zoe"))
+        form = NameForm(instance=item_name)
+        assert form.initial["family"] == "Aardvark"
+        assert form.initial["given"] == "Zoe"

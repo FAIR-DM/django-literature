@@ -56,10 +56,25 @@ a property somewhere in scope.
           <c-form.field type="checkbox" label="{% translate "Show every field" %}" x-model="form.showAll" />
         </div>
 
+        {# The stored-name suggestion list (plan.md D-1, D-12, T008), rendered #}
+        {# once for the page and referenced by every contributor row's family #}
+        {# input through list= — its own template, since the formset's #}
+        {# __prefix__ cloning would otherwise rewrite it if it lived in a row. #}
+        {% include "literature/ui/contributor_datalist.html" with id=contributor_names_datalist_id names=contributor_names %}
+
         {# The contributor, date and identifier sets (plan.md D-2, T005). #}
         {# layout="tabular" is a template-level attribute (research R2): #}
         {# InlineFormSet carries no layout of its own, and django-mvp's own #}
         {# form_view.html renders every set through its stacked default. #}
+        {# The contributor set (T009) rendered through a hand-copied fork of #}
+        {# this component until T012a: it duplicated the packaged markup #}
+        {# and drifted from it, switching its headings at md while the #}
+        {# packaged row switches to grid at sm, so the columns rendered #}
+        {# with no headings between those widths (decisions.md D15). #}
+        {# ContributorInline.sort_forms() still brings a role's rows #}
+        {# adjacent, and each row's own role field names it in the row's #}
+        {# first column, so no heading is needed for that to read #}
+        {# correctly. #}
         {% for inline in inlines %}
           <c-form.formset :formset="inline" layout="tabular" />
         {% endfor %}

@@ -1625,6 +1625,325 @@ class TestItemFormInlineSets:
         assert inlines["item_dates"].forms[0].errors
 
 
+class TestContributorRows:
+    """Crediting contributors through the reference form — US-1 (T006, T007,
+    T007a, T009, T010, T011).
+    """
+
+    def test_a_contributor_with_only_an_unparsed_name_saves(self, client, db):
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="OrgAuthor2024",
+            **{
+                "item_names-0-role": NameRole.AUTHOR,
+                "item_names-0-literal": "United Nations",
+            },
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 302, response.context["form"].errors if response.status_code != 302 else None
+        item = Item.objects.get(citation_key="OrgAuthor2024")
+        (item_name,) = item.item_names.all()
+        assert item_name.name.literal == "United Nations"
+
+    def test_a_contributor_with_neither_family_nor_unparsed_name_is_rejected(self, client, db):
+        # FR-011
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="NoNameAuthor2024",
+            **{
+                "item_names-0-role": NameRole.AUTHOR,
+                "item_names-0-given": "Jane",
+            },
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert not Item.objects.filter(citation_key="NoNameAuthor2024").exists()
+        assert not Name.objects.filter(given="Jane").exists()
+
+    def test_entering_a_name_matching_one_already_stored_creates_a_second_record(self, client, db):
+        # SC-002 — crediting the same spelling across two references never
+        # changes what the first reference's stored record is credited on.
+        existing_item = ItemFactory()
+        existing_link = ItemNameFactory(item=existing_item, name=NameFactory(family="Doe", given="Jane"))
+
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="SecondDoe2024",
+            **{
+                "item_names-0-role": NameRole.AUTHOR,
+                "item_names-0-family": "Doe",
+                "item_names-0-given": "Jane",
+            },
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 302
+
+        assert Name.objects.filter(family="Doe", given="Jane").count() == 2
+        new_item = Item.objects.get(citation_key="SecondDoe2024")
+        (new_link,) = new_item.item_names.all()
+        assert new_link.name_id != existing_link.name_id
+
+        existing_link.name.refresh_from_db()
+        assert existing_link.name.family == "Doe"
+        assert existing_item.item_names.filter(pk=existing_link.pk).exists()
+
+    def test_the_same_name_entered_twice_in_one_role_stores_two_records_with_no_warning(self, client, db):
+        # FR-007 — the interface never merges or warns about a repeated
+        # spelling within one role.
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="TwoSameAuthors2024",
+            **{
+                "item_names-TOTAL_FORMS": "2",
+                "item_names-0-role": NameRole.AUTHOR,
+                "item_names-0-family": "Doe",
+                "item_names-0-given": "Jane",
+                "item_names-1-role": NameRole.AUTHOR,
+                "item_names-1-family": "Doe",
+                "item_names-1-given": "Jane",
+            },
+        )
+        response = client.post(reverse("literature:item-create"), data, follow=True)
+        assert Name.objects.filter(family="Doe", given="Jane").count() == 2
+        item = Item.objects.get(citation_key="TwoSameAuthors2024")
+        assert item.item_names.count() == 2
+        content = response.content.decode().lower()
+        assert "duplicate" not in content
+        assert "already" not in content
+
+    def test_editing_a_contributor_shared_by_import_never_rewrites_the_other_reference(self, client, db):
+        # T007a, SC-002, FR-034, D-3 — the import path shares Name records
+        # via get_or_create (literature/converters.py:_import_name_variable),
+        # so two references imported with an identically spelled author are
+        # already crediting the same record before either is ever edited
+        # through this form. Editing one must not silently rename the other.
+        def csl_item(citation_key):
+            return {
+                "id": citation_key,
+                "type": "article-journal",
+                "title": f"Title for {citation_key}",
+                "author": [{"family": "Shared", "given": "Sam"}],
+            }
+
+        item_a = from_csl_json(csl_item("ImportA2024"))
+        item_b = from_csl_json(csl_item("ImportB2024"))
+        (link_a,) = item_a.item_names.all()
+        (link_b,) = item_b.item_names.all()
+        assert link_a.name_id == link_b.name_id  # the shared record the defect corrupts
+
+        data = update_page_post_data(
+            client,
+            item_a,
+            **{
+                "item_names-0-family": "Changed",
+            },
+        )
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item_a.pk}), data)
+        assert response.status_code == 302
+
+        link_b.name.refresh_from_db()
+        assert link_b.name.family == "Shared"  # untouched
+
+        link_a.refresh_from_db()
+        assert link_a.name.family == "Changed"
+        assert link_a.name_id != link_b.name_id  # repointed to a new record, not shared any more
+
+    def test_editing_a_contributor_credited_on_nothing_else_updates_it_in_place(self, client, db):
+        # T007a's other branch: nothing else observes the difference, so a
+        # new record would only orphan the old one.
+        item = ItemFactory()
+        link = ItemNameFactory(item=item, name=NameFactory(family="Original", given="Sam"))
+        original_name_id = link.name_id
+
+        data = update_page_post_data(client, item, **{"item_names-0-family": "Corrected"})
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302
+
+        link.refresh_from_db()
+        assert link.name_id == original_name_id
+        assert link.name.family == "Corrected"
+
+    def test_reordering_one_role_leaves_every_other_role_untouched(self, client, db):
+        # FR-004, T009 — a submission of 1, 1, 3 within one role becomes a
+        # coherent sequence; a second role's own positions are untouched.
+        item = ItemFactory()
+        author_a = ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="A"))
+        author_b = ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="B"))
+        editor = ItemNameFactory(item=item, role=NameRole.EDITOR, name=NameFactory(family="E"))
+        assert author_a.order == 0
+        assert author_b.order == 1
+        assert editor.order == 0
+
+        # rendered_form_post_data indexes rows in queryset order (item, role,
+        # order): 0 and 1 are the two authors, 2 is the editor. Swap the
+        # authors' positions; leave the editor's own ORDER value as rendered.
+        data = update_page_post_data(client, item)
+        data["item_names-0-ORDER"] = "2"
+        data["item_names-1-ORDER"] = "1"
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302, response.context["form"].errors if response.status_code != 302 else None
+
+        author_a.refresh_from_db()
+        author_b.refresh_from_db()
+        editor.refresh_from_db()
+        assert author_a.order > author_b.order  # A now follows B
+        assert editor.order == 0  # the other role's own position is untouched
+
+    def test_contributor_rows_are_grouped_by_role_on_the_page(self, client, db):
+        # T009 — an ungrouped list showing positions 0, 0, 1, 2, 0 reads as
+        # broken. T012a put the set back on the packaged formset component,
+        # which draws no role heading of its own, so this no longer asserts
+        # a heading — it asserts the behaviour that actually ships:
+        # ContributorInline.sort_forms() keeps one role's rows adjacent, and
+        # each row's own role field, its first column, names the role
+        # directly (decisions.md D15).
+        item = ItemFactory()
+        ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="A"))
+        ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="B"))
+        ItemNameFactory(item=item, role=NameRole.EDITOR, name=NameFactory(family="E"))
+        content = client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode()
+
+        # One <select name="item_names-N-role"> per rendered row, including
+        # the unfilled extra row; that row's selected <option> is what names
+        # its role now, in place of the heading the fork used to draw.
+        role_selects = re.findall(r'name="item_names-\d+-role".*?</select>', content, re.DOTALL)
+        selected_roles = [
+            match.group(1)
+            for block in role_selects
+            if (match := re.search(r'<option value="([^"]+)"\s+selected', block))
+        ]
+        assert selected_roles == [NameRole.AUTHOR, NameRole.AUTHOR, NameRole.EDITOR]
+
+    def test_no_ordering_across_roles_is_offered(self, client, db):
+        # FR-004 — an author and an editor may share the same submitted
+        # ORDER value with no collision, since each role is its own scope.
+        item = ItemFactory()
+        author = ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="A"))
+        editor = ItemNameFactory(item=item, role=NameRole.EDITOR, name=NameFactory(family="E"))
+
+        data = update_page_post_data(client, item)
+        data["item_names-0-ORDER"] = "0"
+        data["item_names-1-ORDER"] = "0"
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302
+
+        author.refresh_from_db()
+        editor.refresh_from_db()
+        assert author.order == 0
+        assert editor.order == 0
+        assert item.item_names.filter(role=NameRole.AUTHOR).count() == 1
+        assert item.item_names.filter(role=NameRole.EDITOR).count() == 1
+
+    def test_removing_a_contributor_removes_the_link_and_never_the_name(self, client, db):
+        # FR-003, T010
+        item = ItemFactory()
+        link = ItemNameFactory(item=item, name=NameFactory(family="Survivor"))
+        name_id = link.name_id
+
+        data = update_page_post_data(client, item, **{"item_names-0-DELETE": "on"})
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302
+
+        assert not ItemName.objects.filter(pk=link.pk).exists()
+        assert Name.objects.filter(pk=name_id).exists()
+
+    def test_a_contributor_removed_from_everything_still_has_its_own_page_listing_nothing(self, client, db):
+        # FR-003 — a contributor credited on nothing still has a page.
+        item = ItemFactory()
+        link = ItemNameFactory(item=item, name=NameFactory(family="LoneCredit"))
+        name_id = link.name_id
+
+        data = update_page_post_data(client, item, **{"item_names-0-DELETE": "on"})
+        client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+
+        response = client.get(reverse("literature:contributor-detail", kwargs={"pk": name_id}))
+        assert response.status_code == 200
+        assert list(response.context["object_list"]) == []
+
+    def test_a_save_rejected_elsewhere_on_the_form_leaves_no_name_record_behind(self, client, db):
+        # T011, FR-033, D10 — the failure a naive implementation produces:
+        # records created while processing the form and orphaned when
+        # validation fails elsewhere. Rejected here by the parent form's own
+        # missing citation_key, with a fully valid contributor row alongside it.
+        before = set(Name.objects.values_list("pk", flat=True))
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="",
+            **{
+                "item_names-0-role": NameRole.AUTHOR,
+                "item_names-0-family": "ShouldNotPersist",
+                "item_names-0-given": "Nobody",
+            },
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert set(Name.objects.values_list("pk", flat=True)) == before
+        assert not Name.objects.filter(family="ShouldNotPersist").exists()
+        content = response.content.decode()
+        assert 'value="ShouldNotPersist"' in content
+
+    def test_editing_a_contributor_row_unchanged_writes_nothing(self, client, db):
+        item = ItemFactory()
+        link = ItemNameFactory(item=item, name=NameFactory(family="Steady", given="Sam"))
+        original_name_id = link.name_id
+        original_modified = link.name.modified
+
+        data = update_page_post_data(client, item)
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302
+
+        link.refresh_from_db()
+        assert link.name_id == original_name_id
+        assert link.name.family == "Steady"
+        assert link.name.modified == original_modified
+
+
+class TestContributorDatalist:
+    """The stored-name <datalist> every contributor row's family-name input
+    references (plan.md D-1, D-12, T008)."""
+
+    def test_the_create_page_offers_stored_family_names_as_suggestions(self, client, db):
+        NameFactory(family="Aardvark")
+        content = client.get(reverse("literature:item-create")).content.decode()
+        assert '<option value="Aardvark">' in content
+
+    def test_the_family_input_references_the_datalist(self, client, db):
+        content = client.get(reverse("literature:item-create")).content.decode()
+        match = re.search(r'<input[^>]*name="item_names-0-family"[^>]*>', content)
+        assert match, "no rendered family input"
+        list_match = re.search(r'list="([^"]+)"', match.group(0))
+        assert list_match, "family input carries no list= attribute"
+        assert f'<datalist id="{list_match.group(1)}"' in content
+
+    def test_accepting_a_suggestion_posts_text_and_nothing_identifying(self, client, db):
+        # The datalist's own option carries no id, no name pk, nothing but
+        # the text a browser fills the input with on acceptance.
+        NameFactory(family="Aardvark")
+        content = client.get(reverse("literature:item-create")).content.decode()
+        assert re.search(r'<option value="Aardvark">\s*</option>', content)
+
+    def test_a_name_absent_from_the_list_is_accepted_the_same_as_one_present_in_it(self, client, db):
+        NameFactory(family="Aardvark")
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="NotSuggested2024",
+            **{
+                "item_names-0-role": NameRole.AUTHOR,
+                "item_names-0-family": "NeverStoredBefore",
+            },
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 302
+        item = Item.objects.get(citation_key="NotSuggested2024")
+        assert item.item_names.get().name.family == "NeverStoredBefore"
+
+
 class TestItemImportView:
     """Pick a format, attach a file, and see what became of every entry — US-1
     (FR-005, FR-006, FR-010, FR-019, FR-023, AS-10).

@@ -118,6 +118,22 @@ Depends on Phase 0.
   spelling aid which never links to a stored record, why duplicates therefore accumulate, and where
   joining them is tracked. Reachable from the documentation's table of contents.
 
+- **T012a** — Put the contributor set back on the packaged formset component. T009 reached its role
+  headings by copying that component's markup into `item_form.html` — its Alpine initialisation, its
+  management-form handling, its column-heading grid, its template filters and its script tag — and
+  editing the copy. That is the library's own internal surface duplicated in this repo: a minor
+  release changing any of it breaks this page with nothing to catch it, and the copy has already
+  drifted, switching its headings at `md` while the rows it heads switch at `sm`, so between those two
+  widths the columns render with no headings and every field's own label already suppressed. Render
+  the set through `<c-form.formset layout="tabular" />` exactly as the date and identifier sets do.
+  `sort_forms()` stays — it is the base class's own hook and keeps a role's rows adjacent, which is
+  what the positions need to read correctly; each row already names its own role in its first column.
+  Per-row grouping and a row-level disclosure are genuine gaps in the component: raise both with
+  django-mvp and record here that the particles, the suffix and the unparsed name ship as columns
+  until a release carries the disclosure. Correct `NameForm`'s own docstring, which describes a
+  disclosure that was never built. Rename `NameForm._create_name` and `ContributorFormSet._renumber`
+  to drop the leading underscore, which the org standard does not use.
+
 ## Phase 2 — US-2 Give a reference its dates (P2)
 
 Depends on Phase 0. Independent of Phase 1.
