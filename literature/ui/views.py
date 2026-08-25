@@ -278,12 +278,32 @@ class ItemTableView(MVPTableViewMixin, FilterView):
 
     page_title = CATALOGUE_TITLE
 
-    # The mixin's own default was ["search", "filter", "create"] (plan.md
-    # D-3) — FS-009 switched search and filter off with this attribute;
-    # this feature is what reverses that. US-1 adds "import": the table
-    # view has its own actions hook (research R2), so naming it here is
-    # the whole change on this side of the toolbar.
-    actions: list[str] = ["search", "filter", "create", "import"]
+    # T001a (research R2, plan.md "The toolbar" seam): the table page has no
+    # actions hook of its own either, so the action row is carried the same
+    # way ItemListView carries its own — a wrapper template overriding the
+    # packaged page.actions block against a view-supplied list. The block is
+    # table_view.html's, not list_view.html's: that template re-declares all
+    # six of page_view.html's blocks and renders the table itself inside its
+    # own, so extending list_view.html here would lose the table.
+    #
+    # django-mvp did ship a hook: MVPTableViewMixin.actions, read into a
+    # table_actions context key that its table_view.html rendered the row
+    # from. 0.19.2 deleted both (upstream commit dfa7c3a, "Remove the table
+    # view's action list too"), leaving a bare <c-page.list.actions /> whose
+    # own c-vars default — ['search','sort','filter','create'] — wins over
+    # anything a project declares. FS-009 switched search and filter off
+    # through that hook and this feature reverses it, so the list survived
+    # the removal while the attribute reading it did not.
+    #
+    # Named table_actions rather than actions on purpose, and this is
+    # upstream's own reason for the key it chose: <c-toolbar> and
+    # <c-page.title> both expose an `actions` slot, and a Cotton slot falls
+    # through to the context variable of the same name when no slot is
+    # filled — so a context key literally called `actions` prints its repr
+    # into every toolbar on the page. The attribute matches the key so the
+    # two cannot drift.
+    template_name = "literature/ui/item_table_page.html"
+    table_actions: list[str] = ["search", "filter", "create", "import"]
     directory: list[str] = ["create", "import"]
     show_create_action = True
     show_import_action = True
@@ -406,6 +426,12 @@ class ItemTableView(MVPTableViewMixin, FilterView):
             active = get_active_filters(self.filterset)
             context["applied_filters"] = active
             context["applied_filter_count"] = len(active)
+
+        # T001a — what item_table_page.html's page.actions override reads.
+        # Set here rather than left to the library: the mixin populated this
+        # same key until 0.19.2 dropped it, so this restores the key under
+        # its established name rather than introducing one.
+        context["table_actions"] = self.table_actions
         return context
 
     def get_model_info(self):

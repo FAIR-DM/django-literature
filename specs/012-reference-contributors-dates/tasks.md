@@ -17,6 +17,19 @@ Blocks every story. Sequential.
   `MVPInlineUpdateView` import, and that `cotton/form/formset/index.html` accepts `layout="tabular"`.
   *Done ahead of the task graph while measuring the library; recorded here so the ledger is honest.*
 
+- **T001a** — Repair what the version raise took away. T001 confirmed the new inline machinery
+  imports but checked nothing the upgrade removed, and 0.19.2 dropped both `MVPTableViewMixin.actions`
+  and the `table_actions` context key the packaged `table_view.html` rendered its action row from.
+  `ItemTableView.actions` is therefore now an attribute nothing reads: the catalogue table's search
+  box, filter control, create button and import link have all gone from the page, and the import
+  route added in the previous feature is unreachable from the catalogue. Reinstate the row the way
+  `ItemListView` already carries its own — a template of the view's own overriding the actions block
+  against a view-supplied list — and cover it with a test that fails against the packaged default, so
+  a later version removing the hook again is caught rather than silently blanking the toolbar. The
+  three tests that caught this (`table_actions`, and the two asserting the catalogue renders a link
+  to the import route) go green without their assertions being weakened. The packaging test naming
+  `>=0.19.1` is updated to the floor T001 actually set.
+
 - **T002** — `ItemDate` enforces its own span rule. Test first: assert that a date with an `end` and
   no `begin` is rejected, and that an `end` earlier than its `begin` is rejected — both currently
   pass and both must fail before the fix. Then add `clean()` and `save()` following the

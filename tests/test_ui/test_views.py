@@ -692,6 +692,32 @@ class TestItemTableView:
         # today — nothing here builds one, and the closed actions list above
         # is what would carry it if a future default introduced one.
 
+    def test_the_toolbar_renders_the_views_own_list_and_not_the_packaged_default(self, client, db, monkeypatch):
+        # T001a — the gate on the seam itself. django-mvp 0.19.2 deleted
+        # ``MVPTableViewMixin.actions`` and the ``table_actions`` context key
+        # its ``table_view.html`` rendered the row from (upstream commit
+        # dfa7c3a), and the packaged template now renders
+        # ``<c-page.list.actions />`` bare, so the component's own c-vars
+        # default wins and nothing a view declares reaches the page. That
+        # removal blanked "import" off the catalogue toolbar without a single
+        # test going red on the mechanism — the three tests that did fail all
+        # assert an outcome, so any of them could be satisfied by a different
+        # route while the view's list stayed unread.
+        #
+        # This asserts the connection instead: a list set on the view and
+        # nothing else decides what renders. Set to "import" alone, the
+        # packaged default's search box and filter modal must be absent —
+        # under the default they are both present whatever the view says,
+        # which is exactly the red this reinstates.
+        from literature.ui.views import ItemTableView
+
+        monkeypatch.setattr(ItemTableView, "table_actions", ["import"])
+        ItemFactory()
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' in content
+        assert 'name="q"' not in content  # the search box's own input name
+        assert "filterModal" not in content  # the filter control's own modal id
+
     def test_the_search_box_submits_through_the_filter_form(self, client, db):
         # T008, research R4: the search input renders with `form="filterForm"`,
         # and `filterForm` is only declared inside `{% if filter %}` — a
