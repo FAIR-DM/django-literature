@@ -1,0 +1,274 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "012-reference-contributors-dates",
+  "branch": "012-reference-contributors-dates",
+  "repo": "FAIR-DM/django-literature",
+  "state": "PLAN",
+  "state_history": [
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-25T09:20:00Z",
+      "note": "spec and decisions authored from the intake conversation on issue #48; #112 split out for joining duplicate contributor records"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-25T09:55:00Z",
+      "note": "epic promoted, stories #113-#116 created, draft PR #117 opened against v1.0.0"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-25T11:05:00Z",
+      "note": "plan, research and tasks authored; django-mvp raised to 0.19.3 for the inline formset machinery; FR-027 narrowed to ISBN and the ISSN check-digit gap filed as #118"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-25T10:10:00Z",
+      "self_resolved": [
+        "A contributor form presents family and given directly and keeps the particles, suffix and unparsed organizational form reachable",
+        "The three citation-processor flags stay off the form and are preserved untouched, as categories and custom already are",
+        "A stored date whose only content is unparsed is shown, so an imported date the catalogue could not read can be repaired",
+        "Nothing is written until a save succeeds in full, so a rejected save leaves no orphaned contributor records",
+        "An identifier kind typed in different casing than the one offered is treated as that kind and checked",
+        "The same name entered twice in one role on one reference is stored, with no warning",
+        "Reordering acts within a role; no ordering across roles is offered",
+        "One identifier per kind and one date per slot are inherited unchanged; a refusal names the limit",
+        "Refined 2026-08-25 after measurement: the check-digit distinction covers ISBN alone, because the package never verifies the ISSN check digit and adding that would reject values it accepts today (D11); the gap is filed as #118"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "issue": null,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry lock && poetry install --all-extras; poetry show django-mvp -> 0.19.3"
+            ]
+          }
+        },
+        {
+          "id": "T002",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T003",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T004",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T005",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 113,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T006",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T007",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T008",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T009",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T010",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T011",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T012",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 114,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T013",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T014",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T015",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T016",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T017",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T018",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T019",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 115,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T020",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T021",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T022",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T023",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T024",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T025",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T026",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 116,
+      "status": "todo",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T027",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T028",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T029",
+          "status": "todo",
+          "attempts": 0
+        },
+        {
+          "id": "T030",
+          "status": "todo",
+          "attempts": 0
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 120
+    }
+  },
+  "pr": {
+    "number": 117,
+    "draft": true
+  },
+  "escalations": []
+}

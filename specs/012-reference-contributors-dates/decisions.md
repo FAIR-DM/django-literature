@@ -164,3 +164,62 @@ anyone to tell them from real ones.
 
 Required explicitly (FR-033) rather than left to the implementation: nothing is written until the
 whole edit succeeds, and a rejected save returns the form carrying what was entered.
+
+---
+
+*Decisions below were taken at planning, after the measurements in `research.md`. The design
+reasoning behind each is in `plan.md`; what is recorded here is the decision itself.*
+
+## D11 — The check-digit distinction covers ISBN alone
+
+**Taken at planning, and it narrows what the specification gate approved.** The intake session
+settled that ISBN and ISSN would both tell a mistyped character from a wrong shape, on the
+understanding that both are check-digit types. They are, in the standards. This package acts on only
+one of them: `validate_issn` matches a shape and stops, so an ISSN of the right shape with a wrong
+check digit is accepted today.
+
+Distinguishing that case means computing the check digit, which turns accepted values into
+rejections. FR-029 and SC-005 forbid exactly that, and the suite makes it concrete — `0000-000X` sits
+in the accepted-value list and is not a valid ISSN by the standard's arithmetic. A second consumer
+would move too: the RIS importer routes an `SN` tag by which of the two validators does not raise.
+
+ISBN separates cleanly and no value moves, so ISBN keeps the distinction. The ISSN gap is real and is
+filed as #118, where a change to what the catalogue accepts can be decided on its own terms rather
+than arriving inside a feature about form messages.
+
+## D12 — A native element, not a component
+
+The contributor name field is an HTML `<datalist>`: a text input with attached suggestions, where
+accepting one writes its text and nothing else happens.
+
+This was expected to be the feature's one external dependency. django-mvp ships no combobox,
+autocomplete or enhanced select, and the standing rule sends a gap upstream rather than solving it
+locally, so the specification gate carried it as the one risk depending on another repository.
+
+It turned out not to bite, and the reason is worth keeping: **a binding select would have needed a
+component, and completion needs an element.** D1 chose completion because binding puts an identity
+judgement in front of someone unequipped to make it. That the same choice also removed the
+dependency is not a coincidence — the simpler semantics were the correct ones, and simpler semantics
+needed less machinery.
+
+## D13 — Reordering is by number, and the affordance is filed upstream
+
+Contributors are reordered by changing a position number, through Django's own formset ordering.
+django-mvp has no reordering support and deliberately dropped the Alpine sort plugin from its
+bundle, so a drag affordance would mean writing a component this package is not allowed to write.
+
+Recorded rather than left as a silent limitation, because it is the part of this feature a person
+will notice and ask about. A drag affordance is raised with django-mvp; when a release carries one,
+this becomes a template change and nothing else.
+
+## D14 — The no-loss guarantee is carried into the view
+
+ADR-0021 holds that the server never builds a narrower form, so a hidden field keeps and re-posts its
+value and no stored content is discarded by a change of item type. It names its own revisit
+condition: a write path that is not the rendered page.
+
+Inline formsets over related rows are that condition. An omitted scalar field is blanked, which is
+why the guarantee took the shape it did; an omitted row is simply not there, which is a different
+failure with a different fix. So the guarantee is upheld explicitly — a slot holding a value is
+always rendered, the parts of a date the form does not offer are never declared and so never
+written, and removal is explicit through the formset rather than implied by absence.

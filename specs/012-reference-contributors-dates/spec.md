@@ -33,6 +33,24 @@ Resolved from the intake session's context rather than escalated. Fuller rationa
 - Q: Can contributors be reordered across roles — an editor moved above an author? → A: No. Positions are numbered independently within each role, so reordering acts inside one role and never disturbs another. There is no single combined list to reorder, and presenting one would imply an ordering the store does not hold.
 - Q: Does this feature change what the identifier validators accept? → A: No. It changes only what a rejection says. A value accepted today is accepted afterwards and a value rejected today is rejected afterwards, with the ISBN and ISSN messages distinguishing two failures that currently share one message.
 
+**Refined 2026-08-25 — the check-digit distinction covers ISBN alone.**
+
+The intake session settled that ISBN and ISSN would both distinguish a mistyped character from a
+wrong shape, on the understanding that both carry a check digit. They do, in the standards. The
+package does not act on the ISSN one: `validate_issn` matches `^\d{4}-\d{3}[\dX]$` and stops, so
+the check character is recognised as a character and never verified. An ISSN of the right shape
+with a wrong check digit is accepted today.
+
+Distinguishing that case therefore means computing the check digit, which turns values the
+catalogue currently accepts into rejections — the one thing FR-029 and SC-005 forbid. The test
+suite makes it concrete: `0000-000X` sits in the accepted list and is not a valid ISSN by the
+standard's own arithmetic. Reordering the RIS importer's `SN` routing is a second consequence,
+since it uses this validator as a shape discriminator.
+
+So ISBN keeps the distinction and ISSN does not, and the gap it exposes is filed separately as
+**#118** — verifying the ISSN check digit is a change to what the catalogue accepts and deserves
+its own decision rather than arriving inside a feature about form messages.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Credit the people behind a reference (Priority: P1)
@@ -91,7 +109,7 @@ Someone adds the DOI from the article's first page, or the ISBN from the back of
 1. **Given** someone creating or correcting a reference, **When** the form is shown, **Then** the reference's identifiers are on it, each with the kind of identifier it is.
 2. **Given** an identifier being added, **When** the kind is chosen, **Then** the kinds the package knows are offered and another can be named.
 3. **Given** an identifier of a known kind, **When** its value does not have that kind's shape, **Then** it is not stored and the form says what the shape should be.
-4. **Given** an ISBN or ISSN of the right shape whose check digit does not match, **When** the form is saved, **Then** it is not stored and the form says the check digit does not match, distinguishing this from a value of the wrong shape.
+4. **Given** an ISBN of the right shape whose check digit does not match, **When** the form is saved, **Then** it is not stored and the form says the check digit does not match, distinguishing this from a value of the wrong shape.
 5. **Given** an identifier whose kind was named by the person rather than chosen, **When** the form is saved, **Then** it is stored exactly as given and no format check is applied to it.
 6. **Given** a kind named by the person that matches a known kind in different casing, **When** the form is saved, **Then** it is treated as that known kind and checked accordingly.
 7. **Given** a reference that already holds an identifier of some kind, **When** a second of the same kind is submitted, **Then** it is not stored and the form says the reference already holds one of that kind.
@@ -167,8 +185,8 @@ Someone evaluating the package starts the demo with the documented command and c
 - **FR-024**: An identifier of a person-named kind MUST be stored exactly as given and MUST NOT be format-checked, per ADR-0002.
 - **FR-025**: A person-named kind matching a known kind other than by casing MUST be treated as that known kind and checked accordingly.
 - **FR-026**: A rejected identifier MUST be reported with a message describing what is wrong with the value submitted.
-- **FR-027**: For ISBN and ISSN, a value of the correct shape whose check digit does not match MUST be reported differently from a value of the wrong shape, and the message MUST say the check digit does not match.
-- **FR-028**: For DOI, URL, PMID and PMCID the existing messages MUST be unchanged, there being no further diagnosis available.
+- **FR-027**: For ISBN, a value of the correct shape whose check digit does not match MUST be reported differently from a value of the wrong shape, and the message MUST say the check digit does not match.
+- **FR-028**: For ISSN, DOI, URL, PMID and PMCID the existing messages MUST be unchanged. ISSN is excluded because the package does not verify its check digit at all, and adding that verification would reject values it accepts today — see the refinement note below. The other four carry no check digit and have nothing further to diagnose.
 - **FR-029**: This feature MUST NOT change which identifier values are accepted or rejected. Only the wording of a rejection changes.
 - **FR-030**: One identifier per kind per reference MUST be inherited unchanged. A second of the same kind MUST be refused with a message naming the limit, and the limit MUST NOT be widened here.
 
@@ -223,5 +241,5 @@ Someone evaluating the package starts the demo with the documented command and c
 - **The single form is the starting point, not a settled interaction.** Established reference managers commonly divide a form of this size across tabs. That may suit this one once it is in use; nothing here forecloses it.
 - **The store's existing limits are inherited and not widened.** One identifier per kind, one date per slot, and the partial-date fallbacks apply as they do today. Widening either is a feature, not a fix.
 - **Type scoping stays a presentation decision.** Extending the mapping to date slots decides which are offered first, never which can be stored — the same bound ADR-0021 already places on it for the scalar fields.
-- **The identifier message change is diagnosis only.** Nothing about which values pass becomes looser or stricter. The existing validator tests are the guard on that, and they are expected to pass unchanged.
+- **The identifier message change is diagnosis only, and covers ISBN.** Nothing about which values pass becomes looser or stricter. The existing validator tests are the guard on that, and they are expected to pass unchanged — which is exactly why ISSN is excluded, since verifying its check digit would move values out of the accepted set. That gap is #118.
 - **The demo is extended, not replaced.** FS-007's seeded catalogue, documented command and guard stay as they are and gain these flows, and the guard remains an addition to the test suite rather than a substitute for part of it.
