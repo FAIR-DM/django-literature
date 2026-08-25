@@ -116,6 +116,7 @@ INSTALLED_APPS = [
     "easy_icons",
     "flex_menu",
     "django_tables2",
+    "django_filters",
     "mvp",
     "crispy_forms",
     "crispy_tailwind",
@@ -249,16 +250,12 @@ credited names and its issued date, with an edit control on every row and a clic
 column heading but the credited names and the edit control themselves. That is what a project
 managing its own library gets out of the box.
 
-One limitation to know about: a chosen sort is discarded when you move to the next page. The
-pagination links replace the whole query string, which is a defect in the shared component this page
-renders and is fixed there rather than here — [issue #88](https://github.com/FAIR-DM/django-literature/issues/88)
-tracks it.
-
 The card presentation the package served before the table existed is still there: `ItemListView`,
-reachable and tested the same as ever, one reference per card rather than per row. The contributor
-page keeps using it regardless of which view backs the catalogue, since a contributor's credited
-works read better as cards than as a table of one person's output. A project building a public-facing
-reading list, rather than a tool for managing one, can prefer it for the catalogue too.
+reachable the same way as ever, one reference per card rather than per row, searching and filtering
+the same set of references the table does. The contributor page keeps a plain, unfiltered version of
+it regardless of which view backs the catalogue, since a contributor's credited works read better as
+cards than as a table of one person's output. A project building a public-facing reading list, rather
+than a tool for managing one, can prefer the card presentation for the catalogue too.
 
 Selecting it is a settings change, under the same namespaced `LITERATURE` key the format registry
 uses:
@@ -282,6 +279,36 @@ Sorting the table by item type orders by the type's stored value, not by the tra
 in the column — the label reads differently in every language the catalogue is served in, and the
 order behind it does not change with it.
 
+### Searching and filtering the catalogue
+
+Both presentations carry a search box and four filters, reading from one shared definition, so a
+narrowed catalogue looks the same whichever route serves it.
+
+The search box matches a fragment, case-insensitively, against a reference's citation key, its
+title, short title and original title, the container it appeared in, and every credited
+contributor's name. It deliberately does not reach a reference's abstract or its keywords: that text
+runs much longer, and searching it well needs different infrastructure than a fast, predictable
+lookup over a handful of short fields.
+
+The four filters narrow on:
+
+- **Item type** — the kind of reference: an article, a book, a dataset, and so on.
+- **Contributor** — a name fragment matched against a contributor's family, given, or literal name,
+  in any role.
+- **Language** — whichever language values the catalogue actually holds, offered as a chooser built
+  from the stored data rather than a fixed list a project has to keep in sync with it.
+- **Issued year** — the year a reference's issued date falls in, including a reference whose date
+  covers a range beginning that year. A reference with no issued date never matches a year filter.
+
+Choosing more than one value within a single filter widens what it accepts — an article or a book.
+A search term and a filter, or two different filters, narrow further — an article, published in
+2019. An invalid or unmatched filter value returns no results rather than falling back to the whole
+catalogue or raising an error.
+
+A search, every filter, the chosen sort and the current page all live in the address, so moving to
+another page, changing the sort, or bookmarking the address and reopening it later keeps every one
+of them in force.
+
 ### Adding, editing and removing a reference
 
 The catalogue list carries an Add action, and a reference page carries Edit and Delete actions.
@@ -299,6 +326,27 @@ catalogue can add, edit and remove a reference. That is intentional for a packag
 person managing their own library, and restricting these pages to particular users or groups is left
 to the host project to add, the same way it would guard any other view.
 
+### Importing a bibliography file
+
+The catalogue list carries an Import action too, opening a page with a format choice and a file
+control. Submitting previews the file by default, on a page of its own: the same report a real
+import would produce, with nothing yet written to the catalogue — how many entries would be
+created, skipped and failed, and one row per entry in the order the file held them, narrowable to
+one outcome without leaving the page. A control at the foot carries out the import it described
+and returns you to the catalogue with a message stating what was created. A checkbox on the form
+skips the preview for a one-step import instead, which lands on the same report of what it did.
+
+The format is chosen, never detected from the file itself — pick the wrong one and the format's
+own message says so on every entry, rather than the file being silently misread. Nothing checks
+whether a file has already been imported, so submitting the same file twice creates the references
+twice. The page says so before you submit. A failure partway through the file does not undo what
+already succeeded — the entries created before it stay in the catalogue.
+
+Like the pages above, the import page carries no permission check of its own — anyone who can reach
+the catalogue can reach it too — and the package imposes no size limit of its own on the file it
+accepts. Restricting or bounding either is left to the host project, the same way it would guard any
+other view.
+
 ### Try it: the demo project
 
 The repository carries a runnable demo of everything above, wired the same way this section
@@ -313,9 +361,10 @@ python manage.py runserver
 
 `migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
 `runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
-reference page and a contributor page are all live and populated. The Add, Edit and Delete
-actions on those pages are live too, so you can enter, correct and remove a reference the same way a
-host project's own users would.
+reference page and a contributor page are all live and populated. The Add, Edit, Delete and Import
+actions on those pages are live too, so you can enter, correct, remove and import references the
+same way a host project's own users would. `demo/seed/import-sample.bib` is there to import: it
+holds entries that convert and one that does not, so the report has something to show.
 
 `seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
 again returns the demo to the same seeded state whatever state it was in before — including

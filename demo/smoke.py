@@ -10,6 +10,7 @@ Not a test module: standard library only, run directly against a live
 server, not under pytest (conventions; constitution Article VII).
 """
 
+import html
 import http.cookiejar
 import re
 import sys
@@ -18,6 +19,12 @@ import urllib.parse
 import urllib.request
 import uuid
 from html.parser import HTMLParser
+from pathlib import Path
+
+# The import fixture (T301) sits beside this module's own seed data, never
+# reversed from a Django setting: the walk speaks HTTP only and has no
+# access to the demo's app registry to ask it (module docstring).
+IMPORT_FIXTURE_PATH = Path(__file__).resolve().parent / "seed" / "import-sample.bib"
 
 # The demo runs with DEBUG = True (plan.md D-5): an unbounded body on failure
 # would put Django's technical-500 page, including settings and the request
@@ -27,13 +34,21 @@ BODY_EXCERPT_LIMIT = 500
 ITEM_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/)"[^>]*>(?P<text>[^<]+)<')
 CONTRIBUTOR_LINK_RE = re.compile(r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<')
 
-# Today's pagination component replaces the whole query string on every page
-# link (plan.md D-14, tracked upstream as django-mvp/django-mvp#270 and here
-# as #88), so a rendered link is always the bare `?page=2`. This pattern
-# tolerates the link carrying other parameters either side of `page=2` so it
-# stays correct once that defect is fixed and a sort survives the page move,
-# without also matching a link that carries no page parameter at all.
-SECOND_PAGE_LINK_RE = re.compile(r'href="(?P<query>\?(?:[^"]*&)?page=2(?:&[^"]*)?)"')
+# The catalogue list's search box (FR-033): its `name="q"` input is rendered
+# outside the filter modal's own <form>, associated with it only by the
+# HTML5 `form="filterForm"` attribute (mvp's search.html), so it is
+# confirmed here rather than through ``form_fields``, which only walks a
+# page's first physically-nested <form>.
+SEARCH_INPUT_RE = re.compile(r'<input[^>]+name="q"[^>]+form="filterForm"')
+
+# A rendered pagination link carrying another parameter joins it to `page=2`
+# with the HTML entity `&amp;`, not a bare `&` (`{% querystring %}`'s own
+# escaping, decisions.md D13) — tolerated here so this still matches a link
+# that also carries a search, a filter or a sort, without also matching a
+# link that carries no page parameter at all. The captured group is raw
+# HTML: a caller unescapes it with ``html.unescape`` before using it to
+# build a URL.
+SECOND_PAGE_LINK_RE = re.compile(r'href="(?P<query>\?(?:[^"]*&(?:amp;)?)?page=2(?:&(?:amp;)?[^"]*)?)"')
 
 # The write pass's own links (T021, D-9): the catalogue's Add action, and a
 # reference page's Edit and Delete actions. Unlike the two patterns above,
@@ -49,6 +64,23 @@ DELETE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/delete/)"')
 # that row's own edit control rather than the first edit link anywhere on
 # the page, which could belong to a different row.
 ROW_RE = re.compile(r"<tr\b.*?</tr>", re.DOTALL)
+
+# The import pass's own link (T301, T304): the catalogue's Import action.
+# Same shape as CREATE_LINK_RE — the button's visible text sits behind an
+# icon element (mvp's <c-button>), not immediately after the href's closing
+# ``>``, so only the address is captured.
+IMPORT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/import/)"')
+
+# The preview's own confirm control (T512, US-4): unlike every other pattern
+# in this module it matches a <form>'s action, not an <a>'s href — the
+# control that carries out a previewed import is a POST, never a link
+# (decisions.md D16, import_report.html).
+CONFIRM_IMPORT_RE = re.compile(r'<form[^>]+action="(?P<path>/catalogue/import/confirm/)"')
+
+# The preview's own restart control (T918, US-6): same shape as
+# CONFIRM_IMPORT_RE — a <form>'s action, since discarding the staged file is
+# a POST, never a link (import_preview.html).
+RESTART_IMPORT_RE = re.compile(r'<form[^>]+action="(?P<path>/catalogue/import/restart/)"')
 
 
 class FormFieldParser(HTMLParser):
@@ -156,6 +188,41 @@ def form_fields(body: str) -> dict[str, str]:
     return parser.fields
 
 
+def encode_multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]) -> tuple[bytes, str]:
+    """Build a ``multipart/form-data`` body and its ``Content-Type`` header value (T301, T303).
+
+    ``post`` below urlencodes a plain field dict, which is what every write-pass
+    form on the catalogue needs — none of them carries a file. The import form
+    does, and a file cannot ride inside a urlencoded body (D-9's own reasoning
+    for ``post`` does not extend to this), so this is a second encoder beside
+    it, not a change to it.
+
+    Args:
+        fields: Ordinary form fields, name to value.
+        files: File fields, name to ``(filename, content, content_type)``.
+
+    Returns:
+        ``(body, content_type)`` — ``content_type`` carries the boundary, and a
+        caller sends it as the request's own ``Content-Type`` header.
+    """
+    boundary = uuid.uuid4().hex
+    lines: list[bytes] = []
+    for name, value in fields.items():
+        lines.append(f"--{boundary}".encode())
+        lines.append(f'Content-Disposition: form-data; name="{name}"'.encode())
+        lines.append(b"")
+        lines.append(value.encode())
+    for name, (filename, content, content_type) in files.items():
+        lines.append(f"--{boundary}".encode())
+        lines.append(f'Content-Disposition: form-data; name="{name}"; filename="{filename}"'.encode())
+        lines.append(f"Content-Type: {content_type}".encode())
+        lines.append(b"")
+        lines.append(content)
+    lines.append(f"--{boundary}--".encode())
+    lines.append(b"")
+    return b"\r\n".join(lines), f"multipart/form-data; boundary={boundary}"
+
+
 class SmokeCheckFailed(Exception):
     """The URL, status and a bounded body excerpt of a failed check (FR-020)."""
 
@@ -182,16 +249,97 @@ class DemoWalk:
         if not item_links:
             self.fail(list_url, 200, "no reference link on the catalogue list — the seed did not load", list_body)
 
-        second_page_match = SECOND_PAGE_LINK_RE.search(list_body)
-        if second_page_match is None:
-            self.fail(list_url, 200, "no second-page link on the catalogue list", list_body)
-        second_page_url = f"{list_url}{second_page_match.group('query')}"
-        second_page_body = self.get(second_page_url)
-        if not ITEM_LINK_RE.search(second_page_body):
-            self.fail(second_page_url, 200, "no reference link on the catalogue's second page", second_page_body)
-
+        self.walk_narrowed_catalogue(list_url, list_body)
         self.walk_to_contributor(item_links)
         self.walk_write_pass(list_url, list_body)
+        # Last (T301, T304): unlike walk_write_pass, this leaves its
+        # references behind, and on a developer's persistent demo database
+        # they accumulate across runs. Every check above it has already run
+        # against the catalogue as the seed alone left it — putting this
+        # earlier would make walk_narrowed_catalogue's exact-membership
+        # assertions fail on the second run of the day.
+        self.walk_import(list_url, list_body)
+
+    def walk_narrowed_catalogue(self, list_url, list_body):
+        """A search, a filter, and a page move over a narrowed result (FR-033, decisions.md D22).
+
+        Each step submits one query parameter alone, the same as a browser
+        leaving every other filter control untouched — a multi-select
+        control with nothing chosen contributes no key to a real form
+        submission, so filling in the rest from ``form_fields`` would
+        submit a value no reader ever chose. Confirmed present first
+        (``SEARCH_INPUT_RE``, and ``form_fields`` already proves ``type``
+        and ``language`` are rendered controls), then asserted on the
+        references present and absent in what comes back — never on a
+        status code alone, so a search or filter that silently stopped
+        narrowing would not be missed.
+        """
+        fields = form_fields(list_body)
+        if "type" not in fields or "language" not in fields:
+            self.fail(list_url, 200, "the catalogue list's filter form carries no type or language control", list_body)
+        if SEARCH_INPUT_RE.search(list_body) is None:
+            self.fail(list_url, 200, "no search box on the catalogue list", list_body)
+
+        # A search: SEARCH_FIELDS (literature/ui/filters.py) includes
+        # citation_key, and every seeded citation key is unique.
+        search_url = f"{list_url}?{urllib.parse.urlencode({'q': 'Shannon1948'})}"
+        search_body = self.get(search_url)
+        if "A Mathematical Theory of Communication" not in search_body:
+            self.fail(
+                search_url, 200, "searching citation key 'Shannon1948' did not return its own reference", search_body
+            )
+        if "Attention Is All You Need" in search_body:
+            self.fail(
+                search_url,
+                200,
+                "searching citation key 'Shannon1948' also returned an unrelated reference",
+                search_body,
+            )
+
+        # A filter: the seed carries exactly one `dataset` reference (demo/seed/catalogue.json).
+        filter_url = f"{list_url}?{urllib.parse.urlencode({'type': 'dataset'})}"
+        filter_body = self.get(filter_url)
+        if "Physical oceanography during POLARSTERN cruise ANT-II/3" not in filter_body:
+            self.fail(
+                filter_url,
+                200,
+                "filtering to type=dataset did not return the seed's one dataset reference",
+                filter_body,
+            )
+        if "A Mathematical Theory of Communication" in filter_body:
+            self.fail(filter_url, 200, "filtering to type=dataset also returned a non-dataset reference", filter_body)
+
+        # A page move over a narrowed result: the seed's dominant language
+        # clears the page size (decisions.md D22), so a reader following
+        # the rendered page-2 link lands on a genuine second page of a
+        # genuinely narrowed set.
+        narrowed_url = f"{list_url}?{urllib.parse.urlencode({'language': 'en'})}"
+        narrowed_body = self.get(narrowed_url)
+        if "Cien años de soledad" in narrowed_body:
+            self.fail(
+                narrowed_url, 200, "filtering to language=en also returned a Spanish-language reference", narrowed_body
+            )
+        first_page_paths = {path for path, _text in ITEM_LINK_RE.findall(narrowed_body)}
+        if not first_page_paths:
+            self.fail(narrowed_url, 200, "filtering to language=en returned no references at all", narrowed_body)
+
+        second_page_match = SECOND_PAGE_LINK_RE.search(narrowed_body)
+        if second_page_match is None:
+            self.fail(narrowed_url, 200, "no second-page link on the language=en narrowed result", narrowed_body)
+        second_page_url = f"{list_url}{html.unescape(second_page_match.group('query'))}"
+        second_page_body = self.get(second_page_url)
+        if "Cien años de soledad" in second_page_body:
+            self.fail(second_page_url, 200, "the language filter was lost on the page move", second_page_body)
+        second_page_paths = {path for path, _text in ITEM_LINK_RE.findall(second_page_body)}
+        if not second_page_paths:
+            self.fail(second_page_url, 200, "no reference link on the narrowed result's second page", second_page_body)
+        if second_page_paths & first_page_paths:
+            self.fail(
+                second_page_url,
+                200,
+                "the narrowed result's second page repeats a reference from its first page",
+                second_page_body,
+            )
 
     def walk_to_contributor(self, item_links):
         """Follow the list's reference links in order until one has a contributor (plan.md D-5)."""
@@ -344,6 +492,158 @@ class DemoWalk:
                 list_url, 200, f"catalogue list still lists the deleted reference at {item_path}", list_after_delete
             )
 
+    def walk_import(self, list_url, list_body):
+        """Preview the fixture file, confirm it, and confirm both the message
+        left behind and the catalogue show it (T301, T304, T513, T918, US-4,
+        US-6).
+
+        Follows the catalogue's own Import link, the same discipline every
+        other step in this class uses (SC-003). Submitting the form now
+        redirects to the preview's own address rather than rendering it
+        directly (FR-045, decisions.md D30), and ``self.fetch`` follows that
+        redirect the same way a browser would — the landed-on address is
+        checked against the preview's own, expected one, not merely against
+        "did not stay on the form". That response is asserted to be a
+        preview: labelled as one, reporting the same two entries that would
+        convert and the one that would not with the reason a reader could
+        act on (demo/seed/import-sample.bib, decisions.md D15), and the
+        catalogue is checked to still hold none of them. Only then is the
+        preview's own confirm control followed, which redirects again, this
+        time to the catalogue with a message stating the counts (FR-052,
+        decisions.md D31) — there is no success page or address any more —
+        and the catalogue is re-fetched to confirm the references actually
+        arrived, not only that the preview claimed they would.
+        """
+        import_match = IMPORT_LINK_RE.search(list_body)
+        if import_match is None:
+            self.fail(list_url, 200, "no Import link on the catalogue list", list_body)
+        import_url = f"{self.base_url}{import_match.group('path')}"
+        preview_url = f"{import_url}preview/"
+
+        import_form_body = self.get(import_url)
+        fields = form_fields(import_form_body)
+        if "format" not in fields or "file" not in fields:
+            self.fail(import_url, 200, "the import form carries no format or file control", import_form_body)
+
+        text_fields = {key: value for key, value in fields.items() if key != "file"}
+        text_fields["format"] = "bibtex"
+        body, content_type = encode_multipart(
+            text_fields,
+            {"file": (IMPORT_FIXTURE_PATH.name, IMPORT_FIXTURE_PATH.read_bytes(), "application/octet-stream")},
+        )
+        headers = {"Referer": import_url, "Content-Type": content_type}
+        request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
+        preview_body, landed_url = self.fetch(request, import_url)
+
+        if landed_url != preview_url:
+            self.fail(
+                landed_url,
+                200,
+                f"submitting the import did not redirect to its own preview address (landed on {landed_url})",
+                preview_body,
+            )
+        if "preview" not in preview_body.lower():
+            self.fail(preview_url, 200, "the preview address was not rendered as a preview", preview_body)
+        self._check_import_report(preview_url, preview_body, "the preview")
+
+        list_before_confirm = self.get(list_url)
+        for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
+            if created_title in list_before_confirm:
+                self.fail(
+                    list_url,
+                    200,
+                    f"the catalogue already lists {created_title!r} before the preview was confirmed",
+                    list_before_confirm,
+                )
+
+        # Restart (FR-051): discards this preview's staged file and returns
+        # to an empty form. Exercised and confirmed before the real run
+        # below stages a fresh file of its own — restarting is a detour, not
+        # the ending this walk is here to prove.
+        restart_match = RESTART_IMPORT_RE.search(preview_body)
+        if restart_match is None:
+            self.fail(preview_url, 200, "the preview carries no restart control", preview_body)
+        restart_url = f"{self.base_url}{restart_match.group('path')}"
+        restart_form_body = preview_body[restart_match.start() :]
+        form_after_restart_body, landed_url = self.post(restart_url, preview_url, form_fields(restart_form_body))
+        if landed_url != import_url:
+            self.fail(
+                landed_url,
+                200,
+                f"restarting did not redirect to an empty import form (landed on {landed_url})",
+                form_after_restart_body,
+            )
+        restarted_fields = form_fields(form_after_restart_body)
+        if restarted_fields.get("file"):
+            self.fail(
+                import_url, 200, "the form restarting lands on still carries a file value", form_after_restart_body
+            )
+
+        # Re-stage the fixture for the real run: restart discarded the file
+        # staged above, so the walk previews it again exactly as a reader
+        # would after restarting.
+        body, content_type = encode_multipart(
+            text_fields,
+            {"file": (IMPORT_FIXTURE_PATH.name, IMPORT_FIXTURE_PATH.read_bytes(), "application/octet-stream")},
+        )
+        headers = {"Referer": import_url, "Content-Type": content_type}
+        request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
+        preview_body, landed_url = self.fetch(request, import_url)
+        if landed_url != preview_url:
+            self.fail(
+                landed_url,
+                200,
+                f"re-previewing after a restart did not redirect to the preview address (landed on {landed_url})",
+                preview_body,
+            )
+
+        confirm_match = CONFIRM_IMPORT_RE.search(preview_body)
+        if confirm_match is None:
+            self.fail(preview_url, 200, "the preview carries no confirm control", preview_body)
+        confirm_url = f"{self.base_url}{confirm_match.group('path')}"
+
+        confirm_form_body = preview_body[confirm_match.start() :]
+        list_after_confirm_body, landed_url = self.post(confirm_url, preview_url, form_fields(confirm_form_body))
+        if landed_url != list_url:
+            self.fail(
+                landed_url,
+                200,
+                f"confirming the preview did not redirect to the catalogue (landed on {landed_url})",
+                list_after_confirm_body,
+            )
+        if "2 created" not in list_after_confirm_body:
+            self.fail(
+                list_url,
+                200,
+                "the catalogue does not carry a message stating the counts after confirming",
+                list_after_confirm_body,
+            )
+
+        list_after_import = self.get(list_url)
+        for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
+            if created_title not in list_after_import:
+                self.fail(
+                    list_url,
+                    200,
+                    f"the catalogue does not list the imported reference {created_title!r}",
+                    list_after_import,
+                )
+
+    def _check_import_report(self, url, body, what):
+        """The three assertions a preview and a real report both have to satisfy (T513).
+
+        A preview reports exactly what a real import would (FR-038), so
+        ``walk_import`` runs this once against each response rather than
+        keeping two copies of the same three checks.
+        """
+        for created_key in ("ImportFixtureAlpha2024", "ImportFixtureBeta2023"):
+            if created_key not in body:
+                self.fail(url, 200, f"{what} does not carry the fixture's created entry {created_key!r}", body)
+        if "ImportFixtureGamma2022" not in body:
+            self.fail(url, 200, f"{what} does not carry the fixture's failing entry 'ImportFixtureGamma2022'", body)
+        if "Ensure this value has at most 255 characters" not in body:
+            self.fail(url, 200, f"{what} does not carry the failing entry's own reason", body)
+
     def get(self, url):
         """GET url, following redirects, and fail if any lands on a login page (FR-005, T015)."""
         body, _final_url = self.fetch(url, url)
@@ -407,7 +707,8 @@ def main(argv):
         print(f"FAILED: {exc}", file=sys.stderr)
         return 1
     print(
-        f"OK: walked the demo catalogue, its second page, a reference and a contributor, and created/corrected/removed a reference, at {base_url}"
+        f"OK: walked the demo catalogue, its second page, a reference and a contributor, "
+        f"created/corrected/removed a reference, and imported a bibliography file, at {base_url}"
     )
     return 0
 

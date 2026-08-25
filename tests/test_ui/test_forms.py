@@ -7,9 +7,12 @@ it already held (D-3).
 """
 
 import pytest
+from django import forms
+from django.test import override_settings
 
 from literature.choices import ItemType
-from literature.ui.forms import ItemForm
+from literature.importers import available_formats
+from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
 from tests.factories import ItemFactory
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
@@ -54,3 +57,85 @@ class TestItemFormValidation:
         assert form.is_valid(), form.errors
         saved = form.save()
         assert saved.citation_key == "Doe2024"
+
+
+class TestImportForm:
+    """``ImportForm`` — choose a format and a file to import (US-1, FR-005, FR-006, FR-010)."""
+
+    def test_offers_exactly_the_configured_formats(self):
+        # FR-005 — not a hard-coded pair: whatever LITERATURE["BIB_FORMATS"]
+        # resolves to, and nothing else.
+        choices = dict(ImportForm().fields["format"].choices)
+        expected = {name: format_class.label for name, format_class in available_formats().items()}
+        assert choices == expected
+
+    def test_the_choices_are_built_when_the_form_is_instantiated(self):
+        # FR-005 — a format configured after import time still appears: the
+        # choices must be read from available_formats() in __init__, not
+        # frozen on the class at import time.
+        with override_settings(LITERATURE={"BIB_FORMATS": ["literature.importers.bibtex.BibTeXFormat"]}):
+            choices = dict(ImportForm().fields["format"].choices)
+        assert list(choices) == ["bibtex"]
+
+    def test_both_fields_are_required(self):
+        assert ImportForm().fields["format"].required
+        assert ImportForm().fields["file"].required
+
+    def test_a_form_submitted_with_neither_is_invalid_with_a_reason_on_each(self):
+        form = ImportForm(data={}, files={})
+        assert not form.is_valid()
+        assert "format" in form.errors
+        assert "file" in form.errors
+
+    def test_the_form_is_multipart(self):
+        # The file control cannot post without it (T111's own guard reads
+        # this off the rendered page).
+        assert ImportForm().is_multipart()
+
+    def test_carries_a_skip_preview_control_unticked_by_default_and_not_required(self):
+        # FR-040 — previewing is the default path; ticking this is the only
+        # way to skip it, and a blank form is not itself invalid for lacking
+        # a tick (a checkbox left unticked, not one left unanswered).
+        field = ImportForm().fields["skip_preview"]
+        assert field.required is False
+        assert field.initial is False
+
+
+class TestConfirmImportForm:
+    """Carries out a previewed import — US-4 (FR-042).
+
+    Nothing on this page may name the staged file. The token and the format
+    it was staged as both live in the reader's own session (decisions.md
+    D16), and a field carrying either would be exactly the design this
+    feature declines to copy — a request that confirms whatever it was
+    handed the name of.
+
+    It does carry which preview the page was showing (decisions.md D28).
+    That is a different thing: it names nothing on disk, and the view
+    imports only where it matches the confirming session's own value, so on
+    its own it reaches nothing at all.
+    """
+
+    def test_carries_no_file_field(self):
+        assert "file" not in ConfirmImportForm().fields
+
+    def test_carries_no_token_field(self):
+        assert "token" not in ConfirmImportForm().fields
+
+    def test_names_nothing_the_staged_file_can_be_found_by(self):
+        # The blanket "no fields at all" this replaced was a proxy for the
+        # rule, and stopped tracking it once a field that reaches nothing
+        # was added. This asserts the rule.
+        forbidden = {"file", "token", "name", "filename", "path", "format", "resource"}
+        assert forbidden.isdisjoint(ConfirmImportForm().fields)
+
+    def test_carries_only_which_preview_was_shown(self):
+        assert set(ConfirmImportForm().fields) == {"preview"}
+
+    def test_the_preview_field_is_hidden_and_not_required(self):
+        # Not required: a confirmation arriving without it is refused by the
+        # view as naming no preview, which is the same answer as naming the
+        # wrong one — never a field error on a page with nothing to correct.
+        field = ConfirmImportForm().fields["preview"]
+        assert isinstance(field.widget, forms.HiddenInput)
+        assert not field.required

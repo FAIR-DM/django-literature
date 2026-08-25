@@ -1,6 +1,7 @@
 # ADR-0012 — A format owns its own decoding, and says which file mode it expects
 
-- **Status:** Accepted
+- **Status:** Accepted, in part superseded by ADR 0026
+- **Partly superseded by:** [ADR 0026](0026-a-format-accepts-a-text-or-a-binary-handle.md): decoding still belongs to the format, but a format no longer names one mode and refuses the other. The title's second clause no longer holds.
 - **Context date:** spec 005 (FR-034, Edge Cases), `literature/importers/ris.py` (`RISParser.parse`), `literature/importers/base.py`, issue #23
 
 ## Context
@@ -16,20 +17,27 @@ information survives decoding done by the caller.
 
 ## Decision
 
-**Decoding happens at the format's own read step, and the format documents the mode it expects.**
+**Decoding happens at the format's own read step, and ~~the format documents the mode it expects~~
+[ADR 0026: the format accepts either mode].**
 
 `RISParser.parse` reads bytes, decodes them itself, and raises a translated parse error naming the
-attempted encoding and the failing offset. That expectation is documented on the method, and every
-RIS fixture in the corpus is opened in binary mode.
+attempted encoding and the failing offset. ~~That expectation is documented on the method, and every
+RIS fixture in the corpus is opened in binary mode.~~ It now also accepts an already-decoded read
+(ADR 0026); the fixtures are unchanged and still opened in binary mode.
 
 ## Consequences
 
-- Two formats in the same package may expect different modes. That is a documented property of each
+- ~~Two formats in the same package may expect different modes. That is a documented property of each
   format rather than a contract-wide rule, and it is why the mode belongs in each format's own
-  documentation.
-- A caller who hands a text-mode file to a format expecting bytes gets that entry's failure reported
+  documentation.~~ Superseded by [ADR 0026](0026-a-format-accepts-a-text-or-a-binary-handle.md).
+  Two formats expecting different modes is exactly what the shipped pair did, and it made every
+  browser upload fail on one of them. A format now accepts both.
+- ~~A caller who hands a text-mode file to a format expecting bytes gets that entry's failure reported
   through the result rather than a crash, because the runner catches everything (ADR-0007). The
   message is less legible than a purpose-built one, which is the accepted cost of not adding a
-  type check to the contract for a caller disregarding it.
-- Nothing was added to the import contract to make this work. The mode expectation lives in the
-  format, so a future format is free to make the other choice.
+  type check to the contract for a caller disregarding it.~~ Superseded by ADR 0026: there is no
+  wrong mode to hand a format, so the case does not arise.
+- Nothing was added to the import contract to make this work. ~~The mode expectation lives in the
+  format, so a future format is free to make the other choice.~~ Decoding still lives in the
+  format, and the contract still passes the handle through untouched. What a format may no longer
+  do is refuse one of the two modes.

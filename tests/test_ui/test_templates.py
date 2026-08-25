@@ -4,10 +4,20 @@ import re
 from pathlib import Path
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
+
+from literature.ui.tables import OutcomeColumn
 
 APP_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
 TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
-TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html"))
+#: The Cotton action component directory — widened here (T111, US-1) so the
+#: i18n and utility-class guards below also reach the new toolbar action
+#: component. Before this phase the glob only ever reached
+#: ``literature/ui/templates/literature/ui/*.html``, so a component shipped
+#: under ``cotton/page/list/actions/`` was checked by neither guard.
+COTTON_ACTIONS_DIR = APP_TEMPLATES_DIR / "cotton" / "page" / "list" / "actions"
+TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html")) + sorted(COTTON_ACTIONS_DIR.glob("*.html"))
 PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
 
@@ -58,7 +68,14 @@ class TestPackagedChain:
 
     def test_no_page_template_of_our_own_stands_in_for_a_packaged_one(self):
         # The catalogue list and the contributor page render through
-        # ``list_view.html``; neither has a template here.
+        # ``list_view.html``; neither has a template here. US-1's
+        # ``item_list_page.html`` (``ItemListView.template_name``) does not
+        # contradict this: it ``{% extends "list_view.html" %}`` and
+        # overrides only the ``page.actions`` block, a wrapper around the
+        # packaged template rather than a replacement of it — the file this
+        # test guards against is named ``item_list.html`` (no ``_page``) and
+        # would stand in for ``list_view.html`` wholesale, which is a
+        # different thing.
         assert not (TEMPLATES_DIR / "base.html").exists()
         assert not (TEMPLATES_DIR / "item_list.html").exists()
         assert not (TEMPLATES_DIR / "contributor_detail.html").exists()
@@ -513,3 +530,263 @@ class TestI18nGuard:
 
     def test_ignores_configuration_attributes(self):
         assert unwrapped_reader_attributes('<c-text size="sm" muted><c-grid cols="1" md="2" gap="4">') == []
+
+
+# ---------------------------------------------------------------------------
+# T111 — the import pages themselves (US-1, FR-023, decisions.md D11).
+# ---------------------------------------------------------------------------
+
+#: A RIS record missing its own ``TY`` tag — the format's own documented
+#: ``EntryError`` (``literature/importers/ris.py``), reused here from
+#: ``tests/test_ui/test_views.py``'s own fixture so the report page under
+#: test always carries at least one row.
+IMPORT_RIS_FIXTURE = "TY  - JOUR\nAU  - Doe, Jane\nTI  - A Working RIS Reference\nPY  - 2020\nER  -\n"
+
+
+class TestImportFormPage:
+    """T111 — the import form page carries a multipart form, a file
+    control and the repeat-import warning (FR-006, FR-023)."""
+
+    def test_the_form_is_multipart(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert 'enctype="multipart/form-data"' in content
+
+    def test_carries_a_file_control(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert 'type="file"' in content
+
+    def test_carries_the_repeat_import_warning(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert "Duplicate files are not detected and will be imported again" in content
+
+    def test_says_what_the_default_does_and_how_to_skip_it(self, client, db):
+        content = client.get(reverse("literature:item-import")).content.decode()
+        assert "the file is previewed before import" in content
+        assert "Skip the preview and import immediately" in content
+
+
+class TestItemFormPageMarkup:
+    """The reference form page's own button row (item_form.html)."""
+
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+        # The same defect this page carried since its own phase: see
+        # TestImportReportPage's test of the same name.
+        content = client.get(reverse("literature:item-create")).content.decode()
+        assert "breakpoint=" not in content
+
+
+class TestImportReportPage:
+    """T111 — the report page for a one-step (skip-preview) import carries
+    the counts, the table and a link back to the catalogue (FR-012, FR-013,
+    FR-021).
+
+    T917 — the form-above-the-results layout (FR-011a) and the Retry state
+    (FR-023a) were both reversed by the second 2026-08-24 refinement
+    (decisions.md D30): the preview is now its own page with no form of its
+    own, and *Restart import* on it replaces Retry. This page goes back to
+    carrying no form of its own, which is what it did before Phase 7 added
+    either."""
+
+    def _report_content(self, client):
+        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "ris", "file": upload, "skip_preview": "on"},
+        )
+        return response.content.decode()
+
+    def test_carries_the_counts(self, client, db):
+        content = self._report_content(client)
+        assert "1 created" in content
+
+    def test_carries_the_table(self, client, db):
+        content = self._report_content(client)
+        assert "Created" in content  # the outcome column's own translated label
+
+    def test_carries_a_link_back_to_the_catalogue(self, client, db):
+        content = self._report_content(client)
+        assert f'href="{reverse("literature:item-list")}"' in content
+
+    def test_is_not_labelled_as_a_preview(self, client, db):
+        content = self._report_content(client).lower()
+        assert "nothing has been imported" not in content
+
+    def test_carries_no_import_form_of_its_own(self, client, db):
+        # T917 — FR-011a's own upload form, above the results, is what the
+        # refinement removes; the preview is where a form-carrying page
+        # lives now (FR-046 governs that one instead).
+        content = self._report_content(client)
+        assert 'type="file"' not in content
+
+    def test_the_back_to_catalogue_button_carries_a_backward_arrow(self, client, db):
+        # T915/T916 (US-6, FR-055) gave this page's own breadcrumb a working
+        # link to the catalogue too, so the first occurrence of this href is
+        # now the breadcrumb's, not the button's — the last one is.
+        content = self._report_content(client)
+        back_href = f'href="{reverse("literature:item-list")}"'
+        back_index = content.rindex(back_href)
+        assert "bi-arrow-left" in content[max(back_index - 200, 0) : back_index + 200]
+
+    def test_carries_a_second_button_leading_to_an_empty_import_form(self, client, db):
+        content = self._report_content(client)
+        assert f'href="{reverse("literature:item-import")}"' in content
+
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+        # ``<c-group>`` declares row, collapse, wrap, class and gap. An
+        # attribute it does not declare is not ignored: Cotton writes it
+        # through to the rendered <div>, where it is invalid HTML and lays
+        # nothing out. Asserted on the rendered page rather than on the
+        # template so the check reads what a browser would receive.
+        assert "breakpoint=" not in self._report_content(client)
+
+
+class TestOutcomeFilter:
+    """T901 — the outcome filter narrows the preview's table client-side,
+    with no request of its own (FR-049, decisions.md D30, D32)."""
+
+    def _preview_content(self, client):
+        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
+        client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        return client.get(reverse("literature:item-import-preview")).content.decode()
+
+    def _filter_markup(self, content):
+        start = content.index('class="filter')
+        end = content.index("</div>", start)
+        return content[start:end]
+
+    def _controls(self, content):
+        """Each radio in the filter, as its own chunk of markup."""
+        return ["<input" + chunk for chunk in self._filter_markup(content).split("<input")[1:]]
+
+    def test_one_control_per_outcome_plus_a_way_back_to_all(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        assert markup.count('type="radio"') == 4  # All, created, skipped, failed
+
+    def test_each_control_names_its_outcome_in_translated_text(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        for label in ("All", "Created", "Skipped", "Failed"):
+            assert f'aria-label="{label}"' in markup
+
+    def test_it_carries_no_form_action_and_no_link(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        assert "<form" not in markup
+        assert "<a " not in markup
+
+    def test_the_counts_above_the_table_describe_the_whole_file_not_the_filter(self, client, db):
+        # FR-049a — the counts are rendered from ``report`` directly and sit
+        # outside the filter's own x-data scope, so they read the same
+        # whatever the table is narrowed to (proved here by their absence of
+        # any Alpine binding at all, since the Django test client renders
+        # markup rather than running Alpine).
+        content = self._preview_content(client)
+        counts_index = content.index("1 created")
+        counts_line = content[max(counts_index - 200, 0) : counts_index + 50]
+        assert "outcome" not in counts_line
+        assert "x-" not in counts_line
+
+    def test_every_control_is_small(self, client, db):
+        markup = self._filter_markup(self._preview_content(client))
+        assert markup.count('type="radio"') == markup.count("btn-sm")
+
+    def test_each_outcome_control_carries_the_same_tone_as_that_outcome_s_badge(self, client, db):
+        # The control and the badge for one outcome must read as the same
+        # thing. Asserted against the badge's own mapping rather than against
+        # tone names written out here, so restyling the badges moves the
+        # filter with them and cannot leave the two disagreeing.
+        controls = self._controls(self._preview_content(client))
+        for outcome, variant in OutcomeColumn.VARIANTS.items():
+            control = next(c for c in controls if f'value="{outcome.value}"' in c)
+            assert f"btn-{variant}" in control, f"{outcome.value} control is not toned as its badge"
+
+    def test_the_way_back_to_all_carries_no_outcome_tone(self, client, db):
+        controls = self._controls(self._preview_content(client))
+        reset = next(c for c in controls if "filter-reset" in c)
+        for variant in OutcomeColumn.VARIANTS.values():
+            assert f"btn-{variant}" not in reset
+
+
+class TestImportPreviewTemplate:
+    """T907 — the preview page carries no import form, is titled and
+    described, warns above the table when warranted, carries the outcome
+    filter, and ends with exactly three controls in one row (US-6, FR-046
+    through FR-050)."""
+
+    def _preview(self, client, filename="import.ris", format_name="ris", content=None):
+        upload = SimpleUploadedFile(filename, (content or IMPORT_RIS_FIXTURE).encode())
+        client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+        return client.get(reverse("literature:item-import-preview"))
+
+    def test_carries_no_import_form(self, client, db):
+        content = self._preview(client).content.decode()
+        assert 'type="file"' not in content
+
+    def test_is_titled_for_what_it_is_with_a_description_beneath(self, client, db):
+        content = self._preview(client).content.decode()
+        assert "Preview import" in content
+        assert "Nothing has been imported yet" in content
+
+    def test_a_warning_appears_above_the_table_when_an_entry_was_skipped_or_failed(self, client, db):
+        response = self._preview(client, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n")
+        content = response.content.decode()
+        table_index = content.index("<table")
+        warning_index = content.index("alert-warning")
+        assert warning_index < table_index
+
+    def test_no_warning_when_every_entry_was_created(self, client, db):
+        content = self._preview(client).content.decode()
+        assert "alert-warning" not in content
+
+    def test_the_filter_component_sits_above_the_table(self, client, db):
+        content = self._preview(client).content.decode()
+        filter_index = content.index('class="filter')
+        table_index = content.index("<table")
+        assert filter_index < table_index
+
+    def test_the_foot_carries_exactly_three_controls_in_one_row(self, client, db):
+        content = self._preview(client).content.decode()
+        # <c-group> renders to this literal opening class, and this page's
+        # footer is the only place it appears after the table.
+        footer_index = content.rindex('class="flex flex-col items-stretch')
+        footer = content[footer_index:]
+        assert footer.count("<a ") == 1  # back to the catalogue
+        assert footer.count("<form") == 2  # restart, confirm
+        assert reverse("literature:item-list") in footer
+        assert f'action="{reverse("literature:item-import-restart")}"' in footer
+        assert f'action="{reverse("literature:item-import-confirm")}"' in footer
+
+    def test_a_file_the_format_cannot_read_offers_no_confirmation(self, client, db):
+        # AS-12 — confirming would create nothing, so the control that would
+        # carry it out is not offered. The reader is left with restart and the
+        # way back to the catalogue.
+        response = self._preview(client, filename="wrong-format.bib", format_name="bibtex")
+        content = response.content.decode()
+        assert response.context["report"].created == 0
+        assert f'action="{reverse("literature:item-import-confirm")}"' not in content
+        assert f'action="{reverse("literature:item-import-restart")}"' in content
+
+
+class TestImportFormPageFieldErrors:
+    """T203 — an invalid submission's field errors render beside their own
+    fields, in the idiom the create page already uses (FR-006, US-2).
+
+    Neither ``import_form.html`` nor this app renders that idiom itself:
+    ``ImportForm`` reaches the page through the same packaged
+    ``<c-form.render />`` → ``{{ form|crispy }}`` pipeline ``item_form.html``'s
+    own fields already go through (``cotton/form/render.html``), so a bound
+    field's error is crispy-tailwind's own ``field_errors.html``, minting
+    ``id="error_{n}_{field.auto_id}"`` right beside the control — confirmed
+    against the create page's own invalid-submission output before writing
+    this, which renders the identical ``id="error_1_id_type"`` shape for its
+    own required field. Asserted against that id, not the paragraph's
+    swappable colour/size classes, since the id is the mechanism, not the
+    theme.
+    """
+
+    def test_a_missing_files_reason_renders_beside_the_file_field(self, client, db):
+        content = client.post(reverse("literature:item-import"), {"format": "bibtex"}).content.decode()
+        assert 'id="error_1_id_file"' in content
+
+    def test_a_missing_formats_reason_renders_beside_the_format_field(self, client, db):
+        upload = SimpleUploadedFile("x.bib", b"@article{x, title={T}}")
+        content = client.post(reverse("literature:item-import"), {"file": upload}).content.decode()
+        assert 'id="error_1_id_format"' in content

@@ -6,7 +6,85 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- **Importing a bibliography file through the front end.** The catalogue carries an Import
+  action, on both presentations, that opens a page to choose a configured format and attach a
+  file. Submitting it previews by default: the file is set aside and you land on a preview page at
+  its own address, saying plainly that nothing has been imported yet and showing the report a real
+  import would produce. It gives the counts — how many entries would be created, skipped and
+  failed — and one row per entry in source order, numbered from one, each outcome a colour-coded
+  badge, with a reason on every failure and on every skip, and a link to the reference a created
+  row would produce. A row of buttons above the table narrows it to one outcome and back again
+  without reloading the page or fetching anything, and the counts above those buttons go on
+  describing the whole file however far the table is narrowed. The preview is worked out from the
+  file afresh each time it is opened, so reloading it changes nothing and imports nothing.
+
+  The preview ends with three controls: back to the catalogue, restart, and confirm. Restarting
+  throws the file away and opens an empty import form. Confirming carries out the import and
+  returns you to the catalogue with a message stating what was created, rather than to a result
+  page of its own — the per-entry detail was on the preview you have just read. Where the chosen
+  format could not read the file at all, nothing would be created by confirming, so the preview
+  offers no confirmation and leaves only restart and the way back.
+
+  A previewed file is held on disk only until it is confirmed, or swept automatically after 24
+  hours if it never is. Its identity lives in the browser session rather than on the page, so a
+  confirmation can only ever complete what that same session staged, and one whose staged file is
+  already gone says so plainly and imports nothing. Reaching the preview address with nothing set
+  aside says the same rather than showing an empty page.
+
+  Ticking the skip-preview checkbox on the form imports in one step instead. That path lands on a
+  report of what was imported, carrying the same counts and the same row per entry, and ending
+  with a button back to the catalogue and a second that opens an empty import form.
+
+  The format is chosen, never detected from the file. Nothing checks whether a file has already
+  been imported, so importing the same file twice creates the references twice, and the page warns
+  of this before you submit. A failure partway through the file leaves the entries already created in
+  place. The page carries no permission check of its own and imposes no size limit of its own on
+  the file it accepts, the same as every other page in the front end.
+
+- **Searching and filtering the catalogue.** Both the table and the card presentation carry a
+  search box and four filters — item type, contributor, language, and issued year — reading from
+  one shared definition, so a narrowed catalogue looks the same whichever route serves it.
+
+  The search box matches a fragment, case-insensitively, against a reference's citation key, its
+  title, short title and original title, the container it appeared in, and every credited
+  contributor's name. It does not reach the abstract or the keywords: that text runs much longer,
+  and searching it well needs different infrastructure than a fast, predictable lookup over a
+  handful of short fields.
+
+  Choosing more than one value within a single filter widens what it accepts; a search term and a
+  filter, or two different filters, narrow further. An invalid or unmatched filter value returns no
+  results rather than falling back to the whole catalogue or raising an error.
+
+  A search, every filter, the chosen sort and the current page all live in the address, so moving to
+  another page, changing the sort, or bookmarking the address and reopening it later keeps every one
+  of them in force.
+
+  New runtime dependency, in the `ui` extra only: `django-filter`. A core-only install, or a project
+  that has not opted into the front end, resolves neither it nor django-mvp.
+
+### Fixed
+
+- A chosen sort no longer resets when moving to another page of the catalogue. The pagination links
+  used to replace the whole query string, dropping a sort along with everything else in it; the
+  django-mvp version this release requires preserves it instead, closing
+  [#88](https://github.com/FAIR-DM/django-literature/issues/88).
+
+- BibTeX imports no longer fail on every file uploaded through a browser. `BibTeXFormat.parse`
+  required a text handle and raised an internal `TypeError` on the bytes every upload actually is;
+  it now decodes a binary handle itself, the way `RISFormat` already did, and `RISFormat` now
+  accepts a text handle the same way in return — both formats accept either, closing
+  [#104](https://github.com/FAIR-DM/django-literature/issues/104).
+
 ### Changed
+
+- **A skipped entry in an import report may now show why.** A `@comment` or `@preamble` block in a
+  BibTeX file, and header material or a reference-type-only record in an RIS file, each name what
+  they were in the report's reason column — the same column a failed entry's reason already uses.
+  Previously a skipped entry never carried a reason at all, however specific a cause the format
+  actually had, and the report showed a row with no citation key and no explanation. A created entry
+  still never carries one (issue #107).
 
 - **The catalogue serves as a table by default.** `literature.ui`'s catalogue page used to be a list
   of cards; a project installing the front end with no configuration now gets a row per reference —
@@ -15,9 +93,9 @@ All notable changes to this project are documented in this file. The format foll
   names and the edit control themselves. Paging, the page size, the empty state and the Add action are
   unchanged.
 
-  The card presentation the package served before is still there. `ItemListView` is unchanged, still
-  tested, and still what the contributor page is built on. A project that prefers cards for its own
-  catalogue restores the previous page with a settings key,
+  The card presentation the package served before is still there, reachable the same way, and still
+  what the contributor page's own configuration is drawn from. A project that prefers cards for its
+  own catalogue restores the previous page with a settings key,
   `LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.ItemListView"}`, which also takes a project's
   own subclass of either view. Nothing is deprecated and nothing needs to be copied out of the
   package to do it.
@@ -25,11 +103,6 @@ All notable changes to this project are documented in this file. The format foll
   Sorting the table by item type orders by the type's stored value rather than by its translated
   label, since the label reads differently in every language the catalogue is served in and the order
   behind it should not.
-
-  Known limitation: a chosen sort is discarded when you move to the next page, because the pagination
-  links replace the whole query string. That is a defect in the shared component the page renders,
-  fixed there rather than worked around here; [#88](https://github.com/FAIR-DM/django-literature/issues/88)
-  tracks it and this page picks the fix up with the next dependency bump.
 
   New runtime dependency, in the `ui` extra only: `django-tables2`. A core-only install, or a project
   that has not opted into the front end, resolves neither it nor django-mvp.

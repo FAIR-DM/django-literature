@@ -54,6 +54,10 @@ INSTALLED_APPS = [
     # The tabular catalogue renders through django-tables2, which ships the
     # templatetag library the table component loads (README.md).
     "django_tables2",
+    # The catalogue's search and filter controls render through
+    # django-filter, reached through django-mvp's own guarded integration
+    # (README.md).
+    "django_filters",
     # ``mvp`` before ``crispy_tailwind``: django-mvp overrides one of
     # crispy-tailwind's templates and the first app to declare a template
     # path wins (README.md).
@@ -111,6 +115,14 @@ ROOT_URLCONF = "demo.urls"
 # so having django.contrib.staticfiles installed is not enough on its own
 # (README.md, tests/settings.py).
 STATIC_URL = "static/"
+
+# Where a preview's staged upload lives between the two requests (US-4,
+# literature/ui/staging.py). Django's own default falls back to the
+# process's working directory, which left a literature-imports/ directory
+# behind at the repository root the first time this was run by hand — named
+# explicitly here instead, under demo/, which .gitignore already excludes
+# via its media/ entry.
+MEDIA_ROOT = BASE_DIR / "demo" / "media"
 
 # Every icon the shell renders resolves through django-easy-icons; without a
 # "default" renderer configured, opening any page in the UI app raises

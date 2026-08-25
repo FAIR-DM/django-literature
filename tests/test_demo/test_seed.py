@@ -2,10 +2,10 @@
 
 Reads ``demo/seed/catalogue.json`` as plain JSON: no Django app registry beyond what
 pytest-django has already set up for the suite, no database, no subprocess (plan.md D-10).
-The one exception is ``paginate_by``, which the list view inherits from django-mvp rather
-than declaring itself, so it is read from the view's own attribute rather than hard-coded
-here — an upstream default change would otherwise make this test assert the wrong number
-silently (T011-paginate).
+The one exception is ``paginate_by``, which ``ItemListView`` declares explicitly rather
+than inheriting a default from django-mvp, so it is read from the view's own attribute
+rather than hard-coded here — a later change to that attribute would otherwise make this
+test assert the wrong number silently (T011-paginate).
 
 The role, date-slot and identifier-type vocabularies are imported from
 ``literature.choices`` rather than retyped by hand, for the same reason: retyping them is
@@ -14,7 +14,7 @@ a second copy that can drift from the source of truth without either copy failin
 
 import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import pytest
@@ -166,3 +166,20 @@ class TestSeedCatalogue:
         # The other branch: most real catalogues are mostly abstract-less, and
         # the row has to look right for those too.
         assert any(not entry.get("abstract") for entry in catalogue)
+
+    def test_has_language_values_across_several_distinct_languages(self, catalogue):
+        # FR-013: the language filter renders a chooser built from whatever
+        # distinct values the catalogue holds. A seed with no language values
+        # at all leaves that chooser empty (D-11) — this pins several values
+        # present so the empty control cannot come back silently.
+        languages = {entry["language"] for entry in catalogue if entry.get("language")}
+        assert len(languages) >= 4
+
+    def test_filtering_to_the_dominant_language_still_leaves_more_than_one_page(self, catalogue, paginate_by):
+        # decisions.md D22: the guard reaches a second page of a narrowed
+        # result by filtering on the dominant language. Read from the view's
+        # own paginate_by rather than typed out, so a later shrink of the
+        # seed fails here rather than in the guard (plan.md D-11).
+        counts = Counter(entry["language"] for entry in catalogue if entry.get("language"))
+        dominant_count = counts.most_common(1)[0][1]
+        assert dominant_count > paginate_by

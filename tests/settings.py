@@ -17,6 +17,10 @@ INSTALLED_APPS = [
     # templatetag library the table component loads, and Django resolves
     # those only from installed apps.
     "django_tables2",
+    # The catalogue's search and filter controls render through
+    # django-filter, reached through django-mvp's own guarded integration
+    # (research R2).
+    "django_filters",
     # ``mvp`` before ``crispy_tailwind``: django-mvp ships an override of
     # crispy-tailwind's help-text template, and the first app to declare a
     # template path wins (django-mvp's getting-started guide).

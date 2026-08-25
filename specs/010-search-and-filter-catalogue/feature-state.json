@@ -1,0 +1,513 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "010-search-and-filter-catalogue",
+  "branch": "010-search-and-filter-catalogue",
+  "repo": "FAIR-DM/django-literature",
+  "state": "IMPLEMENT",
+  "state_history": [
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-20T09:00:00Z",
+      "note": "spec and decisions authored"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-20T09:40:00Z",
+      "note": "epic promoted, stories created, draft PR opened"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-20T10:50:00Z",
+      "note": "plan, research and tasks authored"
+    },
+    {
+      "state": "DESIGN_REVIEW",
+      "at": "2026-08-20T10:01:24Z",
+      "note": "design review returned request_changes; six findings applied to plan, tasks, research and decisions"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-20T10:37:34Z",
+      "note": "US0 foundational green (T001-T007); 0.19.1 object_list fallout assigned to US-1/T008, #88 xfail root-caused to the test helper for US-3/T017"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-20T10:20:00Z",
+      "self_resolved": [
+        "Search matches case-insensitive fragments, not whole words or prefixes",
+        "Search covers citation key, three title fields, container title and contributor family, given and literal names; abstract and keywords excluded",
+        "Contributor matching reaches the literal name so organizations stay findable",
+        "The year filter reads the issued slot, accepts a year-only date, and excludes references with no issued date",
+        "The language filter offers the values the catalogue holds, as stored",
+        "Values within a filter widen; filters and the search narrow",
+        "An invalid or unmatched filter value reports no matches rather than erroring or falling back",
+        "The contributor page is unchanged, holding the boundary FS-009 drew",
+        "#88 is absorbed and closed by this feature",
+        "Indexing withdrawn at the gate: an ordinary index cannot serve a fragment search, and the alternative requires a database extension"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_packaging.py"
+            ]
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry lock",
+              "poetry install --extras ui",
+              "poetry run pytest -q tests/test_ui/test_packaging.py"
+            ]
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_architecture.py tests/test_ui/test_smoke.py"
+            ]
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestSearchFields"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py"
+            ]
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestItemFilterSetType",
+              "tests/test_ui/test_filters.py::TestItemFilterSetContributor",
+              "tests/test_ui/test_filters.py::TestItemFilterSetLanguage"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run mypy literature/ui/filters.py",
+              "poetry run deptry ."
+            ]
+          }
+        },
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestItemFilterSetDistinct"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run pytest -q tests/test_ui/test_tables.py -k \"sort or order or Order or Sort\"",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run ruff format --check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run mypy literature/ui/filters.py"
+            ]
+          }
+        },
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_filters.py::TestItemFilterSetIssuedYear"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py",
+              "poetry run pytest -q tests/test_ui/test_tables.py -k \"sort or order or Order or Sort or issued or Issued\"",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run ruff format --check literature/ui/filters.py tests/test_ui/test_filters.py",
+              "poetry run mypy literature/ui/filters.py",
+              "poetry run deptry ."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 3,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemTableView::test_carries_search_and_filter_but_no_column_chooser",
+              "tests/test_ui/test_views.py::TestItemTableView::test_the_search_box_submits_through_the_filter_form",
+              "tests/test_ui/test_views.py::TestItemTableView::test_column_headers_appear_in_the_required_order",
+              "tests/test_ui/test_views.py::TestItemTableView::test_the_queryset_annotates_issued_matching_the_items_own_issued_date",
+              "tests/test_ui/test_views.py::TestItemTableView::test_paging_to_the_next_page_renders_the_next_rows_under_the_same_headings",
+              "tests/test_ui/test_views.py::TestItemListView::test_page_holds_no_more_than_paginate_by_items_whatever_the_catalogue_size"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py tests/test_ui/test_filters.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run ruff check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueSearch"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
+        },
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_one_character_fragment_matches_literally",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_term_of_only_spaces_is_a_no_op",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_percent_sign_is_matched_literally_not_as_a_wildcard",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_an_underscore_is_matched_literally_not_as_a_wildcard"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py"
+            ]
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_search_matching_something_states_how_many",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_search_matching_nothing_states_so_and_keeps_its_controls",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_a_genuinely_empty_catalogue_keeps_its_own_message",
+              "tests/test_ui/test_views.py::TestCatalogueSearch::test_clearing_the_search_restores_the_unnarrowed_catalogue"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py",
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run ruff check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestItemTableView::test_query_count_does_not_grow_with_row_count"
+            ],
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py",
+              "poetry run deptry ."
+            ]
+          }
+        }
+      ],
+      "issue": 91
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilters"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueFilters",
+              "poetry run ruff check tests/test_ui/test_views.py",
+              "poetry run ruff format --check tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/views.py"
+            ]
+          }
+        },
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilterComposition"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py",
+              "poetry run ruff check literature/ui/filters.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/filters.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/filters.py"
+            ]
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilterVisibility"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run ruff check literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run ruff format --check literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py"
+            ]
+          }
+        },
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueFilterValidation"
+            ],
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run ruff check .",
+              "poetry run ruff format --check .",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py",
+              "poetry run deptry ."
+            ]
+          }
+        }
+      ],
+      "issue": 92
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueOrdering::test_sort_survives_following_the_rendered_link_to_page_2"
+            ],
+            "commands": [
+              "poetry run pytest tests/test_ui/test_views.py::TestCatalogueOrdering -q",
+              "poetry run pre-commit run --files tests/test_ui/test_views.py"
+            ]
+          }
+        },
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMove"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMove tests/test_ui/test_views.py::TestCatalogueOrdering",
+              "poetry run pre-commit run --files tests/test_ui/test_views.py"
+            ]
+          }
+        },
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesAChangeOfSort"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_views.py::TestCatalogueStateSurvivesAChangeOfSort tests/test_ui/test_views.py::TestCatalogueStateSurvivesAPageMove tests/test_ui/test_views.py::TestCatalogueOrdering",
+              "poetry run pre-commit run --files tests/test_ui/test_views.py"
+            ]
+          }
+        },
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesAChangeOfFilter"
+            ],
+            "commands": [
+              "poetry run pytest -q tests/test_ui/test_filters.py tests/test_ui/test_views.py tests/test_ui/test_tables.py tests/test_ui/test_contributors.py",
+              "poetry run pre-commit run --files literature/ui/filters.py literature/ui/views.py tests/test_ui/test_views.py"
+            ]
+          }
+        },
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "tests": [
+              "tests/test_ui/test_views.py::TestCatalogueStateSurvivesReopeningTheAddress"
+            ],
+            "commands": [
+              "poetry run pytest -q",
+              "poetry run ruff check .",
+              "poetry run ruff format --check .",
+              "poetry run mypy literature/ui/filters.py literature/ui/views.py",
+              "poetry run deptry .",
+              "poetry run pre-commit run --all-files"
+            ]
+          }
+        }
+      ],
+      "issue": 93
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T024",
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T025",
+          "status": "done",
+          "attempts": 1
+        }
+      ],
+      "issue": 94
+    },
+    {
+      "id": "US5",
+      "priority": "P5",
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T026",
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T027",
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T028",
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T029",
+          "status": "done",
+          "attempts": 1
+        },
+        {
+          "id": "T030",
+          "status": "done",
+          "attempts": 1
+        }
+      ],
+      "issue": 95
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 1,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 120
+    }
+  },
+  "pr": {
+    "number": 96,
+    "draft": true
+  },
+  "escalations": []
+}

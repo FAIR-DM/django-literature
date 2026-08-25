@@ -2,6 +2,7 @@
   {
     "citation-key": "Shannon1948",
     "type": "article-journal",
+    "language": "en",
     "title": "A Mathematical Theory of Communication",
     "author": [
       {
@@ -26,6 +27,7 @@
   {
     "citation-key": "WatsonCrick1953",
     "type": "article-journal",
+    "language": "en",
     "title": "Molecular Structure of Nucleic Acids: A Structure for Deoxyribose Nucleic Acid",
     "author": [
       {
@@ -55,6 +57,7 @@
   {
     "citation-key": "CerfKahn1974",
     "type": "article-journal",
+    "language": "en",
     "title": "A Protocol for Packet Network Intercommunication",
     "author": [
       {
@@ -80,6 +83,7 @@
   {
     "citation-key": "BrinPage1998",
     "type": "article-journal",
+    "language": "en",
     "title": "The anatomy of a large-scale hypertextual Web search engine",
     "author": [
       {
@@ -105,6 +109,7 @@
   {
     "citation-key": "Newman2003",
     "type": "article-journal",
+    "language": "en",
     "title": "The Structure and Function of Complex Networks",
     "author": [
       {
@@ -127,6 +132,7 @@
   {
     "citation-key": "He2016",
     "type": "paper-conference",
+    "language": "en",
     "title": "Deep Residual Learning for Image Recognition",
     "author": [
       {
@@ -160,6 +166,7 @@
   {
     "citation-key": "Vaswani2017",
     "type": "paper-conference",
+    "language": "en",
     "title": "Attention Is All You Need",
     "author": [
       {
@@ -223,6 +230,7 @@
   {
     "citation-key": "Lee2008",
     "type": "article-journal",
+    "language": "en",
     "title": "Measurement of the Elastic Properties and Intrinsic Strength of Monolayer Graphene",
     "author": [
       {
@@ -257,6 +265,7 @@
   {
     "citation-key": "MaxamGilbert1977",
     "type": "article-journal",
+    "language": "en",
     "title": "A new method for sequencing DNA.",
     "author": [
       {
@@ -283,6 +292,7 @@
   {
     "citation-key": "Li2009",
     "type": "article-journal",
+    "language": "en",
     "title": "The Sequence Alignment/Map format and SAMtools",
     "author": [
       {
@@ -338,6 +348,7 @@
   {
     "citation-key": "Ship2010",
     "type": "dataset",
+    "language": "en",
     "title": "Physical oceanography during POLARSTERN cruise ANT-II/3",
     "author": [
       {
@@ -358,6 +369,7 @@
   {
     "citation-key": "Montani2023",
     "type": "software",
+    "language": "en",
     "title": "explosion/spaCy: v3.7.2: Fixes for APIs and requirements",
     "author": [
       {
@@ -391,6 +403,7 @@
   {
     "citation-key": "InPhyT2022",
     "type": "software",
+    "language": "en",
     "title": "InPhyT/COVID19-Italy-Integrated-Surveillance-Data: v35.0.0",
     "author": [
       {
@@ -413,6 +426,7 @@
   {
     "citation-key": "LeCun2015",
     "type": "article-journal",
+    "language": "en",
     "title": "Deep learning",
     "author": [
       {
@@ -443,6 +457,7 @@
   {
     "citation-key": "Shen2016",
     "type": "article-journal",
+    "language": "en",
     "title": "SeqKit: A Cross-Platform and Ultrafast Toolkit for FASTA/Q File Manipulation",
     "author": [
       {
@@ -478,6 +493,7 @@
   {
     "citation-key": "Pavel2018",
     "type": "paper-conference",
+    "language": "en",
     "title": "Creating Crowdsourced Research Talks at Scale",
     "author": [
       {
@@ -510,6 +526,7 @@
   {
     "citation-key": "HornJohnson1985",
     "type": "book",
+    "language": "en",
     "title": "Matrix Analysis",
     "author": [
       {
@@ -536,6 +553,7 @@
   {
     "citation-key": "Zonta2022",
     "type": "chapter",
+    "language": "en",
     "title": "Sensor data analysis, reduction, and fusion for assessing and monitoring civil infrastructures",
     "author": [
       {
@@ -557,6 +575,7 @@
   {
     "citation-key": "West2011",
     "type": "report",
+    "language": "en",
     "title": "2011 River Corridor Closure Contractor Revegetation and Mitigation Monitoring Report",
     "author": [
       {
@@ -587,6 +606,7 @@
   {
     "citation-key": "Iseli2014",
     "type": "thesis",
+    "language": "de",
     "title": "Gewalt an Schulen - Relevanz der Persönlichkeitsfaktoren von Lehrpersonen für die schulische Gewaltprävention",
     "author": [
       {
@@ -608,6 +628,7 @@
   {
     "citation-key": "AMS1960",
     "type": "review-book",
+    "language": "en",
     "title": "Book Review: The theory of groups",
     "container-title": "Bulletin of the American Mathematical Society",
     "issued": {
@@ -624,6 +645,7 @@
   {
     "citation-key": "Kim2019",
     "type": "article-journal",
+    "language": "en",
     "title": "Performance, Presentations, and Rhetoric: Incorporating Rhetorical Theory into a Postgraduate Academic Communication Skills Course for EFL Learners",
     "author": [
       {
@@ -651,6 +673,7 @@
   {
     "citation-key": "VanRossum2001",
     "type": "webpage",
+    "language": "en",
     "title": "PEP 8 – Style Guide for Python Code",
     "author": [
       {
@@ -681,6 +704,7 @@
   {
     "citation-key": "Spolsky2002",
     "type": "post-weblog",
+    "language": "en",
     "title": "The Law of Leaky Abstractions",
     "author": [
       {
@@ -703,6 +727,7 @@
   {
     "citation-key": "OppyDowe2003",
     "type": "entry-encyclopedia",
+    "language": "en",
     "title": "The Turing Test",
     "author": [
       {
@@ -729,6 +754,7 @@
   {
     "citation-key": "Hofstadter1979",
     "type": "book",
+    "language": "en",
     "title": "Gödel, Escher, Bach: An Eternal Golden Braid",
     "author": [
       {
@@ -750,6 +776,7 @@
   {
     "citation-key": "Sagan2009",
     "type": "book",
+    "language": "en",
     "title": "That Mad Ache",
     "author": [
       {
@@ -773,5 +800,71 @@
       ]
     },
     "ISBN": "9780465010981"
+  },
+  {
+    "citation-key": "Poincare1905",
+    "type": "article-journal",
+    "language": "fr",
+    "title": "Sur la dynamique de l'électron",
+    "author": [
+      {
+        "family": "Poincaré",
+        "given": "Henri"
+      }
+    ],
+    "container-title": "Comptes Rendus de l'Académie des Sciences",
+    "volume": "140",
+    "page": "1504-1508",
+    "issued": {
+      "date-parts": [
+        [
+          1905,
+          6,
+          5
+        ]
+      ]
+    }
+  },
+  {
+    "citation-key": "GarciaMarquez1967",
+    "type": "book",
+    "language": "es",
+    "title": "Cien años de soledad",
+    "author": [
+      {
+        "family": "García Márquez",
+        "given": "Gabriel"
+      }
+    ],
+    "publisher": "Editorial Sudamericana",
+    "publisher-place": "Buenos Aires",
+    "issued": {
+      "date-parts": [
+        [
+          1967
+        ]
+      ]
+    }
+  },
+  {
+    "citation-key": "Kawabata1937",
+    "type": "book",
+    "language": "ja",
+    "title": "雪国",
+    "author": [
+      {
+        "family": "川端",
+        "given": "康成"
+      }
+    ],
+    "publisher": "創元社",
+    "publisher-place": "東京",
+    "issued": {
+      "date-parts": [
+        [
+          1937
+        ]
+      ]
+    }
   }
 ]

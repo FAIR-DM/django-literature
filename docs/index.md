@@ -11,6 +11,7 @@ A Django app for storing, managing, and converting bibliographic references usin
 
 installation
 usage
+importing-through-the-interface
 ```
 
 ```{toctree}
@@ -22,6 +23,7 @@ field-groups
 bibtex-mapping
 ris-mapping
 api/index
+adr/index
 ```
 
 ---

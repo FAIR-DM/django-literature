@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-19 15:00+0200\n"
+"POT-Creation-Date: 2026-08-20 15:24+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -234,7 +234,7 @@ msgid_plural "Container Authors"
 msgstr[0] ""
 msgstr[1] ""
 
-#: choices.py:89 ui/contributors.py:44
+#: choices.py:89 ui/contributors.py:44 ui/filters.py:146
 msgid "Contributor"
 msgid_plural "Contributors"
 msgstr[0] ""
@@ -1308,12 +1308,20 @@ msgstr ""
 msgid "Processor-generated"
 msgstr ""
 
-#: ui/tables.py:108
-msgid "Citation key"
+#: ui/filters.py:144 ui/tables.py:120
+msgid "Type"
 msgstr ""
 
-#: ui/tables.py:120
-msgid "Type"
+#: ui/filters.py:147
+msgid "Language"
+msgstr ""
+
+#: ui/filters.py:148
+msgid "Year"
+msgstr ""
+
+#: ui/tables.py:108
+msgid "Citation key"
 msgstr ""
 
 #: ui/tables.py:131
@@ -1375,57 +1383,65 @@ msgid_plural "and %(counter)s others"
 msgstr[0] ""
 msgstr[1] ""
 
-#: ui/views.py:34
+#: ui/views.py:37
 msgid "Publications"
 msgstr ""
 
-#: ui/views.py:39
+#: ui/views.py:42
 msgid "publications"
 msgstr ""
 
-#: ui/views.py:134 ui/views.py:208
+#: ui/views.py:191 ui/views.py:252
 msgid "Nothing in the catalogue yet"
 msgstr ""
 
-#: ui/views.py:135 ui/views.py:209
+#: ui/views.py:192 ui/views.py:253
 msgid "References imported or created will appear here."
 msgstr ""
 
-#: ui/views.py:272
+#: ui/views.py:259
+msgid "No references match your search"
+msgstr ""
+
+#: ui/views.py:260
+msgid "Try a different search term, or clear the search and filters."
+msgstr ""
+
+#: ui/views.py:384
 #, python-format
 msgid "Add %(verbose_name)s"
 msgstr ""
 
-#: ui/views.py:273
+#: ui/views.py:385
 #, python-format
 msgid "%(verbose_name)s added to the catalogue."
 msgstr ""
 
-#: ui/views.py:297
+#: ui/views.py:409
 #, python-format
 msgid "Edit %(verbose_name)s"
 msgstr ""
 
-#: ui/views.py:298
+#: ui/views.py:410
 #, python-format
 msgid "%(verbose_name)s updated."
 msgstr ""
 
-#: ui/views.py:382
+#: ui/views.py:494
 #, python-format
 msgid "Delete %(verbose_name)s"
 msgstr ""
 
-#: ui/views.py:383
+#: ui/views.py:495
 #, python-format
 msgid "%(verbose_name)s deleted."
 msgstr ""
 
-#: ui/views.py:426
+#: ui/views.py:542
 msgid "Not credited on anything yet"
 msgstr ""
 
-#: ui/views.py:427
+#: ui/views.py:543
 msgid "This contributor has no credited references in the catalogue."
 msgstr ""
 

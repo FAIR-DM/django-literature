@@ -58,6 +58,18 @@ def _reason_for(exc: Exception) -> str:
     return _("{error} (no further detail)").format(error=type(exc).__name__)
 
 
+def _skip_reason(exc: SkipEntry) -> str | None:
+    """What a format said it skipped, if it said anything (D18).
+
+    Unlike :func:`_reason_for`, a message-less ``SkipEntry`` stays ``None``
+    rather than being padded with the exception's type: skipping is not a
+    failure that needs explaining, and a format remains free to skip without
+    naming why.
+    """
+    text = str(exc).strip()
+    return text or None
+
+
 class BibFormat(abc.ABC):
     """A plug-in for one bibliographic file syntax, such as BibTeX or RIS.
 
@@ -123,9 +135,13 @@ class BibFormat(abc.ABC):
         through :meth:`import_entries` and :meth:`get_result`.
 
         Args:
-            file: An open file object, or anything with a ``read()``. Never
-                opened as a path — passed straight through to :meth:`parse`
-                (FR-023).
+            file: An open file object in text or binary mode, or anything
+                else with a ``read()`` that returns ``str`` or ``bytes`` — a
+                shipped format accepts either and decodes bytes itself (011
+                Phase 0 decisions.md D10). Never opened as a path, and never
+                decoded here: passed straight through to :meth:`parse`
+                unchanged, since decoding is the format's own job, never a
+                caller's (ADR-0012, FR-023).
             dry_run: Run every stage and report every outcome, then leave
                 the catalogue exactly as it was (FR-015). Same code path as
                 a real run, wrapped in one outer ``transaction.atomic()``
@@ -197,12 +213,15 @@ class BibFormat(abc.ABC):
                 entry_index = index
                 index += 1
                 results.append(self.import_entry(raw, entry_index, dry_run=dry_run))
-        except SkipEntry:
+        except SkipEntry as exc:
             # Out of contract — ``SkipEntry`` belongs to ``to_csl_json`` — but
             # a format recognising a trailing non-record while reading is
             # asking for the same thing, and the alternative is filing a
-            # deliberate signal as a failure.
-            results.append(self.entry_skipped(index=index, handle=None))
+            # deliberate signal as a failure. A message given here is carried
+            # exactly as ``import_entry`` carries one (D18): whoever reads the
+            # report should not be able to tell which stage recognised the
+            # element, only what was skipped and why.
+            results.append(self.entry_skipped(index=index, handle=None, reason=_skip_reason(exc)))
         except Exception as exc:
             # A format may report the file as unreadable (``ParseError``),
             # report that the *next* entry is bad before converting it
@@ -236,8 +255,8 @@ class BibFormat(abc.ABC):
 
         try:
             csl_json = self.to_csl_json(raw)
-        except SkipEntry:
-            return self.entry_skipped(index=index, handle=handle)
+        except SkipEntry as exc:
+            return self.entry_skipped(index=index, handle=handle, reason=_skip_reason(exc))
         except Exception as exc:
             # Deliberately every exception, not the contract's three. A
             # format is third-party code reading untrusted content, and
@@ -283,9 +302,13 @@ class BibFormat(abc.ABC):
         """
         return EntryResult(outcome=Outcome.CREATED, index=index, handle=handle, item=None if dry_run else item)
 
-    def entry_skipped(self, *, index: int, handle: str | None) -> EntryResult:
-        """Report one entry as recognised but not a bibliographic record."""
-        return EntryResult(outcome=Outcome.SKIPPED, index=index, handle=handle)
+    def entry_skipped(self, *, index: int, handle: str | None, reason: str | None = None) -> EntryResult:
+        """Report one entry as recognised but not a bibliographic record.
+
+        ``reason`` is optional (D18): a format that knows what it skipped
+        passes it along, and one that does not is not required to invent one.
+        """
+        return EntryResult(outcome=Outcome.SKIPPED, index=index, handle=handle, reason=reason)
 
     def entry_failed(self, *, index: int, handle: str | None, reason: str) -> EntryResult:
         """Report one entry as unable to be stored, with the reason why."""

@@ -10,7 +10,9 @@ opposite of the no-loss guarantee this feature exists for (D-3).
 """
 
 from django import forms
+from django.utils.translation import gettext_lazy as _
 
+from literature.importers import available_formats
 from literature.models import Item
 from literature.ui.fieldgroups import GROUPS
 
@@ -64,3 +66,55 @@ class ItemForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class ImportForm(forms.Form):
+    """Choose a configured format and a file to run it through (US-1, FR-005, FR-006).
+
+    Not a ``ModelForm``: nothing here maps to ``Item``, the format resolves
+    the file into entries and the entries into items, never this form
+    (FR-010 — the front end has no reading path of its own).
+    """
+
+    format = forms.ChoiceField(
+        label=_("Format"),
+        help_text=_("The bibliographic file syntax to read the upload as."),
+    )
+    file = forms.FileField(
+        label=_("File"),
+        help_text=_("The bibliography file to import."),
+    )
+    skip_preview = forms.BooleanField(
+        label=_("Skip the preview and import immediately"),
+        help_text=_("Import the file in one step, without a preview to confirm first."),
+        required=False,
+        initial=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Read at __init__ time, not declared on the class: a ChoiceField
+        # built from available_formats() at class-definition time would
+        # freeze the set at import time, and a format configured afterwards
+        # would never appear (FR-005).
+        self.fields["format"].choices = [
+            (name, format_class.label) for name, format_class in available_formats().items()
+        ]
+
+
+class ConfirmImportForm(forms.Form):
+    """Carry out the import a preview described (US-4, FR-041, FR-042).
+
+    The staged file's token and the format it was staged as both live in the
+    reader's own session, never in this form — the whole point of FR-042 is
+    that nothing on this page can name someone else's staged upload
+    (decisions.md D16).
+
+    The one field it does declare names which preview the page was showing.
+    That is not the same thing: on its own it reaches nothing, because the
+    view checks it against the confirming session's own value and imports
+    only where the two agree. What it prevents is a page still showing an
+    earlier preview carrying out a later one (decisions.md D28).
+    """
+
+    preview = forms.CharField(widget=forms.HiddenInput, required=False)
