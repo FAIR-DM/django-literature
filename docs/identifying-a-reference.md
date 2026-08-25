@@ -1,12 +1,12 @@
 # Identifying a reference
 
-Alongside a reference's own fields, the form the front end serves carries its identifiers — a DOI,
-an ISBN, a URL, and the rest — as part of the same page.
+Alongside a reference's own fields, the form the front end serves carries its identifiers as part of
+the same page: a DOI, an ISBN, a URL, and the rest.
 
 ## Adding an identifier
 
 Each identifier is one row: a kind and a value. The kinds the package knows are offered as you
-type, and typing one in a different case — `isbn` instead of `ISBN` — is treated the same as
+type, and typing one in a different case, `isbn` instead of `ISBN`, is treated the same as
 choosing it from the list. A kind the package does not know can be named too, and is stored exactly
 as typed.
 
@@ -26,8 +26,8 @@ The six known kinds are:
 - PMCID
 
 A value entered under one of these is checked against that kind's shape before it is stored. A kind
-the package does not know is stored unchecked, whatever the value looks like — there is nothing for
-the package to check it against.
+the package does not know is stored unchecked, whatever the value looks like, since there is
+nothing for the package to check it against.
 
 ## Being told what is wrong
 
@@ -40,6 +40,6 @@ that mistake.
 ## Saving
 
 Identifiers are saved together with the rest of the reference, in one submission. If anything on
-the page is rejected — an invalid identifier, a repeated kind, anywhere else on the form — none of
-it is stored, identifiers included, and the page comes back with everything you entered still in
-it.
+the page is rejected, whether that is an invalid identifier, a repeated kind or anything else on
+the form, none of it is stored, identifiers included. The page comes back with everything you
+entered still in it.

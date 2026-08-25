@@ -50,6 +50,8 @@ surface where the consequence is permanent.
 This warrants an ADR of its own, proposed at planning, since it governs the write side of the
 whole front end rather than this feature alone.
 
+**ADR:** docs/adr/0031-completion-suggests-a-spelling-never-a-record.md
+
 ## D2 — The three collections live on the reference form
 
 **Settled at intake.** The alternative was actions on the reference's page, each taking effect
@@ -63,6 +65,8 @@ The cost is a larger form, on top of the type-scoped scalar fields FS-008 alread
 noted that established reference managers commonly divide a form of this size across tabs and that
 this may suit the package later. Recorded as an assumption rather than designed for: nothing here
 forecloses it, and a single form is the straightforward starting point.
+
+**ADR:** none — a layout choice for one form, re-decidable per form. The tabs question Sam raised is carried in the specification as an assumption, which is where a later reader needs it.
 
 ## D3 — Which parts of a contributor a person meets
 
@@ -80,6 +84,8 @@ Resolved by two precedents already in the package rather than by a new rule:
 - FS-008 presented the fields that apply and made the rest reachable. Family and given are what a
   person has; particles, suffix and the unparsed form are what some names need. Same shape (FR-009).
 
+**ADR:** none — applies a rule FS-008 already established (present what applies, keep the rest reachable, never declare what the person editing cannot reason about) to one further record.
+
 ## D4 — Stored date content the form does not offer
 
 **Self-resolved.** A date holds a season, a circa flag, a literal form, an unparsed string, and the
@@ -96,6 +102,8 @@ FS-008 already settled the rule that resolves this: a field already holding a va
 shown, whatever the type mapping says. Applied to dates it makes an unreadable imported date
 repairable, which is a large part of what this feature is for (FR-018).
 
+**ADR:** docs/adr/0032-a-related-row-is-kept-by-being-rendered.md — the always-render rule this relies on is one of that record's three parts.
+
 ## D5 — Reordering needs no model change
 
 **Self-resolved.** A contributor's position is numbered within its `(item, role)` group and
@@ -107,12 +115,16 @@ constrained (FR-039).
 Reordering across roles was rejected: positions are numbered independently per role, so there is no
 single combined list, and presenting one would imply an ordering the catalogue does not hold.
 
+**ADR:** none — a finding that an existing model decision (ADR-0005) already permits what the interface needs. It adds no rule and changes no field.
+
 ## D6 — The identifier limits are inherited, and a refusal explains itself
 
 **Self-resolved.** One identifier per kind per reference is a documented design limit rather than
 an oversight, and `CONTEXT.md` records that widening it is a feature rather than a fix. Someone
 adding a second ISBN nevertheless has to be told something, and a database constraint error is not
 it. The refusal names the limit (FR-030).
+
+**ADR:** none — inherits a limit `CONTEXT.md` already documents and settles the wording of one refusal.
 
 ## D7 — How far the identifier diagnosis goes
 
@@ -135,6 +147,8 @@ Two bounds on the change, both load-bearing:
   front end should get the same diagnosis. This is the one part of the feature that is not
   front-end work (FR-037), and it is why the spec cites G7 alongside G4.
 
+**ADR:** none — scopes one set of messages. The durable half, that this is diagnosis only and stays at the model layer, is stated as FR-028 and FR-029 and guarded by the validator tests.
+
 ## D8 — A person-named kind that matches a known one
 
 **Self-resolved.** Identifier kinds are deliberately open: an unknown kind is stored rather than
@@ -148,12 +162,16 @@ much weaker one. The difference is what is being asserted about: a kind is drawn
 enumerated, six-member set the package defines, where `isbn` and `ISBN` cannot denote different
 things. A person's name is drawn from an open set where identical spellings routinely do.
 
+**ADR:** none — the boundary it draws against D1 is recorded in ADR-0031's closing note, which is where a reader meeting the question will be.
+
 ## D9 — Same name twice in one role
 
 **Self-resolved.** Each entry creates its own record, so nothing collides with the constraint that
 keeps one contributor from appearing twice in a role. It is very likely a slip. It is stored anyway
 and nothing warns, for D1's reason: the software does not conclude that two identically-spelled
 contributors are one person, and a duplicate is the recoverable direction.
+
+**ADR:** none — a direct consequence of ADR-0031, listed there among what that decision rules out.
 
 ## D10 — A rejected save leaves nothing behind
 
@@ -169,6 +187,8 @@ whole edit succeeds, and a rejected save returns the form carrying what was ente
 
 *Decisions below were taken at planning, after the measurements in `research.md`. The design
 reasoning behind each is in `plan.md`; what is recorded here is the decision itself.*
+
+**ADR:** none — required in the specification as FR-033 and asserted directly by a test. It asks the framework for a guarantee it already provides rather than establishing a new one.
 
 ## D11 — The check-digit distinction covers ISBN alone
 
@@ -187,6 +207,8 @@ ISBN separates cleanly and no value moves, so ISBN keeps the distinction. The IS
 filed as #118, where a change to what the catalogue accepts can be decided on its own terms rather
 than arriving inside a feature about form messages.
 
+**ADR:** none — a scope narrowing whose gap is filed as #118. The reasoning belongs with that issue, where a change to what the catalogue accepts can be judged on its own terms.
+
 ## D12 — A native element, not a component
 
 The contributor name field is an HTML `<datalist>`: a text input with attached suggestions, where
@@ -202,6 +224,8 @@ judgement in front of someone unequipped to make it. That the same choice also r
 dependency is not a coincidence — the simpler semantics were the correct ones, and simpler semantics
 needed less machinery.
 
+**ADR:** docs/adr/0031-completion-suggests-a-spelling-never-a-record.md — recorded there as part of the decision itself, since a control that posts an identifier would be a different decision rather than a different rendering of this one.
+
 ## D13 — Reordering is by number, and the affordance is filed upstream
 
 Contributors are reordered by changing a position number, through Django's own formset ordering.
@@ -211,6 +235,8 @@ bundle, so a drag affordance would mean writing a component this package is not 
 Recorded rather than left as a silent limitation, because it is the part of this feature a person
 will notice and ask about. A drag affordance is raised with django-mvp; when a release carries one,
 this becomes a template change and nothing else.
+
+**ADR:** none — a limitation of the toolkit release this package builds on, not a rule to carry forward. It is raised upstream and becomes a template change when a release carries the affordance.
 
 ## D14 — The no-loss guarantee is carried into the view
 
@@ -223,6 +249,8 @@ why the guarantee took the shape it did; an omitted row is simply not there, whi
 failure with a different fix. So the guarantee is upheld explicitly — a slot holding a value is
 always rendered, the parts of a date the form does not offer are never declared and so never
 written, and removal is explicit through the formset rather than implied by absence.
+
+**ADR:** docs/adr/0032-a-related-row-is-kept-by-being-rendered.md
 
 ## D15 — The contributor set renders through the packaged component
 
@@ -247,6 +275,8 @@ forking it again. Both are raised with django-mvp — django-mvp/django-mvp#306 
 and django-mvp/django-mvp#307 for the disclosure. Until a release carries the disclosure, the
 particles, the suffix and the unparsed name ship as ordinary columns.
 
+**ADR:** none — a correction returning this repository to the packaged component. The rule it restores, that the package does not fork its toolkit, already governs.
+
 ## D16 — A settled date slot is disabled, not hidden
 
 **Self-resolved.** D-6 (plan.md) describes a settled row's slot as "a hidden input beside the slot's
@@ -270,6 +300,8 @@ This is not filed upstream: nothing about the packaged component needs to change
 disabled field renders through the same `as_crispy_cell` path as any other and needs no template of
 its own.
 
+**ADR:** none — a workaround for one gap in the packaged component's tabular layout, and gone the day a release closes it.
+
 ## D17 — The identifier kind's completion list is a per-row `<datalist>`, not a page-level one
 
 **Self-resolved, at T022.** FR-023 asks for the six known identifier kinds to be offered while a
@@ -292,6 +324,8 @@ The plan's own file list (`plan.md`, Project Structure) names no second datalist
 feature, which is consistent with this reading — a second template was never the right shape for a
 static, six-item list. Still native HTML, still no component, still nothing filed upstream: FR-038
 is satisfied the same way D1/D12 satisfied it.
+
+**ADR:** none — a placement choice following from the mechanism ADR-0031 fixes. It establishes nothing the next reader needs told separately.
 
 ## D18 — The three flows were already reachable; only the guard and the demo's own doc needed work
 
@@ -320,3 +354,5 @@ table of contents), and the demo's own coverage has always lived in README.md's 
 project" section, not in `docs/` — the precedent T010 and T024 set for the import feature. That
 section's own paragraph is what T030 updated, naming the three flows and linking each to its how-to
 page, the same way it already named Add/Edit/Delete/Import.
+
+**ADR:** none — a finding about what earlier stories had already built, plus a note of where the demo's own coverage lives. Nothing to carry forward.
