@@ -227,6 +227,40 @@ class TestDateInlineSlots:
 
 
 @pytest.mark.django_db
+class TestDateInlineCap:
+    """The set stops offering rows no slot can hold: there are exactly
+    ``len(DateType.choices)`` CSL date slots, and ``ItemDate``'s own
+    ``unique_date_type_per_item`` constraint admits at most one row per
+    slot, so the set's ``max_num`` follows the enum rather than Django's
+    default of 1000.
+    """
+
+    def test_max_num_matches_the_number_of_date_slots(self, item):
+        # Derived from the enum, not pinned to today's count of slots.
+        formset = _build_formset(DateInline, item)
+        assert formset.max_num == len(DateType.choices)
+
+    def test_a_submission_with_more_rows_than_slots_is_refused(self, item):
+        too_many = len(DateType.choices) + 1
+        declaration = DateInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_dates-TOTAL_FORMS": str(too_many),
+            "item_dates-INITIAL_FORMS": "0",
+            "item_dates-MIN_NUM_FORMS": "0",
+            "item_dates-MAX_NUM_FORMS": "1000",
+        }
+        for i in range(too_many):
+            data[f"item_dates-{i}-date_type"] = DateType.ISSUED
+            data[f"item_dates-{i}-begin"] = "2020"
+            data[f"item_dates-{i}-end"] = ""
+        formset = formset_class(data=data, instance=item)
+        assert not formset.is_valid()
+        assert formset.non_form_errors()
+        assert not item.item_dates.exists()
+
+
+@pytest.mark.django_db
 class TestDateInlineAddRow:
     """T015a — every remaining slot is reached by adding a row and naming
     its slot; the slot field on that added row (the set's own

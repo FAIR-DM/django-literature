@@ -170,6 +170,11 @@ class DateInline(InlineFormSet):
     can_delete = True
     title = _("Dates")
 
+    # There is exactly one row per CSL date slot (unique_date_type_per_item),
+    # so the set has nothing to offer past the number of slots the enum
+    # defines — Django's own default of 1000 would otherwise apply.
+    max_num = len(DateType.choices)
+
     def leading_slots(self):
         """The slots a blank row is pre-rendered for: ``issued`` always,
         plus whatever ``TYPE_DATE_SLOTS`` leads with for the reference's
