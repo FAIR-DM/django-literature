@@ -3,7 +3,7 @@
   "feature": "011-import-bibliography-file",
   "branch": "011-import-bibliography-file",
   "repo": "FAIR-DM/django-literature",
-  "state": "PLAN",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "SPECIFY",
@@ -74,6 +74,26 @@
       "state": "PLAN",
       "at": "2026-08-24T19:10:00Z",
       "note": "second refinement amended in session: the success page is dropped, a carried-out import redirects to the catalogue with a message (D31), and the outcome filter is confirmed with the counts fixed to the whole file (D32). T913 and T914 removed."
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T20:55:00Z",
+      "note": "US7 (the preview and restart pages get their own addresses) converged, T901-T918; convergence found and fixed a dropped acceptance criterion 12 guard (D33) that the replaced test class had stopped covering; suite 1852, pre-commit and makemigrations green; pushed 22a588b..08ae4ef"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-24T21:10:00Z",
+      "note": "US10 documentation landed, T1001-T1003; import guide, API page, changelog and one false README sentence brought onto the shipped behaviour; docs gate 135 passed, suite 1852, pre-commit green; converged 08ae4ef..96adcaf"
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-24T21:22:00Z",
+      "note": "single round, read-only at 96adcaf; 11 findings, 10 reproduced by mutation. Two were defects in shipped behaviour and were fixed before merge (D34); nine are guarantees with no live test and are carried forward"
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-24T21:51:06Z",
+      "note": "PR #103 merged as 95af370: 105 commits, 55 files, +7908/-86, every commit bot-authored. Suite 1858, coverage 98% project / 98.82% patch"
     }
   ],
   "gates": {
@@ -935,7 +955,7 @@
       "id": "US7",
       "priority": "P1",
       "issue": 110,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -1024,7 +1044,7 @@
       "id": "US10",
       "priority": "P4",
       "issue": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -1065,7 +1085,9 @@
   },
   "pr": {
     "number": 103,
-    "draft": true
+    "draft": false,
+    "state": "MERGED",
+    "merge_commit": "95af370"
   },
   "escalations": []
 }
