@@ -59,11 +59,20 @@ Depends on Phase 0.
   unparsed name saves, and that a contributor with neither a family name nor an unparsed name is
   rejected with a message rather than stored (FR-011).
 
-- **T007** — The row form over `ItemName` creates or updates the `Name` it points at in its own
-  `save()`, and **never reuses a stored record** (FR-006, D-3). Test that entering a name matching
-  one already stored creates a second record, that the stored one is unchanged, and that everything
-  it was credited on it is still credited on (SC-002). Test that the same name entered twice in one
-  role stores two records with no warning (FR-007).
+- **T007** — The row form over `ItemName` writes the `Name` it points at in its own `save()`, and
+  **never reuses a stored record** (FR-006, D-3). Test that entering a name matching one already
+  stored creates a second record, that the stored one is unchanged, and that everything it was
+  credited on it is still credited on (SC-002). Test that the same name entered twice in one role
+  stores two records with no warning (FR-007).
+
+- **T007a** — The same rule on the edit path, which is where it can actually corrupt data. The import
+  path reuses records — `_import_name_variable` matches on the name parts with `get_or_create` — so
+  two references imported with an identically spelled author share one `Name` today. Test first, with
+  the defect in place: import two references crediting the same spelling, edit the contributor on one
+  of them, and assert the other reference's credited name is unchanged. Then make it pass — an edited
+  row whose linked record is credited elsewhere creates a new `Name` and repoints its `ItemName`,
+  leaving the original untouched; a record credited on nothing else is updated in place; a row
+  submitted unchanged writes nothing at all (SC-002, FR-034, D-3).
 
 - **T008** — The `<datalist>` of stored names, rendered once per page from the distinct names in the
   catalogue and referenced by every contributor row through `list=` (D-1, D-12). It lives in its own
@@ -77,6 +86,11 @@ Depends on Phase 0.
   view writes, so the form assigns it in `save()` and positions are renumbered per `(item, role)` so
   that 1, 1, 3 becomes a coherent sequence rather than a rejection. Test that reordering one role
   leaves every other role's order untouched, and that no ordering across roles is offered (FR-004).
+  Start with a spike rather than the full column: `can_order` on a set whose row form declares
+  unbound, non-model fields, cloned through the library's `__prefix__` mechanism, is the one
+  combination research found no working precedent for. Prove the three compose before building on
+  them. Contributor rows also span all 26 roles in one list, so the template groups by role — an
+  ungrouped list shows positions running 0, 0, 1, 2, 0 and reads as broken.
 
 - **T010** — Removing a contributor from a reference removes the link and never the `Name` (FR-003).
   Test that the record survives, that it survives even when credited on nothing else, and that its
@@ -95,8 +109,13 @@ Depends on Phase 0.
 
 Depends on Phase 0. Independent of Phase 1.
 
-- **T013** — `ItemDateForm` declaring `begin` and `end` and nothing else, so the parts the form does
-  not offer are never written (FR-017, D-6). Research R5 established that a plain text input over
+- **T013** — `ItemDateForm` declaring `date_type`, `begin` and `end` and nothing else, so the parts
+  the form does not offer are never written (FR-017, D-6). `date_type` is declared for two reasons:
+  it is what lets an added row name a slot the type does not lead with, and it is what gets the value
+  validated at all — `ModelForm`'s `_post_clean` excludes undeclared fields from `full_clean`, so a
+  row cloned from the set's template would otherwise save an empty slot the model's own choices check
+  would have refused. Test that directly: a row posted with no slot is rejected by the form rather
+  than stored. Research R5 established that a plain text input over
   `PartialDateField` already accepts a year, a year and month, or a full date with no precision
   declared, so this task asserts that behaviour through a form rather than building it: test each
   precision round-trips, and that a stored value renders back as the string that re-parses to it
@@ -111,6 +130,13 @@ Depends on Phase 0. Independent of Phase 1.
   (FR-012, FR-018, D-6). Test that changing item type never drops a stored date, and that a slot
   outside the type's set but holding a value is rendered rather than merely reachable.
 
+- **T015a** — Every remaining slot is reached by adding a row and naming its slot, which is what makes
+  FR-012 true for all six rather than for the two rendered categories. The slot field on an added row
+  offers the six CSL slots less those already on the page; on a row whose slot is already settled it
+  is a hidden input beside the slot's plain-language label, so the common path meets no vocabulary.
+  Test that a reference of a type leading only with `issued` can be given an `accessed` date without
+  leaving the form, and that the slots already on the page are not offered a second time.
+
 - **T016** — A stored date whose only content is unparsed shows that content, so an imported date the
   catalogue could not read can be repaired instead of being invisible (FR-018, D4). Test with a date
   carrying only a literal or raw value: it is visible, and replacing it with a readable date stores
@@ -122,7 +148,9 @@ Depends on Phase 0. Independent of Phase 1.
 
 - **T018** — The date set validates `(item, date_type)` across its own rows in `clean()` and reports
   a collision against the offending row, before the database constraint can fire inside the
-  transaction (D-8). Test the message names the slot.
+  transaction (D-8). Test the message names the slot, and that a row flagged for deletion is excluded
+  from the check — clearing one slot's date and adding another in the same submission is a
+  replacement, not a collision.
 
 - **T019** — `docs/` covers dating a reference: the precisions accepted, spans, which slots lead for
   which kind of reference, and that the mapping decides what is offered and never what can be
@@ -155,7 +183,9 @@ Depends on Phase 0. Independent of Phases 1 and 2.
 
 - **T023** — The identifier set validates its own rows for a repeated kind in `clean()` and reports
   it against the offending row with a message naming the limit, before the database constraint fires
-  (FR-030, D-8). Test the message says the reference already holds one of that kind.
+  (FR-030, D-8). Test the message says the reference already holds one of that kind, and that a row
+  flagged for deletion is excluded from the check — removing an ISBN and adding a corrected one in
+  the same submission must not be read as a repeat.
 
 - **T024** — Adding and removing identifiers through the set (FR-021, FR-022), and that a rejected
   identifier's message reaches the person on the form (FR-026).
