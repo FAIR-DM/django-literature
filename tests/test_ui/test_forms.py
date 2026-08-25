@@ -10,10 +10,17 @@ import pytest
 from django import forms
 from django.test import override_settings
 
-from literature.choices import DateType, ItemType, NameRole
+from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.importers import available_formats
 from literature.models import ItemDate, Name
-from literature.ui.forms import ConfirmImportForm, ImportForm, ItemDateForm, ItemForm, NameForm
+from literature.ui.forms import (
+    ConfirmImportForm,
+    ImportForm,
+    ItemDateForm,
+    ItemForm,
+    ItemIdentifierForm,
+    NameForm,
+)
 from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
@@ -365,3 +372,55 @@ class TestItemDateFormUnparsedRepair:
         saved.refresh_from_db()
         assert str(saved.begin) == "1922"
         assert saved.literal == "circa 1922"
+
+
+class TestItemIdentifierFormFields:
+    """``ItemIdentifierForm`` — the identifier row form over ``ItemIdentifier`` (plan.md D-9,
+    T022). Declares ``type`` and ``value``, the model's only two fields besides the ``item``
+    foreign key the identifier set itself supplies (FR-021).
+    """
+
+    def test_declares_exactly_type_and_value(self):
+        assert set(ItemIdentifierForm().fields) == {"type", "value"}
+
+    def test_the_type_field_offers_the_six_known_kinds_as_completions(self):
+        # FR-023 — offered without restricting to them (D-9): the six known
+        # kinds render as <option>s of a <datalist> the type input
+        # references through list=, so another kind stays typeable.
+        rendered = str(ItemIdentifierForm()["type"])
+        assert "<datalist" in rendered
+        for kind in IdentifierType.values:
+            assert f'value="{kind}"' in rendered
+
+
+@pytest.mark.django_db
+class TestItemIdentifierFormNormalization:
+    """T022, D-9, FR-025 — a typed kind matching one of the six known kinds other than by
+    casing is cleaned to its canonical acronym before it reaches the model, so it is checked as
+    that kind. A kind matching none of the six passes through exactly as typed and unchecked
+    (FR-024, FR-029).
+    """
+
+    def test_isbn_typed_lowercase_is_normalized_and_checked_as_isbn(self):
+        form = ItemIdentifierForm(data={"type": "isbn", "value": "978-0-306-40615-7"})
+        assert form.is_valid(), form.errors
+        assert form.cleaned_data["type"] == IdentifierType.ISBN
+
+    def test_isbn_typed_lowercase_with_a_malformed_value_is_rejected(self):
+        # ItemIdentifier.clean() (literature/models.py) raises a plain
+        # ValidationError, the same shape ItemDateForm's span rejections
+        # take (T014) — _post_clean surfaces it as a non-field error rather
+        # than attaching it to "value".
+        form = ItemIdentifierForm(data={"type": "isbn", "value": "not-an-isbn"})
+        assert not form.is_valid()
+        assert form.non_field_errors()
+
+    def test_a_genuinely_unknown_kind_is_stored_exactly_as_given_and_unchecked(self, item):
+        form = ItemIdentifierForm(data={"type": "arxiv", "value": "anything at all, unchecked"})
+        assert form.is_valid(), form.errors
+        instance = form.save(commit=False)
+        instance.item = item
+        instance.save()
+        instance.refresh_from_db()
+        assert instance.type == "arxiv"
+        assert instance.value == "anything at all, unchecked"

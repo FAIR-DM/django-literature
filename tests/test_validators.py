@@ -168,3 +168,46 @@ class TestIdentifierValidation:
     def test_unknown_type_accepts_any_value(self, id_type, value):
         """Unknown identifier types are not validated — any value is accepted."""
         _clean_identifier(id_type, value)
+
+
+@pytest.mark.django_db
+class TestISBNChecksumDistinction:
+    """T020 (D-7, FR-027, SC-004) — a value of ISBN-10 or ISBN-13 shape whose check digit does
+    not match is reported apart from a value that does not have either shape at all, through a
+    distinct code (``invalid_isbn_checksum``) and a distinct message. Nothing about which values
+    are accepted or rejected changes — that is ``TestIdentifierValidation.test_isbn_valid`` and
+    ``test_isbn_invalid`` above, untouched.
+    """
+
+    @pytest.mark.parametrize(
+        "isbn",
+        [
+            "978-0-306-40615-0",  # wrong ISBN-13 check digit
+            "0-306-40615-9",  # wrong ISBN-10 check digit
+        ],
+    )
+    def test_a_wrong_check_digit_raises_the_checksum_code(self, isbn):
+        with pytest.raises(ValidationError) as excinfo:
+            _clean_identifier(IdentifierType.ISBN, isbn)
+        assert excinfo.value.code == "invalid_isbn_checksum"
+
+    @pytest.mark.parametrize(
+        "isbn",
+        [
+            "1234567",  # too short
+            "not-an-isbn",
+            "978-0-306-40615",  # incomplete
+        ],
+    )
+    def test_a_wrong_shape_raises_the_shape_code(self, isbn):
+        with pytest.raises(ValidationError) as excinfo:
+            _clean_identifier(IdentifierType.ISBN, isbn)
+        assert excinfo.value.code == "invalid_isbn"
+
+    def test_the_two_codes_are_distinct(self):
+        with pytest.raises(ValidationError) as checksum_error:
+            _clean_identifier(IdentifierType.ISBN, "978-0-306-40615-0")
+        with pytest.raises(ValidationError) as shape_error:
+            _clean_identifier(IdentifierType.ISBN, "not-an-isbn")
+        assert checksum_error.value.code != shape_error.value.code
+        assert checksum_error.value.messages != shape_error.value.messages

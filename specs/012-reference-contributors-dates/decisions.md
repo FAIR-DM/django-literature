@@ -269,3 +269,26 @@ hidden-input wording was protecting against.
 This is not filed upstream: nothing about the packaged component needs to change for it, since a
 disabled field renders through the same `as_crispy_cell` path as any other and needs no template of
 its own.
+
+## D17 — The identifier kind's completion list is a per-row `<datalist>`, not a page-level one
+
+**Self-resolved, at T022.** FR-023 asks for the six known identifier kinds to be offered while a
+kind outside that set stays nameable — the same shape D1/D12 solved for a contributor's name with a
+native `<datalist>`. Unlike a contributor's name, the six kinds are not read from the catalogue: they
+are `IdentifierType`'s own fixed values, known at import time and identical on every row.
+
+That difference is what settles where the `<datalist>` lives. The contributor list has to be a
+page-level element in its own template (`contributor_datalist.html`, T008) because the formset's
+`__prefix__` cloning would otherwise rewrite a copy embedded in the row itself, and because its
+options come from a queryset the view supplies through the page's own context — one query, not one
+per row. Neither reason applies here: the six options need no query and no per-page context, so
+`IdentifierKindWidget` (`literature/ui/forms.py`) renders its own `<datalist>` as a sibling of its
+`<input>`, keyed off that input's own id. Every row already carries a unique id from the formset's
+own numbering (`id_item_identifiers-0-type`, `-1-type`, ...), including one cloned client-side from
+`__prefix__`, so a sibling `<datalist>` keyed the same way is cloned right along with it rather than
+being left orphaned the way a page-level element embedded in a row would be.
+
+The plan's own file list (`plan.md`, Project Structure) names no second datalist template for this
+feature, which is consistent with this reading — a second template was never the right shape for a
+static, six-item list. Still native HTML, still no component, still nothing filed upstream: FR-038
+is satisfied the same way D1/D12 satisfied it.

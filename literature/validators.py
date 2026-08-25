@@ -61,34 +61,63 @@ def validate_doi(value: str) -> None:
 _ISBN_STRIP_RE = re.compile(r"[-\s]")
 
 
-def _isbn10_valid(digits: str) -> bool:
-    """Return True if *digits* is a valid ISBN-10 string."""
+def _isbn10_valid(digits: str) -> bool | None:
+    """Check *digits* against ISBN-10's shape and, only if it matches, its check digit.
+
+    Returns:
+        ``True`` if *digits* is a valid ISBN-10, ``False`` if it has ISBN-10's shape but the
+        wrong check digit, ``None`` if it does not have ISBN-10's shape at all. The three-way
+        return recovers the distinction :func:`validate_isbn` needs (D-7, research R7) —
+        previously both failure cases collapsed to the same ``False`` one line before the raise.
+    """
     if not re.match(r"^\d{9}[\dX]$", digits, re.IGNORECASE):
-        return False
+        return None
     values = [10 if c.upper() == "X" else int(c) for c in digits]
     return sum(v * (10 - i) for i, v in enumerate(values)) % 11 == 0
 
 
-def _isbn13_valid(digits: str) -> bool:
-    """Return True if *digits* is a valid ISBN-13 string."""
+def _isbn13_valid(digits: str) -> bool | None:
+    """Check *digits* against ISBN-13's shape and, only if it matches, its check digit.
+
+    Returns:
+        ``True`` if *digits* is a valid ISBN-13, ``False`` if it has ISBN-13's shape but the
+        wrong check digit, ``None`` if it does not have ISBN-13's shape at all. See
+        :func:`_isbn10_valid` for why the return is three-way rather than a plain bool.
+    """
     if not re.match(r"^\d{13}$", digits):
-        return False
+        return None
     return sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(digits)) % 10 == 0
 
 
 def validate_isbn(value: str) -> None:
     """Validate an ISBN-10 or ISBN-13 value (hyphens and spaces ignored).
 
+    A value that matches neither shape at all and a value that matches one shape but carries
+    the wrong check digit are reported apart (D-7, FR-027, SC-004): the latter is the commonest
+    real error — a single mistyped character — and the case a well-formed example helps least
+    with. Recovers a distinction ``_isbn10_valid``/``_isbn13_valid`` already compute and discard,
+    rather than adding a new rule — no value accepted or rejected today moves (FR-029, SC-005).
+
     Raises:
-        ValidationError: if the value is neither a valid ISBN-10 nor ISBN-13.
+        ValidationError: ``invalid_isbn_checksum`` if *value* matches an ISBN-10 or ISBN-13
+            shape but its check digit does not; ``invalid_isbn`` if it matches neither shape.
     """
     stripped = _ISBN_STRIP_RE.sub("", value)
-    if not (_isbn10_valid(stripped) or _isbn13_valid(stripped)):
+    isbn10 = _isbn10_valid(stripped)
+    isbn13 = _isbn13_valid(stripped)
+    if isbn10 or isbn13:
+        return
+    if isbn10 is False or isbn13 is False:
         raise ValidationError(
-            _("Enter a valid ISBN-10 or ISBN-13 (e.g. 978-0-306-40615-7)."),
-            code="invalid_isbn",
+            _("This ISBN's check digit does not match. Check the number for a mistyped character."),
+            code="invalid_isbn_checksum",
             params={"value": value},
         )
+    raise ValidationError(
+        _("Enter a valid ISBN-10 or ISBN-13 (e.g. 978-0-306-40615-7)."),
+        code="invalid_isbn",
+        params={"value": value},
+    )
 
 
 # ---------------------------------------------------------------------------

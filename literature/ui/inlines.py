@@ -5,11 +5,9 @@ Each targets a different relation on ``Item`` — ``ItemName``, ``ItemDate`` and
 ``mvp.views.inline.InlinesMixin.construct_inlines()`` resolves are distinct and
 its duplicate-prefix guard never fires.
 
-Declarations only at this stage: ``model``, ``fields``, ``extra`` and
-``can_delete``. The custom forms behind each row — ``NameForm`` and the
-position column (contributors story), ``ItemDateForm`` (dates story) and
-``ItemIdentifierForm`` (identifiers story) — replace the bare field lists
-below with their own ``form=`` in their own stories.
+Each row's own form does the work particular to its relation: ``NameForm`` and the position
+column (contributors story, T006-T009), ``ItemDateForm`` (dates story, T013), and
+``ItemIdentifierForm`` (identifiers story, T022).
 """
 
 from collections import defaultdict
@@ -23,7 +21,7 @@ from mvp.views.inline import InlineFormSet
 from literature.choices import DateType
 from literature.models import ItemDate, ItemIdentifier, ItemName
 from literature.ui.fieldgroups import TYPE_DATE_SLOTS
-from literature.ui.forms import ItemDateForm, NameForm
+from literature.ui.forms import ItemDateForm, ItemIdentifierForm, NameForm
 
 
 class ContributorFormSet(BaseInlineFormSet):
@@ -222,11 +220,56 @@ class DateInline(InlineFormSet):
         return kwargs
 
 
+class ItemIdentifierFormSet(BaseInlineFormSet):
+    """Refuses two rows of one set claiming the same identifier kind, before the database's
+    own ``unique_identifier_type_per_item`` constraint can fire inside the save transaction
+    (D-8, T023).
+
+    A row flagged for deletion is excluded from the check: removing one identifier and adding
+    a corrected one of the same kind in the same submission is a replacement, not a collision.
+
+    Does not call ``super().clean()``, for the same reason :class:`ItemDateFormSet` does not
+    (see its own docstring): ``BaseModelFormSet.clean()``'s own ``validate_unique()`` already
+    catches this exact collision against ``ItemIdentifier``'s ``unique_identifier_type_per_item``
+    constraint before this method would even run, reporting it as a bare "Please correct the
+    duplicate values below" on the row's ``__all__`` and deleting ``type`` from its
+    ``cleaned_data`` in the process — both the wrong message (D-8 asks for one naming the limit)
+    and something that would leave nothing here to detect a second time. This replaces that
+    check entirely rather than running alongside it.
+    """
+
+    def clean(self):
+        if any(self.errors):
+            # A row with a field error of its own has nothing reliable in
+            # cleaned_data to compare — the same guard BaseModelFormSet's
+            # own uniqueness check uses.
+            return
+        seen_by_kind = {}
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data") or form.cleaned_data.get("DELETE"):
+                continue
+            kind = form.cleaned_data.get("type")
+            if not kind:
+                continue
+            if kind in seen_by_kind:
+                form.add_error(
+                    "type",
+                    ValidationError(
+                        _("This reference already has a %(kind)s identifier."),
+                        code="duplicate_identifier_type",
+                        params={"kind": kind},
+                    ),
+                )
+            else:
+                seen_by_kind[kind] = form
+
+
 class IdentifierInline(InlineFormSet):
-    """A reference's identifiers, one row per ``ItemIdentifier`` (FR-021)."""
+    """A reference's identifiers, one row per ``ItemIdentifier`` (FR-021, T022, T023)."""
 
     model = ItemIdentifier
-    fields = ("type", "value")
+    form = ItemIdentifierForm
+    formset = ItemIdentifierFormSet
     extra = 1
     can_delete = True
     title = _("Identifiers")

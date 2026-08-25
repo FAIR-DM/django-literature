@@ -374,6 +374,16 @@ class TestIdentifiers:
         assert csl["DOI"] == "10.1038/nature14539"
         assert csl["ISSN"] == "1476-4687"
 
+    def test_an_isbn_with_a_wrong_check_digit_is_preserved_not_stored(self):
+        """T021 — this branch (line ~846) only asks ``validate_identifier`` whether it raised,
+        never what it says, so recovering the checksum/shape distinction in the validator
+        (D-7, T020) changes nothing here: a shape-valid, checksum-invalid ISBN is still not a
+        value the catalogue accepts (FR-029), and still lands in ``custom`` rather than ``ISBN``.
+        """
+        csl = BibTeXFormat().to_csl_json(entry(isbn="978-0-306-40615-0"))  # wrong check digit
+        assert "ISBN" not in csl
+        assert csl["custom"]["isbn"] == "978-0-306-40615-0"
+
 
 class TestBlocks:
     """``@string`` macros expand; ``@comment``/``@preamble`` are skipped (FR-013, FR-014, FR-016)."""

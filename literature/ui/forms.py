@@ -10,10 +10,12 @@ opposite of the no-loss guarantee this feature exists for (D-3).
 """
 
 from django import forms
+from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from literature.choices import IdentifierType
 from literature.importers import available_formats
-from literature.models import Item, ItemDate, ItemName, Name
+from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import GROUPS
 
 #: Every field ``ItemForm`` declares: every scalar field of ``Item`` except
@@ -268,6 +270,80 @@ class ItemDateForm(forms.ModelForm):
             unparsed = self.instance.literal or self.instance.raw
             if unparsed:
                 self.fields["begin"].widget.attrs["placeholder"] = unparsed
+
+
+class IdentifierKindWidget(forms.TextInput):
+    """A text input completing from the package's six known identifier kinds (FR-023, T022).
+
+    The same native ``<datalist>`` shape D-1/D-12 chose for a contributor's name: accepting a
+    completion asserts the kind's spelling, and a value not among the six is equally acceptable
+    (FR-024) — the model's own ``type`` field carries no ``choices=`` for exactly that reason
+    (ADR-0002). Unlike the contributor list (T008), the six kinds are static rather than read
+    from the catalogue, so this widget renders its own ``<datalist>`` sibling on every row
+    rather than referencing one page-level element built from a view-supplied queryset — each
+    row already carries its own unique id from the formset's own numbering
+    (``id_item_identifiers-0-type``, ``-1-type``, ...), so a sibling ``<datalist>`` keyed off
+    that same id never collides with another row's.
+    """
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        widget_id = context["widget"]["attrs"].get("id") or f"id_{name}"
+        context["datalist_id"] = f"{widget_id}-kinds"
+        context["widget"]["attrs"]["list"] = context["datalist_id"]
+        return context
+
+    def render(self, name, value, attrs=None, renderer=None):
+        context = self.get_context(name, value, attrs)
+        input_html = self._render(self.template_name, context, renderer)
+        options = format_html_join(
+            "",
+            '<option value="{}">',
+            ((kind,) for kind in IdentifierType.values),
+        )
+        return format_html('{}<datalist id="{}">{}</datalist>', input_html, context["datalist_id"], options)
+
+
+class ItemIdentifierForm(forms.ModelForm):
+    """An identifier row: one ``ItemIdentifier`` reachable through the reference form's
+    identifiers set (plan.md D-9, T022).
+
+    Declares ``type`` and ``value``, ``ItemIdentifier``'s only two fields besides the ``item``
+    foreign key the identifier set itself supplies (FR-021). ``type`` carries no model-level
+    ``choices=`` — an unknown kind is stored and left unchecked by design (ADR-0002, FR-024) —
+    so the six known kinds (:class:`~literature.choices.IdentifierType`) are offered through
+    :class:`IdentifierKindWidget`'s completion list rather than restricted to them (FR-023).
+
+    Normalization happens here, not in :func:`~literature.validators.validate_identifier`'s
+    dispatch dict (D-9): a typed kind matching one of the six known kinds other than by casing
+    is cleaned to its canonical acronym before it ever reaches the model, so ``isbn`` is checked
+    as ``ISBN`` (FR-025), while a kind matching none of them passes through untouched and
+    unchecked, exactly as it does today (FR-029). Changing the dispatch dict instead would also
+    normalize the import path's own lookups, which this feature does not touch and FR-029
+    protects.
+
+    Format checking itself is not this form's own job: ``ItemIdentifier.clean()``/``save()``
+    already call ``validate_identifier(self.type, self.value)`` (``literature/models.py``),
+    which ``ModelForm._post_clean()`` runs through ``full_clean()``. That call raises a plain
+    ``ValidationError`` rather than one keyed by field, so a rejection surfaces as a non-field
+    error — the same shape :class:`ItemDateForm`'s span rejections take — carrying whichever
+    message ``literature/validators.py`` raised (FR-026).
+    """
+
+    class Meta:
+        model = ItemIdentifier
+        fields = ("type", "value")
+        widgets = {"type": IdentifierKindWidget}
+
+    def clean_type(self):
+        """Normalize a typed kind matching a known one other than by casing to its canonical
+        acronym (FR-025, D-9). A kind matching none of the six passes through exactly as typed
+        (FR-024)."""
+        value = self.cleaned_data["type"]
+        for known in IdentifierType.values:
+            if value.casefold() == known.casefold():
+                return known
+        return value
 
 
 class ImportForm(forms.Form):

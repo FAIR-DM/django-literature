@@ -10,11 +10,11 @@ import pytest
 from django.test import RequestFactory
 from mvp.views.inline import InlinesMixin
 
-from literature.choices import DateType, ItemType
+from literature.choices import DateType, IdentifierType, ItemType
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName
-from literature.ui.forms import ItemDateForm, NameForm
+from literature.ui.forms import ItemDateForm, ItemIdentifierForm, NameForm
 from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
-from tests.factories import ItemDateFactory
+from tests.factories import ItemDateFactory, ItemIdentifierFactory
 
 
 def _build_formset(declaration_cls, item):
@@ -58,6 +58,12 @@ class TestInlineDeclarations:
         # date_type itself (so it validates) and settles/narrows its choices.
         formset = _build_formset(DateInline, item)
         assert issubclass(formset.empty_form.__class__, ItemDateForm)
+
+    def test_the_identifier_set_uses_itemidentifierform_for_its_rows(self, item):
+        # T022 — replaces the fields=("type", "value") placeholder's bare
+        # generated form with the one that normalizes a typed kind's casing.
+        formset = _build_formset(IdentifierInline, item)
+        assert issubclass(formset.empty_form.__class__, ItemIdentifierForm)
 
 
 @pytest.mark.django_db
@@ -342,3 +348,133 @@ class TestItemDateFormSetUniqueness:
         }
         formset = formset_class(data=data, instance=item)
         assert formset.is_valid(), formset.errors
+
+
+@pytest.mark.django_db
+class TestIdentifierKindCompletionList:
+    """T022 — ``IdentifierKindWidget`` renders its completion list per row rather than once per
+    page, which is safe only if each row's ``<datalist>`` carries an id of its own and the
+    input beside it points at that id (the widget's own docstring asserts as much).
+    """
+
+    def test_each_rows_completion_list_carries_its_own_id(self, item):
+        formset = _build_formset(IdentifierInline, item)
+        first = formset.forms[0]["type"].as_widget()
+        assert 'id="id_item_identifiers-0-type-kinds"' in first
+        assert 'list="id_item_identifiers-0-type-kinds"' in first
+
+    def test_the_added_rows_completion_list_survives_prefix_cloning(self, item):
+        # The added row is cloned from the set's __prefix__ template in the
+        # browser, which rewrites every __prefix__ in the markup at once. The
+        # datalist's id and the input's list= must both carry it, or a cloned
+        # row points at the template's own list instead of its own.
+        rendered = _build_formset(IdentifierInline, item).empty_form["type"].as_widget()
+        assert 'id="id_item_identifiers-__prefix__-type-kinds"' in rendered
+        assert 'list="id_item_identifiers-__prefix__-type-kinds"' in rendered
+
+
+@pytest.mark.django_db
+class TestItemIdentifierFormSetUniqueness:
+    """T023 — the identifier set validates a repeated kind across its own rows in ``clean()``
+    and reports it against the offending row with a message naming the limit, before the
+    database's own ``unique_identifier_type_per_item`` constraint can fire (D-8, FR-030).
+    """
+
+    def test_two_new_rows_claiming_the_same_kind_are_refused(self, item):
+        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_identifiers-TOTAL_FORMS": "2",
+            "item_identifiers-INITIAL_FORMS": "0",
+            "item_identifiers-MIN_NUM_FORMS": "0",
+            "item_identifiers-MAX_NUM_FORMS": "1000",
+            "item_identifiers-0-type": IdentifierType.DOI,
+            "item_identifiers-0-value": "10.1234/first",
+            "item_identifiers-1-type": IdentifierType.DOI,
+            "item_identifiers-1-value": "10.1234/second",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert not formset.is_valid()
+        assert formset.forms[1].errors["type"]
+        assert not formset.forms[0].errors
+        # The message names the limit (D-8, FR-030).
+        assert "DOI" in str(formset.forms[1].errors["type"])
+
+    def test_a_deleted_rows_kind_is_excluded_from_the_collision_check(self, item):
+        # Removing one identifier and adding a corrected one of the same
+        # kind in the same submission is a replacement, not a collision.
+        stored = ItemIdentifierFactory(item=item, type=IdentifierType.ISBN, value="0-306-40615-2")
+        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_identifiers-TOTAL_FORMS": "2",
+            "item_identifiers-INITIAL_FORMS": "1",
+            "item_identifiers-MIN_NUM_FORMS": "0",
+            "item_identifiers-MAX_NUM_FORMS": "1000",
+            "item_identifiers-0-id": str(stored.pk),
+            "item_identifiers-0-type": stored.type,
+            "item_identifiers-0-value": stored.value,
+            "item_identifiers-0-DELETE": "on",
+            "item_identifiers-1-type": IdentifierType.ISBN,
+            "item_identifiers-1-value": "978-0-306-40615-7",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert formset.is_valid(), formset.errors
+
+
+@pytest.mark.django_db
+class TestIdentifierSetAddAndRemove:
+    """T024 — adding and removing identifiers through the set (FR-021, FR-022), and a rejected
+    identifier's message reaches the person on the form (FR-026).
+    """
+
+    def test_adding_an_identifier_through_the_set_stores_it(self, item):
+        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_identifiers-TOTAL_FORMS": "1",
+            "item_identifiers-INITIAL_FORMS": "0",
+            "item_identifiers-MIN_NUM_FORMS": "0",
+            "item_identifiers-MAX_NUM_FORMS": "1000",
+            "item_identifiers-0-type": IdentifierType.DOI,
+            "item_identifiers-0-value": "10.1234/added",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert formset.is_valid(), formset.errors
+        formset.save()
+        assert item.item_identifiers.get().value == "10.1234/added"
+
+    def test_removing_an_identifier_through_the_set_deletes_the_link(self, item):
+        stored = ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/gone")
+        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_identifiers-TOTAL_FORMS": "1",
+            "item_identifiers-INITIAL_FORMS": "1",
+            "item_identifiers-MIN_NUM_FORMS": "0",
+            "item_identifiers-MAX_NUM_FORMS": "1000",
+            "item_identifiers-0-id": str(stored.pk),
+            "item_identifiers-0-type": stored.type,
+            "item_identifiers-0-value": stored.value,
+            "item_identifiers-0-DELETE": "on",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert formset.is_valid(), formset.errors
+        formset.save()
+        assert not item.item_identifiers.exists()
+
+    def test_a_rejected_identifiers_message_reaches_the_person_on_the_form(self, item):
+        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_identifiers-TOTAL_FORMS": "1",
+            "item_identifiers-INITIAL_FORMS": "0",
+            "item_identifiers-MIN_NUM_FORMS": "0",
+            "item_identifiers-MAX_NUM_FORMS": "1000",
+            "item_identifiers-0-type": IdentifierType.ISBN,
+            "item_identifiers-0-value": "not-an-isbn",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert not formset.is_valid()
+        assert formset.forms[0].non_field_errors()
+        assert not item.item_identifiers.exists()
