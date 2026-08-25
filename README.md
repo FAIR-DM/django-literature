@@ -326,6 +326,27 @@ catalogue can add, edit and remove a reference. That is intentional for a packag
 person managing their own library, and restricting these pages to particular users or groups is left
 to the host project to add, the same way it would guard any other view.
 
+### Importing a bibliography file
+
+The catalogue list carries an Import action too, opening a page with a format choice and a file
+control. Submitting previews the file by default, on a page of its own: the same report a real
+import would produce, with nothing yet written to the catalogue — how many entries would be
+created, skipped and failed, and one row per entry in the order the file held them, narrowable to
+one outcome without leaving the page. A control at the foot carries out the import it described
+and returns you to the catalogue with a message stating what was created. A checkbox on the form
+skips the preview for a one-step import instead, which lands on the same report of what it did.
+
+The format is chosen, never detected from the file itself — pick the wrong one and the format's
+own message says so on every entry, rather than the file being silently misread. Nothing checks
+whether a file has already been imported, so submitting the same file twice creates the references
+twice. The page says so before you submit. A failure partway through the file does not undo what
+already succeeded — the entries created before it stay in the catalogue.
+
+Like the pages above, the import page carries no permission check of its own — anyone who can reach
+the catalogue can reach it too — and the package imposes no size limit of its own on the file it
+accepts. Restricting or bounding either is left to the host project, the same way it would guard any
+other view.
+
 ### Try it: the demo project
 
 The repository carries a runnable demo of everything above, wired the same way this section
@@ -340,9 +361,10 @@ python manage.py runserver
 
 `migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
 `runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
-reference page and a contributor page are all live and populated. The Add, Edit and Delete
-actions on those pages are live too, so you can enter, correct and remove a reference the same way a
-host project's own users would.
+reference page and a contributor page are all live and populated. The Add, Edit, Delete and Import
+actions on those pages are live too, so you can enter, correct, remove and import references the
+same way a host project's own users would. `demo/seed/import-sample.bib` is there to import: it
+holds entries that convert and one that does not, so the report has something to show.
 
 `seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
 again returns the demo to the same seeded state whatever state it was in before — including

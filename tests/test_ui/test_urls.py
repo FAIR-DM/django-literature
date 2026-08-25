@@ -79,6 +79,33 @@ class TestDeleteRouteReverses:
         assert reverse("literature:item-delete", kwargs={"pk": 1}) == "/catalogue/1/delete/"
 
 
+class TestImportRouteReverses:
+    """T107/T108 — the import route, added by US-1 (plan.md "The three seams")."""
+
+    def test_item_import_reverses(self):
+        assert reverse("literature:item-import") == "/catalogue/import/"
+
+    def test_item_import_resolves_to_the_import_view(self):
+        assert resolve("/catalogue/import/").func.view_class is views.ItemImportView
+
+
+class TestImportPreviewAndRestartRoutesReverse:
+    """T903/T904/T909/T910 — the preview and restart addresses, added by
+    US-6 (FR-045, FR-051)."""
+
+    def test_item_import_preview_reverses(self):
+        assert reverse("literature:item-import-preview") == "/catalogue/import/preview/"
+
+    def test_item_import_preview_resolves_to_the_preview_view(self):
+        assert resolve("/catalogue/import/preview/").func.view_class is views.ItemImportPreviewView
+
+    def test_item_import_restart_reverses(self):
+        assert reverse("literature:item-import-restart") == "/catalogue/import/restart/"
+
+    def test_item_import_restart_resolves_to_the_restart_view(self):
+        assert resolve("/catalogue/import/restart/").func.view_class is views.ItemImportRestartView
+
+
 class TestCRUDViewsReverse:
     """plan.md D-6 — an action a view *shows* must have a resolvable route, or
     ``get_breadcrumbs()`` raises ``NoReverseMatch`` at render time instead of
@@ -116,5 +143,8 @@ class TestCRUDViewsReverse:
             url_name = view_class.crud_views[action].format(
                 model_name=model_meta.model_name, app_name=model_meta.app_label
             )
-            kwargs = {} if action in {"list", "create"} else {"pk": 1}
+            # "import" joined the collection-level set at US-1 (decisions.md
+            # D14) — like "list"/"create" it names no object, so it takes no
+            # pk either.
+            kwargs = {} if action in {"list", "create", "import"} else {"pk": 1}
             reverse(url_name, kwargs=kwargs)  # raises NoReverseMatch if the action is not registered

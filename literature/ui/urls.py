@@ -28,6 +28,18 @@ urlpatterns = [
     # choice is made behind the name rather than by overriding the route.
     path("", catalogue, name="item-list"),
     path("add/", views.ItemCreateView.as_view(), name="item-create"),
+    path("import/", views.ItemImportView.as_view(), name="item-import"),
+    # The preview's own address (US-6, FR-045, decisions.md D30) — a GET
+    # here rebuilds the report from the staged file every time, so reloading
+    # it is harmless and imports nothing.
+    path("import/preview/", views.ItemImportPreviewView.as_view(), name="item-import-preview"),
+    # Discards the staged file and returns to an empty form (FR-051).
+    path("import/restart/", views.ItemImportRestartView.as_view(), name="item-import-restart"),
+    # The preview's own confirm control (US-4, FR-041 through FR-044) — a
+    # distinct route, not a second branch on "import/", so the staged
+    # file's token and format are the only thing that ever says which
+    # upload this POST means (decisions.md D16).
+    path("import/confirm/", views.ItemImportConfirmView.as_view(), name="item-import-confirm"),
     path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("<int:pk>/update/", views.ItemUpdateView.as_view(), name="item-update"),
     path("<int:pk>/delete/", views.ItemDeleteView.as_view(), name="item-delete"),

@@ -5,6 +5,9 @@ fixed workflow and returns one outcome per entry the file contained. See
 `specs/003-import-contract/quickstart.md` for the full walkthrough and
 `specs/003-import-contract/contracts/importers.md` for the signatures.
 
+A project with the `ui` extra installed can also run an import from the front end, with no code
+of its own — see [Importing a bibliography file](../importing-through-the-interface.md).
+
 ## Running an import
 
 ```python

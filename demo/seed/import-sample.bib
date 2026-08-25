@@ -1,0 +1,37 @@
+% The demo walk's own import fixture (T301, spec 011 Phase 3, tasks.md).
+%
+% Three entries: two convert cleanly, one does not, so walk_import (T304)
+% exercises a genuine failure row rather than a synthetic one. None of the
+% three shares a citation key, title, item type or language with anything
+% demo/seed/catalogue.json seeds, or with any of the values
+% walk_narrowed_catalogue's exact-membership assertions name (demo/smoke.py
+% lines 218-256: "Shannon1948", "A Mathematical Theory of Communication",
+% "Attention Is All You Need", type=dataset, "Physical oceanography during
+% POLARSTERN cruise ANT-II/3", language=en, "Cien años de soledad") — a
+% collision there would fail a narrowing assertion for a reason that has
+% nothing to do with importing (tasks.md T301, hazards). This file is
+% imported by every run of the demo walk and its references are never
+% removed (T304), so the same guarantee has to hold indefinitely, not just
+% against the seed as it reads today.
+
+@report{ImportFixtureAlpha2024,
+  title        = {Field Notes on Alpine Meltwater Monitoring},
+  author       = {Dupont, Camille},
+  year         = {2024},
+  language     = {fr},
+  institution  = {Institut de Recherche Glaciaire}
+}
+
+@unpublished{ImportFixtureBeta2023,
+  title  = {Notes Toward a Typology of Silence},
+  author = {Okafor, Ada},
+  year   = {2023}
+}
+
+@article{ImportFixtureGamma2022,
+  title   = {A Note on Regional Data Practices},
+  author  = {Larsen, Iben},
+  year    = {2022},
+  journal = {Journal of Applied Something},
+  address = {Building 12, Sub-Basement Level 3, Corridor C, Research Annex for Applied Glaciology and Cryospheric Systems, Northern Campus Extension, Beyond the Old Boiler House, Past the Loading Dock, Second Gate on the Left, Unit 4, Provisional Postal Zone 88, Interim Address Pending Municipal Reassignment Following the 2023 Boundary Review}
+}

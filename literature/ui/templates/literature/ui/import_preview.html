@@ -1,0 +1,60 @@
+{% extends "page_view.html" %}
+{% load i18n %}
+{% comment %}
+The preview's own page (US-6, FR-045 through FR-051, decisions.md D30). No
+import form here (FR-046) — the title and the subtitle above (page_title,
+page_subtitle on ItemImportPreviewView) carry what FR-047 and FR-039 both
+ask for, so nothing is restated in page.content.
+
+The counts (FR-012) sit above the filter and are rendered from ``report``
+directly, never from anything the filter touches — FR-049a requires them to
+keep describing the whole file while the table beneath them is narrowed to
+one outcome. The filter and the table share one Alpine scope (FR-049): the
+filter component writes ``outcome`` and every row reads it through the
+``x-show`` ``ItemImportPreviewView`` attaches per row (``row_attrs``), the
+same JavaScript idiom item_form.html already uses for its own client-side
+show/hide.
+{% endcomment %}
+{% block page.content %}
+  {% if nothing_staged %}
+    <c-alert variant="warning">
+      {% blocktranslate %}
+        There is nothing staged to preview. Start a new import to see one.
+      {% endblocktranslate %}
+    </c-alert>
+  {% else %}
+    {% if report.skipped or report.failed %}
+      <c-alert variant="warning" class="mb-4">
+        {% blocktranslate %}
+          Some entries were skipped or could not be imported. Read the
+          table below before confirming.
+        {% endblocktranslate %}
+      </c-alert>
+    {% endif %}
+    <c-text class="mb-4">
+      {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
+        {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
+      {% endblocktranslate %}
+    </c-text>
+    <div x-data="{ outcome: 'all' }">
+      <c-filter :outcomes="outcome_choices" class="mb-4" />
+      <c-addons.django-table :table="table" />
+    </div>
+    <c-group collapse wrap class="mt-4">
+      <c-button href="{% url 'literature:item-list' %}" text="{% trans 'Back to the catalogue' %}" icon="arrow-left" />
+      <form method="post" action="{% url 'literature:item-import-restart' %}">
+        {% csrf_token %}
+        <c-button text="{% trans 'Restart import' %}" type="submit" />
+      </form>
+      {% if report.created %}
+        {# AS-12 — nothing would be created by confirming, so there is nothing #}
+        {# to confirm and the control is not offered. #}
+        <form method="post" action="{% url 'literature:item-import-confirm' %}">
+          {% csrf_token %}
+          {{ confirm_form.preview }}
+          <c-button text="{% trans 'Confirm import' %}" type="submit" icon="check" variant="primary" />
+        </form>
+      {% endif %}
+    </c-group>
+  {% endif %}
+{% endblock page.content %}

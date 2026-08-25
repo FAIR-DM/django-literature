@@ -56,10 +56,20 @@ class TestEntryResult:
         with pytest.raises(ValueError, match="reason"):
             EntryResult(outcome=Outcome.FAILED, index=0)
 
-    @pytest.mark.parametrize("outcome", [Outcome.CREATED, Outcome.SKIPPED])
-    def test_reason_belongs_only_to_failure(self, outcome):
+    def test_reason_belongs_only_to_failure(self):
+        """D18: a created entry may still never carry a reason. A skipped one now may."""
         with pytest.raises(ValueError, match="reason"):
-            EntryResult(outcome=outcome, index=0, reason="why would this be here")
+            EntryResult(outcome=Outcome.CREATED, index=0, reason="why would this be here")
+
+    def test_a_skipped_entry_may_carry_a_reason(self):
+        """D18: the format may say what it recognised but did not store."""
+        result = EntryResult(outcome=Outcome.SKIPPED, index=0, reason="a @comment block")
+        assert result.reason == "a @comment block"
+
+    def test_a_skipped_entry_without_a_reason_is_still_valid(self):
+        """D18: a reason is not required, only permitted."""
+        result = EntryResult(outcome=Outcome.SKIPPED, index=0)
+        assert result.reason is None
 
     def test_reason_is_stringified_so_lazy_messages_survive(self):
         from django.utils.translation import gettext_lazy as _

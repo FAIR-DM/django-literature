@@ -6,12 +6,6 @@ a format owns, :meth:`~RISFormat.parse` and :meth:`~RISFormat.to_csl_json`; the 
 atomicity, per-entry reporting and dry runs all come from
 :class:`~literature.importers.base.BibFormat` unchanged.
 
-This module is the foundational phase only — :class:`RISParser` and the :class:`RISFormat`
-skeleton. There is no RIS-to-CSL mapping yet: that is US-1 (issue #36). Until it lands, only a
-file with no entries (an empty file, or one holding nothing but header material) converts
-cleanly; a real entry's :meth:`~RISFormat.to_csl_json` raises, and is reported as a failed entry
-like any other conversion the contract cannot complete (plan.md "Story boundaries").
-
 One format reads EndNote, Web of Science and Scopus alike, with no producer detection (FR-029):
 the parser reads what the primary RIS specification defines, and the tags that only some
 producers use are read by the tags themselves rather than by which tool wrote the file.
@@ -71,11 +65,14 @@ class RISParser:
     before the first is available, which is what lets a caller consume one entry from a
     several-hundred-entry file and leave the rest unread.
 
-    Expects ``file`` opened in **binary** mode. Decoding is this parser's own job — ``utf-8-sig``,
-    so a byte-order mark is silently absorbed rather than becoming part of the first tag's value
-    (research.md R1) — because naming the attempted encoding and the byte offset on failure
-    (FR-034) needs the raw bytes, not whatever a caller's own text-mode decoding already turned
-    them into (decisions.md D19).
+    Accepts ``file`` opened in binary or text mode (011 Phase 0 decisions.md D10, superseding
+    spec 005's D19: both shipped formats now accept either). A binary read is decoded here —
+    ``utf-8-sig``, so a byte-order mark is silently absorbed rather than becoming part of the
+    first tag's value (research.md R1) — and naming the attempted encoding and the byte offset on
+    failure (FR-034) is only possible while the bytes are still in hand, before any decoding. A
+    text read has already been decoded by its caller and passes through unchanged; a caller in a
+    position to name the encoding of an already-decoded read gets no help catching a wrong guess
+    from this parser, but that caller also has no error to hand it in the first place.
     """
 
     #: Tolerant of the single-space and double-space-after-dash variants real producers emit
@@ -113,14 +110,17 @@ class RISParser:
         empty or whitespace-only file is not an error: it yields nothing (spec Edge Cases).
         """
         raw = file.read()
-        try:
-            text = raw.decode("utf-8-sig")
-        except UnicodeDecodeError as exc:
-            raise ParseError(
-                _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
-                    encoding=exc.encoding, offset=exc.start
-                )
-            ) from exc
+        if isinstance(raw, bytes):
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError as exc:
+                raise ParseError(
+                    _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
+                        encoding=exc.encoding, offset=exc.start
+                    )
+                ) from exc
+        else:
+            text = raw
 
         if not text.strip():
             return
@@ -1065,14 +1065,14 @@ class RISFormat(BibFormat):
         the skip.
         """
         if isinstance(raw, str):
-            raise SkipEntry
+            raise SkipEntry(_("This is header material, not a record."))
 
         ty_values = raw.values("TY")
         if not ty_values:
             raise EntryError(_("This entry carries no 'TY' (reference type) tag."))
 
         if all(tag == "TY" for tag, _ in raw.tags):
-            raise SkipEntry
+            raise SkipEntry(_("This entry carries only a 'TY' (reference type) tag and no other content."))
 
         ref_type = ty_values[0].strip()
 

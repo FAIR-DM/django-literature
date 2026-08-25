@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.template.loader import get_template
 from django.test import Client
@@ -24,7 +25,46 @@ from literature.choices import DateType, ItemType, NameRole
 from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import FieldGroups
+from literature.ui.staging import StagedUpload
 from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
+
+#: Real, single-entry fixtures (T009's own precedent for reusing recorded
+#: fixtures rather than hand-rolling minimal ones) — one DOI-bearing article,
+#: shared by the BibTeX and RIS upload scenarios below.
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+
+#: A minimal, valid RIS entry (T109's own "same file as RIS" scenario).
+#: Deliberately not ``tests/data/publication.ris`` — that fixture's ``Y2``
+#: tag ("1/26/2023") trips a pre-existing date-parsing defect in
+#: ``literature.importers.ris`` unrelated to this phase and out of its file
+#: scope (prohibitions forbid touching ``literature/importers/**``); flagged
+#: in the completion report's `concerns` instead.
+RIS_ONE_GOOD_ENTRY = """TY  - JOUR
+AU  - Doe, Jane
+TI  - A Working RIS Reference
+PY  - 2020
+JO  - Journal of Testing
+ER  -
+"""
+
+#: A RIS file mixing an entry that converts with one the format's own
+#: contract refuses (T109's "mixed file" scenario). The second record's
+#: missing ``TY`` tag is ``RISFormat.to_csl_json``'s own documented
+#: ``EntryError`` ("This entry carries no 'TY' tag"), not an incidental
+#: malformation — deliberately chosen over an ISBN/DOI-style validation
+#: failure, which does not currently reach the model layer for a bibtex
+#: entry (a second, unrelated finding, also flagged in `concerns`).
+RIS_ONE_GOOD_ONE_BAD = """TY  - JOUR
+AU  - Doe, Jane
+TI  - A Working RIS Reference
+PY  - 2020
+JO  - Journal of Testing
+ER  -
+
+AU  - Roe, Jan
+T1  - A Record With No Reference Type
+ER  -
+"""
 
 
 def anchor_tag(content, href):
@@ -624,10 +664,14 @@ class TestItemTableView:
         # the rendered page rather than only the view's own configuration,
         # and still closed in both directions, so an upstream default
         # widening the action surface is still caught.
+        # T114 — "import" genuinely joins the shown action set (US-1); this
+        # is the one shipped assertion this phase edits, because the list
+        # it names gains a real member rather than losing what it already
+        # asserted.
         ItemFactory()
         response = client.get(reverse("literature:item-list"))
         content = response.content.decode()
-        assert response.context["table_actions"] == ["search", "filter", "create"]
+        assert response.context["table_actions"] == ["search", "filter", "create", "import"]
         assert 'name="q"' in content  # the search box's own input name
         assert "filterModal" in content  # the filter control's own modal id
         # No column-chooser ships in either django-tables2 or django-mvp
@@ -681,6 +725,44 @@ class TestItemTableView:
         response = client.get(reverse("literature:item-list"))
         (annotated_item,) = [row for row in response.context["object_list"] if row.pk == item.pk]
         assert annotated_item.issued is None
+
+
+class TestCatalogueImportAction:
+    """The toolbar action on both catalogue presentations — US-1, research R2.
+
+    The table view has a supported hook (``actions``); the card list does
+    not and reaches the action through a block override that must carry the
+    whole row through, never just the import link — the regression this
+    guards against is silent and the two shipped tests it names are
+    evidence about intent, never something to edit green
+    (``TestItemTableView::test_carries_search_and_filter_but_no_column_chooser``,
+    ``TestItemListView::test_the_add_link_renders_and_points_at_the_create_page``).
+    """
+
+    def test_the_table_catalogue_carries_a_link_to_the_import_route(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' in content
+
+    def test_the_card_catalogue_carries_the_same_link(self, client, db):
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' in content
+
+    def test_the_contributor_page_carries_no_import_link(self, client, db):
+        contributor = NameFactory()
+        content = client.get(reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' not in content
+
+    def test_the_table_catalogue_still_renders_search_filter_and_create(self, client, db):
+        content = client.get(reverse("literature:item-list")).content.decode()
+        assert 'name="q"' in content
+        assert "filterModal" in content
+        assert f'href="{reverse("literature:item-create")}"' in content
+
+    def test_the_card_catalogue_still_renders_search_filter_and_create(self, client, db):
+        content = client.get(reverse("item-list-cards")).content.decode()
+        assert 'name="q"' in content
+        assert "filterModal" in content
+        assert f'href="{reverse("literature:item-create")}"' in content
 
 
 class TestCatalogueSearch:
@@ -1430,6 +1512,421 @@ class TestItemCreateView:
         assert response.status_code == 200
         assert response.context["contributor_groups"] == []
         assert response.context["identifiers"] == []
+
+
+class TestItemImportView:
+    """Pick a format, attach a file, and see what became of every entry — US-1
+    (FR-005, FR-006, FR-010, FR-019, FR-023, AS-10).
+
+    Every submission here skips the preview, so the class asserts what a real
+    import does to the catalogue. Submitting without that choice previews
+    instead (FR-038), and `TestItemImportPreview` covers that path."""
+
+    def test_get_renders_the_form_page_with_a_format_choice_and_a_file_control(self, client, db):
+        response = client.get(reverse("literature:item-import"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "<select" in content
+        assert 'name="format"' in content
+        assert 'type="file"' in content
+
+    def test_a_valid_bibtex_upload_creates_the_reference_and_responds_with_the_report(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(
+            reverse("literature:item-import"), {"format": "bibtex", "file": upload, "skip_preview": "on"}
+        )
+
+        assert response.status_code == 200  # a report page, never a redirect
+        assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
+
+    def test_the_response_carries_the_counts_and_one_row_per_entry_in_source_order(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(
+            reverse("literature:item-import"), {"format": "bibtex", "file": upload, "skip_preview": "on"}
+        )
+
+        report = response.context["report"]
+        assert report.total == 1
+        assert report.created == 1
+        assert [row.position for row in report.rows] == [1]
+
+    def test_a_created_row_links_to_its_reference(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(
+            reverse("literature:item-import"), {"format": "bibtex", "file": upload, "skip_preview": "on"}
+        )
+
+        item = Item.objects.get(citation_key="10.1093/gji/ggz376")
+        content = response.content.decode()
+        assert f'href="{reverse("literature:item-detail", kwargs={"pk": item.pk})}"' in content
+
+    def test_the_same_file_uploaded_as_ris_behaves_the_same_way(self, client, db):
+        upload = SimpleUploadedFile("publication.ris", RIS_ONE_GOOD_ENTRY.encode())
+        response = client.post(
+            reverse("literature:item-import"), {"format": "ris", "file": upload, "skip_preview": "on"}
+        )
+
+        assert response.status_code == 200
+        assert response.context["report"].created == 1
+        assert response.context["report"].total == 1
+
+    def test_a_file_mixing_a_converting_entry_with_a_failing_one_reports_each_correctly(self, client, db):
+        upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
+        response = client.post(
+            reverse("literature:item-import"), {"format": "ris", "file": upload, "skip_preview": "on"}
+        )
+
+        report = response.context["report"]
+        assert report.created == 1
+        assert report.failed == 1
+        assert Item.objects.filter(title="A Working RIS Reference").exists()
+        assert not Item.objects.filter(title="A Record With No Reference Type").exists()
+
+    def test_the_report_is_not_paginated(self, client, db):
+        upload = SimpleUploadedFile("mixed.ris", RIS_ONE_GOOD_ONE_BAD.encode())
+        response = client.post(
+            reverse("literature:item-import"), {"format": "ris", "file": upload, "skip_preview": "on"}
+        )
+        assert "page_obj" not in response.context or response.context["page_obj"] is None
+
+
+class TestItemImportViewRejects:
+    """A reader who submits nothing, or a file the chosen format cannot use,
+    is told what is wrong rather than shown a server error or a silent
+    empty report — US-2 (FR-006, FR-019, FR-023, FR-024, FR-025, FR-026).
+
+    Five cases, each asserted against the response's status code and
+    content, never against whether an exception was logged (hazards)."""
+
+    def test_no_file_attached_redisplays_the_form_with_a_reason_and_imports_nothing(self, client, db):
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex"})
+        assert response.status_code == 200  # form_invalid renders, never redirects
+        assert response.context["form"].errors["file"]
+        assert Item.objects.count() == 0
+
+    def test_no_format_chosen_redisplays_the_form_with_a_reason_and_imports_nothing(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(reverse("literature:item-import"), {"file": upload})
+        assert response.status_code == 200
+        assert response.context["form"].errors["format"]
+        assert Item.objects.count() == 0
+
+    def test_an_empty_file_is_reported_with_a_reason_and_no_server_error(self, client, db):
+        upload = SimpleUploadedFile("empty.bib", b"")
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        assert response.status_code == 200
+        assert response.context["form"].errors["file"]
+        assert Item.objects.count() == 0
+
+    def test_a_file_the_chosen_format_cannot_read_carries_the_formats_own_reason(self, client, db):
+        # RIS content submitted as bibtex — bibtexparser finds no "@type{" block.
+        # A valid form submission previews by default now (US-6, FR-045), so
+        # the failure surfaces on the preview address reached by redirect,
+        # not on this response directly.
+        upload = SimpleUploadedFile("wrong-format.bib", RIS_ONE_GOOD_ENTRY.encode())
+        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        assert response.status_code == 302
+        report = client.get(response.url).context["report"]
+        assert report.failed == 1
+        # The format's own sentence, not a Python exception's repr. Asserting
+        # only that a reason is present would pass on the "TypeError: cannot
+        # use a string pattern on a bytes-like object" this feature's first
+        # phase existed to remove, which is the regression worth catching.
+        assert report.rows[0].reason == "No BibTeX entries found. Is this a BibTeX file?"
+        assert Item.objects.count() == 0
+
+    def test_undecodable_bytes_are_reported_and_no_server_error_is_raised(self, client, db):
+        upload = SimpleUploadedFile("bad-bytes.ris", b"\x80\x81\x82")
+        response = client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        assert response.status_code == 302
+        report = client.get(response.url).context["report"]
+        assert report.failed == 1
+        # Names the encoding attempted and the offset that broke, which is
+        # what a reader can act on — and again, not an exception's repr.
+        assert report.rows[0].reason == "Could not decode this file as utf-8: invalid byte at offset 0."
+        assert Item.objects.count() == 0
+
+
+class TestItemImportPreviewPage:
+    """The preview has its own address, and a GET rebuilds it from the staged
+    file — US-6 (FR-045, FR-054, decisions.md D30)."""
+
+    def _submit(self, client, filename="publication.bib", format_name="bibtex"):
+        with (DATA_DIR / filename).open("rb") as handle:
+            upload = SimpleUploadedFile(filename, handle.read())
+        return client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+
+    def test_submitting_the_form_redirects_to_the_preview_address(self, client, db):
+        response = self._submit(client)
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-import-preview")
+
+    def test_the_redirect_imports_nothing(self, client, db):
+        self._submit(client)
+        assert Item.objects.count() == 0
+
+    def test_a_get_of_the_preview_rebuilds_the_report_from_the_staged_file(self, client, db):
+        self._submit(client)
+        response = client.get(reverse("literature:item-import-preview"))
+        assert response.status_code == 200
+        report = response.context["report"]
+        assert report.total == 1
+        assert report.created == 1
+        assert [row.position for row in report.rows] == [1]
+        assert Item.objects.count() == 0
+
+    def test_reloading_the_preview_shows_the_same_thing_and_imports_nothing(self, client, db):
+        # Not a raw content comparison: {% csrf_token %} mints a fresh masked
+        # token on every render, so two otherwise-identical responses never
+        # match byte for byte. The report itself is what "the same thing"
+        # means here.
+        self._submit(client)
+        first = client.get(reverse("literature:item-import-preview")).context["report"]
+        second = client.get(reverse("literature:item-import-preview")).context["report"]
+        assert [row.position for row in first.rows] == [row.position for row in second.rows]
+        assert first.created == second.created == 1
+        assert Item.objects.count() == 0
+
+    def test_reaching_it_with_nothing_staged_says_so_and_does_not_raise(self, client, db):
+        response = client.get(reverse("literature:item-import-preview"))
+        assert response.status_code == 200
+        assert "nothing staged" in response.content.decode().lower()
+
+    def test_the_session_holds_the_staged_token_and_format(self, client, db):
+        self._submit(client)
+        assert client.session["literature_import_token"]
+        assert client.session["literature_import_format"] == "bibtex"
+
+    def test_the_preview_page_does_not_contain_the_token(self, client, db):
+        self._submit(client)
+        token = client.session["literature_import_token"]
+        content = client.get(reverse("literature:item-import-preview")).content.decode()
+        assert token not in content
+
+    def test_a_file_the_chosen_format_cannot_read_previews_as_a_failure(self, client, db):
+        upload = SimpleUploadedFile("wrong-format.bib", RIS_ONE_GOOD_ENTRY.encode())
+        client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload})
+        response = client.get(reverse("literature:item-import-preview"))
+        report = response.context["report"]
+        assert report.failed == 1
+        assert report.created == 0
+
+    def test_submitting_to_the_preview_address_is_refused_not_a_server_error(self, client, db):
+        # Nothing on the page submits here — confirm and restart each have
+        # their own address — so a submission is a refusal, not a crash.
+        self._submit(client)
+        response = client.post(reverse("literature:item-import-preview"), {})
+        assert response.status_code == 405
+
+
+class TestItemImportRestart:
+    """Restarting discards the staged file and returns to an empty import
+    form — US-6 (FR-051)."""
+
+    def _submit(self, client, filename="publication.bib", format_name="bibtex"):
+        with (DATA_DIR / filename).open("rb") as handle:
+            upload = SimpleUploadedFile(filename, handle.read())
+        return client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+
+    def test_restarting_discards_the_staged_file_and_lands_on_an_empty_form(self, client, db):
+        self._submit(client)
+        token = client.session["literature_import_token"]
+        response = client.post(reverse("literature:item-import-restart"))
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-import")
+        assert StagedUpload().open(token) is None
+        assert "literature_import_token" not in client.session
+
+    def test_restarting_with_nothing_staged_still_lands_on_the_empty_form(self, client, db):
+        response = client.post(reverse("literature:item-import-restart"))
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-import")
+
+
+class TestItemImportConfirm:
+    """Carrying out a previewed import returns to the catalogue — US-4, US-6
+    (FR-041 through FR-044, FR-052, decisions.md D31)."""
+
+    def _preview(self, client, filename="publication.bib", format_name="bibtex"):
+        with (DATA_DIR / filename).open("rb") as handle:
+            upload = SimpleUploadedFile(filename, handle.read())
+        client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+        return client.get(reverse("literature:item-import-preview"))
+
+    def _preview_bytes(self, client, content, filename, format_name):
+        upload = SimpleUploadedFile(filename, content)
+        client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+        return client.get(reverse("literature:item-import-preview"))
+
+    def _confirm_fields(self, preview):
+        """What the preview page's own confirm control posts back."""
+        content = preview.content.decode()
+        confirm = content[content.index(reverse("literature:item-import-confirm")) :]
+        return dict(re.findall(r'name="(preview)"[^>]*value="([^"]*)"', confirm))
+
+    def test_confirming_redirects_to_the_catalogue(self, client, db):
+        preview = self._preview(client)
+        response = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview))
+        assert response.status_code == 302
+        assert response.url == reverse("literature:item-list")
+
+    def test_confirming_imports_the_staged_file_and_matches_the_preview(self, client, db):
+        preview = self._preview(client)
+        client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview))
+        assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
+        assert Item.objects.count() == preview.context["report"].created
+
+    def test_the_message_left_behind_states_what_was_created(self, client, db):
+        preview = self._preview(client)
+        response = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview), follow=True)
+        assert "1 created" in response.content.decode()
+
+    def test_following_the_redirect_renders_the_message_once(self, client, db):
+        # django.contrib.messages consumes a queued message on read — a
+        # second fetch of the catalogue must not still carry it.
+        preview = self._preview(client)
+        client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview), follow=True)
+        second_visit = client.get(reverse("literature:item-list")).content.decode()
+        assert "1 created" not in second_visit
+
+    def test_the_reader_is_not_asked_for_the_file_again(self, client, db):
+        preview = self._preview(client)
+        # No file and no format: what the confirm control posts back names
+        # only which preview the page was showing, which reaches nothing on
+        # its own (D28).
+        fields = self._confirm_fields(preview)
+        assert set(fields) == {"preview"}
+        client.post(reverse("literature:item-import-confirm"), fields)
+        assert Item.objects.count() == 1
+
+    def test_the_staged_file_is_gone_afterwards(self, client, db):
+        preview = self._preview(client)
+        token = client.session["literature_import_token"]
+        client.post(reverse("literature:item-import-confirm"), self._confirm_fields(preview))
+        assert StagedUpload().open(token) is None
+
+    def test_a_confirmation_from_a_session_that_staged_nothing_imports_nothing_and_says_so(self, client, db):
+        response = client.post(reverse("literature:item-import-confirm"), follow=True)
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_a_confirmation_from_a_different_session_imports_nothing_and_says_so(self, client, db):
+        # AS-8 — a file staged by one session is not reachable through another.
+        self._preview(client)
+        other_client = Client()
+        response = other_client.post(reverse("literature:item-import-confirm"), follow=True)
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_a_confirmation_whose_staged_file_has_been_swept_says_so_and_imports_nothing(self, client, db):
+        self._preview(client)
+        token = client.session["literature_import_token"]
+        # Simulate a sweep having already removed it, without waiting on
+        # the retention window StagedUpload.sweep() itself is tested against
+        # (tests/test_ui/test_staging.py) — the confirm view's own job is to
+        # cope with the file already being gone, however that happened.
+        StagedUpload().discard(token)
+
+        response = client.post(reverse("literature:item-import-confirm"), follow=True)
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_confirming_a_superseded_preview_imports_nothing(self, client, db):
+        # Two previews from one session — a second tab, or going back and
+        # submitting again. The first tab still shows the first preview and
+        # its confirm control. Following it must not import the second file:
+        # what commits is what was previewed, or nothing.
+        stale = self._preview(client)
+        self._preview_bytes(client, RIS_ONE_GOOD_ENTRY.encode(), "second.ris", "ris")
+
+        response = client.post(reverse("literature:item-import-confirm"), self._confirm_fields(stale), follow=True)
+
+        assert response.status_code == 200
+        assert "nothing to confirm" in response.content.decode().lower()
+        assert Item.objects.count() == 0
+
+    def test_a_superseded_previews_file_is_not_left_staged(self, client, db):
+        # The reader can no longer reach it, so nothing should be holding it
+        # on disk for the retention window.
+        self._preview(client)
+        superseded = client.session["literature_import_token"]
+        self._preview_bytes(client, RIS_ONE_GOOD_ENTRY.encode(), "second.ris", "ris")
+        assert StagedUpload().open(superseded) is None
+
+    def test_a_second_confirmation_of_the_same_token_imports_nothing(self, client, db):
+        preview = self._preview(client)
+        fields = self._confirm_fields(preview)
+        client.post(reverse("literature:item-import-confirm"), fields)
+        assert Item.objects.count() == 1
+        second = client.post(reverse("literature:item-import-confirm"), fields, follow=True)
+        assert Item.objects.count() == 1
+        assert "nothing to confirm" in second.content.decode().lower()
+
+
+class TestItemImportSkipPreview:
+    """Ticking the skip control imports in one step — US-4 (FR-040)."""
+
+    def test_ticking_the_skip_control_imports_in_one_step(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload, "skip_preview": "on"},
+        )
+        assert response.status_code == 200
+        assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
+
+    def test_the_report_describes_what_was_imported_rather_than_what_would_be(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload, "skip_preview": "on"},
+        )
+        content = response.content.decode()
+        assert "nothing has been imported" not in content.lower()
+        # No confirm control: there is nothing left to confirm. The upload
+        # form the page carries above its results (decisions.md D17) is a
+        # different form, submitting a new file to a new run.
+        assert f'action="{reverse("literature:item-import-confirm")}"' not in content
+
+    def test_skipping_the_preview_stages_nothing(self, client, db):
+        with (DATA_DIR / "publication.bib").open("rb") as handle:
+            upload = SimpleUploadedFile("publication.bib", handle.read())
+        client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload, "skip_preview": "on"},
+        )
+        assert "literature_import_token" not in client.session
+
+    def test_importing_in_one_step_discards_a_file_staged_before_it(self, client, db):
+        # An earlier preview left a file staged. Importing something else in
+        # one step supersedes it just as previewing again would: the reader
+        # cannot reach that preview any more, so nothing should still hold
+        # its file — least of all a confirm that would import it a second
+        # time on top of what they have just done.
+        staged = SimpleUploadedFile("staged.bib", b"@book{StagedEarlier2020, title={Staged Earlier}, year={2020}}")
+        client.post(reverse("literature:item-import"), {"format": "bibtex", "file": staged})
+        preview_id = client.get(reverse("literature:item-import-preview")).context["confirm_form"]["preview"].value()
+
+        one_step = SimpleUploadedFile("one-step.bib", b"@book{OneStepLater2021, title={One Step Later}, year={2021}}")
+        client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": one_step, "skip_preview": "on"},
+        )
+        after_one_step = set(Item.objects.values_list("citation_key", flat=True))
+        assert after_one_step == {"OneStepLater2021"}
+        assert "literature_import_token" not in client.session
+
+        client.post(reverse("literature:item-import-confirm"), {"preview": preview_id})
+        assert set(Item.objects.values_list("citation_key", flat=True)) == after_one_step
 
 
 class TestItemUpdateView:

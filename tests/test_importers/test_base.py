@@ -342,7 +342,7 @@ class TestReporting:
         assert len(result.failed) == 1
         assert result.skipped[0].outcome == Outcome.SKIPPED
         assert result.failed[0].outcome == Outcome.FAILED
-        assert result.skipped[0].reason is None
+        assert result.skipped[0].reason == "a comment"
 
     def test_failures_are_in_the_result_even_with_logging_silenced(self, caplog):
         """FR-013, SC-005: the result is never the only place a failure appears from."""
@@ -670,6 +670,7 @@ class TestExceptionsOutsideTheContract:
         result = make_raising_format(entries, SkipEntry("trailing junk"), stage="parse")().import_file(io.StringIO())
 
         assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.SKIPPED]
+        assert result.skipped[0].reason == "trailing junk"
 
     def test_parseerror_from_the_converting_stage_is_filed_at_the_right_index(self):
         """Out of contract — ``ParseError`` belongs to ``parse`` — but when the
@@ -941,3 +942,30 @@ class TestDryRunFollowsTheRouter:
 
         assert len(result.created) == 1
         assert Item.objects.count() == 1
+
+
+class TestHandleReachesParseUnchanged:
+    """``import_file`` decodes nothing itself — a format owns its own decoding (ADR-0012, 011
+    Phase 0 decisions.md D10) — so whatever ``file`` a caller hands in must be the exact object
+    ``parse`` receives, whether it reads ``str`` or ``bytes``.
+    """
+
+    @pytest.mark.parametrize("handle", [io.StringIO("irrelevant"), io.BytesIO(b"irrelevant")])
+    def test_the_handle_reaches_parse_unchanged(self, handle):
+        received = []
+
+        class _ProbeFormat(BibFormat):
+            label = "Probe (test-only)"
+
+            def parse(self, file):
+                received.append(file)
+                return iter([])
+
+            def to_csl_json(self, raw):
+                return {}
+
+        _ProbeFormat.name = "probe"
+
+        _ProbeFormat().import_file(handle)
+
+        assert received == [handle]

@@ -1,0 +1,46 @@
+{% extends "form_view.html" %}
+{% load i18n %}
+{% comment %}
+Overrides only the two named blocks inside form_view.html's own page.content
+(US-1, US-4, plan.md "The view" seam) — before_form for the repeat-import
+warning (FR-023's surviving half, decisions.md D11) and actions for a single
+submit control. Nothing about the packaged form chrome, the multipart
+handling or the field rendering is rebuilt here: <c-form :form-obj="form">
+already sets enctype="multipart/form-data" from ImportForm.is_multipart()
+(django-mvp cotton/form/index.html), and its default <c-form.render />
+already renders the format select, the file control and the skip-preview
+checkbox through crispy.
+
+The warning's own copy was rewritten for US-4 (FR-038, FR-040): it used to
+say plainly that a submission imports directly, which is no longer true by
+default (decisions.md D16) — leaving the old wording would have this page
+telling a reader something the feature it describes no longer does.
+{% endcomment %}
+{% block before_form %}
+  <c-alert variant="info" class="mb-4">
+    <p>
+      {% blocktranslate %}
+        By default, the file is previewed before import. Review the report
+        and confirm the import to proceed.
+      {% endblocktranslate %}
+    </p>
+    <p>
+      {% blocktranslate %}
+        Select "Skip the preview and import immediately" to import the file
+        without a preview.
+      {% endblocktranslate %}
+    </p>
+    <p>
+      {% blocktranslate %}
+        Duplicate files are not detected and will be imported again.
+      {% endblocktranslate %}
+    </p>
+  </c-alert>
+{% endblock before_form %}
+{% block actions %}
+  <c-button text="{% trans "Import" %}"
+            type="submit"
+            icon="arrow-right"
+            reverse
+            variant="primary" />
+{% endblock actions %}
