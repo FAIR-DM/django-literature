@@ -47,8 +47,8 @@ stored names are not merged) from reading to entry. Both say the package does no
 records describe the same thing. A binding select would have been an exception to that on the one
 surface where the consequence is permanent.
 
-An ADR is warranted and is proposed at S3, since this governs the write side of the whole
-front end rather than this feature alone.
+This warrants an ADR of its own, proposed at planning, since it governs the write side of the
+whole front end rather than this feature alone.
 
 ## D2 — The three collections live on the reference form
 
