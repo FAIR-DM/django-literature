@@ -3,7 +3,7 @@
   "feature": "012-reference-contributors-dates",
   "branch": "012-reference-contributors-dates",
   "repo": "FAIR-DM/django-literature",
-  "state": "REVIEW",
+  "state": "GATE_MERGE",
   "state_history": [
     {
       "state": "SPECIFY",
@@ -39,6 +39,16 @@
       "state": "REVIEW",
       "at": "2026-08-25T16:40:00Z",
       "note": "branch pushed to the open pull request as the repository's bot"
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-25T17:35:00Z",
+      "note": "Django 6.0 failure in the test matrix fixed and recorded as D19; every check green on both supported Django versions"
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-25T17:40:00Z",
+      "note": "pull request 117 marked ready for review; the merge is Sam's"
     }
   ],
   "gates": {
@@ -474,7 +484,8 @@
   },
   "pr": {
     "number": 117,
-    "draft": true
+    "draft": false,
+    "state": "open"
   },
   "escalations": []
 }
