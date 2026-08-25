@@ -292,3 +292,31 @@ The plan's own file list (`plan.md`, Project Structure) names no second datalist
 feature, which is consistent with this reading — a second template was never the right shape for a
 static, six-item list. Still native HTML, still no component, still nothing filed upstream: FR-038
 is satisfied the same way D1/D12 satisfied it.
+
+## D18 — The three flows were already reachable; only the guard and the demo's own doc needed work
+
+**Self-resolved, at T027.** FR-042 asks the demo's seeded catalogue to reach crediting a
+contributor, dating a reference and identifying a reference by following links from pages it
+already serves. `item_form.html` has rendered all three related-row sets since T005, and the demo
+mounts `literature.ui.urls` with no wrapping authentication (`tests/test_demo/test_smoke.py`'s
+`TestPatternPrefix`) — the catalogue's own Add and Edit links already lead to a page carrying every
+field the three flows need. T027 is therefore a finding, not a build task: no view, template or URL
+changed, and `tests/test_demo/test_smoke.py::TestRelatedRowFieldsOnTheEditPage` asserts the finding
+rather than a new capability, probed by removing the inline-formset loop from `item_form.html` and
+watching it fail before restoring the loop untouched.
+
+T028's guard is `DemoWalk.walk_related_rows` (`demo/smoke.py`), added beside `walk_write_pass`
+rather than folded into it: each of the three additions is its own POST against a reference the
+walk creates and removes for itself, so a broken flow is named on its own step (SC-008) instead of
+one submission where a second flow's success could mask the first's failure. Wired into `run()`
+after `walk_write_pass` for the same reason `walk_write_pass` itself runs before `walk_import` —
+`walk_import` is the one step that deliberately leaves references behind, and every check ahead of
+it depends on the catalogue still holding only what the seed put there.
+
+T030's "docs/ gains the demo's coverage" turned out to mean no new docs/ page: the three flows
+already have their own how-to pages (`docs/crediting-contributors.md`, `docs/dating-a-reference.md`,
+`docs/identifying-a-reference.md`, all landed by T012/T019/T026 and already in `docs/index.md`'s
+table of contents), and the demo's own coverage has always lived in README.md's "Try it: the demo
+project" section, not in `docs/` — the precedent T010 and T024 set for the import feature. That
+section's own paragraph is what T030 updated, naming the three flows and linking each to its how-to
+page, the same way it already named Add/Edit/Delete/Import.
