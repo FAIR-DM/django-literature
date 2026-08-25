@@ -356,3 +356,37 @@ section's own paragraph is what T030 updated, naming the three flows and linking
 page, the same way it already named Add/Edit/Delete/Import.
 
 **ADR:** none — a finding about what earlier stories had already built, plus a note of where the demo's own coverage lives. Nothing to carry forward.
+
+## D19 — A constraint the set polices is excluded from the row's own check
+
+**Self-resolved, at convergence, from a failure only the test matrix saw.** Both duplicate-slot
+sets pass on Django 5.2 and failed on Django 6.0, on exactly one case each: clearing a slot's value
+and adding a row naming that same slot in one submission. The row doing the adding was refused for
+colliding with the row being removed.
+
+The cause is a change in where the constraint is checked, not in what it means. Django 5.2 validates
+a model's constraints inside `Model.full_clean()` during `_post_clean`, with the row's own field
+exclusions already applied, and the constraint is skipped there because it names the parent link,
+which is not one of the row's fields. Django 6.0 splits that into a separate `validate_constraints()`
+call on the form, which recomputes its exclusions and does check the constraint.
+
+Either way the row is the wrong party to ask. A row validates one instance against the database as
+it stands at that moment, so it cannot see that the row currently holding the slot is flagged for
+removal — the removal has not happened yet, and the stored row is still there to be found. Only the
+set knows which of its rows are being kept. That is why Django's own cross-row uniqueness check
+skips forms flagged for deletion, and it is the same reason `ItemDateFormSet.clean()` and
+`ItemIdentifierFormSet.clean()` already do the check themselves, with the message D-8 asked for.
+
+`SetPolicedConstraintMixin` (`literature/ui/forms.py`) therefore excludes one field of the
+set-policed constraint from the row's own check. Excluding any single field of a constraint skips
+that constraint and leaves every other constraint on the model still validated, so a check
+constraint added later is unaffected. The database constraint stays as the final backstop, and the
+save order makes the replacement safe: a formset deletes its existing rows before inserting new
+ones.
+
+Worth noting for its own sake: this was invisible to every local run, because the lock file pins one
+Django version and the matrix tests two.
+
+**ADR:** none — it restores an existing decision's behaviour across a framework change rather than
+settling anything new. What it protects, that a slot's value can be replaced in one submission, is
+already D-8's.

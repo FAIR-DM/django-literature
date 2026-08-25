@@ -10,6 +10,7 @@ opposite of the no-loss guarantee this feature exists for (D-3).
 """
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
@@ -194,7 +195,54 @@ class NameForm(forms.ModelForm):
         return name
 
 
-class ItemDateForm(forms.ModelForm):
+class SetPolicedConstraintMixin:
+    """Leaves one named model constraint to the row's own formset, which is
+    the only party that can judge it correctly (D-8, D19).
+
+    A row form validates its instance against the model's constraints on its
+    own, one row at a time, and against the database as it stands right now.
+    That is the wrong vantage point for a constraint the set polices across
+    all of its rows. Clearing one slot's value and adding another row naming
+    the same slot in the same submission is a replacement rather than a
+    collision, but the row doing the adding cannot see that the row holding
+    that slot is flagged for removal — the removal has not happened yet, so
+    the stored row is still there to be found, and the addition is refused
+    for colliding with a row that is on its way out.
+
+    Django's own cross-row check has the same shape and the same escape: it
+    skips forms flagged for deletion. Only the set can do that, so the set is
+    where this belongs. ``clean()`` on each formset below performs the check
+    over the rows actually being kept, reports it against the offending row
+    with a message naming what collided, and the database constraint stays as
+    the final backstop.
+
+    Named ``constraint_field`` rather than the constraint itself because
+    excluding any one of a constraint's fields skips that constraint and
+    leaves every other one on the model still validated, so a check
+    constraint added later is unaffected by this.
+    """
+
+    #: A field of the constraint the set polices. Excluding it skips exactly
+    #: that constraint.
+    constraint_field: str
+
+    def validate_constraints(self):
+        """Mirror ``BaseModelForm.validate_constraints`` with the set-policed
+        constraint's own field excluded.
+
+        Only Django 6.0 and later call this: 5.2 validates constraints inside
+        ``Model.full_clean()`` during ``_post_clean``, where this row's
+        exclusions already covered the constraint. Defining it on 5.2 is
+        harmless, since nothing calls it there.
+        """
+        exclude = self._get_validation_exclusions() | {self.constraint_field}
+        try:
+            self.instance.validate_constraints(exclude=exclude)
+        except ValidationError as e:
+            self._update_errors(e)
+
+
+class ItemDateForm(SetPolicedConstraintMixin, forms.ModelForm):
     """A date-slot row: one ``ItemDate`` reachable through the reference
     form's dates set (plan.md D-6, T013).
 
@@ -245,6 +293,8 @@ class ItemDateForm(forms.ModelForm):
     through ``get_form_kwargs`` so the cloned template's choices agree
     with what the page actually rendered.
     """
+
+    constraint_field = "date_type"
 
     class Meta:
         model = ItemDate
@@ -304,7 +354,7 @@ class IdentifierKindWidget(forms.TextInput):
         return format_html('{}<datalist id="{}">{}</datalist>', input_html, context["datalist_id"], options)
 
 
-class ItemIdentifierForm(forms.ModelForm):
+class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
     """An identifier row: one ``ItemIdentifier`` reachable through the reference form's
     identifiers set (plan.md D-9, T022).
 
@@ -329,6 +379,8 @@ class ItemIdentifierForm(forms.ModelForm):
     error — the same shape :class:`ItemDateForm`'s span rejections take — carrying whichever
     message ``literature/validators.py`` raised (FR-026).
     """
+
+    constraint_field = "type"
 
     class Meta:
         model = ItemIdentifier
