@@ -3,7 +3,7 @@
   "feature": "009-tabular-catalogue-view",
   "branch": "009-tabular-catalogue-view",
   "repo": "FAIR-DM/django-literature",
-  "state": "GATE_MERGE",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "INTAKE",
@@ -54,6 +54,11 @@
       "state": "GATE_MERGE",
       "at": "2026-08-19T17:10:00Z",
       "note": "PR #87 out of draft, awaiting Sam. 1605 passed, 1 documented xfail (#88). Lint, format, types, deptry, makemigrations --check green."
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-19T13:35:24Z",
+      "note": "PR #87 merged; approved by SamuelJennings"
     }
   ],
   "gates": {
@@ -77,8 +82,8 @@
       "at": null
     },
     "merge": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-19T13:35:06Z"
     }
   },
   "stories": [
