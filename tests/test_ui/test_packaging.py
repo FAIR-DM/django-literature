@@ -78,8 +78,11 @@ class TestNoDemoOnlyDependencyEntersTheBuild:
     def test_the_ui_extra_is_exactly_the_front_end_packages(self):
         pyproject = load_pyproject()
         ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
+        # T001 raised the django-mvp floor to 0.19.3 for the inline formset
+        # machinery the reference form composes its related rows from; the
+        # pinned list moves with it, as it did at 0.19.1.
         assert ui_extra == [
-            "django-mvp (>=0.19.1,<1.0) ; python_version >= '3.12'",
+            "django-mvp (>=0.19.3,<1.0) ; python_version >= '3.12'",
             "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
             "django-filter (>=26.1,<27) ; python_version >= '3.12'",
         ]

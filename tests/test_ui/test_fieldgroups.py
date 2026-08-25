@@ -9,7 +9,7 @@ shape of the mapping, not whether a particular editorial call was right.
 
 import pytest
 
-from literature.choices import ItemType
+from literature.choices import DateType, ItemType
 from literature.ui.fieldgroups import FieldGroups
 from tests.factories import ItemFactory
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
@@ -126,6 +126,94 @@ class TestCorrectedC2Criterion:
 class TestFieldsFor:
     def test_returns_the_fields_declared_for_the_named_group(self):
         assert FieldGroups.fields_for("core") == FieldGroups.GROUPS["core"]
+
+
+class TestDateSlotCoverage:
+    """``TYPE_DATE_SLOTS`` is a sibling of ``TYPE_GROUPS`` (plan.md D-5, research.md
+    R6), never folded into ``GROUPS`` — a date slot is a row on ``ItemDate``, not
+    an ``Item`` column, and folding it in would raise ``FieldError`` at
+    class-definition time (FR-013). What each of the 45 types is actually
+    assigned is reviewed by reading the module itself, the same as
+    ``TYPE_GROUPS`` — this only checks the mapping's shape.
+    """
+
+    def test_every_item_type_has_an_entry(self):
+        assert set(FieldGroups.TYPE_DATE_SLOTS.keys()) == set(ItemType.values)
+
+    def test_every_named_slot_is_a_real_date_type(self):
+        for slots in FieldGroups.TYPE_DATE_SLOTS.values():
+            assert set(slots) <= set(DateType.values)
+
+    def test_issued_is_never_named_because_it_is_always_on(self):
+        # `issued` is the date-slot equivalent of `core`/`general` — carried by
+        # every type without being named in any single entry.
+        for slots in FieldGroups.TYPE_DATE_SLOTS.values():
+            assert DateType.ISSUED not in slots
+
+    def test_the_existing_field_partition_is_untouched(self):
+        # FR-013: extending the mapping to date slots must not disturb the
+        # scalar-field partition this test class already guards.
+        assigned = {name for fields in FieldGroups.GROUPS.values() for name in fields}
+        assert assigned == scalar_field_names() - EXCLUDED_FROM_FORM
+
+
+class TestDateSlotAssignment:
+    """The four criteria that name a slot beyond `issued`, each evidenced by
+    CSL's own appendices (ADR-0020) — reviewed here as a sanity check on the
+    handful of types the plan itself names as worked examples (D-5), not as
+    an exhaustive re-derivation of all 45.
+    """
+
+    def test_webpage_leads_with_accessed(self):
+        # D-5's own example, and Appendix III's own text: "Intended for
+        # sources which are intrinsically online."
+        assert DateType.ACCESSED in FieldGroups.TYPE_DATE_SLOTS[ItemType.WEBPAGE]
+
+    def test_post_leads_with_accessed(self):
+        # Appendix III: "A post on a online forum, social media platform...".
+        assert DateType.ACCESSED in FieldGroups.TYPE_DATE_SLOTS[ItemType.POST]
+
+    def test_post_weblog_does_not_lead_with_accessed(self):
+        # post-weblog's own one-line definition ("A blog post") never uses
+        # the word "online" the way post's does, so it stays at the baseline
+        # rather than borrowing its sibling's evidence.
+        assert DateType.ACCESSED not in FieldGroups.TYPE_DATE_SLOTS[ItemType.POST_WEBLOG]
+
+    def test_paper_conference_leads_with_event_date(self):
+        # D-5's own example, and the type already carries `event` in TYPE_GROUPS.
+        assert DateType.EVENT_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.PAPER_CONFERENCE]
+
+    def test_event_speech_and_performance_lead_with_event_date(self):
+        for item_type in (ItemType.EVENT, ItemType.SPEECH, ItemType.PERFORMANCE):
+            assert DateType.EVENT_DATE in FieldGroups.TYPE_DATE_SLOTS[item_type]
+
+    def test_book_leads_with_original_date(self):
+        # D-5's own example ("a translated or reissued work"), and the type
+        # already carries `original` in TYPE_GROUPS.
+        assert DateType.ORIGINAL_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.BOOK]
+
+    def test_classic_leads_with_original_date(self):
+        assert DateType.ORIGINAL_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.CLASSIC]
+
+    def test_manuscript_leads_with_submitted(self):
+        # Appendix IV's own definition of `submitted`: "Date the item (e.g. a
+        # manuscript) was submitted for publication."
+        assert DateType.SUBMITTED in FieldGroups.TYPE_DATE_SLOTS[ItemType.MANUSCRIPT]
+
+    def test_article_journal_leads_with_available_date(self):
+        # Appendix IV's own definition of `available-date`: "e.g. the online
+        # publication date of a journal article before its formal
+        # publication date".
+        assert DateType.AVAILABLE_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.ARTICLE_JOURNAL]
+
+    def test_treaty_leads_with_available_date(self):
+        # Appendix IV's own definition of `available-date`: "the date a
+        # treaty was made available for signing".
+        assert DateType.AVAILABLE_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.TREATY]
+
+    def test_document_has_no_evidenced_slot_beyond_issued(self):
+        # CSL's catch-all type, named by neither appendix for any date slot.
+        assert FieldGroups.TYPE_DATE_SLOTS[ItemType.DOCUMENT] == frozenset()
 
 
 @pytest.mark.django_db

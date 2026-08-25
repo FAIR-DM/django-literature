@@ -252,6 +252,7 @@ class DemoWalk:
         self.walk_narrowed_catalogue(list_url, list_body)
         self.walk_to_contributor(item_links)
         self.walk_write_pass(list_url, list_body)
+        self.walk_related_rows(list_url, list_body)
         # Last (T301, T304): unlike walk_write_pass, this leaves its
         # references behind, and on a developer's persistent demo database
         # they accumulate across runs. Every check above it has already run
@@ -492,6 +493,123 @@ class DemoWalk:
                 list_url, 200, f"catalogue list still lists the deleted reference at {item_path}", list_after_delete
             )
 
+    def walk_related_rows(self, list_url, list_body):
+        """Credit a contributor, date the reference and give it an identifier
+        through the edit form's three related-row sets (T027, T028, US-4,
+        FR-042, FR-043).
+
+        Follows the same Add and Edit links ``walk_write_pass`` does — the
+        three sets add nothing new to reach (T027's own finding: they
+        already render on the page that link leads to). Creates and removes
+        its own reference, the same discipline ``walk_write_pass`` uses, so
+        a run against a developer's persistent demo database leaves nothing
+        behind.
+
+        Each addition is its own POST, checked on its own, so a broken flow
+        is named on its own step (SC-008) instead of being folded into one
+        submission where a second flow's success could mask the first's
+        failure. Every step asserts what the reference's own page now shows,
+        never a status code alone (ADR-0018).
+        """
+        create_match = CREATE_LINK_RE.search(list_body)
+        if create_match is None:
+            self.fail(list_url, 200, "no Add link on the catalogue list", list_body)
+        create_url = f"{self.base_url}{create_match.group('path')}"
+
+        create_form_body = self.get(create_url)
+        fields = form_fields(create_form_body)
+        fields["type"] = "book"
+        fields["title"] = f"Smoke Test Related Rows {uuid.uuid4().hex[:8]}"
+        fields["citation_key"] = f"smoke-related-{uuid.uuid4().hex[:8]}"
+        detail_body, detail_url = self.post(create_url, create_url, fields)
+        item_path = urllib.parse.urlparse(detail_url).path
+        if not re.fullmatch(r"/catalogue/\d+/", item_path):
+            self.fail(
+                detail_url,
+                200,
+                f"creating a reference for the related-row walk did not redirect to its own page "
+                f"(landed on {detail_url})",
+                detail_body,
+            )
+
+        edit_match = EDIT_LINK_RE.search(detail_body)
+        if edit_match is None:
+            self.fail(detail_url, 200, "no Edit link on the created reference's page", detail_body)
+        edit_url = f"{self.base_url}{edit_match.group('path')}"
+
+        # Credit a contributor (US-1, FR-001 through FR-011).
+        contributor_name = f"Smoke Contributor {uuid.uuid4().hex[:6]}"
+        contributor_fields = form_fields(self.get(edit_url))
+        contributor_fields["item_names-0-role"] = "author"
+        contributor_fields["item_names-0-family"] = contributor_name
+        after_contributor_body, landed_url = self.post(edit_url, edit_url, contributor_fields)
+        if urllib.parse.urlparse(landed_url).path != item_path:
+            self.fail(
+                landed_url,
+                200,
+                f"crediting a contributor did not redirect to the reference's own page (landed on {landed_url})",
+                after_contributor_body,
+            )
+        if contributor_name not in after_contributor_body:
+            self.fail(
+                landed_url,
+                200,
+                f"reference page does not credit the contributor {contributor_name!r} after saving",
+                after_contributor_body,
+            )
+
+        # Give the reference a date (US-2, FR-012 through FR-020).
+        date_value = "2021"
+        date_fields = form_fields(self.get(edit_url))
+        date_fields["item_dates-0-begin"] = date_value
+        after_date_body, landed_url = self.post(edit_url, edit_url, date_fields)
+        if urllib.parse.urlparse(landed_url).path != item_path:
+            self.fail(
+                landed_url,
+                200,
+                f"dating the reference did not redirect to its own page (landed on {landed_url})",
+                after_date_body,
+            )
+        if date_value not in after_date_body:
+            self.fail(
+                landed_url, 200, f"reference page does not show the date {date_value!r} after saving", after_date_body
+            )
+
+        # Give the reference an identifier (US-3, FR-021 through FR-030).
+        identifier_value = f"10.9999/smoke-{uuid.uuid4().hex[:8]}"
+        identifier_fields = form_fields(self.get(edit_url))
+        identifier_fields["item_identifiers-0-type"] = "DOI"
+        identifier_fields["item_identifiers-0-value"] = identifier_value
+        after_identifier_body, landed_url = self.post(edit_url, edit_url, identifier_fields)
+        if urllib.parse.urlparse(landed_url).path != item_path:
+            self.fail(
+                landed_url,
+                200,
+                f"adding an identifier did not redirect to the reference's own page (landed on {landed_url})",
+                after_identifier_body,
+            )
+        if identifier_value not in after_identifier_body:
+            self.fail(
+                landed_url,
+                200,
+                f"reference page does not show the identifier {identifier_value!r} after saving",
+                after_identifier_body,
+            )
+
+        # This walk's own reference is not part of the seed and does not
+        # need to stay for anything downstream (unlike walk_import's, T304).
+        delete_match = DELETE_LINK_RE.search(after_identifier_body)
+        if delete_match is None:
+            self.fail(
+                landed_url,
+                200,
+                "no Delete link on the reference used for the related-row walk",
+                after_identifier_body,
+            )
+        delete_url = f"{self.base_url}{delete_match.group('path')}"
+        delete_fields = form_fields(self.get(delete_url))
+        self.post(delete_url, delete_url, delete_fields)
+
     def walk_import(self, list_url, list_body):
         """Preview the fixture file, confirm it, and confirm both the message
         left behind and the catalogue show it (T301, T304, T513, T918, US-4,
@@ -708,7 +826,8 @@ def main(argv):
         return 1
     print(
         f"OK: walked the demo catalogue, its second page, a reference and a contributor, "
-        f"created/corrected/removed a reference, and imported a bibliography file, at {base_url}"
+        f"created/corrected/removed a reference, credited a contributor, dated a reference, "
+        f"identified a reference, and imported a bibliography file, at {base_url}"
     )
     return 0
 

@@ -20,21 +20,35 @@ from django.views import View
 from django_filters.views import FilterView
 from mvp.integrations.django_filters.views import MVPFilteredListView
 from mvp.integrations.django_tables.views import MVPTableViewMixin
-from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPFormView, MVPListView, MVPUpdateView
+from mvp.views import (
+    MVPDeleteView,
+    MVPDetailView,
+    MVPFormView,
+    MVPInlineCreateView,
+    MVPInlineUpdateView,
+    MVPListView,
+)
 
 from literature.choices import ItemType, NameRole
 from literature.importers import get_format
 from literature.importers.results import Outcome
 from literature.models import Item, ItemName, Name
-from literature.ui.contributors import contributor_groups
+from literature.ui.contributors import contributor_groups, stored_contributor_names
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
 from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
-from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
+from literature.ui.forms import CONTRIBUTOR_NAMES_DATALIST_ID, ConfirmImportForm, ImportForm, ItemForm
 from literature.ui.importing import ImportReport
+from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
 from literature.ui.links import web_url
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
+
+#: The three related-row sets composed on both the create and update pages
+#: (plan.md D-2, FR-031, FR-032). Declared once here so the two views and the
+#: page's own template use the same list rather than three independent ones
+#: getting out of step.
+ITEM_INLINES = [ContributorInline, DateInline, IdentifierInline]
 
 #: What the catalogue calls itself, everywhere a reader is shown its name — the
 #: list page's own heading and the breadcrumb back to it from both other pages.
@@ -113,6 +127,21 @@ def field_group_context(form, forced_groups=frozenset()):
         "field_groups": groups,
         "type_groups_json": TYPE_GROUPS_JSON,
         "forced_groups_json": json.dumps(sorted(forced_groups)),
+    }
+
+
+def contributor_datalist_context():
+    """The stored-name suggestions every contributor row's family input
+    references through ``list=`` (plan.md D-1, D-12, T008).
+
+    Shared by both write views rather than computed on a common base: the
+    two do not otherwise share a base beyond django-mvp's inline mixin, and
+    one dict built the same way both times is simpler than a mixin neither
+    view needs for anything else.
+    """
+    return {
+        "contributor_names_datalist_id": CONTRIBUTOR_NAMES_DATALIST_ID,
+        "contributor_names": stored_contributor_names(),
     }
 
 
@@ -264,12 +293,32 @@ class ItemTableView(MVPTableViewMixin, FilterView):
 
     page_title = CATALOGUE_TITLE
 
-    # The mixin's own default was ["search", "filter", "create"] (plan.md
-    # D-3) — FS-009 switched search and filter off with this attribute;
-    # this feature is what reverses that. US-1 adds "import": the table
-    # view has its own actions hook (research R2), so naming it here is
-    # the whole change on this side of the toolbar.
-    actions: list[str] = ["search", "filter", "create", "import"]
+    # T001a (research R2, plan.md "The toolbar" seam): the table page has no
+    # actions hook of its own either, so the action row is carried the same
+    # way ItemListView carries its own — a wrapper template overriding the
+    # packaged page.actions block against a view-supplied list. The block is
+    # table_view.html's, not list_view.html's: that template re-declares all
+    # six of page_view.html's blocks and renders the table itself inside its
+    # own, so extending list_view.html here would lose the table.
+    #
+    # django-mvp did ship a hook: MVPTableViewMixin.actions, read into a
+    # table_actions context key that its table_view.html rendered the row
+    # from. 0.19.2 deleted both (upstream commit dfa7c3a, "Remove the table
+    # view's action list too"), leaving a bare <c-page.list.actions /> whose
+    # own c-vars default — ['search','sort','filter','create'] — wins over
+    # anything a project declares. FS-009 switched search and filter off
+    # through that hook and this feature reverses it, so the list survived
+    # the removal while the attribute reading it did not.
+    #
+    # Named table_actions rather than actions on purpose, and this is
+    # upstream's own reason for the key it chose: <c-toolbar> and
+    # <c-page.title> both expose an `actions` slot, and a Cotton slot falls
+    # through to the context variable of the same name when no slot is
+    # filled — so a context key literally called `actions` prints its repr
+    # into every toolbar on the page. The attribute matches the key so the
+    # two cannot drift.
+    template_name = "literature/ui/item_table_page.html"
+    table_actions: list[str] = ["search", "filter", "create", "import"]
     directory: list[str] = ["create", "import"]
     show_create_action = True
     show_import_action = True
@@ -392,6 +441,12 @@ class ItemTableView(MVPTableViewMixin, FilterView):
             active = get_active_filters(self.filterset)
             context["applied_filters"] = active
             context["applied_filter_count"] = len(active)
+
+        # T001a — what item_table_page.html's page.actions override reads.
+        # Set here rather than left to the library: the mixin populated this
+        # same key until 0.19.2 dropped it, so this restores the key under
+        # its established name rather than introducing one.
+        context["table_actions"] = self.table_actions
         return context
 
     def get_model_info(self):
@@ -409,12 +464,18 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         return {**super().get_table_kwargs(), "show_update_action": self.show_action("update")}
 
 
-class ItemCreateView(MVPCreateView):
-    """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
+class ItemCreateView(MVPInlineCreateView):
+    """Enter a reference by hand — US-1 (FR-001 through FR-011).
+
+    Composes django-mvp's inline mixin (plan.md D-2) so the reference's
+    contributors, dates and identifiers are created in the same transaction
+    as the reference itself (FR-031, FR-033) — no save path of its own.
+    """
 
     model = Item
     form_class = ItemForm
     template_name = "literature/ui/item_form.html"
+    inlines = ITEM_INLINES
 
     # Item has no get_absolute_url(), so success_url is mandatory (D-6). The
     # "detail" shorthand only resolves once show_detail_action is set —
@@ -438,6 +499,7 @@ class ItemCreateView(MVPCreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(field_group_context(context["form"]))
+        context.update(contributor_datalist_context())
         return context
 
 
@@ -688,12 +750,18 @@ class ItemImportConfirmView(View):
         return redirect("literature:item-list")
 
 
-class ItemUpdateView(MVPUpdateView):
-    """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
+class ItemUpdateView(MVPInlineUpdateView):
+    """Correct a reference that is wrong — US-2 (FR-009 through FR-014).
+
+    Composes django-mvp's inline mixin (plan.md D-2) so the reference's
+    contributors, dates and identifiers are saved in the same transaction as
+    the reference itself (FR-031, FR-033) — no save path of its own.
+    """
 
     model = Item
     form_class = ItemForm
     template_name = "literature/ui/item_form.html"
+    inlines = ITEM_INLINES
 
     # Same shorthand and same reasoning as ItemCreateView (D-6): Item has no
     # get_absolute_url(), so success_url is mandatory, and the "detail"
@@ -713,6 +781,7 @@ class ItemUpdateView(MVPUpdateView):
         # FR-010/FR-014 ask for — a group the stored type would not
         # otherwise show still renders when a value already lives in it.
         context.update(field_group_context(context["form"], FieldGroups.groups_holding_values(self.object)))
+        context.update(contributor_datalist_context())
         return context
 
 

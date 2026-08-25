@@ -267,6 +267,44 @@ class TestEditLinkPattern:
         assert match.group("path") == reverse("literature:item-update", kwargs={"pk": item.pk})
 
 
+class TestRelatedRowFieldsOnTheEditPage:
+    """T027, FR-042, FR-044: the three flows the related-row walk exercises are already
+    reachable from the edit page ``EDIT_LINK_RE`` above leads to.
+
+    The catalogue list links to a reference page, which links to this same edit page
+    (``EDIT_LINK_RE``), and the page it renders already carries a contributor row, a
+    date row and an identifier row — US-1 through US-3 landed them on ``item_form.html``
+    with no template of this story's own. Nothing here is new production code: this is
+    the reachability finding T027 asks for, asserted rather than merely read.
+    """
+
+    def test_the_edit_page_carries_a_contributor_row_a_date_row_and_an_identifier_row(self, client, db):
+        item = ItemFactory()
+
+        response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+        fields = form_fields(response.content.decode())
+
+        assert "item_names-0-role" in fields
+        assert "item_names-0-family" in fields
+        assert "item_dates-0-begin" in fields
+        assert "item_identifiers-0-type" in fields
+        assert "item_identifiers-0-value" in fields
+
+    def test_the_create_page_carries_the_same_three_rows(self, client, db):
+        # A contributor, a date and an identifier can also be entered while
+        # the reference itself is being created, not only while correcting
+        # one (FR-032) — reached from the catalogue list's own Add link
+        # (``CREATE_LINK_RE``).
+        response = client.get(reverse("literature:item-create"))
+        fields = form_fields(response.content.decode())
+
+        assert "item_names-0-role" in fields
+        assert "item_names-0-family" in fields
+        assert "item_dates-0-begin" in fields
+        assert "item_identifiers-0-type" in fields
+        assert "item_identifiers-0-value" in fields
+
+
 class TestRowLinkPattern:
     """Scoping ``EDIT_LINK_RE`` to a row's own markup (T026, FR-019, FR-028).
 

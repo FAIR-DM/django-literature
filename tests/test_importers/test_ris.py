@@ -1103,6 +1103,16 @@ class TestIdentifiers:
     def test_sn_that_looks_like_an_isbn_becomes_isbn(self):
         assert RISFormat().to_csl_json(entry(ty="BOOK", sn="978-0-306-40615-7"))["ISBN"] == ("978-0-306-40615-7")
 
+    def test_sn_with_a_wrong_isbn_check_digit_resolves_to_neither_shape(self):
+        """T021 — ``_sn_identifier`` (line ~629) only asks ``validate_isbn``/``validate_issn``
+        whether they raised, never what they say, so recovering the checksum/shape distinction
+        inside ``validate_isbn`` (D-7, T020) changes nothing here: a shape-valid, checksum-invalid
+        ISBN still resolves to neither shape and is preserved rather than stored (FR-029).
+        """
+        csl = RISFormat().to_csl_json(entry(ty="BOOK", sn="978-0-306-40615-0"))  # wrong check digit
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+        assert csl["custom"]["ris"]["SN"] == "978-0-306-40615-0"
+
     def test_sn_on_rprt_is_a_report_number_not_an_identifier(self):
         csl = RISFormat().to_csl_json(entry(ty="RPRT", sn="NIST-8080"))
         assert csl["number"] == "NIST-8080"

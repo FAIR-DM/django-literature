@@ -203,16 +203,22 @@ classifiers = [
 # The django-mvp floor was 0.19 because the full-screen table layout, the
 # column width classes and the refusal of a view-level ordering all arrived
 # there; 0.17 and 0.18 import the same module and render the previous layout.
-# It now rises to 0.19.1, which carries django-mvp/django-mvp#270's fix
+# It rose to 0.19.1, which carries django-mvp/django-mvp#270's fix
 # (commit e413b36): the pagination link renders through {% querystring %}
 # instead of a hard-coded ?page=N, so a chosen sort survives a page move
 # (#88, research R6).
+# It now rises to 0.19.3 for the inline formset machinery the reference form
+# composes its contributor, date and identifier rows from: InlineFormSet and
+# MVPInlineUpdateView save a parent and several related sets in one
+# transaction, and 0.19.3 adds the tabular layout those rows are rendered in
+# (django-mvp/django-mvp#299, commit d80be75). 0.19.1 and 0.19.2 carry the
+# view classes but render every set stacked, one field per line.
 #
 # django-filter is what the catalogue's search and filter controls need —
 # django-mvp's own FilterView integration imports it directly and raises if
 # it is absent (research R2). 26 is the current major on the package index.
 ui = [
-    "django-mvp (>=0.19.1,<1.0) ; python_version >= '3.12'",
+    "django-mvp (>=0.19.3,<1.0) ; python_version >= '3.12'",
     "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
     "django-filter (>=26.1,<27) ; python_version >= '3.12'",
 ]

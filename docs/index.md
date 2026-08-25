@@ -11,6 +11,9 @@ A Django app for storing, managing, and converting bibliographic references usin
 
 installation
 usage
+crediting-contributors
+dating-a-reference
+identifying-a-reference
 importing-through-the-interface
 ```
 

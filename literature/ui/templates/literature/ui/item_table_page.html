@@ -1,0 +1,25 @@
+{% extends "table_view.html" %}
+{% comment %}
+Table wrapper, action row only (T001a, research R2) — the same shape
+item_list_page.html carries for the card list, against the block the table
+page actually has. table_view.html re-declares every block page_view.html
+declares and renders the table inside its own page.content, so this extends
+that template rather than list_view.html: extending list_view.html would
+override the right block name on the wrong page and lose the table with it.
+
+django-mvp read this row from a view attribute until 0.19.2 removed the hook
+(see ItemTableView.table_actions). Its page.actions block now renders
+<c-page.list.actions /> with no attribute, which falls back to the
+component's own c-vars default (['search','sort','filter','create']) — the
+only way for a project to supply its own set is to pass the list explicitly,
+which means overriding the block.
+
+The override carries the whole row, never the import link alone: the block it
+replaces is the sole renderer of search, filter and create as well. "sort" is
+the one packaged default member table_actions leaves out, and deliberately —
+a table sorts by its own column headers, and upstream's own comment on this
+block gives that as the reason its default is wrong for a table view.
+{% endcomment %}
+{% block page.actions %}
+  <c-page.list.actions :actions="table_actions" />
+{% endblock page.actions %}

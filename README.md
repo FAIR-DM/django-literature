@@ -363,8 +363,13 @@ python manage.py runserver
 `runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
 reference page and a contributor page are all live and populated. The Add, Edit, Delete and Import
 actions on those pages are live too, so you can enter, correct, remove and import references the
-same way a host project's own users would. `demo/seed/import-sample.bib` is there to import: it
-holds entries that convert and one that does not, so the report has something to show.
+same way a host project's own users would. The Add and Edit forms carry the reference's
+contributors, dates and identifiers as part of the same page, so crediting a contributor, dating a
+reference and identifying it are all things you can try there too — see
+[Crediting contributors](docs/crediting-contributors.md), [Dating a reference](docs/dating-a-reference.md)
+and [Identifying a reference](docs/identifying-a-reference.md) for what each of those does.
+`demo/seed/import-sample.bib` is there to import: it holds entries that convert and one that does
+not, so the report has something to show.
 
 `seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
 again returns the demo to the same seeded state whatever state it was in before — including

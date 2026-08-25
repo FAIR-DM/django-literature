@@ -1,0 +1,16 @@
+{% comment %}
+  The <datalist> of stored contributor names (plan.md D-1, D-12, T008). A
+  native HTML element, not a component: a text input with attached
+  suggestions, filtered by the browser as the person types, where accepting
+  one writes its text into the input and nothing else happens — no record is
+  referenced, no identifier is posted, and a value absent from the list is
+  equally acceptable (FR-005, FR-006).
+
+  Its own template, out of the row markup on purpose: the formset's
+  __prefix__ cloning (mvp/static/js/formset.js) rewrites everything inside a
+  row's own <template>, and this list is shared by every row on the page —
+  rendered once, referenced by each row's family input through list=.
+{% endcomment %}
+<datalist id="{{ id }}">
+  {% for name in names %}<option value="{{ name }}"></option>{% endfor %}
+</datalist>

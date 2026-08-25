@@ -164,6 +164,12 @@ store a malformed value:
 | `PMID` | Numeric string |
 | `PMCID` | `PMC` followed by digits, or a bare digit string |
 
+A rejected `ISBN` distinguishes two failures: a value of the right shape whose check digit
+does not match raises `invalid_isbn_checksum`, and a value that does not have ISBN-10's or
+ISBN-13's shape at all raises `invalid_isbn`. `ISSN` stays shape-only — the regex above
+recognises the check character as a character but never verifies it, so an `ISSN` of the right
+shape with a wrong check digit is accepted.
+
 Unknown identifier types are accepted without format validation (a warning is logged).
 
 `bulk_create()` does not call `save()`, so it bypasses these checks. That is

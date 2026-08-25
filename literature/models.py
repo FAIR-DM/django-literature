@@ -13,9 +13,10 @@ Models:
 Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
 """
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from partial_date import PartialDate  # noqa: F401  used in type hints
+from partial_date import PartialDate
 from partial_date.fields import PartialDateField
 
 from literature.choices import DateType, ItemType, NameRole
@@ -683,6 +684,53 @@ class ItemDate(models.Model):
         if self.literal:
             return f"{self.date_type}: {self.literal}"
         return self.date_type
+
+    def clean(self) -> None:
+        """Enforce the span rule the ``end`` field's help text has always claimed (FR-016).
+
+        An ``end`` must not be set without a ``begin``, and a ``begin`` must not
+        fall after its ``end``. ``PartialDate``'s ordering operators are not a
+        total order across precisions (research R5), so the comparison uses the
+        underlying ``datetime.date`` values directly rather than ``>``/``<``.
+
+        ``begin``/``end`` are normalized to ``PartialDate`` or ``None`` before
+        the check, for two reasons this model's own field already tolerates:
+
+        - A ``ModelForm`` over a blank, optional field leaves the instance
+          attribute as ``""`` rather than ``None`` — ``Model.clean_fields()``
+          skips ``to_python()`` for a blank field whose raw value is already
+          empty, so a submitted-but-blank ``end`` never becomes ``None`` on
+          its own.
+        - ``PartialDateField.to_python()`` accepts a raw ``YYYY``/``YYYY-MM``/
+          ``YYYY-MM-DD`` string directly, with no ``ModelForm`` or
+          ``full_clean()`` in between, and every ``ItemDateFactory`` call
+          across the suite passes ``begin``/``end`` that way. ``clean()``
+          alone — unlike ``full_clean()`` — never runs ``clean_fields()``, so
+          a raw string reaches it exactly as given.
+
+        Comparing either an unconverted ``""`` or an unconverted date string
+        against ``.date`` raises ``AttributeError`` rather than validating
+        anything, so both are normalized here the same way the field itself
+        already accepts them.
+        """
+        begin = PartialDate(self.begin) if isinstance(self.begin, str) and self.begin else self.begin or None
+        end = PartialDate(self.end) if isinstance(self.end, str) and self.end else self.end or None
+        if end is not None:
+            if begin is None:
+                raise ValidationError(_("A date range's end must not be set without a begin."))
+            if begin.date > end.date:
+                raise ValidationError(_("A date range's end must not fall before its begin."))
+        super().clean()
+
+    def save(self, *args, **kwargs):
+        """Validate the span rule before writing (FR-016).
+
+        ``clean()`` alone only runs when a caller invokes ``full_clean()``, so a
+        direct ``objects.create()`` or instance ``save()`` would otherwise store
+        an end-without-begin, following the ``ItemIdentifier`` precedent.
+        """
+        self.clean()
+        return super().save(*args, **kwargs)
 
 
 class ItemIdentifier(models.Model):

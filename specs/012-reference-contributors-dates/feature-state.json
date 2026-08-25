@@ -1,0 +1,491 @@
+{
+  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
+  "feature": "012-reference-contributors-dates",
+  "branch": "012-reference-contributors-dates",
+  "repo": "FAIR-DM/django-literature",
+  "state": "GATE_MERGE",
+  "state_history": [
+    {
+      "state": "SPECIFY",
+      "at": "2026-08-25T09:20:00Z",
+      "note": "spec and decisions authored from the intake conversation on issue #48; #112 split out for joining duplicate contributor records"
+    },
+    {
+      "state": "SETUP",
+      "at": "2026-08-25T09:55:00Z",
+      "note": "epic promoted, stories #113-#116 created, draft PR #117 opened against v1.0.0"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-25T11:05:00Z",
+      "note": "plan, research and tasks authored; django-mvp raised to 0.19.3 for the inline formset machinery; FR-027 narrowed to ISBN and the ISSN check-digit gap filed as #118"
+    },
+    {
+      "state": "PLAN",
+      "at": "2026-08-25T12:50:00Z",
+      "note": "design review returned blocking; plan amended on two points and re-tasked as T007a and T015a \u2014 the edit path must not rewrite a Name shared by another reference, and an added date row names its own slot"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-25T14:52:00Z",
+      "note": "resumed after the previous session was lost to a tooling fault. The dates story's finished work was reconciled from the working tree rather than restarted."
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-25T16:20:00Z",
+      "note": "all four stories delivered. Every decision carries a verdict, four graduated into two records, no migration is introduced and no pre-existing test was weakened."
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-25T16:40:00Z",
+      "note": "branch pushed to the open pull request as the repository's bot"
+    },
+    {
+      "state": "PR_READY",
+      "at": "2026-08-25T17:35:00Z",
+      "note": "Django 6.0 failure in the test matrix fixed and recorded as D19; every check green on both supported Django versions"
+    },
+    {
+      "state": "GATE_MERGE",
+      "at": "2026-08-25T17:40:00Z",
+      "note": "pull request 117 marked ready for review; the merge is Sam's"
+    }
+  ],
+  "gates": {
+    "spec": {
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-25T10:10:00Z",
+      "self_resolved": [
+        "A contributor form presents family and given directly and keeps the particles, suffix and unparsed organizational form reachable",
+        "The three citation-processor flags stay off the form and are preserved untouched, as categories and custom already are",
+        "A stored date whose only content is unparsed is shown, so an imported date the catalogue could not read can be repaired",
+        "Nothing is written until a save succeeds in full, so a rejected save leaves no orphaned contributor records",
+        "An identifier kind typed in different casing than the one offered is treated as that kind and checked",
+        "The same name entered twice in one role on one reference is stored, with no warning",
+        "Reordering acts within a role; no ordering across roles is offered",
+        "One identifier per kind and one date per slot are inherited unchanged; a refusal names the limit",
+        "Refined 2026-08-25 after measurement: the check-digit distinction covers ISBN alone, because the package never verifies the ISSN check digit and adding that would reject values it accepts today (D11); the gap is filed as #118"
+      ]
+    },
+    "plan": {
+      "approved_by": null,
+      "at": null
+    },
+    "merge": {
+      "approved_by": null,
+      "at": null
+    }
+  },
+  "stories": [
+    {
+      "id": "US0",
+      "priority": "P0",
+      "issue": null,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T001",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "poetry lock && poetry install --all-extras; poetry show django-mvp -> 0.19.3",
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
+        },
+        {
+          "id": "T001a",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
+        },
+        {
+          "id": "T002",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
+        },
+        {
+          "id": "T003",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
+        },
+        {
+          "id": "T004",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
+        },
+        {
+          "id": "T005",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US1",
+      "priority": "P1",
+      "issue": 113,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T006",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T007",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T007a",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T008",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T009",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T010",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T011",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T012",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T012a",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US2",
+      "priority": "P2",
+      "issue": 114,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T013",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        },
+        {
+          "id": "T014",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        },
+        {
+          "id": "T015",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        },
+        {
+          "id": "T015a",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        },
+        {
+          "id": "T016",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        },
+        {
+          "id": "T017",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        },
+        {
+          "id": "T018",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        },
+        {
+          "id": "T019",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US3",
+      "priority": "P3",
+      "issue": 115,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T020",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
+        },
+        {
+          "id": "T021",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
+        },
+        {
+          "id": "T022",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
+        },
+        {
+          "id": "T023",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
+        },
+        {
+          "id": "T024",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
+        },
+        {
+          "id": "T025",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
+        },
+        {
+          "id": "T026",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "US4",
+      "priority": "P4",
+      "issue": 116,
+      "status": "done",
+      "replans": 0,
+      "tasks": [
+        {
+          "id": "T027",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
+        },
+        {
+          "id": "T028",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
+        },
+        {
+          "id": "T029",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
+        },
+        {
+          "id": "T030",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "budgets": {
+    "converge_cycles": {
+      "used": 0,
+      "max": 2
+    },
+    "review_cycles": {
+      "used": 0,
+      "max": 1
+    },
+    "design_review_cycles": {
+      "used": 1,
+      "max": 1
+    },
+    "tokens": {
+      "used": 0,
+      "max": 120
+    }
+  },
+  "pr": {
+    "number": 117,
+    "draft": false,
+    "state": "open"
+  },
+  "escalations": []
+}

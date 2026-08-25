@@ -41,4 +41,6 @@ rest of this documentation covers the how.
 0028-an-import-previews-first-and-stages-its-file
 0029-the-format-is-chosen-never-detected
 0030-the-import-page-accepts-an-unbounded-upload-from-anyone
+0031-completion-suggests-a-spelling-never-a-record
+0032-a-related-row-is-kept-by-being-rendered
 ```
