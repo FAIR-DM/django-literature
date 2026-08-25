@@ -13,7 +13,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from literature.importers import available_formats
-from literature.models import Item, ItemName, Name
+from literature.models import Item, ItemDate, ItemName, Name
 from literature.ui.fieldgroups import GROUPS
 
 #: Every field ``ItemForm`` declares: every scalar field of ``Item`` except
@@ -190,6 +190,84 @@ class NameForm(forms.ModelForm):
         name.full_clean()
         name.save()
         return name
+
+
+class ItemDateForm(forms.ModelForm):
+    """A date-slot row: one ``ItemDate`` reachable through the reference
+    form's dates set (plan.md D-6, T013).
+
+    Declares ``date_type`` alongside ``begin`` and ``end`` and nothing
+    else, so everything else ``ItemDate`` carries — season, circa,
+    literal, raw, raw date parts — is never written by a save through this
+    form (FR-017). ``date_type`` earns its place for two reasons rather
+    than one: it is what lets an added row name a slot the reference's
+    type does not lead with (T015a), and it is what gets the value
+    validated at all — ``ModelForm``'s ``_post_clean`` excludes undeclared
+    fields from ``full_clean``, so a row cloned from the set's own
+    ``__prefix__`` template with an undeclared ``date_type`` would
+    otherwise save an empty slot the model's own choices check would have
+    refused.
+
+    ``begin``/``end`` are left to ``ModelForm``'s own default field for
+    ``PartialDateField`` — a plain ``CharField``/``TextInput``, since the
+    field defines no ``formfield()`` of its own (research R5) — which is
+    already what accepts a year, a year and month, or a full date with no
+    precision declared beforehand (FR-014), and what a stored value
+    renders back as (the canonical string that re-parses to the same
+    value).
+
+    A row is "settled" — its slot fixed rather than offered as a choice —
+    when it edits a stored ``ItemDate`` or was pre-filled for a slot the
+    reference's type leads with
+    (:meth:`~literature.ui.inlines.DateInline.leading_slots`, T015). In
+    both cases ``date_type`` is marked ``disabled`` rather than replaced
+    with a hidden input: Django reads a disabled field's value from
+    ``initial`` rather than the submission, which carries the same
+    guarantee a hidden input would — the slot cannot be changed from the
+    page — while keeping the field a *visible* one for
+    ``cotton/form/formset/index.html``'s tabular layout, whose column
+    headings and grid tracks are read from the row with no slot settled
+    (``formset.empty_form``). A literal ``HiddenInput`` renders outside
+    that grid entirely (``cotton/form/formset/row.html`` renders hidden
+    fields ahead of it, not inside it), which would misalign every settled
+    row's ``begin``/``end`` cells by one column — a gap in the packaged
+    component this feature works around rather than forks (see this
+    story's completion report). Disabling the field is the closest
+    supported way to carry the slot's own plain-language label: the option
+    text a disabled ``<select>`` still renders.
+
+    An unsettled row — the set's own ``__prefix__`` template, cloned by
+    "Add row" (T015a) — instead narrows ``date_type``'s choices to the six
+    CSL slots less ``occupied_slots``, the ones already on the page,
+    computed by :class:`~literature.ui.inlines.DateInline` and passed in
+    through ``get_form_kwargs`` so the cloned template's choices agree
+    with what the page actually rendered.
+    """
+
+    class Meta:
+        model = ItemDate
+        fields = ("date_type", "begin", "end")
+
+    def __init__(self, *args, occupied_slots=frozenset(), **kwargs):
+        super().__init__(*args, **kwargs)
+        settled_type = self.instance.date_type if self.instance.pk else self.initial.get("date_type")
+        if settled_type:
+            self.fields["date_type"].disabled = True
+        else:
+            self.fields["date_type"].choices = [
+                choice for choice in self.fields["date_type"].choices if choice[0] not in occupied_slots
+            ]
+        # T016 (FR-018) — a stored date whose only content is unparsed has
+        # nothing in begin/end for the person to see. Showing that content
+        # as begin's own placeholder makes it visible — and repairable, by
+        # typing over it — without writing it anywhere the form does not
+        # already reach on save (FR-017): a placeholder is never submitted,
+        # so leaving it untouched stores nothing and literal/raw stay
+        # exactly as they were.
+        if self.instance.pk and not self.instance.begin and not self.instance.end:
+            unparsed = self.instance.literal or self.instance.raw
+            if unparsed:
+                self.fields["begin"].widget.attrs["placeholder"] = unparsed
 
 
 class ImportForm(forms.Form):

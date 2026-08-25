@@ -1625,6 +1625,53 @@ class TestItemFormInlineSets:
         assert inlines["item_dates"].forms[0].errors
 
 
+class TestDateRows:
+    """Giving a reference its dates through the form — US-2 (T013 through
+    T019).
+    """
+
+    def test_a_type_leading_only_with_issued_can_be_given_an_accessed_date_without_leaving_the_form(self, client, db):
+        # T015a, FR-012 — MAP leads with no extra date slots of its own
+        # (DC6); the accessed date is reached by naming the slot on the
+        # set's own added row, not by a second page.
+        item = ItemFactory(type=ItemType.MAP)
+        data = update_page_post_data(
+            client,
+            item,
+            **{
+                "item_dates-TOTAL_FORMS": "2",
+                "item_dates-1-date_type": DateType.ACCESSED,
+                "item_dates-1-begin": "2023",
+                "item_dates-1-end": "",
+            },
+        )
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302, response.context["form"].errors if response.status_code != 302 else None
+        assert item.item_dates.filter(date_type=DateType.ACCESSED).exists()
+
+    def test_clearing_a_date_removes_it_and_no_other_slot_moves(self, client, db):
+        # T017, FR-019
+        item = ItemFactory(type=ItemType.MAP)
+        kept = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        removed = ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021")
+
+        data = update_page_post_data(client, item)
+        removed_row_prefix = next(
+            name.rsplit("-id", 1)[0]
+            for name, value in data.items()
+            if name.startswith("item_dates-") and name.endswith("-id") and str(value) == str(removed.pk)
+        )
+        data[f"{removed_row_prefix}-DELETE"] = "on"
+
+        response = client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
+        assert response.status_code == 302, response.context["form"].errors if response.status_code != 302 else None
+
+        assert not ItemDate.objects.filter(pk=removed.pk).exists()
+        kept.refresh_from_db()
+        assert kept.date_type == DateType.ISSUED
+        assert str(kept.begin) == "2020"
+
+
 class TestContributorRows:
     """Crediting contributors through the reference form — US-1 (T006, T007,
     T007a, T009, T010, T011).

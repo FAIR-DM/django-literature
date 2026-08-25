@@ -10,11 +10,11 @@ import pytest
 from django import forms
 from django.test import override_settings
 
-from literature.choices import ItemType, NameRole
+from literature.choices import DateType, ItemType, NameRole
 from literature.importers import available_formats
-from literature.models import Name
-from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm, NameForm
-from tests.factories import ItemFactory, ItemNameFactory, NameFactory
+from literature.models import ItemDate, Name
+from literature.ui.forms import ConfirmImportForm, ImportForm, ItemDateForm, ItemForm, NameForm
+from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
 
@@ -205,3 +205,163 @@ class TestNameForm:
         form = NameForm(instance=item_name)
         assert form.initial["family"] == "Aardvark"
         assert form.initial["given"] == "Zoe"
+
+
+class TestItemDateFormFields:
+    """``ItemDateForm`` — the date-slot row form over ``ItemDate`` (plan.md
+    D-6, T013). Declares ``date_type``, ``begin`` and ``end`` and nothing
+    else, so everything else ``ItemDate`` carries is never written by a
+    save through this form (FR-017).
+    """
+
+    def test_declares_exactly_date_type_begin_and_end(self):
+        assert set(ItemDateForm().fields) == {"date_type", "begin", "end"}
+
+    def test_declares_neither_season_circa_literal_raw_nor_raw_date_parts(self):
+        fields = ItemDateForm().fields
+        for name in ("season", "circa", "literal", "raw", "raw_date_parts", "item"):
+            assert name not in fields
+
+
+@pytest.mark.django_db
+class TestItemDateFormRejectsAnUndeclaredSlot:
+    """T013 — declaring ``date_type`` is what makes ``ModelForm._post_clean``
+    include it in ``full_clean``. Without it, a row cloned from the set's
+    ``__prefix__`` template with no slot chosen would save an empty
+    ``date_type`` the model's own choices check would otherwise refuse.
+    This is asserted directly: a row posted with no slot is rejected by the
+    form rather than stored.
+    """
+
+    def test_a_row_posted_with_no_slot_is_rejected_rather_than_stored(self):
+        form = ItemDateForm(data={"date_type": "", "begin": "2020", "end": ""})
+        assert not form.is_valid()
+        assert "date_type" in form.errors
+        assert not ItemDate.objects.exists()
+
+
+@pytest.mark.django_db
+class TestItemDateFormPrecision:
+    """FR-014 — a plain text input over ``PartialDateField`` already accepts
+    a year, a year and month, or a full date with no precision declared
+    beforehand (research R5); this asserts that behaviour through the form
+    rather than building it.
+    """
+
+    @pytest.mark.parametrize("value", ["2019", "2019-03", "2019-03-14"])
+    def test_each_precision_round_trips(self, value, item):
+        form = ItemDateForm(data={"date_type": DateType.ISSUED, "begin": value, "end": ""})
+        assert form.is_valid(), form.errors
+        instance = form.save(commit=False)
+        instance.item = item
+        instance.save()
+        instance.refresh_from_db()
+        # The stored value renders back as the string that re-parses to it
+        # at the same precision (research R5).
+        assert str(instance.begin) == value
+
+
+@pytest.mark.django_db
+class TestItemDateFormSpan:
+    """FR-015, FR-016 — a span is two ends, each keeping its own precision,
+    and the rejections T002 built onto ``ItemDate.clean()`` surface here as
+    form errors rather than exceptions.
+    """
+
+    def test_a_year_to_year_span_is_valid(self):
+        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "2019", "end": "2021"})
+        assert form.is_valid(), form.errors
+
+    def test_a_mixed_precision_span_is_valid(self):
+        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "2019", "end": "2021-06-15"})
+        assert form.is_valid(), form.errors
+
+    def test_an_end_with_no_begin_is_rejected_as_a_form_error_not_an_exception(self):
+        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "", "end": "2021"})
+        assert not form.is_valid()
+        assert form.non_field_errors()
+
+    def test_an_end_before_its_begin_is_rejected_as_a_form_error_not_an_exception(self):
+        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "2021", "end": "2019"})
+        assert not form.is_valid()
+        assert form.non_field_errors()
+
+
+@pytest.mark.django_db
+class TestItemDateFormSettledSlot:
+    """T015a — the slot field on an added row offers the six CSL slots less
+    ``occupied_slots``; on a row whose slot is already settled — a stored
+    instance, or a pre-filled extra row — it is disabled rather than
+    offered as a choice (see ``ItemDateForm``'s own docstring for why
+    disabling stands in for a hidden input here).
+    """
+
+    def test_an_unsettled_row_offers_every_slot_by_default(self):
+        # A required ChoiceField with no model default still carries
+        # Django's own blank placeholder choice alongside the six named
+        # slots (Field.formfield()'s own include_blank rule) — this
+        # asserts every real slot is among them, not that the blank choice
+        # is absent.
+        form = ItemDateForm()
+        choices = {choice[0] for choice in form.fields["date_type"].choices}
+        assert set(DateType.values) <= choices
+        assert form.fields["date_type"].disabled is False
+
+    def test_an_unsettled_row_excludes_the_occupied_slots(self):
+        form = ItemDateForm(occupied_slots={DateType.ISSUED, DateType.ACCESSED})
+        choices = {choice[0] for choice in form.fields["date_type"].choices}
+        assert choices.isdisjoint({DateType.ISSUED, DateType.ACCESSED})
+        assert set(DateType.values) - {DateType.ISSUED, DateType.ACCESSED} <= choices
+
+    def test_a_row_over_a_stored_instance_is_disabled(self, item):
+        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED)
+        form = ItemDateForm(instance=instance)
+        assert form.fields["date_type"].disabled is True
+
+    def test_a_pre_filled_extra_row_is_disabled(self):
+        form = ItemDateForm(initial={"date_type": DateType.ISSUED})
+        assert form.fields["date_type"].disabled is True
+
+    def test_a_disabled_rows_slot_ignores_a_different_posted_value(self, item):
+        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        form = ItemDateForm(
+            data={"date_type": DateType.ACCESSED, "begin": "2021", "end": ""},
+            instance=instance,
+        )
+        assert form.is_valid(), form.errors
+        assert form.cleaned_data["date_type"] == DateType.ISSUED
+
+
+@pytest.mark.django_db
+class TestItemDateFormUnparsedRepair:
+    """T016, FR-018 — a stored date whose only content is unparsed (an
+    import the catalogue could not read) is shown, so it can be repaired
+    instead of being invisible.
+    """
+
+    def test_a_date_with_only_a_literal_value_shows_it(self, item):
+        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="circa 1922")
+        form = ItemDateForm(instance=instance)
+        assert form.fields["begin"].widget.attrs.get("placeholder") == "circa 1922"
+
+    def test_a_date_with_only_a_raw_value_shows_it(self, item):
+        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, raw="1922?")
+        form = ItemDateForm(instance=instance)
+        assert form.fields["begin"].widget.attrs.get("placeholder") == "1922?"
+
+    def test_a_date_already_carrying_begin_shows_no_placeholder(self, item):
+        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1922", literal="circa 1922")
+        form = ItemDateForm(instance=instance)
+        assert "placeholder" not in form.fields["begin"].widget.attrs
+
+    def test_replacing_the_unparsed_value_stores_the_readable_date_and_leaves_literal_alone(self, item):
+        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="circa 1922")
+        form = ItemDateForm(
+            data={"date_type": DateType.ISSUED, "begin": "1922", "end": ""},
+            instance=instance,
+        )
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        saved.refresh_from_db()
+        assert str(saved.begin) == "1922"
+        assert saved.literal == "circa 1922"

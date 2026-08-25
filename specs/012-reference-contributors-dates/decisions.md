@@ -243,5 +243,29 @@ names the role directly.
 Per-row grouping (a heading marking where one role's rows end and the next begin) and a row-level
 disclosure (folding the particles, the suffix and the unparsed name out of the row's own columns)
 are both genuine gaps in the packaged component, not something this feature can build without
-forking it again. Both are raised with django-mvp. Until a release carries the disclosure, the
+forking it again. Both are raised with django-mvp — django-mvp/django-mvp#306 for the grouping hook
+and django-mvp/django-mvp#307 for the disclosure. Until a release carries the disclosure, the
 particles, the suffix and the unparsed name ship as ordinary columns.
+
+## D16 — A settled date slot is disabled, not hidden
+
+**Self-resolved.** D-6 (plan.md) describes a settled row's slot as "a hidden input beside the slot's
+plain-language label." `cotton/form/formset/row.html` renders a form's hidden fields ahead of its
+tabular grid, in their own loop, never inside it — a genuine `HiddenInput` for `date_type` would
+therefore drop out of the grid entirely on a settled row, while `formset_columns()` still derives the
+grid's column count from `empty_form` (T015a's added-row template, where the slot stays a live
+choice and so stays in the grid). A settled row would then render one field short of its own row's
+column count, and `begin`/`end` would shift left under the wrong headings — a tabular set has no
+column left empty for a field a row does not carry.
+
+`ItemDateForm` sets `date_type.disabled = True` on a settled row instead (T013's own docstring).
+Django reads a disabled field's value from `initial`, never from the submission, which is the same
+guarantee a hidden input gives — the slot cannot be changed by anything posted — while the field
+stays visible for `visible_fields()`'s own purposes, so it keeps its column and the row lines up with
+every other one. The rendered control is a `<select>` the person cannot open, showing the slot's own
+plain-language label as its one selected option — CSL vocabulary is not offered, which is what the
+hidden-input wording was protecting against.
+
+This is not filed upstream: nothing about the packaged component needs to change for it, since a
+disabled field renders through the same `as_crispy_cell` path as any other and needs no template of
+its own.

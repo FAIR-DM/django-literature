@@ -10,9 +10,11 @@ import pytest
 from django.test import RequestFactory
 from mvp.views.inline import InlinesMixin
 
+from literature.choices import DateType, ItemType
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName
-from literature.ui.forms import NameForm
+from literature.ui.forms import ItemDateForm, NameForm
 from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
+from tests.factories import ItemDateFactory
 
 
 def _build_formset(declaration_cls, item):
@@ -49,6 +51,13 @@ class TestInlineDeclarations:
         # form with the one that also writes the linked Name.
         formset = _build_formset(ContributorInline, item)
         assert issubclass(formset.empty_form.__class__, NameForm)
+
+    def test_the_date_set_uses_itemdateform_for_its_rows(self, item):
+        # T013 — replaces the fields=("date_type", "begin", "end")
+        # placeholder's bare generated form with the one that declares
+        # date_type itself (so it validates) and settles/narrows its choices.
+        formset = _build_formset(DateInline, item)
+        assert issubclass(formset.empty_form.__class__, ItemDateForm)
 
 
 @pytest.mark.django_db
@@ -150,3 +159,186 @@ class TestDistinctPrefixes:
         formsets = view.construct_inlines()
         assert len(formsets) == 3
         assert {formset.model for formset in formsets} == {ItemName, ItemDate, ItemIdentifier}
+
+
+@pytest.mark.django_db
+class TestDateInlineSlots:
+    """T015 — which slots the set renders: those ``TYPE_DATE_SLOTS`` leads
+    with for the reference's type, plus every slot the reference already
+    holds a value in, whatever the mapping says (FR-012, FR-018, D-6).
+    """
+
+    def test_a_brand_new_item_leads_with_only_issued(self):
+        # self.instance is None before a create page's type is chosen —
+        # there is no type yet for TYPE_DATE_SLOTS to key on.
+        declaration = DateInline(Item, RequestFactory().get("/"), None, view=None)
+        assert declaration.leading_slots() == {DateType.ISSUED}
+
+    def test_an_existing_items_leading_slots_follow_its_own_type(self, item):
+        item.type = ItemType.ARTICLE_JOURNAL  # leads with available-date (research R6)
+        item.save()
+        declaration = DateInline(Item, RequestFactory().get("/"), item, view=None)
+        assert declaration.leading_slots() == {DateType.ISSUED, DateType.AVAILABLE_DATE}
+
+    def test_stored_slots_reads_every_date_type_the_item_actually_holds(self, item):
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED)
+        declaration = DateInline(Item, RequestFactory().get("/"), item, view=None)
+        assert declaration.stored_slots() == {DateType.ACCESSED}
+
+    def test_a_brand_new_item_has_no_stored_slots(self):
+        declaration = DateInline(Item, RequestFactory().get("/"), None, view=None)
+        assert declaration.stored_slots() == frozenset()
+
+    def test_extra_slots_are_leading_slots_with_no_stored_row_yet(self, item):
+        item.type = ItemType.ARTICLE_JOURNAL
+        item.save()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED)
+        declaration = DateInline(Item, RequestFactory().get("/"), item, view=None)
+        assert declaration.extra_slots == [DateType.AVAILABLE_DATE]
+
+    def test_a_slot_outside_the_types_own_set_but_holding_a_value_still_renders(self, item):
+        # FR-018 — ARTICLE leads with no extra slots of its own (DC6); a
+        # stored accessed date must still appear as one of the set's forms.
+        item.type = ItemType.ARTICLE
+        item.save()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
+        formset = _build_formset(DateInline, item)
+        rendered_slots = {form.instance.date_type for form in formset.forms if form.instance.pk}
+        assert DateType.ACCESSED in rendered_slots
+
+    def test_changing_item_type_never_drops_a_stored_date(self, item):
+        # FR-018, D-6 — the queryset behind the set's initial forms is every
+        # stored ItemDate, never filtered by the type mapping, so a slot the
+        # new type does not lead with still renders.
+        item.type = ItemType.ARTICLE_JOURNAL
+        item.save()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
+        item.type = ItemType.MAP  # MAP leads with no date slots either (DC6)
+        item.save()
+        formset = _build_formset(DateInline, item)
+        rendered_slots = {form.instance.date_type for form in formset.forms if form.instance.pk}
+        assert DateType.ACCESSED in rendered_slots
+
+
+@pytest.mark.django_db
+class TestDateInlineAddRow:
+    """T015a — every remaining slot is reached by adding a row and naming
+    its slot; the slot field on that added row (the set's own
+    ``__prefix__`` template) offers the six CSL slots less those already on
+    the page.
+    """
+
+    def test_a_type_leading_only_with_issued_offers_the_other_five_on_the_added_row(self, item):
+        item.type = ItemType.MAP  # DC6 — no extra leading slots
+        item.save()
+        formset = _build_formset(DateInline, item)
+        empty_choices = {choice[0] for choice in formset.empty_form.fields["date_type"].choices}
+        assert DateType.ACCESSED in empty_choices
+        assert DateType.ISSUED not in empty_choices
+
+    def test_slots_already_on_the_page_are_not_offered_a_second_time(self, item):
+        item.type = ItemType.ARTICLE_JOURNAL  # leads with issued + available-date
+        item.save()
+        ItemDateFactory(item=item, date_type=DateType.SUBMITTED)
+        formset = _build_formset(DateInline, item)
+        empty_choices = {choice[0] for choice in formset.empty_form.fields["date_type"].choices}
+        assert empty_choices.isdisjoint({DateType.ISSUED, DateType.AVAILABLE_DATE, DateType.SUBMITTED})
+        assert DateType.ACCESSED in empty_choices
+        assert DateType.EVENT_DATE in empty_choices
+        assert DateType.ORIGINAL_DATE in empty_choices
+
+    def test_the_added_rows_slot_field_survives_prefix_cloning(self, item):
+        # T015a — the added row is cloned from the set's __prefix__ template
+        # in the browser: the same check T009's spike ran for the ordering
+        # column applies here for the slot field.
+        formset = _build_formset(DateInline, item)
+        bound = formset.empty_form["date_type"]
+        assert bound.html_name == "item_dates-__prefix__-date_type"
+        assert bound.auto_id == "id_item_dates-__prefix__-date_type"
+
+
+@pytest.mark.django_db
+class TestDateSetDeletion:
+    """T017 — clearing a date removes the reference's date in that slot,
+    through the formset's explicit deletion rather than by the row's
+    absence (FR-019, D-6).
+    """
+
+    def test_deleting_a_stored_rows_slot_removes_only_that_row(self, item):
+        kept = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        removed = ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021")
+        declaration = DateInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_dates-TOTAL_FORMS": "2",
+            "item_dates-INITIAL_FORMS": "2",
+            "item_dates-MIN_NUM_FORMS": "0",
+            "item_dates-MAX_NUM_FORMS": "1000",
+            "item_dates-0-id": str(kept.pk),
+            "item_dates-0-date_type": kept.date_type,
+            "item_dates-0-begin": "2020",
+            "item_dates-0-end": "",
+            "item_dates-1-id": str(removed.pk),
+            "item_dates-1-date_type": removed.date_type,
+            "item_dates-1-begin": "2021",
+            "item_dates-1-end": "",
+            "item_dates-1-DELETE": "on",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert formset.is_valid(), formset.errors
+        formset.save()
+        assert set(item.item_dates.values_list("date_type", flat=True)) == {DateType.ISSUED}
+        assert str(item.item_dates.get().begin) == "2020"
+
+
+@pytest.mark.django_db
+class TestItemDateFormSetUniqueness:
+    """T018 — the date set validates ``(item, date_type)`` across its own
+    rows in ``clean()`` and reports a collision against the offending row,
+    before the database constraint can fire inside the transaction (D-8).
+    """
+
+    def test_two_new_rows_claiming_the_same_slot_are_refused(self, item):
+        declaration = DateInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_dates-TOTAL_FORMS": "2",
+            "item_dates-INITIAL_FORMS": "0",
+            "item_dates-MIN_NUM_FORMS": "0",
+            "item_dates-MAX_NUM_FORMS": "1000",
+            "item_dates-0-date_type": DateType.ACCESSED,
+            "item_dates-0-begin": "2020",
+            "item_dates-0-end": "",
+            "item_dates-1-date_type": DateType.ACCESSED,
+            "item_dates-1-begin": "2021",
+            "item_dates-1-end": "",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert not formset.is_valid()
+        assert formset.forms[1].errors["date_type"]
+        assert not formset.forms[0].errors
+        # The message names the slot (D-8).
+        assert "Accessed" in str(formset.forms[1].errors["date_type"])
+
+    def test_a_deleted_rows_slot_is_excluded_from_the_collision_check(self, item):
+        # Clearing one slot's date and adding another naming the same slot
+        # in the same submission is a replacement, not a collision.
+        stored = ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2019")
+        declaration = DateInline(Item, RequestFactory().post("/"), item, view=None)
+        formset_class = declaration.get_formset_class()
+        data = {
+            "item_dates-TOTAL_FORMS": "2",
+            "item_dates-INITIAL_FORMS": "1",
+            "item_dates-MIN_NUM_FORMS": "0",
+            "item_dates-MAX_NUM_FORMS": "1000",
+            "item_dates-0-id": str(stored.pk),
+            "item_dates-0-date_type": stored.date_type,
+            "item_dates-0-begin": "2019",
+            "item_dates-0-end": "",
+            "item_dates-0-DELETE": "on",
+            "item_dates-1-date_type": DateType.ACCESSED,
+            "item_dates-1-begin": "2022",
+            "item_dates-1-end": "",
+        }
+        formset = formset_class(data=data, instance=item)
+        assert formset.is_valid(), formset.errors
