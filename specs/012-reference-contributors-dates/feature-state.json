@@ -3,7 +3,7 @@
   "feature": "012-reference-contributors-dates",
   "branch": "012-reference-contributors-dates",
   "repo": "FAIR-DM/django-literature",
-  "state": "PLAN",
+  "state": "REVIEW",
   "state_history": [
     {
       "state": "SPECIFY",
@@ -24,6 +24,21 @@
       "state": "PLAN",
       "at": "2026-08-25T12:50:00Z",
       "note": "design review returned blocking; plan amended on two points and re-tasked as T007a and T015a \u2014 the edit path must not rewrite a Name shared by another reference, and an added date row names its own slot"
+    },
+    {
+      "state": "IMPLEMENT",
+      "at": "2026-08-25T14:52:00Z",
+      "note": "resumed after the previous session was lost to a tooling fault. The dates story's finished work was reconciled from the working tree rather than restarted."
+    },
+    {
+      "state": "CONVERGE",
+      "at": "2026-08-25T16:20:00Z",
+      "note": "all four stories delivered. Every decision carries a verdict, four graduated into two records, no migration is introduced and no pre-existing test was weakened."
+    },
+    {
+      "state": "REVIEW",
+      "at": "2026-08-25T16:40:00Z",
+      "note": "branch pushed to the open pull request as the repository's bot"
     }
   ],
   "gates": {
@@ -56,7 +71,7 @@
       "id": "US0",
       "priority": "P0",
       "issue": null,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
@@ -65,29 +80,60 @@
           "attempts": 1,
           "evidence": {
             "commands": [
-              "poetry lock && poetry install --all-extras; poetry show django-mvp -> 0.19.3"
+              "poetry lock && poetry install --all-extras; poetry show django-mvp -> 0.19.3",
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
+        },
+        {
+          "id": "T001a",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
             ]
           }
         },
         {
           "id": "T002",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
         },
         {
           "id": "T003",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
         },
         {
           "id": "T004",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
         },
         {
           "id": "T005",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in a082ff2, ca772a2 and 56fc26e"
+            ]
+          }
         }
       ]
     },
@@ -95,48 +141,98 @@
       "id": "US1",
       "priority": "P1",
       "issue": 113,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T006",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         },
         {
           "id": "T007",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         },
         {
           "id": "T007a",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         },
         {
           "id": "T008",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         },
         {
           "id": "T009",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         },
         {
           "id": "T010",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         },
         {
           "id": "T011",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         },
         {
           "id": "T012",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
+        },
+        {
+          "id": "T012a",
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 167ba34"
+            ]
+          }
         }
       ]
     },
@@ -144,48 +240,88 @@
       "id": "US2",
       "priority": "P2",
       "issue": 114,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T013",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         },
         {
           "id": "T014",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         },
         {
           "id": "T015",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         },
         {
           "id": "T015a",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         },
         {
           "id": "T016",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         },
         {
           "id": "T017",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         },
         {
           "id": "T018",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         },
         {
           "id": "T019",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 40fc686"
+            ]
+          }
         }
       ]
     },
@@ -193,43 +329,78 @@
       "id": "US3",
       "priority": "P3",
       "issue": 115,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T020",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
         },
         {
           "id": "T021",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
         },
         {
           "id": "T022",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
         },
         {
           "id": "T023",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
         },
         {
           "id": "T024",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
         },
         {
           "id": "T025",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
         },
         {
           "id": "T026",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 89a3db4"
+            ]
+          }
         }
       ]
     },
@@ -237,28 +408,48 @@
       "id": "US4",
       "priority": "P4",
       "issue": 116,
-      "status": "todo",
+      "status": "done",
       "replans": 0,
       "tasks": [
         {
           "id": "T027",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
         },
         {
           "id": "T028",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
         },
         {
           "id": "T029",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
         },
         {
           "id": "T030",
-          "status": "todo",
-          "attempts": 0
+          "status": "done",
+          "attempts": 1,
+          "evidence": {
+            "commands": [
+              "delivered in 8bd9883"
+            ]
+          }
         }
       ]
     }
