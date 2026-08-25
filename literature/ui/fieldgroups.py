@@ -21,7 +21,7 @@ governs presentation, never what can be stored (D-1).
 
 from django.utils.translation import gettext_lazy as _
 
-from literature.choices import ItemType
+from literature.choices import DateType, ItemType
 
 #: Field membership, one field in exactly one group (tests/test_ui/test_fieldgroups.py
 #: TestFieldPartition). Grouped as ``models.py`` already organises ``Item``,
@@ -281,6 +281,95 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
     ItemType.WEBPAGE: frozenset({"container"}),
 }
 
+# --- Per-type date-slot assignment -----------------------------------------
+#
+# A sibling mapping to TYPE_GROUPS above (plan.md D-5), never folded into
+# `GROUPS`: research.md R6 measured why — `GROUPS` is flattened straight into
+# `ItemForm.Meta.fields`, and a name that is not an `Item` column raises
+# `FieldError` at class-definition time. CSL's six date slots are rows on
+# `ItemDate`, not columns on `Item`, so they get a second structure under the
+# same ADR-0020 discipline rather than a widened first one.
+#
+# `issued` is always-on, the way `core` and `general` are for `TYPE_GROUPS`
+# above, and for the same reason: a bibliographic reference with no issue
+# date at all is the case this mapping should never hide the field for. It is
+# therefore never named in any entry below.
+#
+# Every other entry names the slots that additionally lead for that type,
+# decided against these criteria and CSL's own two appendices alone —
+# https://docs.citationstyles.org/en/stable/specification.html, Appendix III
+# (Types) and Appendix IV (Variables, Date Variables):
+#
+#   DC1  `accessed` — Appendix III's own definition of the type uses the
+#        word "online" to describe it directly.
+#   DC2  `available-date` — Appendix IV's own definition of `available-date`
+#        names the type by example ("the online publication date of a
+#        journal article before its formal publication date; the date a
+#        treaty was made available for signing").
+#   DC3  `event-date` — the type already carries `event` in `TYPE_GROUPS`:
+#        its own Appendix III definition ties it to a conference, exhibition
+#        or presentation.
+#   DC4  `original-date` — the type already carries `original` in
+#        `TYPE_GROUPS`: republication or translation is ordinary for it.
+#   DC5  `submitted` — Appendix IV's own definition of `submitted` names the
+#        type by example ("e.g. a manuscript").
+#   DC6  Otherwise: `issued` alone.
+#
+# DC1 is the narrowest of the six. Appendix III's 45 one-paragraph type
+# definitions use the word "online" exactly twice: in `webpage`'s own text
+# ("intrinsically online") and in `post`'s ("a online forum"). `post-weblog`
+# — `post`'s own sibling, and a blog by any other name just as online — does
+# not use the word in its one-line definition ("A blog post"), so under a
+# criteria-only mapping it stays at the baseline rather than borrowing its
+# relative's evidence, the same discipline `TYPE_GROUPS` applies to `titles`.
+TYPE_DATE_SLOTS: dict[str, frozenset[str]] = {
+    ItemType.ARTICLE: frozenset(),  # DC6
+    ItemType.ARTICLE_JOURNAL: frozenset({DateType.AVAILABLE_DATE}),  # DC2 — "a journal article"
+    ItemType.ARTICLE_MAGAZINE: frozenset(),  # DC6
+    ItemType.ARTICLE_NEWSPAPER: frozenset(),  # DC6
+    ItemType.BILL: frozenset(),  # DC6
+    ItemType.BOOK: frozenset({DateType.ORIGINAL_DATE}),  # DC4
+    ItemType.BROADCAST: frozenset(),  # DC6
+    ItemType.CHAPTER: frozenset(),  # DC6
+    ItemType.CLASSIC: frozenset({DateType.ORIGINAL_DATE}),  # DC4
+    ItemType.COLLECTION: frozenset(),  # DC6
+    ItemType.DATASET: frozenset(),  # DC6
+    ItemType.DOCUMENT: frozenset(),  # DC6
+    ItemType.ENTRY: frozenset(),  # DC6
+    ItemType.ENTRY_DICTIONARY: frozenset(),  # DC6
+    ItemType.ENTRY_ENCYCLOPEDIA: frozenset(),  # DC6
+    ItemType.EVENT: frozenset({DateType.EVENT_DATE}),  # DC3
+    ItemType.FIGURE: frozenset(),  # DC6
+    ItemType.GRAPHIC: frozenset(),  # DC6
+    ItemType.HEARING: frozenset(),  # DC6
+    ItemType.INTERVIEW: frozenset(),  # DC6
+    ItemType.LEGAL_CASE: frozenset(),  # DC6
+    ItemType.LEGISLATION: frozenset(),  # DC6
+    ItemType.MANUSCRIPT: frozenset({DateType.SUBMITTED}),  # DC5 — "e.g. a manuscript"
+    ItemType.MAP: frozenset(),  # DC6
+    ItemType.MOTION_PICTURE: frozenset(),  # DC6
+    ItemType.MUSICAL_SCORE: frozenset(),  # DC6
+    ItemType.PAMPHLET: frozenset(),  # DC6
+    ItemType.PAPER_CONFERENCE: frozenset({DateType.EVENT_DATE}),  # DC3
+    ItemType.PATENT: frozenset(),  # DC6
+    ItemType.PERFORMANCE: frozenset({DateType.EVENT_DATE}),  # DC3
+    ItemType.PERIODICAL: frozenset(),  # DC6
+    ItemType.PERSONAL_COMMUNICATION: frozenset(),  # DC6
+    ItemType.POST: frozenset({DateType.ACCESSED}),  # DC1 — "a online forum"
+    ItemType.POST_WEBLOG: frozenset(),  # DC6 — see note above; post's sibling, but not itself "online"
+    ItemType.REGULATION: frozenset(),  # DC6
+    ItemType.REPORT: frozenset(),  # DC6
+    ItemType.REVIEW: frozenset(),  # DC6
+    ItemType.REVIEW_BOOK: frozenset(),  # DC6
+    ItemType.SOFTWARE: frozenset(),  # DC6
+    ItemType.SONG: frozenset(),  # DC6
+    ItemType.SPEECH: frozenset({DateType.EVENT_DATE}),  # DC3
+    ItemType.STANDARD: frozenset(),  # DC6
+    ItemType.THESIS: frozenset(),  # DC6
+    ItemType.TREATY: frozenset({DateType.AVAILABLE_DATE}),  # DC2 — "a treaty was made available for signing"
+    ItemType.WEBPAGE: frozenset({DateType.ACCESSED}),  # DC1 — "intrinsically online"
+}
+
 
 class FieldGroups:
     """Lookups over the mapping above (Article XV — they share one subject).
@@ -294,6 +383,7 @@ class FieldGroups:
     GROUPS = GROUPS
     GROUP_LABELS = GROUP_LABELS
     TYPE_GROUPS = TYPE_GROUPS
+    TYPE_DATE_SLOTS = TYPE_DATE_SLOTS
 
     #: Groups every type carries regardless of its own ``TYPE_GROUPS`` entry.
     #: ``processor`` is deliberately absent from this set and from every

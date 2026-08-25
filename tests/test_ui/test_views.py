@@ -122,10 +122,24 @@ def rendered_form_post_data(client, url, **overrides):
     a field, or reverted ``{% block actions %}`` to the stock button that
     posts ``default_next=list`` (plan.md D-3), the rendered page actually
     posts.
+
+    Also carries every inline row-set's own management form and each of its
+    rows' current field values (T005, FR-031) — a Django formset raises on a
+    POST missing its management form entirely, and a POST that resubmits an
+    existing row's fields blank would either fail that row's own validation
+    or blank the row, neither of which is "no change" for a test that never
+    meant to touch the contributor, date or identifier sets at all.
     """
     response = client.get(url)
     form = response.context["form"]
     data = {name: (form[name].value() or "") for name in form.fields}
+    for inline in response.context.get("inlines", []):
+        management_form = inline.management_form
+        for name in management_form.fields:
+            data[management_form[name].html_name] = management_form[name].value()
+        for row_form in inline.forms:
+            for name in row_form.fields:
+                data[row_form[name].html_name] = row_form[name].value() or ""
     content = response.content.decode()
     submit_button = re.search(r'<button[^>]*type="submit"[^>]*name="([^"]+)"[^>]*value="([^"]+)"', content)
     if submit_button:
@@ -1457,11 +1471,15 @@ class TestItemCreateView:
     def test_with_no_type_chosen_every_group_but_the_type_fields_own_is_guarded(self, client, db):
         # FR-002 — with no type chosen, only the type field itself has no
         # x-show guard; every one of the thirteen groups does, so nothing
-        # else on a blank page shows.
+        # else among the scalar-field groups shows. Scoped to the
+        # `typeGroups` guard specifically (T005): the page's contributor,
+        # date and identifier rows carry their own unrelated `x-show`, one
+        # per row, for the removed-row state — a raw page-wide count would
+        # conflate the two.
         content = client.get(reverse("literature:item-create")).content.decode()
         for group in FieldGroups.GROUPS:
             assert f"includes('{group}')" in content
-        assert content.count("x-show=") == len(FieldGroups.GROUPS)
+        assert content.count("form.typeGroups[form.itemType]") == len(FieldGroups.GROUPS)
 
     def test_posting_a_valid_form_stores_exactly_what_was_posted(self, client, db):
         data = create_page_post_data(
@@ -1512,6 +1530,73 @@ class TestItemCreateView:
         assert response.status_code == 200
         assert response.context["contributor_groups"] == []
         assert response.context["identifiers"] == []
+
+
+class TestItemFormInlineSets:
+    """The reference form composes three related-row sets alongside the
+    parent form — contributors, dates and identifiers (plan.md D-2, T005).
+    No save path of its own: composing django-mvp's inline mixin is what
+    gives FR-031/FR-033's one-transaction, errors-survive-re-render
+    behaviour, so these tests exercise the wiring rather than any new save
+    logic here.
+    """
+
+    def test_the_create_page_renders_all_three_inline_sets(self, client, db):
+        content = client.get(reverse("literature:item-create")).content.decode()
+        assert 'name="item_names-TOTAL_FORMS"' in content
+        assert 'name="item_dates-TOTAL_FORMS"' in content
+        assert 'name="item_identifiers-TOTAL_FORMS"' in content
+
+    def test_the_update_page_renders_all_three_inline_sets(self, client, db):
+        item = ItemFactory()
+        content = client.get(reverse("literature:item-update", kwargs={"pk": item.pk})).content.decode()
+        assert 'name="item_names-TOTAL_FORMS"' in content
+        assert 'name="item_dates-TOTAL_FORMS"' in content
+        assert 'name="item_identifiers-TOTAL_FORMS"' in content
+
+    def test_a_new_identifier_row_saves_in_the_same_transaction_as_the_reference(self, client, db):
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="WithIdentifier2024",
+            **{"item_identifiers-0-type": "DOI", "item_identifiers-0-value": "10.1234/inline-test"},
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 302
+        item = Item.objects.get(citation_key="WithIdentifier2024")
+        assert ItemIdentifier.objects.filter(item=item, type="DOI", value="10.1234/inline-test").exists()
+
+    def test_an_invalid_parent_form_saves_no_identifier_and_keeps_the_typed_value_on_the_page(self, client, db):
+        # FR-033 — a rejected save leaves the catalogue exactly as it was,
+        # and returns the form carrying what was entered.
+        data = create_page_post_data(
+            client,
+            type="",  # invalid — rejects the parent form itself
+            citation_key="NoType2024",
+            **{"item_identifiers-0-type": "DOI", "item_identifiers-0-value": "10.1234/should-not-save"},
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert not ItemIdentifier.objects.filter(value="10.1234/should-not-save").exists()
+        assert "10.1234/should-not-save" in response.content.decode()
+
+    def test_an_invalid_date_row_reports_its_own_error_and_saves_nothing(self, client, db):
+        # FR-031, FR-033 — an inline set's own error blocks the whole save,
+        # not just its own rows, since all three formsets and the parent
+        # form are validated with all_valid() and share one transaction
+        # (research R1).
+        data = create_page_post_data(
+            client,
+            type=ItemType.ARTICLE_JOURNAL,
+            citation_key="BadDate2024",
+            **{"item_dates-0-date_type": DateType.EVENT_DATE, "item_dates-0-begin": "not-a-date"},
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert not Item.objects.filter(citation_key="BadDate2024").exists()
+        assert "not-a-date" in response.content.decode()
+        inlines = {formset.prefix: formset for formset in response.context["inlines"]}
+        assert inlines["item_dates"].forms[0].errors
 
 
 class TestItemImportView:

@@ -55,6 +55,14 @@ a property somewhere in scope.
           {# daisyUI component class. #}
           <c-form.field type="checkbox" label="{% translate "Show every field" %}" x-model="form.showAll" />
         </div>
+
+        {# The contributor, date and identifier sets (plan.md D-2, T005). #}
+        {# layout="tabular" is a template-level attribute (research R2): #}
+        {# InlineFormSet carries no layout of its own, and django-mvp's own #}
+        {# form_view.html renders every set through its stacked default. #}
+        {% for inline in inlines %}
+          <c-form.formset :formset="inline" layout="tabular" />
+        {% endfor %}
       {% endblock formset %}
       {% block actions %}
         {# The stock block (form_view.html) posts default_next=list on its #}

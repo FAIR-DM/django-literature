@@ -20,7 +20,14 @@ from django.views import View
 from django_filters.views import FilterView
 from mvp.integrations.django_filters.views import MVPFilteredListView
 from mvp.integrations.django_tables.views import MVPTableViewMixin
-from mvp.views import MVPCreateView, MVPDeleteView, MVPDetailView, MVPFormView, MVPListView, MVPUpdateView
+from mvp.views import (
+    MVPDeleteView,
+    MVPDetailView,
+    MVPFormView,
+    MVPInlineCreateView,
+    MVPInlineUpdateView,
+    MVPListView,
+)
 
 from literature.choices import ItemType, NameRole
 from literature.importers import get_format
@@ -32,9 +39,16 @@ from literature.ui.fields import scalar_fields
 from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
 from literature.ui.forms import ConfirmImportForm, ImportForm, ItemForm
 from literature.ui.importing import ImportReport
+from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
 from literature.ui.links import web_url
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
+
+#: The three related-row sets composed on both the create and update pages
+#: (plan.md D-2, FR-031, FR-032). Declared once here so the two views and the
+#: page's own template use the same list rather than three independent ones
+#: getting out of step.
+ITEM_INLINES = [ContributorInline, DateInline, IdentifierInline]
 
 #: What the catalogue calls itself, everywhere a reader is shown its name — the
 #: list page's own heading and the breadcrumb back to it from both other pages.
@@ -409,12 +423,18 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         return {**super().get_table_kwargs(), "show_update_action": self.show_action("update")}
 
 
-class ItemCreateView(MVPCreateView):
-    """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
+class ItemCreateView(MVPInlineCreateView):
+    """Enter a reference by hand — US-1 (FR-001 through FR-011).
+
+    Composes django-mvp's inline mixin (plan.md D-2) so the reference's
+    contributors, dates and identifiers are created in the same transaction
+    as the reference itself (FR-031, FR-033) — no save path of its own.
+    """
 
     model = Item
     form_class = ItemForm
     template_name = "literature/ui/item_form.html"
+    inlines = ITEM_INLINES
 
     # Item has no get_absolute_url(), so success_url is mandatory (D-6). The
     # "detail" shorthand only resolves once show_detail_action is set —
@@ -688,12 +708,18 @@ class ItemImportConfirmView(View):
         return redirect("literature:item-list")
 
 
-class ItemUpdateView(MVPUpdateView):
-    """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
+class ItemUpdateView(MVPInlineUpdateView):
+    """Correct a reference that is wrong — US-2 (FR-009 through FR-014).
+
+    Composes django-mvp's inline mixin (plan.md D-2) so the reference's
+    contributors, dates and identifiers are saved in the same transaction as
+    the reference itself (FR-031, FR-033) — no save path of its own.
+    """
 
     model = Item
     form_class = ItemForm
     template_name = "literature/ui/item_form.html"
+    inlines = ITEM_INLINES
 
     # Same shorthand and same reasoning as ItemCreateView (D-6): Item has no
     # get_absolute_url(), so success_url is mandatory, and the "detail"

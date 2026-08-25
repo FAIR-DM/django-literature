@@ -289,6 +289,117 @@ class TestItemDateModel:
 
 
 @pytest.mark.django_db
+class TestItemDateSpanRule:
+    """ItemDate enforces its own span rule (FR-016): an end needs a begin, and
+    a begin must not fall after its end. The help text on ``end`` has always
+    claimed this; nothing enforced it until now.
+    """
+
+    def test_end_without_begin_is_rejected(self, item):
+        """An end with no begin is refused rather than stored."""
+        with pytest.raises(ValidationError):
+            ItemDateFactory(item=item, date_type=DateType.EVENT_DATE, begin=None, end=PartialDate("2019-08-16"))
+        assert not ItemDate.objects.filter(item=item, date_type=DateType.EVENT_DATE).exists()
+
+    def test_end_before_begin_is_rejected(self, item):
+        """An end earlier than its begin is refused rather than stored."""
+        with pytest.raises(ValidationError):
+            ItemDateFactory(
+                item=item,
+                date_type=DateType.EVENT_DATE,
+                begin=PartialDate("2019-08-16"),
+                end=PartialDate("2019-08-12"),
+            )
+        assert not ItemDate.objects.filter(item=item, date_type=DateType.EVENT_DATE).exists()
+
+    def test_end_equal_to_begin_is_accepted(self, item):
+        """A single-day span — begin and end the same date — is not a rejection."""
+        item_date = ItemDateFactory(
+            item=item,
+            date_type=DateType.EVENT_DATE,
+            begin=PartialDate("2019-08-16"),
+            end=PartialDate("2019-08-16"),
+        )
+        retrieved = ItemDate.objects.get(pk=item_date.pk)
+        assert str(retrieved.begin).startswith("2019-08-16")
+        assert str(retrieved.end).startswith("2019-08-16")
+
+    def test_end_after_begin_is_accepted(self, item):
+        """An ordinary span — end after begin — saves as before."""
+        item_date = ItemDateFactory(
+            item=item,
+            date_type=DateType.EVENT_DATE,
+            begin=PartialDate("2019-08-12"),
+            end=PartialDate("2019-08-16"),
+        )
+        retrieved = ItemDate.objects.get(pk=item_date.pk)
+        assert str(retrieved.begin).startswith("2019-08-12")
+        assert str(retrieved.end).startswith("2019-08-16")
+
+    def test_mixed_precision_span_is_accepted(self, item):
+        """A begin at day precision and an end at year precision, where the
+        year is later, is a valid span — precisions differ but the
+        underlying dates still order correctly.
+        """
+        item_date = ItemDateFactory(
+            item=item,
+            date_type=DateType.EVENT_DATE,
+            begin=PartialDate("2019-08-16"),
+            end=PartialDate("2020"),
+        )
+        retrieved = ItemDate.objects.get(pk=item_date.pk)
+        assert str(retrieved.begin).startswith("2019-08-16")
+        assert str(retrieved.end) == "2020"
+
+    def test_direct_create_rejects_the_defect(self, item):
+        """``objects.create()`` refuses an end-without-begin, not only ``full_clean()``."""
+        with pytest.raises(ValidationError):
+            ItemDate.objects.create(item=item, date_type=DateType.EVENT_DATE, begin=None, end=PartialDate("2019"))
+
+    def test_instance_save_rejects_the_defect(self, item):
+        """A bare instance ``.save()`` refuses an end-without-begin."""
+        with pytest.raises(ValidationError):
+            ItemDate(item=item, date_type=DateType.EVENT_DATE, begin=None, end=PartialDate("2019")).save()
+
+    def test_an_empty_string_end_is_treated_as_no_end(self, item):
+        """A ``ModelForm`` over a blank, optional ``end`` leaves the instance
+        attribute as ``""``, never ``None``: ``clean_fields()`` skips
+        ``to_python()`` entirely for a blank field whose raw value is already
+        in ``django.core.validators.EMPTY_VALUES`` (which includes ``""``),
+        so an unconverted empty string reaches ``clean()`` exactly as a
+        submitted-but-blank ``end`` field does on the reference form. A
+        ``begin``-only ``ItemDate`` built this way must save as cleanly as
+        one built with ``end=None`` — not raise ``AttributeError`` from
+        comparing a string against ``begin.date``.
+        """
+        item_date = ItemDate(item=item, date_type=DateType.EVENT_DATE, begin=PartialDate("2019-08-16"), end="")
+        item_date.save()
+        retrieved = ItemDate.objects.get(pk=item_date.pk)
+        assert str(retrieved.begin).startswith("2019-08-16")
+        assert not retrieved.end
+
+    def test_raw_date_strings_are_compared_correctly(self, item):
+        """``PartialDateField.to_python()`` accepts a raw ``YYYY``/``YYYY-MM``/
+        ``YYYY-MM-DD`` string directly, with no ``ModelForm`` or
+        ``full_clean()`` in between — every existing ``ItemDateFactory`` call
+        across the suite passes ``begin``/``end`` as plain strings this way.
+        ``clean()`` alone (unlike ``full_clean()``) never runs
+        ``clean_fields()``, so a raw string reaches it exactly as given, and
+        the span check must convert it before comparing rather than assuming
+        ``.date`` is already there.
+        """
+        item_date = ItemDate(item=item, date_type=DateType.EVENT_DATE, begin="2019-08-12", end="2019-08-16")
+        item_date.save()
+        retrieved = ItemDate.objects.get(pk=item_date.pk)
+        assert str(retrieved.begin).startswith("2019-08-12")
+        assert str(retrieved.end).startswith("2019-08-16")
+
+    def test_raw_date_strings_out_of_order_are_still_rejected(self, item):
+        with pytest.raises(ValidationError):
+            ItemDate(item=item, date_type=DateType.EVENT_DATE, begin="2019-08-16", end="2019-08-12").save()
+
+
+@pytest.mark.django_db
 class TestItemIdentifierModel:
     """ItemIdentifier storage for known and unknown identifier types."""
 
