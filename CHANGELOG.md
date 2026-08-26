@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-08-26
+
 ### Added
 
 - **Importing a bibliography file through the front end.** The catalogue carries an Import
