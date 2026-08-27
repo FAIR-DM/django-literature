@@ -159,16 +159,17 @@ store a malformed value:
 |---|---|
 | `DOI` | Must match `10.\d{4,}/\S+` |
 | `ISBN` | Valid ISBN-10 or ISBN-13 check digit |
-| `ISSN` | Must match `\d{4}-\d{3}[\dX]` |
+| `ISSN` | Must match `\d{4}-\d{3}[\dX]` with a valid check digit |
 | `URL` | Absolute URL with `http`, `https`, or `ftp` scheme |
 | `PMID` | Numeric string |
 | `PMCID` | `PMC` followed by digits, or a bare digit string |
 
 A rejected `ISBN` distinguishes two failures: a value of the right shape whose check digit
 does not match raises `invalid_isbn_checksum`, and a value that does not have ISBN-10's or
-ISBN-13's shape at all raises `invalid_isbn`. `ISSN` stays shape-only — the regex above
-recognises the check character as a character but never verifies it, so an `ISSN` of the right
-shape with a wrong check digit is accepted.
+ISBN-13's shape at all raises `invalid_isbn`. `ISSN` does the same: a value of the right shape
+whose check digit does not satisfy the standard's modulo-11 checksum raises
+`invalid_issn_checksum`, and a value that does not match `\d{4}-\d{3}[\dX]` at all raises
+`invalid_issn`.
 
 Unknown identifier types are accepted without format validation (a warning is logged).
 
