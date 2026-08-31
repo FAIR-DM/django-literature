@@ -17,7 +17,7 @@ Single-context repo (this repo):
 ```
 /
 ├── CONTEXT.md
-├── memory/constitution.md
+├── CONSTITUTION.md
 ├── docs/adr/
 │   ├── 0001-....md
 │   └── 0002-....md
