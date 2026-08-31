@@ -45,5 +45,5 @@ status checks (exact names): `call-build / Code Quality`, `call-build / Security
 
 Feature work follows a spec-driven process: spec → plan → tasks → implement → review → PR, with
 `specs/NNN-slug/` directories per feature (there is no spec-kit install in the repo). Project
-standards and the quality bar live in `memory/constitution.md`. One PR per feature; the default
+standards and the quality bar live in `CONSTITUTION.md`. One PR per feature; the default
 branch is protected and requires one approval before merge.
