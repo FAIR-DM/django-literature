@@ -32,10 +32,10 @@ nothing for the package to check it against.
 ## Being told what is wrong
 
 A rejected value is not stored, and the form says why. For most kinds, the message describes the
-shape a valid value has. ISBN is more specific: a value of the right shape whose check digit does
-not add up is told apart from a value of the wrong shape entirely, since a mismatched check digit
-is almost always a single mistyped character, and a well-formed example helps least with exactly
-that mistake.
+shape a valid value has. ISBN and ISSN are more specific: a value of the right shape whose check
+digit does not add up is told apart from a value of the wrong shape entirely, since a mismatched
+check digit is almost always a single mistyped character, and a well-formed example helps least
+with exactly that mistake.
 
 ## Saving
 
