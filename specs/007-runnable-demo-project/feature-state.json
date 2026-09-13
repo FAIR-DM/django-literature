@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
   "feature": "007-runnable-demo-project",
   "branch": "007-runnable-demo-project",
   "repo": "FAIR-DM/django-literature",
