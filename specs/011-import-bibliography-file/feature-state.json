@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
   "feature": "011-import-bibliography-file",
   "branch": "011-import-bibliography-file",
   "repo": "FAIR-DM/django-literature",

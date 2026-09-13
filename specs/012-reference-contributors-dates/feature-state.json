@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
   "feature": "012-reference-contributors-dates",
   "branch": "012-reference-contributors-dates",
   "repo": "FAIR-DM/django-literature",
