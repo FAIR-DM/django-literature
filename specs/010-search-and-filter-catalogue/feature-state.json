@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
   "feature": "010-search-and-filter-catalogue",
   "branch": "010-search-and-filter-catalogue",
   "repo": "FAIR-DM/django-literature",
