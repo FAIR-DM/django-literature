@@ -8,7 +8,7 @@ in FR-020. Each function follows the Django validator protocol — raises
 Validators:
     validate_doi    — DOI (regex check for ``10.<4+digits>/`` prefix)
     validate_isbn   — ISBN-10 and ISBN-13 (check-digit verification)
-    validate_issn   — ISSN (format check: ``NNNN-NNNX``)
+    validate_issn   — ISSN (format ``NNNN-NNNX`` plus check-digit verification)
     validate_url    — HTTP/HTTPS/FTP URL
     validate_pmid   — PubMed ID (numeric string)
     validate_pmcid  — PubMed Central ID (``PMC``-prefixed or bare digits)
@@ -127,21 +127,49 @@ def validate_isbn(value: str) -> None:
 _ISSN_RE = re.compile(r"^\d{4}-\d{3}[\dX]$", re.IGNORECASE)
 
 
-def validate_issn(value: str) -> None:
-    """Validate an ISSN string.
+def _issn_valid(value: str) -> bool | None:
+    """Check *value* against ISSN's shape and, only if it matches, its check digit.
 
-    A valid ISSN has the format ``NNNN-NNNX`` where ``X`` is a digit or
-    the letter X (check character).
-
-    Raises:
-        ValidationError: if the value does not match the ISSN pattern.
+    Returns:
+        ``True`` if *value* is a valid ISSN, ``False`` if it has ISSN's shape but the wrong
+        check digit, ``None`` if it does not have ISSN's shape at all. Mirrors
+        :func:`_isbn10_valid`'s three-way return for the same reason (D-7, #118): the
+        checksum/shape distinction it recovers would otherwise be discarded one line later.
     """
     if not _ISSN_RE.match(value):
+        return None
+    digits = value.replace("-", "")
+    values = [10 if c.upper() == "X" else int(c) for c in digits]
+    return sum(v * (8 - i) for i, v in enumerate(values)) % 11 == 0
+
+
+def validate_issn(value: str) -> None:
+    """Validate an ISSN string (#118, split from #48).
+
+    A valid ISSN has the format ``NNNN-NNNX`` where ``X`` is a digit or the letter X (check
+    character), and the eight characters together satisfy the standard's modulo-11 checksum.
+    A value that matches the shape but not the checksum is reported apart from a value that
+    does not match the shape at all (D-7, FR-027) — the same distinction :func:`validate_isbn`
+    already reports.
+
+    Raises:
+        ValidationError: ``invalid_issn_checksum`` if *value* matches ISSN's shape but its
+            check digit does not; ``invalid_issn`` if it does not match the shape at all.
+    """
+    valid = _issn_valid(value)
+    if valid:
+        return
+    if valid is False:
         raise ValidationError(
-            _("Enter a valid ISSN (e.g. 1742-2094)."),
-            code="invalid_issn",
+            _("This ISSN's check digit does not match. Check the number for a mistyped character."),
+            code="invalid_issn_checksum",
             params={"value": value},
         )
+    raise ValidationError(
+        _("Enter a valid ISSN (e.g. 1742-2094)."),
+        code="invalid_issn",
+        params={"value": value},
+    )
 
 
 # ---------------------------------------------------------------------------

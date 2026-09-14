@@ -77,6 +77,12 @@ All notable changes to this project are documented in this file. The format foll
   accepts a text handle the same way in return — both formats accept either, closing
   [#104](https://github.com/FAIR-DM/django-literature/issues/104).
 
+- **An ISSN's check digit is now verified, not just its shape.** An ISSN of the right
+  `NNNN-NNNX` form but with a mistyped final character used to be stored as though it were
+  sound; it is now checked against the standard's own modulo-11 checksum, the same way an
+  ISBN's check digit already was, and a mismatch is told apart from a value that is the wrong
+  shape entirely, closing [#118](https://github.com/FAIR-DM/django-literature/issues/118).
+
 ### Changed
 
 - **A skipped entry in an import report may now show why.** A `@comment` or `@preamble` block in a

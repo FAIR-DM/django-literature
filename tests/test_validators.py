@@ -87,11 +87,11 @@ class TestIdentifierValidation:
             "1742-2094",
             "0028-0836",  # Nature
             "1476-4687",  # Nature (online)
-            "0000-000X",  # X check digit
+            "0956-540X",  # X check digit
         ],
     )
     def test_issn_valid(self, issn):
-        """Valid ISSN format (NNNN-NNNX) passes validation."""
+        """Valid ISSN values (correct format and check digit) pass validation."""
         _clean_identifier(IdentifierType.ISSN, issn)
 
     @pytest.mark.parametrize(
@@ -209,5 +209,48 @@ class TestISBNChecksumDistinction:
             _clean_identifier(IdentifierType.ISBN, "978-0-306-40615-0")
         with pytest.raises(ValidationError) as shape_error:
             _clean_identifier(IdentifierType.ISBN, "not-an-isbn")
+        assert checksum_error.value.code != shape_error.value.code
+        assert checksum_error.value.messages != shape_error.value.messages
+
+
+@pytest.mark.django_db
+class TestISSNChecksumDistinction:
+    """#118 — an ISSN of the right shape whose check digit does not satisfy the standard's
+    modulo-11 checksum is reported apart from a value that does not have ISSN's ``NNNN-NNNX``
+    shape at all, through a distinct code (``invalid_issn_checksum``) and a distinct message —
+    the same distinction ``TestISBNChecksumDistinction`` already recovers for ISBN (D-7, split
+    from #48).
+    """
+
+    @pytest.mark.parametrize(
+        "issn",
+        [
+            "1742-2095",  # right shape, wrong check digit
+            "0956-5401",  # right shape, wrong check digit (correct one ends in X)
+        ],
+    )
+    def test_a_wrong_check_digit_raises_the_checksum_code(self, issn):
+        with pytest.raises(ValidationError) as excinfo:
+            _clean_identifier(IdentifierType.ISSN, issn)
+        assert excinfo.value.code == "invalid_issn_checksum"
+
+    @pytest.mark.parametrize(
+        "issn",
+        [
+            "1742-209",  # too short
+            "17422094",  # no hyphen
+            "not-an-issn",
+        ],
+    )
+    def test_a_wrong_shape_raises_the_shape_code(self, issn):
+        with pytest.raises(ValidationError) as excinfo:
+            _clean_identifier(IdentifierType.ISSN, issn)
+        assert excinfo.value.code == "invalid_issn"
+
+    def test_the_two_codes_are_distinct(self):
+        with pytest.raises(ValidationError) as checksum_error:
+            _clean_identifier(IdentifierType.ISSN, "1742-2095")
+        with pytest.raises(ValidationError) as shape_error:
+            _clean_identifier(IdentifierType.ISSN, "not-an-issn")
         assert checksum_error.value.code != shape_error.value.code
         assert checksum_error.value.messages != shape_error.value.messages

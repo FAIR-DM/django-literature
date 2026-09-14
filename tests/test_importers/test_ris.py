@@ -1113,6 +1113,15 @@ class TestIdentifiers:
         assert not ({"ISSN", "ISBN"} & csl.keys())
         assert csl["custom"]["ris"]["SN"] == "978-0-306-40615-0"
 
+    def test_sn_with_a_wrong_issn_check_digit_resolves_to_neither_shape(self):
+        """#118 — the same recovery as the ISBN case above, now that ``validate_issn`` verifies
+        the check digit too: an ISSN-shaped value whose check digit is wrong is neither an ISSN
+        nor an ISBN by shape, so it is preserved rather than stored.
+        """
+        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="1742-2095"))  # wrong check digit
+        assert not ({"ISSN", "ISBN"} & csl.keys())
+        assert csl["custom"]["ris"]["SN"] == "1742-2095"
+
     def test_sn_on_rprt_is_a_report_number_not_an_identifier(self):
         csl = RISFormat().to_csl_json(entry(ty="RPRT", sn="NIST-8080"))
         assert csl["number"] == "NIST-8080"
@@ -1608,7 +1617,7 @@ class TestUnnamedProducer:
         "AU  - Ovid, R.\n"
         "TI  - A generic bibliographic record\n"
         "Y1  - 2018/05\n"
-        "SN  - 1234-5678\n"
+        "SN  - 1234-5679\n"
         "DO  - 10.1000/xyz123\n"
         "ER  -\n"
     )
@@ -1626,7 +1635,7 @@ class TestUnnamedProducer:
         assert item.type == "article-journal"
         assert item.title == "A generic bibliographic record"
         assert item.item_identifiers.get(type="DOI").value == "10.1000/xyz123"
-        assert item.item_identifiers.get(type="ISSN").value == "1234-5678"
+        assert item.item_identifiers.get(type="ISSN").value == "1234-5679"
 
     @pytest.mark.django_db
     def test_y1_supplies_the_issued_date_with_no_py_present(self):
