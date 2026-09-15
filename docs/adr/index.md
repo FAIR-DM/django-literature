@@ -43,4 +43,5 @@ rest of this documentation covers the how.
 0030-the-import-page-accepts-an-unbounded-upload-from-anyone
 0031-completion-suggests-a-spelling-never-a-record
 0032-a-related-row-is-kept-by-being-rendered
+0033-the-catalogue-view-is-chosen-by-a-setting
 ```

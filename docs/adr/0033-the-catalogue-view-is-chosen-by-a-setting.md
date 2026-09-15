@@ -1,4 +1,4 @@
-# ADR 0024 — The catalogue view is chosen by a setting, not by routing
+# ADR 0033 — The catalogue view is chosen by a setting, not by routing
 
 **Status:** accepted
 
