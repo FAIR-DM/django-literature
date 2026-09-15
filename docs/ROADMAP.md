@@ -71,7 +71,7 @@ Serves G5. Out of scope: exporting to BibTeX or RIS, and any live sync with exte
 
 ### R6 — Opt-in front-end app on django-mvp, with a runnable demo
 
-*multi-feature · advances G4, G6*
+*delivered in [#45](https://github.com/FAIR-DM/django-literature/issues/45), [#46](https://github.com/FAIR-DM/django-literature/issues/46), [#47](https://github.com/FAIR-DM/django-literature/issues/47), [#48](https://github.com/FAIR-DM/django-literature/issues/48), [#49](https://github.com/FAIR-DM/django-literature/issues/49), [#50](https://github.com/FAIR-DM/django-literature/issues/50), [#81](https://github.com/FAIR-DM/django-literature/issues/81), [#88](https://github.com/FAIR-DM/django-literature/issues/88) · advances G4, G6*
 
 The intended way to use the package in full is an opt-in front end, kept entirely separate from the headless core, and the demo project that shows it off is the same piece of work: a runnable project is how the front end is exercised and guarded against regressions. This item builds the app on django-mvp, a complete and consistent interface for browsing and managing references that a host installs when it wants one, together with a demo that serves it over real data and runs in CI. The core stays free of any front-end dependency throughout, and this item assumes a headless core that bundles no management of its own. It is the largest item and comes last because it sits on the import paths that give it real data to show (R5). It will span several releases.
 

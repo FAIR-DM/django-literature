@@ -42,7 +42,8 @@ and why the search and filter definition lives in exactly one place
 
 `ItemTableView` serves the catalogue as a table and `ItemListView` serves it as cards.
 Either can back the catalogue route, chosen through the `LITERATURE` settings key
-described in the README.
+described in the README — see [ADR 0033](../adr/0033-the-catalogue-view-is-chosen-by-a-setting.md)
+for why the choice is made this way rather than by routing.
 
 `CatalogueListMixin` carries the card configuration that `ItemListView` and
 `ContributorDetailView` share — the model, the card template, the page title and the
