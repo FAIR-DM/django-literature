@@ -20,7 +20,13 @@ from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.results import Outcome
-from literature.importers.ris import REFERENCE_TYPE_TABLE, RISEntry, RISFormat, RISParser, _consumed_tags
+from literature.importers.ris import (
+    REFERENCE_TYPE_TABLE,
+    RISEntry,
+    RISFormat,
+    RISParser,
+    _consumed_tags,
+)
 from literature.models import Item
 
 DATA = Path(__file__).parent.parent / "data" / "ris"
@@ -28,7 +34,9 @@ DATA = Path(__file__).parent.parent / "data" / "ris"
 #: Every genuine producer export in the corpus, discovered from the directory rather than listed,
 #: so a fixture added later is swept by the corpus-wide tests instead of quietly sitting outside
 #: them. Sorted for a stable parametrize id order.
-GENUINE_FILES = sorted(f"genuine/{path.name}" for path in (DATA / "genuine").glob("*.ris"))
+GENUINE_FILES = sorted(
+    f"genuine/{path.name}" for path in (DATA / "genuine").glob("*.ris")
+)
 
 
 def fixture(relative_path):
@@ -77,7 +85,11 @@ def entry(ty="JOUR", index=0, **single_tags):
 #: that trusts it.
 GENUINE_FINGERPRINTS = {
     "endnote.ris": (b"\nID  - ", b"\nKW  - article\nbiostratigraphy\n"),
-    "scopus.ris": (b"DB  - Scopus", b"N1  - Export Date:", b"scopus.com/inward/record.uri"),
+    "scopus.ris": (
+        b"DB  - Scopus",
+        b"N1  - Export Date:",
+        b"scopus.com/inward/record.uri",
+    ),
     "webofscience.ris": (b"AN  - WOS:", b"WE  - Science Citation Index Expanded"),
     "mendeley.ris": (b"AU  - Boisvert, C\n", b"\nUR  - https://www.embase.com/"),
 }
@@ -101,18 +113,24 @@ class TestGenuineCorpus:
         specific export's provenance. This asserts the hand-written half has not fallen behind the
         directory, so a fixture added later cannot sit outside every provenance check in silence.
         """
-        assert set(GENUINE_FINGERPRINTS) == {path.name for path in (DATA / "genuine").glob("*.ris")}
+        assert set(GENUINE_FINGERPRINTS) == {
+            path.name for path in (DATA / "genuine").glob("*.ris")
+        }
 
     def test_every_producer_file_carries_its_fingerprint(self):
         for name, fingerprints in GENUINE_FINGERPRINTS.items():
             content = (DATA / "genuine" / name).read_bytes()
             for needle in fingerprints:
-                assert needle in content, f"{name} is missing its fingerprint {needle!r}"
+                assert needle in content, (
+                    f"{name} is missing its fingerprint {needle!r}"
+                )
 
     def test_scopus_and_webofscience_carry_a_byte_order_mark(self):
         for name in ("scopus.ris", "webofscience.ris"):
             content = (DATA / "genuine" / name).read_bytes()
-            assert content.startswith(b"\xef\xbb\xbf"), f"{name} should carry a byte-order mark"
+            assert content.startswith(b"\xef\xbb\xbf"), (
+                f"{name} should carry a byte-order mark"
+            )
 
     def test_endnote_carries_no_byte_order_mark(self):
         content = (DATA / "genuine" / "endnote.ris").read_bytes()
@@ -133,13 +151,19 @@ class TestGenuineCorpus:
 
         def dois(name: str) -> set[str]:
             text = (DATA / "genuine" / name).read_text(encoding="utf-8-sig")
-            return {line[6:].strip().lower() for line in text.splitlines() if line.startswith("DO  - ")}
+            return {
+                line[6:].strip().lower()
+                for line in text.splitlines()
+                if line.startswith("DO  - ")
+            }
 
         matched = [dois(name) for name in GENUINE_MATCHED_SET]
         assert len(matched[0]) == 10
         assert all(other == matched[0] for other in matched[1:])
         for name in ("scopus.ris", "webofscience.ris"):
-            assert not dois(name) & matched[0], f"{name} unexpectedly shares the matched set"
+            assert not dois(name) & matched[0], (
+                f"{name} unexpectedly shares the matched set"
+            )
 
 
 #: The full constructed corpus, named rather than discovered, so a file added or removed without
@@ -196,7 +220,9 @@ class TestConstructedCorpus:
         assert content.count(" - ") >= 2
 
     def test_tag_block_after_valid_entry_has_two_er_and_one_ty(self):
-        content = (DATA / "constructed" / "tag_block_no_ty_after_valid_entry.ris").read_text()
+        content = (
+            DATA / "constructed" / "tag_block_no_ty_after_valid_entry.ris"
+        ).read_text()
         assert content.count("TY  - ") == 1
         assert content.count("ER  -") == 2
 
@@ -205,7 +231,11 @@ class TestConstructedCorpus:
         assert content.index("Provider:") < content.index("TY  - ")
 
     def test_byte_order_mark_file_starts_with_a_bom(self):
-        assert (DATA / "constructed" / "byte_order_mark.ris").read_bytes().startswith(b"\xef\xbb\xbf")
+        assert (
+            (DATA / "constructed" / "byte_order_mark.ris")
+            .read_bytes()
+            .startswith(b"\xef\xbb\xbf")
+        )
 
     def test_crlf_file_uses_crlf_throughout(self):
         content = (DATA / "constructed" / "crlf_line_endings.ris").read_bytes()
@@ -223,7 +253,9 @@ class TestConstructedCorpus:
         assert any(line.startswith("   ") for line in lines)
 
     def test_endnote_multivalue_file_has_unindented_continuation_lines(self):
-        content = (DATA / "constructed" / "endnote_multivalue_continuation.ris").read_text()
+        content = (
+            DATA / "constructed" / "endnote_multivalue_continuation.ris"
+        ).read_text()
         lines = content.splitlines()
         # "biostratigraphy" is a KW continuation line, unindented -- EndNote's own convention
         # (research.md R7), the opposite of the wrapped-prose fixture above.
@@ -266,7 +298,9 @@ class TestSubstitutedChapterFixture:
         assert content.count("A2  - ") == 2
         assert "T2  - " in content
 
-    def test_the_fixture_follows_endnote_shape_rather_than_claiming_to_be_an_export(self):
+    def test_the_fixture_follows_endnote_shape_rather_than_claiming_to_be_an_export(
+        self,
+    ):
         """EndNote's fingerprint is alphabetical tags and a trailing ``ID``, with no byte-order
         mark (research.md R10). The file is constructed, so it is shaped like the producer it
         substitutes for without being presented as its output."""
@@ -281,11 +315,16 @@ class TestSubstitutedChapterFixture:
         csl = RISFormat().to_csl_json(entries[0])
         assert csl["type"] == "chapter"
         assert csl["container-title"] == "Handbook of Micropalaeontology"
-        assert [editor["family"] for editor in csl["editor"]] == ["Vandenberghe", "Speijer"]
+        assert [editor["family"] for editor in csl["editor"]] == [
+            "Vandenberghe",
+            "Speijer",
+        ]
         assert [author["family"] for author in csl["author"]] == ["Okada", "Bukry"]
 
     def test_bulk_file_holds_several_hundred_entries(self):
-        content = (DATA / "constructed" / "bulk_several_hundred_entries.ris").read_text()
+        content = (
+            DATA / "constructed" / "bulk_several_hundred_entries.ris"
+        ).read_text()
         assert content.count("TY  - ") == 500
 
 
@@ -313,8 +352,12 @@ class TestNegativeCorpus:
         as a tag, so a real ``RISParser`` finds nothing to frame an entry around (T006-T008).
         """
         for name in NEGATIVE_FIXTURES:
-            content = (DATA / "negative" / name).read_text(encoding="utf-8", errors="replace")
-            matching = [line for line in content.splitlines() if _TAG_LINE_RE.match(line)]
+            content = (DATA / "negative" / name).read_text(
+                encoding="utf-8", errors="replace"
+            )
+            matching = [
+                line for line in content.splitlines() if _TAG_LINE_RE.match(line)
+            ]
             assert matching == [], f"{name} has RIS-tag-shaped lines: {matching!r}"
 
     def test_wos_native_carries_its_own_two_letter_tags_with_no_dash(self):
@@ -351,7 +394,9 @@ class TestRISParserFraming:
         with fixture("constructed/truncated_final_entry.ris") as handle:
             entries = list(RISParser().parse(handle))
         assert len(entries) == 2
-        assert entries[0].values("TI") == ["A complete entry recovered before the truncation"]
+        assert entries[0].values("TI") == [
+            "A complete entry recovered before the truncation"
+        ]
         assert entries[1].values("AU") == ["Jones,"]
 
     def test_entries_carry_their_index_in_source_order(self):
@@ -402,7 +447,9 @@ class TestRISParserEncoding:
         # A leftover BOM character would corrupt TY's own value; it doesn't.
         assert entries[0].values("TY") == ["JOUR"]
 
-    def test_raises_parse_error_naming_the_encoding_and_offset_on_undecodable_bytes(self):
+    def test_raises_parse_error_naming_the_encoding_and_offset_on_undecodable_bytes(
+        self,
+    ):
         with fixture("constructed/cp1252_encoded.ris") as handle:
             with pytest.raises(ParseError) as excinfo:
                 list(RISParser().parse(handle))
@@ -427,7 +474,9 @@ class TestParseAcceptsEitherHandle:
             return [(e.outcome, e.handle) for e in result]
 
         assert as_pairs(binary_result) == as_pairs(text_result)
-        assert binary_result.created, "the fixture is expected to produce created entries"
+        assert binary_result.created, (
+            "the fixture is expected to produce created entries"
+        )
 
 
 class TestRISParserStreaming:
@@ -452,7 +501,9 @@ class TestRISParserStreaming:
         # 500 entries at 5 lines each is 2500 lines; consuming only the first entry must not have
         # scanned anywhere close to that -- this is what fails if parse() is ever rewritten to
         # build a list before yielding.
-        assert len(calls) < 20, f"scanned {len(calls)} lines to yield just the first entry"
+        assert len(calls) < 20, (
+            f"scanned {len(calls)} lines to yield just the first entry"
+        )
 
 
 class TestContinuationLines:
@@ -461,7 +512,9 @@ class TestContinuationLines:
     def test_a_scalar_tag_continuation_is_joined_with_a_single_space(self):
         with fixture("constructed/wrapped_prose.ris") as handle:
             entries = list(RISParser().parse(handle))
-        assert entries[0].values("TI") == ["Tropical cyclones and the organization of mangrove forests: a review"]
+        assert entries[0].values("TI") == [
+            "Tropical cyclones and the organization of mangrove forests: a review"
+        ]
 
     def test_a_prose_tag_continued_across_several_lines_joins_them_all(self):
         with fixture("constructed/wrapped_prose.ris") as handle:
@@ -481,7 +534,12 @@ class TestContinuationLines:
     def test_a_repeatable_tags_continuation_lines_each_become_another_value(self):
         with fixture("constructed/endnote_multivalue_continuation.ris") as handle:
             entries = list(RISParser().parse(handle))
-        assert entries[0].values("KW") == ["article", "biostratigraphy", "Colorado", "dinosaur"]
+        assert entries[0].values("KW") == [
+            "article",
+            "biostratigraphy",
+            "Colorado",
+            "dinosaur",
+        ]
 
     def test_a_second_repeatable_tag_in_the_same_entry_is_independent(self):
         with fixture("constructed/endnote_multivalue_continuation.ris") as handle:
@@ -496,7 +554,9 @@ class TestContinuationLines:
     def test_a_tag_before_and_after_the_continued_one_is_unaffected(self):
         with fixture("constructed/endnote_multivalue_continuation.ris") as handle:
             entries = list(RISParser().parse(handle))
-        assert entries[0].values("TI") == ["A new specimen described from several untagged continuation lines"]
+        assert entries[0].values("TI") == [
+            "A new specimen described from several untagged continuation lines"
+        ]
         assert entries[0].values("PY") == ["2023"]
 
 
@@ -514,12 +574,8 @@ class TestSeparationTolerance:
     through the full CSL mapping, which is what "when it is imported" actually exercises.
     """
 
-    _CANONICAL_BOM_ENTRY = (
-        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry whose file carries a byte-order mark\nPY  - 2020\nER  -\n"
-    )
-    _CANONICAL_SINGLE_SPACE_ENTRY = (
-        b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry using the single-space separator variant\nPY  - 2020\nER  -\n"
-    )
+    _CANONICAL_BOM_ENTRY = b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry whose file carries a byte-order mark\nPY  - 2020\nER  -\n"
+    _CANONICAL_SINGLE_SPACE_ENTRY = b"TY  - JOUR\nAU  - Smith, J.\nTI  - An entry using the single-space separator variant\nPY  - 2020\nER  -\n"
 
     def test_crlf_line_endings_yield_the_same_csl_json_as_the_canonical_form(self):
         with fixture("constructed/crlf_line_endings.ris") as handle:
@@ -531,7 +587,9 @@ class TestSeparationTolerance:
             csl = _first_entry_csl(handle.read())
         assert csl == _first_entry_csl(self._CANONICAL_BOM_ENTRY)
 
-    def test_single_space_separator_yields_the_same_csl_json_as_the_canonical_form(self):
+    def test_single_space_separator_yields_the_same_csl_json_as_the_canonical_form(
+        self,
+    ):
         with fixture("constructed/single_space_separator.ris") as handle:
             csl = _first_entry_csl(handle.read())
         assert csl == _first_entry_csl(self._CANONICAL_SINGLE_SPACE_ENTRY)
@@ -539,9 +597,14 @@ class TestSeparationTolerance:
     def test_wrapped_continuation_lines_join_into_the_field_they_belong_to(self):
         with fixture("constructed/wrapped_prose.ris") as handle:
             csl = _first_entry_csl(handle.read())
-        assert csl["title"] == "Tropical cyclones and the organization of mangrove forests: a review"
+        assert (
+            csl["title"]
+            == "Tropical cyclones and the organization of mangrove forests: a review"
+        )
         assert csl["container-title"] == "Annals of Botany"
-        assert csl["abstract"].startswith("This abstract is written across several lines")
+        assert csl["abstract"].startswith(
+            "This abstract is written across several lines"
+        )
         # A continuation line correctly joined is not also mistaken for an unknown tag.
         assert "custom" not in csl
 
@@ -554,28 +617,41 @@ class TestSeparationTolerance:
             b"TY  - JOUR\nAU  - Third, C.\nTI  - Two blank lines follow\nPY  - 2022\nER  -\n"
         )
         entries = list(RISParser().parse(io.BytesIO(raw)))
-        assert [e.values("AU") for e in entries] == [["First, A."], ["Second, B."], ["Third, C."]]
+        assert [e.values("AU") for e in entries] == [
+            ["First, A."],
+            ["Second, B."],
+            ["Third, C."],
+        ]
 
     @pytest.mark.django_db
     def test_a_crlf_file_imports_as_one_created_entry(self):
         with fixture("constructed/crlf_line_endings.ris") as handle:
             result = RISFormat().import_file(handle)
         assert len(result.created) == 1
-        assert result.created[0].item.title == "An entry whose file carries a byte-order mark"
+        assert (
+            result.created[0].item.title
+            == "An entry whose file carries a byte-order mark"
+        )
 
     @pytest.mark.django_db
     def test_a_byte_order_mark_file_imports_as_one_created_entry(self):
         with fixture("constructed/byte_order_mark.ris") as handle:
             result = RISFormat().import_file(handle)
         assert len(result.created) == 1
-        assert result.created[0].item.title == "An entry whose file carries a byte-order mark"
+        assert (
+            result.created[0].item.title
+            == "An entry whose file carries a byte-order mark"
+        )
 
     @pytest.mark.django_db
     def test_a_single_space_separator_file_imports_as_one_created_entry(self):
         with fixture("constructed/single_space_separator.ris") as handle:
             result = RISFormat().import_file(handle)
         assert len(result.created) == 1
-        assert result.created[0].item.title == "An entry using the single-space separator variant"
+        assert (
+            result.created[0].item.title
+            == "An entry using the single-space separator variant"
+        )
 
 
 class TestWholeFileOutcomes:
@@ -641,7 +717,9 @@ class TestWholeFileOutcomes:
 
     def test_no_import_ever_raises_on_this_corpus(self):
         """SC-008: no content in a .ris file, however malformed, produces an unhandled error."""
-        every_file = list((DATA / "constructed").glob("*.ris")) + list((DATA / "negative").glob("*.ris"))
+        every_file = list((DATA / "constructed").glob("*.ris")) + list(
+            (DATA / "negative").glob("*.ris")
+        )
         for path in every_file:
             with path.open("rb") as handle:
                 RISFormat().import_file(handle)  # must not raise
@@ -772,7 +850,9 @@ class TestRegistration:
 class TestReferenceTypeTable:
     """RIS reference type -> CSL item type, unknown to ``document`` (T010, FR-011)."""
 
-    @pytest.mark.parametrize(("ris_type", "csl_type"), sorted(REFERENCE_TYPE_TABLE.items()))
+    @pytest.mark.parametrize(
+        ("ris_type", "csl_type"), sorted(REFERENCE_TYPE_TABLE.items())
+    )
     def test_every_listed_type_maps_to_its_csl_equivalent(self, ris_type, csl_type):
         assert RISFormat().to_csl_json(entry(ty=ris_type, ti="x"))["type"] == csl_type
 
@@ -826,7 +906,10 @@ class TestCoreFieldMapping:
         assert RISFormat().to_csl_json(entry(pb="Elsevier"))["publisher"] == "Elsevier"
 
     def test_city_lands_on_publisher_place(self):
-        assert RISFormat().to_csl_json(entry(cy="Amsterdam"))["publisher-place"] == "Amsterdam"
+        assert (
+            RISFormat().to_csl_json(entry(cy="Amsterdam"))["publisher-place"]
+            == "Amsterdam"
+        )
 
     def test_an_absent_core_tag_leaves_no_key(self):
         csl = RISFormat().to_csl_json(entry(pb="A publisher"))
@@ -838,26 +921,26 @@ class TestT2ContainerOrCollection:
     (T011, FR-012)."""
 
     def test_t2_is_container_title_on_jour(self):
-        assert RISFormat().to_csl_json(entry(ty="JOUR", t2="Anatomical Record"))["container-title"] == (
-            "Anatomical Record"
-        )
+        assert RISFormat().to_csl_json(entry(ty="JOUR", t2="Anatomical Record"))[
+            "container-title"
+        ] == ("Anatomical Record")
 
     def test_t2_is_container_title_on_chap(self):
         """A chapter's ``T2`` genuinely names its containing book."""
-        assert RISFormat().to_csl_json(entry(ty="CHAP", t2="Handbook of Paleontology"))["container-title"] == (
-            "Handbook of Paleontology"
-        )
+        assert RISFormat().to_csl_json(entry(ty="CHAP", t2="Handbook of Paleontology"))[
+            "container-title"
+        ] == ("Handbook of Paleontology")
 
     def test_t2_is_collection_title_on_book(self):
         """A whole book has no container of its own; a ``T2`` it carries names the series."""
-        assert RISFormat().to_csl_json(entry(ty="BOOK", t2="Topics in Geology"))["collection-title"] == (
-            "Topics in Geology"
-        )
+        assert RISFormat().to_csl_json(entry(ty="BOOK", t2="Topics in Geology"))[
+            "collection-title"
+        ] == ("Topics in Geology")
 
     def test_t2_is_collection_title_on_rprt(self):
-        assert RISFormat().to_csl_json(entry(ty="RPRT", t2="Technical Report Series"))["collection-title"] == (
-            "Technical Report Series"
-        )
+        assert RISFormat().to_csl_json(entry(ty="RPRT", t2="Technical Report Series"))[
+            "collection-title"
+        ] == ("Technical Report Series")
 
 
 class TestSPLocatorOrPageCount:
@@ -868,13 +951,21 @@ class TestSPLocatorOrPageCount:
         assert RISFormat().to_csl_json(entry(ty="JOUR", sp="20"))["page"] == "20"
 
     def test_sp_can_carry_a_whole_range_on_jour(self):
-        assert RISFormat().to_csl_json(entry(ty="JOUR", sp="549-565"))["page"] == "549-565"
+        assert (
+            RISFormat().to_csl_json(entry(ty="JOUR", sp="549-565"))["page"] == "549-565"
+        )
 
     def test_sp_is_the_page_count_on_book(self):
-        assert RISFormat().to_csl_json(entry(ty="BOOK", sp="312"))["number-of-pages"] == "312"
+        assert (
+            RISFormat().to_csl_json(entry(ty="BOOK", sp="312"))["number-of-pages"]
+            == "312"
+        )
 
     def test_sp_is_the_page_count_on_thes(self):
-        assert RISFormat().to_csl_json(entry(ty="THES", sp="150"))["number-of-pages"] == "150"
+        assert (
+            RISFormat().to_csl_json(entry(ty="THES", sp="150"))["number-of-pages"]
+            == "150"
+        )
 
 
 class TestContributors:
@@ -882,7 +973,9 @@ class TestContributors:
     reference type (T012, FR-013, FR-014)."""
 
     def test_authors_keep_source_order(self):
-        csl = RISFormat().to_csl_json(entry(au=["Boisvert, C.", "Curtice, B.", "Wedel, M."]))
+        csl = RISFormat().to_csl_json(
+            entry(au=["Boisvert, C.", "Curtice, B.", "Wedel, M."])
+        )
         assert csl["author"] == [
             {"family": "Boisvert", "given": "C."},
             {"family": "Curtice", "given": "B."},
@@ -934,7 +1027,9 @@ class TestProducerContributorConventions:
     def test_ed_is_editor_on_a_chapter(self):
         """Web of Science uses ``ED`` exclusively for a chapter's editors, never ``A2`` (research
         R4: a genuine WoS ``CHAP`` record carries three ``ED`` tags and zero ``A2``)."""
-        csl = RISFormat().to_csl_json(entry(ty="CHAP", ed=["Vandenberghe, J.", "Speijer, R."]))
+        csl = RISFormat().to_csl_json(
+            entry(ty="CHAP", ed=["Vandenberghe, J.", "Speijer, R."])
+        )
         assert csl["editor"] == [
             {"family": "Vandenberghe", "given": "J."},
             {"family": "Speijer", "given": "R."},
@@ -947,7 +1042,9 @@ class TestProducerContributorConventions:
     def test_a2_is_editor_on_jour_for_scopus_mistyped_chapters(self):
         """Scopus mistypes a book chapter as ``JOUR``, with the book's editors in ``A2`` and
         ``M3 - Book Chapter`` (research R9)."""
-        csl = RISFormat().to_csl_json(entry(ty="JOUR", a2="Editor, Enid", m3="Book Chapter"))
+        csl = RISFormat().to_csl_json(
+            entry(ty="JOUR", a2="Editor, Enid", m3="Book Chapter")
+        )
         assert csl["editor"] == [{"family": "Editor", "given": "Enid"}]
         assert "collection-editor" not in csl
 
@@ -971,7 +1068,9 @@ class TestDates:
     (T013, FR-015, FR-016)."""
 
     def test_py_alone_gives_year_precision(self):
-        assert RISFormat().to_csl_json(entry(py="2024"))["issued"] == {"date-parts": [[2024]]}
+        assert RISFormat().to_csl_json(entry(py="2024"))["issued"] == {
+            "date-parts": [[2024]]
+        }
 
     def test_da_refines_to_month_precision(self):
         csl = RISFormat().to_csl_json(entry(py="2024", da="2024/06"))
@@ -1086,7 +1185,10 @@ class TestIdentifiers:
     (T014, FR-017)."""
 
     def test_do_becomes_doi(self):
-        assert RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))["DOI"] == "10.1002/ar.25520"
+        assert (
+            RISFormat().to_csl_json(entry(do="10.1002/ar.25520"))["DOI"]
+            == "10.1002/ar.25520"
+        )
 
     def test_do_is_normalized_through_the_shared_doi_normalizer(self):
         """The resolver-URL form ``bibtex.py`` already handles (``IdentifierNormalizer``)."""
@@ -1098,10 +1200,15 @@ class TestIdentifiers:
         assert csl["URL"] == "https://www.embase.com/search?id=1"
 
     def test_sn_that_looks_like_an_issn_becomes_issn(self):
-        assert RISFormat().to_csl_json(entry(ty="JOUR", sn="1932-8494"))["ISSN"] == "1932-8494"
+        assert (
+            RISFormat().to_csl_json(entry(ty="JOUR", sn="1932-8494"))["ISSN"]
+            == "1932-8494"
+        )
 
     def test_sn_that_looks_like_an_isbn_becomes_isbn(self):
-        assert RISFormat().to_csl_json(entry(ty="BOOK", sn="978-0-306-40615-7"))["ISBN"] == ("978-0-306-40615-7")
+        assert RISFormat().to_csl_json(entry(ty="BOOK", sn="978-0-306-40615-7"))[
+            "ISBN"
+        ] == ("978-0-306-40615-7")
 
     def test_sn_with_a_wrong_isbn_check_digit_resolves_to_neither_shape(self):
         """T021 — ``_sn_identifier`` (line ~629) only asks ``validate_isbn``/``validate_issn``
@@ -1109,7 +1216,9 @@ class TestIdentifiers:
         inside ``validate_isbn`` (D-7, T020) changes nothing here: a shape-valid, checksum-invalid
         ISBN still resolves to neither shape and is preserved rather than stored (FR-029).
         """
-        csl = RISFormat().to_csl_json(entry(ty="BOOK", sn="978-0-306-40615-0"))  # wrong check digit
+        csl = RISFormat().to_csl_json(
+            entry(ty="BOOK", sn="978-0-306-40615-0")
+        )  # wrong check digit
         assert not ({"ISSN", "ISBN"} & csl.keys())
         assert csl["custom"]["ris"]["SN"] == "978-0-306-40615-0"
 
@@ -1118,7 +1227,9 @@ class TestIdentifiers:
         the check digit too: an ISSN-shaped value whose check digit is wrong is neither an ISSN
         nor an ISBN by shape, so it is preserved rather than stored.
         """
-        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="1742-2095"))  # wrong check digit
+        csl = RISFormat().to_csl_json(
+            entry(ty="JOUR", sn="1742-2095")
+        )  # wrong check digit
         assert not ({"ISSN", "ISBN"} & csl.keys())
         assert csl["custom"]["ris"]["SN"] == "1742-2095"
 
@@ -1154,7 +1265,10 @@ class TestSNProducerEncodings:
         """Web of Science's own case: two series ISSNs and two ISBNs on one chapter, in no marked
         order — the first of each kind is stored, the rest preserved."""
         csl = RISFormat().to_csl_json(
-            entry(ty="CHAP", sn=["1932-6203", "978-0-306-40615-7", "1932-6203", "978-1-4028-9462-6"])
+            entry(
+                ty="CHAP",
+                sn=["1932-6203", "978-0-306-40615-7", "1932-6203", "978-1-4028-9462-6"],
+            )
         )
         assert csl["ISSN"] == "1932-6203"
         assert csl["ISBN"] == "978-0-306-40615-7"
@@ -1178,7 +1292,9 @@ class TestSNProducerEncodings:
 
     def test_scopus_packs_several_values_behind_a_semicolon(self):
         """Research R6: Scopus packs multiple values into one tag separated by ``; ``."""
-        csl = RISFormat().to_csl_json(entry(ty="JOUR", sn="2041-1723 (ISSN); 9780306406157 (ISBN)"))
+        csl = RISFormat().to_csl_json(
+            entry(ty="JOUR", sn="2041-1723 (ISSN); 9780306406157 (ISBN)")
+        )
         assert csl["ISSN"] == "2041-1723"
         assert csl["ISBN"] == "9780306406157"
         assert "custom" not in csl
@@ -1221,7 +1337,10 @@ class TestDOIRecovery:
     def test_a_resolver_url_doi_does_not_fail_the_entry(self):
         raw = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nDO  - https://doi.org/10.1002/ar.25520\nER  -\n"
         result = RISFormat().import_file(_ris_bytes(raw))
-        assert result.created[0].item.item_identifiers.get(type="DOI").value == "10.1002/ar.25520"
+        assert (
+            result.created[0].item.item_identifiers.get(type="DOI").value
+            == "10.1002/ar.25520"
+        )
 
 
 class TestUnrescuableIdentifierPreservation:
@@ -1279,30 +1398,47 @@ class TestMultipleDOTags:
     ``entry()``."""
 
     def test_the_first_do_is_stored_as_the_doi(self):
-        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"]))
+        csl = RISFormat().to_csl_json(
+            entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"])
+        )
         assert csl["DOI"] == "10.1002/ar.25520"
 
     def test_the_second_do_is_preserved(self):
-        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"]))
+        csl = RISFormat().to_csl_json(
+            entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2"])
+        )
         assert csl["custom"]["ris"]["DO"] == "10.1038/s41467-024-46843-2"
 
     def test_order_is_by_source_position_not_by_which_is_seen_last(self):
         """Swapping which DOI comes first in the source swaps which one is stored."""
-        csl = RISFormat().to_csl_json(entry(do=["10.1038/s41467-024-46843-2", "10.1002/ar.25520"]))
+        csl = RISFormat().to_csl_json(
+            entry(do=["10.1038/s41467-024-46843-2", "10.1002/ar.25520"])
+        )
         assert csl["DOI"] == "10.1038/s41467-024-46843-2"
         assert csl["custom"]["ris"]["DO"] == "10.1002/ar.25520"
 
     def test_three_do_tags_preserve_the_two_surplus_as_a_list(self):
         csl = RISFormat().to_csl_json(
-            entry(do=["10.1002/ar.25520", "10.1038/s41467-024-46843-2", "10.1186/s12862-024-02210-9"])
+            entry(
+                do=[
+                    "10.1002/ar.25520",
+                    "10.1038/s41467-024-46843-2",
+                    "10.1186/s12862-024-02210-9",
+                ]
+            )
         )
         assert csl["DOI"] == "10.1002/ar.25520"
-        assert csl["custom"]["ris"]["DO"] == ["10.1038/s41467-024-46843-2", "10.1186/s12862-024-02210-9"]
+        assert csl["custom"]["ris"]["DO"] == [
+            "10.1038/s41467-024-46843-2",
+            "10.1186/s12862-024-02210-9",
+        ]
 
     def test_surplus_values_are_normalized_the_same_way_as_the_first(self):
         """A surplus DOI written as a resolver URL still recovers through the shared normalizer
         before preservation (T018's own normalizer, applied uniformly)."""
-        csl = RISFormat().to_csl_json(entry(do=["10.1002/ar.25520", "https://doi.org/10.1038/s41467-024-46843-2"]))
+        csl = RISFormat().to_csl_json(
+            entry(do=["10.1002/ar.25520", "https://doi.org/10.1038/s41467-024-46843-2"])
+        )
         assert csl["custom"]["ris"]["DO"] == "10.1038/s41467-024-46843-2"
 
     def test_a_single_do_tag_is_unaffected(self):
@@ -1363,7 +1499,9 @@ class TestUnmappedTagPreservation:
             ("A4", "JOUR"),
         ],
     )
-    def test_a_contributor_tag_with_no_role_on_this_type_is_preserved(self, tag, ref_type):
+    def test_a_contributor_tag_with_no_role_on_this_type_is_preserved(
+        self, tag, ref_type
+    ):
         """A2, A3 and A4 resolve to a role on some reference types and not others (research.md
         R4's matrix). On a type where one does not resolve, the value is unmapped, so it belongs
         in this sweep -- it was being treated as mapped and swept by neither (decisions.md D43).
@@ -1381,7 +1519,9 @@ class TestUnmappedTagPreservation:
             ("A4", "BOOK", "translator"),
         ],
     )
-    def test_a_contributor_tag_with_a_role_on_this_type_is_not_also_preserved(self, tag, ref_type, role):
+    def test_a_contributor_tag_with_a_role_on_this_type_is_not_also_preserved(
+        self, tag, ref_type, role
+    ):
         """The other side of the same rule: where the tag does resolve, the role claims it and the
         sweep leaves it alone -- never both."""
         csl = RISFormat().to_csl_json(entry(ty=ref_type, **{tag.lower(): "Doe, Jane"}))
@@ -1428,18 +1568,27 @@ class TestSurplusIdentifierValues:
 
     def test_a_second_ur_value_is_preserved(self):
         csl = RISFormat().to_csl_json(
-            entry(ur=["https://www.embase.com/search?id=1", "https://dx.doi.org/10.1002/ar.25520"])
+            entry(
+                ur=[
+                    "https://www.embase.com/search?id=1",
+                    "https://dx.doi.org/10.1002/ar.25520",
+                ]
+            )
         )
         assert csl["URL"] == "https://www.embase.com/search?id=1"
         assert csl["custom"]["ris"]["UR"] == "https://dx.doi.org/10.1002/ar.25520"
 
     def test_a_third_ur_value_makes_the_surplus_a_list(self):
-        csl = RISFormat().to_csl_json(entry(ur=["https://a.example", "https://b.example", "https://c.example"]))
+        csl = RISFormat().to_csl_json(
+            entry(ur=["https://a.example", "https://b.example", "https://c.example"])
+        )
         assert csl["URL"] == "https://a.example"
         assert csl["custom"]["ris"]["UR"] == ["https://b.example", "https://c.example"]
 
     def test_an_invalid_first_ur_with_a_surplus_preserves_both(self):
-        csl = RISFormat().to_csl_json(entry(ur=["not a url at all", "https://b.example"]))
+        csl = RISFormat().to_csl_json(
+            entry(ur=["not a url at all", "https://b.example"])
+        )
         assert "URL" not in csl
         assert csl["custom"]["ris"]["UR"] == ["not a url at all", "https://b.example"]
 
@@ -1516,25 +1665,36 @@ class TestCitationKeys:
         assert csl["citation-key"] == "889"
 
     def test_no_id_mints_from_family_year_and_title_word(self):
-        csl = RISFormat().to_csl_json(entry(au="Boisvert, C.", py="2024", ti="Description of a new specimen"))
+        csl = RISFormat().to_csl_json(
+            entry(au="Boisvert, C.", py="2024", ti="Description of a new specimen")
+        )
         assert csl["citation-key"] == "boisvert2024description"
 
     def test_a_leading_stopword_is_skipped_for_the_title_word(self):
-        csl = RISFormat().to_csl_json(entry(au="Smith, J.", py="2020", ti="The organization of forests"))
+        csl = RISFormat().to_csl_json(
+            entry(au="Smith, J.", py="2020", ti="The organization of forests")
+        )
         assert csl["citation-key"] == "smith2020organization"
 
     def test_minting_is_deterministic(self):
         raw = entry(au="Wedel, M.", py="2024", ti="A review of sauropods")
-        assert RISFormat().to_csl_json(raw)["citation-key"] == RISFormat().to_csl_json(raw)["citation-key"]
+        assert (
+            RISFormat().to_csl_json(raw)["citation-key"]
+            == RISFormat().to_csl_json(raw)["citation-key"]
+        )
 
     def test_an_entry_too_sparse_to_mint_from_falls_back_to_its_index(self):
         """No author, so family/year/title-word cannot all be built."""
-        csl = RISFormat().to_csl_json(entry(py="2024", ti="A title with no author", index=7))
+        csl = RISFormat().to_csl_json(
+            entry(py="2024", ti="A title with no author", index=7)
+        )
         assert csl["citation-key"] == "7"
 
     def test_handle_for_reports_the_same_key_as_to_csl_json(self):
         raw = entry(au="Boisvert, C.", py="2024", ti="Description of a new specimen")
-        assert RISFormat().handle_for(raw) == RISFormat().to_csl_json(raw)["citation-key"]
+        assert (
+            RISFormat().handle_for(raw) == RISFormat().to_csl_json(raw)["citation-key"]
+        )
 
     def test_an_overlong_verbatim_id_fails_the_entry_naming_the_limit(self):
         raw = entry(id="x" * 300)
@@ -1565,7 +1725,9 @@ class TestReportedHandleIsTheStoredKey:
     """``entry_created`` reports the citation key as stored, suffix included, and a dry run still
     reports it while carrying no item (T016, FR-022, FR-002, SC-009)."""
 
-    _ONE_ENTRY = "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nID  - smith1\nER  -\n"
+    _ONE_ENTRY = (
+        "TY  - JOUR\nAU  - Smith, J.\nTI  - A title\nPY  - 2020\nID  - smith1\nER  -\n"
+    )
 
     @pytest.mark.django_db
     def test_a_created_entry_reports_its_stored_citation_key(self):
@@ -1580,7 +1742,10 @@ class TestReportedHandleIsTheStoredKey:
         """
         result = RISFormat().import_file(_ris_bytes(self._ONE_ENTRY, self._ONE_ENTRY))
         assert [e.handle for e in result.created] == ["smith1", "smith1"]
-        assert list(Item.objects.values_list("citation_key", flat=True)) == ["smith1", "smith1"]
+        assert list(Item.objects.values_list("citation_key", flat=True)) == [
+            "smith1",
+            "smith1",
+        ]
 
     @pytest.mark.django_db
     def test_a_dry_run_still_reports_the_key_while_carrying_no_item(self):
@@ -1687,7 +1852,8 @@ class TestEquivalenceAcrossProducers:
             assert result.ok, producer
             assert len(result.created) == 10, producer
             by_producer[producer] = {
-                created.item.item_identifiers.get(type="DOI").value: created.item for created in result.created
+                created.item.item_identifiers.get(type="DOI").value: created.item
+                for created in result.created
             }
         return by_producer
 
@@ -1702,7 +1868,9 @@ class TestEquivalenceAcrossProducers:
     def test_entry_type_is_equivalent_across_all_four(self):
         by_producer = self._import_all()
         for doi in by_producer["endnote"]:
-            types = {producer: items[doi].type for producer, items in by_producer.items()}
+            types = {
+                producer: items[doi].type for producer, items in by_producer.items()
+            }
             assert len(set(types.values())) == 1, (doi, types)
 
     @pytest.mark.django_db
@@ -1711,7 +1879,10 @@ class TestEquivalenceAcrossProducers:
         for doi in by_producer["endnote"]:
             families = {
                 producer: [
-                    item_name.name.family for item_name in items[doi].item_names.filter(role="author").order_by("order")
+                    item_name.name.family
+                    for item_name in items[doi]
+                    .item_names.filter(role="author")
+                    .order_by("order")
                 ]
                 for producer, items in by_producer.items()
             }
@@ -1732,10 +1903,14 @@ class TestEquivalenceAcrossProducers:
         by_producer = self._import_all()
         for doi in by_producer["endnote"]:
             for producer, items in by_producer.items():
-                assert items[doi].item_identifiers.get(type="DOI").value == doi, producer
+                assert items[doi].item_identifiers.get(type="DOI").value == doi, (
+                    producer
+                )
 
     @pytest.mark.django_db
-    def test_issn_identifier_diverges_endnote_scopus_and_webofscience_carry_one_mendeley_none(self):
+    def test_issn_identifier_diverges_endnote_scopus_and_webofscience_carry_one_mendeley_none(
+        self,
+    ):
         """The first genuine divergence D36 names: EndNote's ``SN`` resolves an ISSN identifier
         for every one of the ten entries, and the two constructed files -- mechanical re-encodings
         of EndNote's own ``SN`` values -- carry the identical value. Mendeley emits no ``SN`` tag
@@ -1744,11 +1919,17 @@ class TestEquivalenceAcrossProducers:
         by_producer = self._import_all()
         for doi in by_producer["endnote"]:
             issn = {
-                producer: by_producer[producer][doi].item_identifiers.get(type="ISSN").value
+                producer: by_producer[producer][doi]
+                .item_identifiers.get(type="ISSN")
+                .value
                 for producer in ("endnote", "scopus", "webofscience")
             }
             assert len(set(issn.values())) == 1, (doi, issn)
-            assert not by_producer["mendeley"][doi].item_identifiers.filter(type="ISSN").exists(), doi
+            assert (
+                not by_producer["mendeley"][doi]
+                .item_identifiers.filter(type="ISSN")
+                .exists()
+            ), doi
 
     @pytest.mark.django_db
     def test_initials_punctuation_diverges_between_endnote_and_mendeley(self):
@@ -1764,7 +1945,9 @@ class TestEquivalenceAcrossProducers:
         def given_names(producer, doi):
             return [
                 item_name.name.given
-                for item_name in by_producer[producer][doi].item_names.filter(role="author").order_by("order")
+                for item_name in by_producer[producer][doi]
+                .item_names.filter(role="author")
+                .order_by("order")
             ]
 
         brownstein_doi = "10.1186/s12862-024-02210-9"
@@ -1786,7 +1969,9 @@ class TestEndToEnd:
     SC-001, SC-007)."""
 
     @pytest.mark.django_db
-    def test_every_entry_is_created_in_source_order_with_its_own_id_as_the_citation_key(self):
+    def test_every_entry_is_created_in_source_order_with_its_own_id_as_the_citation_key(
+        self,
+    ):
         with fixture("genuine/endnote.ris") as handle:
             result = RISFormat().import_file(handle)
 
@@ -1817,7 +2002,10 @@ class TestEndToEnd:
             RISFormat().import_file(handle)
 
         item = Item.objects.get(citation_key="889")
-        authors = [item_name.name for item_name in item.item_names.filter(role="author").order_by("order")]
+        authors = [
+            item_name.name
+            for item_name in item.item_names.filter(role="author").order_by("order")
+        ]
         assert [(a.family, a.given) for a in authors] == [
             ("Boisvert", "C."),
             ("Curtice", "B."),
@@ -1909,7 +2097,9 @@ class TestUnmappedTagCoverage:
     @pytest.mark.parametrize("relative_path", GENUINE_FILES)
     def test_every_tag_is_mapped_or_retrievable(self, relative_path):
         with fixture(relative_path) as handle:
-            raw_entries = [e for e in RISParser().parse(handle) if isinstance(e, RISEntry)]
+            raw_entries = [
+                e for e in RISParser().parse(handle) if isinstance(e, RISEntry)
+            ]
 
         with fixture(relative_path) as handle:
             result = RISFormat().import_file(handle)
@@ -1929,9 +2119,9 @@ class TestUnmappedTagCoverage:
 #: Every file in the corpus that is expected to fail cleanly or not at all -- every constructed
 #: and negative fixture together, discovered from the two directories rather than hand-listed, the
 #: same reasoning ``GENUINE_FILES`` above already applies to the genuine corpus.
-_ALL_CORPUS_FILES = sorted(f"constructed/{p.name}" for p in (DATA / "constructed").glob("*.ris")) + sorted(
-    f"negative/{p.name}" for p in (DATA / "negative").glob("*.ris")
-)
+_ALL_CORPUS_FILES = sorted(
+    f"constructed/{p.name}" for p in (DATA / "constructed").glob("*.ris")
+) + sorted(f"negative/{p.name}" for p in (DATA / "negative").glob("*.ris"))
 
 
 class TestUntrustedInput:
@@ -1974,15 +2164,26 @@ class TestUntrustedInput:
         """No import in ``ris.py`` that could execute, spawn, read an arbitrary path, or connect
         on file content -- the same static check ``test_bibtex.py`` runs for the sibling format.
         """
-        source = (Path(__file__).parent.parent.parent / "literature" / "importers" / "ris.py").read_text(
-            encoding="utf-8"
-        )
-        for forbidden in ("subprocess", "socket", "urllib", "requests", "os.system", "eval(", "exec(", "pickle"):
+        source = (
+            Path(__file__).parent.parent.parent / "literature" / "importers" / "ris.py"
+        ).read_text(encoding="utf-8")
+        for forbidden in (
+            "subprocess",
+            "socket",
+            "urllib",
+            "requests",
+            "os.system",
+            "eval(",
+            "exec(",
+            "pickle",
+        ):
             assert forbidden not in source, forbidden
 
     def test_to_csl_json_opens_no_file(self, monkeypatch):
         def _forbidden_open(*args, **kwargs):
-            raise AssertionError(f"conversion opened a file: args={args!r} kwargs={kwargs!r}")
+            raise AssertionError(
+                f"conversion opened a file: args={args!r} kwargs={kwargs!r}"
+            )
 
         monkeypatch.setattr("builtins.open", _forbidden_open)
 
@@ -2037,7 +2238,8 @@ class TestUntrustedInput:
             "(ISSN)" * 2000,  # repeated close pattern for the same regex
             "9" * 5000,  # a very long run against the bare-ISSN-shape regex
             "a" * 50000,  # a very long plain value
-            "O'Brien-" * 3000 + ", J.",  # citation-key family-name punctuation-stripping regex
+            "O'Brien-" * 3000
+            + ", J.",  # citation-key family-name punctuation-stripping regex
             "the " * 5000 + "Title",  # citation-key title-word stopword scan
         ],
     )
@@ -2046,7 +2248,9 @@ class TestUntrustedInput:
         out if a regex in this module ever becomes quadratic (mirrors ``test_bibtex.py``'s test of
         the same name, against this module's own patterns instead of BibTeX's).
         """
-        csl = RISFormat().to_csl_json(entry(ty="JOUR", au=f"{hostile[:50]}, J.", ti=hostile, sn=hostile))
+        csl = RISFormat().to_csl_json(
+            entry(ty="JOUR", au=f"{hostile[:50]}, J.", ti=hostile, sn=hostile)
+        )
         assert isinstance(csl, dict)
 
     @pytest.mark.django_db
@@ -2063,7 +2267,16 @@ class TestUntrustedInput:
     @pytest.mark.parametrize(
         "separator",
         ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"],
-        ids=["vertical-tab", "form-feed", "file-sep", "group-sep", "record-sep", "nel", "line-sep", "para-sep"],
+        ids=[
+            "vertical-tab",
+            "form-feed",
+            "file-sep",
+            "group-sep",
+            "record-sep",
+            "nel",
+            "line-sep",
+            "para-sep",
+        ],
     )
     def test_only_cr_lf_and_crlf_end_a_line(self, separator):
         """D41: every character above ends a line for ``str.splitlines`` and for no RIS producer.
@@ -2080,7 +2293,10 @@ class TestUntrustedInput:
     def test_a_line_break_still_ends_a_line(self):
         """The other half of D41: narrowing the separator set must not stop CR or CRLF working."""
         for newline in ("\n", "\r\n", "\r"):
-            source = newline.join(["TY  - JOUR", "TI  - A title", "PY  - 2020", "ER  - "]) + newline
+            source = (
+                newline.join(["TY  - JOUR", "TI  - A title", "PY  - 2020", "ER  - "])
+                + newline
+            )
             entries = list(RISParser().parse(io.BytesIO(source.encode("utf-8"))))
             assert len(entries) == 1, newline
             assert dict(entries[0].tags)["TI"] == "A title", newline
@@ -2095,7 +2311,9 @@ class TestPublishedMapping:
     def test_the_document_on_disk_matches_the_tables(self):
         from literature.importers.ris import _mapping_document
 
-        published = (Path(__file__).parent.parent.parent / "docs" / "ris-mapping.md").read_text(encoding="utf-8")
+        published = (
+            Path(__file__).parent.parent.parent / "docs" / "ris-mapping.md"
+        ).read_text(encoding="utf-8")
         assert published == _mapping_document(), (
             "docs/ris-mapping.md is stale — regenerate it from literature.importers.ris._mapping_document()"
         )

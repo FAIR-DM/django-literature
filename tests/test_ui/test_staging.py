@@ -33,7 +33,9 @@ class TestStagedUpload:
         with staging.open(token) as handle:
             assert handle.read() == b"the file's own bytes"
 
-    def test_reading_with_a_token_this_session_did_not_issue_returns_nothing(self, staging):
+    def test_reading_with_a_token_this_session_did_not_issue_returns_nothing(
+        self, staging
+    ):
         assert staging.open("not-a-token-anyone-issued") is None
 
     def test_a_staged_file_is_removed_on_discard(self, staging):
@@ -44,12 +46,16 @@ class TestStagedUpload:
     def test_discarding_a_token_that_was_never_staged_does_not_raise(self, staging):
         staging.discard("never-issued")
 
-    def test_a_staged_file_older_than_the_retention_window_is_swept_and_a_fresh_one_is_not(self, staging):
+    def test_a_staged_file_older_than_the_retention_window_is_swept_and_a_fresh_one_is_not(
+        self, staging
+    ):
         stale_token = staging.save(ContentFile(b"stale", name="stale.bib"))
         fresh_token = staging.save(ContentFile(b"fresh", name="fresh.bib"))
 
         stale_path = staging.storage.path(f"{staging.directory}/{stale_token}")
-        backdated = (timezone.now() - RETENTION_WINDOW - timedelta(minutes=1)).timestamp()
+        backdated = (
+            timezone.now() - RETENTION_WINDOW - timedelta(minutes=1)
+        ).timestamp()
         os.utime(stale_path, (backdated, backdated))
 
         staging.sweep()
@@ -68,7 +74,9 @@ class TestStagedUpload:
         # between the listing and the check on its age.
         token = staging.save(ContentFile(b"stale", name="stale.bib"))
         path = staging.storage.path(f"{staging.directory}/{token}")
-        backdated = (timezone.now() - RETENTION_WINDOW - timedelta(minutes=1)).timestamp()
+        backdated = (
+            timezone.now() - RETENTION_WINDOW - timedelta(minutes=1)
+        ).timestamp()
         os.utime(path, (backdated, backdated))
 
         real_get_modified_time = staging.storage.get_modified_time

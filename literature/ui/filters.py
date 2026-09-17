@@ -76,8 +76,12 @@ def annotate_issued(queryset):
     'year'``. Ordering (``ItemTable.order_issued``) is unaffected either way,
     since it sorts on the raw column value, not through a lookup.
     """
-    issued_begin = ItemDate.objects.filter(item=OuterRef("pk"), date_type=DateType.ISSUED).values("begin")[:1]
-    return queryset.annotate(issued=Subquery(issued_begin, output_field=DateTimeField()))
+    issued_begin = ItemDate.objects.filter(
+        item=OuterRef("pk"), date_type=DateType.ISSUED
+    ).values("begin")[:1]
+    return queryset.annotate(
+        issued=Subquery(issued_begin, output_field=DateTimeField())
+    )
 
 
 class ScalarOrListSelectMultiple(forms.SelectMultiple):
@@ -143,9 +147,13 @@ class ItemFilterSet(django_filters.FilterSet):
     type = django_filters.MultipleChoiceFilter(
         choices=ItemType.choices, label=_("Type"), widget=ScalarOrListSelectMultiple
     )
-    contributor = django_filters.CharFilter(method="filter_contributor", label=_("Contributor"))
+    contributor = django_filters.CharFilter(
+        method="filter_contributor", label=_("Contributor")
+    )
     language = LanguageFilter(label=_("Language"))
-    issued_year = django_filters.NumberFilter(method="filter_issued_year", label=_("Year"))
+    issued_year = django_filters.NumberFilter(
+        method="filter_issued_year", label=_("Year")
+    )
 
     # Not one of the four catalogue filters (FR-009 to FR-013): carries the
     # table's own sort (django-tables2's `order_by_field`, "sort") across a
@@ -161,7 +169,9 @@ class ItemFilterSet(django_filters.FilterSet):
     # what it reports as an applied filter (decisions.md D20's own
     # correction): a hidden field is still a form field, and django-mvp
     # counts every non-empty one.
-    sort = django_filters.CharFilter(method="filter_sort", widget=forms.HiddenInput(), required=False)
+    sort = django_filters.CharFilter(
+        method="filter_sort", widget=forms.HiddenInput(), required=False
+    )
 
     class Meta:
         model = Item

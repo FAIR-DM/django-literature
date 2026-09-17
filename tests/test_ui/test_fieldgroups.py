@@ -177,11 +177,16 @@ class TestDateSlotAssignment:
         # post-weblog's own one-line definition ("A blog post") never uses
         # the word "online" the way post's does, so it stays at the baseline
         # rather than borrowing its sibling's evidence.
-        assert DateType.ACCESSED not in FieldGroups.TYPE_DATE_SLOTS[ItemType.POST_WEBLOG]
+        assert (
+            DateType.ACCESSED not in FieldGroups.TYPE_DATE_SLOTS[ItemType.POST_WEBLOG]
+        )
 
     def test_paper_conference_leads_with_event_date(self):
         # D-5's own example, and the type already carries `event` in TYPE_GROUPS.
-        assert DateType.EVENT_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.PAPER_CONFERENCE]
+        assert (
+            DateType.EVENT_DATE
+            in FieldGroups.TYPE_DATE_SLOTS[ItemType.PAPER_CONFERENCE]
+        )
 
     def test_event_speech_and_performance_lead_with_event_date(self):
         for item_type in (ItemType.EVENT, ItemType.SPEECH, ItemType.PERFORMANCE):
@@ -204,7 +209,10 @@ class TestDateSlotAssignment:
         # Appendix IV's own definition of `available-date`: "e.g. the online
         # publication date of a journal article before its formal
         # publication date".
-        assert DateType.AVAILABLE_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.ARTICLE_JOURNAL]
+        assert (
+            DateType.AVAILABLE_DATE
+            in FieldGroups.TYPE_DATE_SLOTS[ItemType.ARTICLE_JOURNAL]
+        )
 
     def test_treaty_leads_with_available_date(self):
         # Appendix IV's own definition of `available-date`: "the date a

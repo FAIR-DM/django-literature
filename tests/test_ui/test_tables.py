@@ -27,7 +27,9 @@ def issued_annotated_queryset():
     """The same ``issued`` annotation ``ItemTableView.get_queryset()`` builds
     (T017), rebuilt here so ``order_issued`` can be exercised without a view
     or an HTTP request."""
-    issued_begin = ItemDate.objects.filter(item=OuterRef("pk"), date_type=DateType.ISSUED).values("begin")[:1]
+    issued_begin = ItemDate.objects.filter(
+        item=OuterRef("pk"), date_type=DateType.ISSUED
+    ).values("begin")[:1]
     return Item.objects.annotate(issued=Subquery(issued_begin))
 
 
@@ -157,17 +159,30 @@ class TestTitleColumn:
         assert "Original Form" in rendered_cell(item, "title")
 
     def test_falls_back_to_volume_title_when_earlier_rungs_are_all_absent(self, db):
-        item = ItemFactory(title="", title_short="", original_title="", volume_title="Volume Form")
+        item = ItemFactory(
+            title="", title_short="", original_title="", volume_title="Volume Form"
+        )
         assert "Volume Form" in rendered_cell(item, "title")
 
-    def test_falls_back_to_the_citation_key_when_the_item_carries_no_title_at_all(self, db):
-        item = ItemFactory(title="", title_short="", original_title="", volume_title="", citation_key="FallbackKey2026")
+    def test_falls_back_to_the_citation_key_when_the_item_carries_no_title_at_all(
+        self, db
+    ):
+        item = ItemFactory(
+            title="",
+            title_short="",
+            original_title="",
+            volume_title="",
+            citation_key="FallbackKey2026",
+        )
         assert "FallbackKey2026" in rendered_cell(item, "title")
 
     def test_links_to_the_items_own_detail_page(self, db):
         item = ItemFactory(title="A Linked Title")
         content = rendered_cell(item, "title")
-        assert f'href="{reverse("literature:item-detail", kwargs={"pk": item.pk})}"' in content
+        assert (
+            f'href="{reverse("literature:item-detail", kwargs={"pk": item.pk})}"'
+            in content
+        )
 
     def test_link_carries_the_hover_underline_classes(self, db):
         item = ItemFactory(title="A Followable Title")
@@ -245,7 +260,9 @@ class TestContributorsColumn:
             assert str(item_name.name) in content
         assert "other" not in content
 
-    def test_more_than_three_names_shows_the_first_three_and_the_count_of_the_rest(self, db):
+    def test_more_than_three_names_shows_the_first_three_and_the_count_of_the_rest(
+        self, db
+    ):
         item = ItemFactory()
         names = [ItemNameFactory(item=item, role=NameRole.AUTHOR) for _ in range(5)]
         item.contributors = names
@@ -262,7 +279,9 @@ class TestContributorsColumn:
 
     def test_exactly_one_name_beyond_the_first_three_reads_in_the_singular(self, db):
         item = ItemFactory()
-        item.contributors = [ItemNameFactory(item=item, role=NameRole.AUTHOR) for _ in range(4)]
+        item.contributors = [
+            ItemNameFactory(item=item, role=NameRole.AUTHOR) for _ in range(4)
+        ]
         content = rendered_cell_from_record(item, "contributors")
         assert "and 1 other" in content
         assert "others" not in content
@@ -272,7 +291,9 @@ class TestContributorsColumn:
         item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
         item.contributors = [item_name]
         content = rendered_cell_from_record(item, "contributors")
-        contributor_url = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        contributor_url = reverse(
+            "literature:contributor-detail", kwargs={"pk": item_name.name.pk}
+        )
         assert f'href="{contributor_url}"' in content
 
     def test_a_name_containing_markup_renders_escaped(self, db):
@@ -284,7 +305,9 @@ class TestContributorsColumn:
         assert "<script>" not in content
         assert "&lt;script&gt;" in content
 
-    def test_a_record_carrying_no_contributors_attribute_degrades_rather_than_raising(self, db):
+    def test_a_record_carrying_no_contributors_attribute_degrades_rather_than_raising(
+        self, db
+    ):
         # research R9 — a record drawn through a plain SingleTableView with
         # no prefetch has no "contributors" attribute at all.
         item = ItemFactory()
@@ -317,7 +340,9 @@ class TestIssuedColumn:
         table = ItemTable(issued_annotated_queryset())
         assert table.columns["issued"].orderable is True
 
-    def test_year_only_precision_shows_the_year_without_inventing_a_month_or_day(self, db):
+    def test_year_only_precision_shows_the_year_without_inventing_a_month_or_day(
+        self, db
+    ):
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1998")
         content = rendered_cell(item, "issued")
@@ -338,7 +363,9 @@ class TestIssuedColumn:
 
     def test_a_free_text_literal_date(self, db):
         item = ItemFactory()
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=None, literal="in press")
+        ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=None, literal="in press"
+        )
         assert "in press" in rendered_cell(item, "issued")
 
     def test_no_issued_date_at_all_renders_the_empty_value_marker(self, db):
@@ -368,7 +395,10 @@ class TestActionsColumn:
         assert ItemTable.base_columns["actions"].verbose_name == ""
 
     def test_uses_the_table_actions_template(self):
-        assert ItemTable.base_columns["actions"].template_name == "literature/ui/table_actions.html"
+        assert (
+            ItemTable.base_columns["actions"].template_name
+            == "literature/ui/table_actions.html"
+        )
 
     def test_links_to_the_records_own_update_page(self, db):
         item = ItemFactory()
@@ -381,9 +411,17 @@ class TestActionsColumn:
         second = ItemFactory()
         first_content = rendered_cell(first, "actions")
         second_content = rendered_cell(second, "actions")
-        assert reverse("literature:item-update", kwargs={"pk": first.pk}) in first_content
-        assert reverse("literature:item-update", kwargs={"pk": second.pk}) not in first_content
-        assert reverse("literature:item-update", kwargs={"pk": second.pk}) in second_content
+        assert (
+            reverse("literature:item-update", kwargs={"pk": first.pk}) in first_content
+        )
+        assert (
+            reverse("literature:item-update", kwargs={"pk": second.pk})
+            not in first_content
+        )
+        assert (
+            reverse("literature:item-update", kwargs={"pk": second.pk})
+            in second_content
+        )
 
     def test_shown_by_default(self, db):
         # A bare ItemTable (no show_update_action passed at all) is open —
@@ -531,8 +569,12 @@ class TestOutcomeColumn:
         ],
         ids=["created", "skipped", "failed"],
     )
-    def test_each_outcome_renders_its_own_mapped_variant(self, outcome, variant, reason):
-        row = ImportReportRow(position=1, outcome=outcome, citation_key=None, reason=reason, item_url=None)
+    def test_each_outcome_renders_its_own_mapped_variant(
+        self, outcome, variant, reason
+    ):
+        row = ImportReportRow(
+            position=1, outcome=outcome, citation_key=None, reason=reason, item_url=None
+        )
         content = import_report_cell([row], "outcome")
         assert f"badge-{variant}" in content
 
@@ -543,7 +585,13 @@ class TestOutcomeColumn:
             (Outcome.SKIPPED, None),
             (Outcome.FAILED, "broken"),
         ):
-            row = ImportReportRow(position=1, outcome=outcome, citation_key=None, reason=reason, item_url=None)
+            row = ImportReportRow(
+                position=1,
+                outcome=outcome,
+                citation_key=None,
+                reason=reason,
+                item_url=None,
+            )
             content = import_report_cell([row], "outcome")
             match = re.search(r"badge-(\S+)", content)
             assert match, content
@@ -554,7 +602,13 @@ class TestOutcomeColumn:
         # The badge wraps the label, it does not replace it (hazards) — a
         # badge showing only its variant, with the word gone, is a
         # regression on FR-019's own distinguishing signal.
-        row = ImportReportRow(position=1, outcome=Outcome.FAILED, citation_key=None, reason="broken", item_url=None)
+        row = ImportReportRow(
+            position=1,
+            outcome=Outcome.FAILED,
+            citation_key=None,
+            reason="broken",
+            item_url=None,
+        )
         content = import_report_cell([row], "outcome")
         assert "Failed" in content
 
@@ -563,17 +617,36 @@ class TestImportReportTable:
     """``ImportReportTable`` — one row per import entry, no queryset behind it (US-1, FR-019)."""
 
     def test_renders_a_list_of_rows_with_no_queryset(self):
-        rows = [ImportReportRow(position=1, outcome=Outcome.SKIPPED, citation_key=None, reason=None, item_url=None)]
+        rows = [
+            ImportReportRow(
+                position=1,
+                outcome=Outcome.SKIPPED,
+                citation_key=None,
+                reason=None,
+                item_url=None,
+            )
+        ]
         table = ImportReportTable(rows)
         assert [row.record for row in table.rows] == rows
 
     def test_every_column_is_present(self):
-        assert set(ImportReportTable.base_columns) == {"position", "citation_key", "outcome", "reason"}
+        assert set(ImportReportTable.base_columns) == {
+            "position",
+            "citation_key",
+            "outcome",
+            "reason",
+        }
 
     def test_the_outcome_cell_renders_the_outcomes_own_translated_label(self):
         # FR-019 — this is what keeps a failed entry distinguishable in
         # place: the word itself, not a class or an icon a reader could miss.
-        row = ImportReportRow(position=1, outcome=Outcome.FAILED, citation_key=None, reason="broken", item_url=None)
+        row = ImportReportRow(
+            position=1,
+            outcome=Outcome.FAILED,
+            citation_key=None,
+            reason="broken",
+            item_url=None,
+        )
         content = import_report_cell([row], "outcome")
         assert "Failed" in content
         assert "failed" not in content  # the stored value, not the label
@@ -593,34 +666,56 @@ class TestImportReportTable:
     def test_a_skipped_rows_reason_renders_in_the_same_column_a_failures_uses(self):
         """T606, D18: no second column for a skip's reason — the same one a failure uses."""
         row = ImportReportRow(
-            position=1, outcome=Outcome.SKIPPED, citation_key=None, reason="a @comment block", item_url=None
+            position=1,
+            outcome=Outcome.SKIPPED,
+            citation_key=None,
+            reason="a @comment block",
+            item_url=None,
         )
         content = import_report_cell([row], "reason")
         assert "a @comment block" in content
 
     def test_a_created_rows_position_links_to_the_item(self):
         row = ImportReportRow(
-            position=1, outcome=Outcome.CREATED, citation_key="Doe2024", reason=None, item_url="/catalogue/1/"
+            position=1,
+            outcome=Outcome.CREATED,
+            citation_key="Doe2024",
+            reason=None,
+            item_url="/catalogue/1/",
         )
         content = import_report_cell([row], "position")
         assert 'href="/catalogue/1/"' in content
 
     def test_a_failed_rows_position_does_not_link(self):
-        row = ImportReportRow(position=1, outcome=Outcome.FAILED, citation_key=None, reason="broken", item_url=None)
+        row = ImportReportRow(
+            position=1,
+            outcome=Outcome.FAILED,
+            citation_key=None,
+            reason="broken",
+            item_url=None,
+        )
         content = import_report_cell([row], "position")
         assert "href=" not in content
 
     def test_a_created_row_whose_entry_carries_no_citation_key_still_links(self):
         # AS-10 — the link hangs on the position, never on the (absent) key.
         row = ImportReportRow(
-            position=1, outcome=Outcome.CREATED, citation_key=None, reason=None, item_url="/catalogue/1/"
+            position=1,
+            outcome=Outcome.CREATED,
+            citation_key=None,
+            reason=None,
+            item_url="/catalogue/1/",
         )
         content = import_report_cell([row], "position")
         assert 'href="/catalogue/1/"' in content
 
     def test_the_citation_key_renders_as_plain_text_not_a_link(self):
         row = ImportReportRow(
-            position=1, outcome=Outcome.CREATED, citation_key="Doe2024", reason=None, item_url="/catalogue/1/"
+            position=1,
+            outcome=Outcome.CREATED,
+            citation_key="Doe2024",
+            reason=None,
+            item_url="/catalogue/1/",
         )
         content = import_report_cell([row], "citation_key")
         assert "Doe2024" in content

@@ -9,7 +9,9 @@ from django.urls import reverse
 
 from literature.ui.tables import OutcomeColumn
 
-APP_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
+APP_TEMPLATES_DIR = (
+    Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
+)
 TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
 #: The Cotton action component directory — widened here (T111, US-1) so the
 #: i18n and utility-class guards below also reach the new toolbar action
@@ -17,7 +19,9 @@ TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
 #: ``literature/ui/templates/literature/ui/*.html``, so a component shipped
 #: under ``cotton/page/list/actions/`` was checked by neither guard.
 COTTON_ACTIONS_DIR = APP_TEMPLATES_DIR / "cotton" / "page" / "list" / "actions"
-TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html")) + sorted(COTTON_ACTIONS_DIR.glob("*.html"))
+TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html")) + sorted(
+    COTTON_ACTIONS_DIR.glob("*.html")
+)
 PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
 
@@ -40,7 +44,9 @@ class TestTheBaseTemplateIsNoLongerOurs:
     def test_the_app_ships_no_base_template_of_its_own(self):
         assert not PASSTHROUGH_BASE.exists()
 
-    def test_the_packaged_chain_resolves_for_a_project_with_no_base_template(self, settings):
+    def test_the_packaged_chain_resolves_for_a_project_with_no_base_template(
+        self, settings
+    ):
         settings.TEMPLATES = [{**settings.TEMPLATES[0], "DIRS": []}]
         from django.template.loader import get_template
 
@@ -119,7 +125,9 @@ def expand(pattern: str) -> list[str]:
             options.append(part)
     expanded: list[str] = []
     for option in options:
-        expanded.extend(expand(pattern[: match.start()] + option + pattern[match.end() :]))
+        expanded.extend(
+            expand(pattern[: match.start()] + option + pattern[match.end() :])
+        )
     return expanded
 
 
@@ -258,7 +266,9 @@ PALETTE = [
     "base-content",
 ]
 
-COLOUR_ALLOWED = {f"{prefix}-{colour}" for prefix in ("bg", "text", "border") for colour in PALETTE}
+COLOUR_ALLOWED = {
+    f"{prefix}-{colour}" for prefix in ("bg", "text", "border") for colour in PALETTE
+}
 STATE_ALLOWED = COLOUR_ALLOWED | {"opacity-75", "opacity-100", "underline"}
 
 RESPONSIVE_PREFIXES = ("md:", "lg:", "xl:")
@@ -310,7 +320,11 @@ def is_allowed_utility_class(token: str) -> bool:
     for prefix in RESPONSIVE_PREFIXES:
         if token.startswith(prefix):
             return token[len(prefix) :] in RESPONSIVE_ALLOWED
-    return token in RESPONSIVE_ALLOWED or token in BASE_ONLY_ALLOWED or token in COLOUR_ALLOWED
+    return (
+        token in RESPONSIVE_ALLOWED
+        or token in BASE_ONLY_ALLOWED
+        or token in COLOUR_ALLOWED
+    )
 
 
 class TestUtilityClassAllowlist:
@@ -328,13 +342,24 @@ class TestUtilityClassAllowlist:
     def test_every_class_token_is_allowlisted(self, template_path):
         tokens = extract_class_tokens(template_path.read_text())
         disallowed = [token for token in tokens if not is_allowed_utility_class(token)]
-        assert not disallowed, f"{template_path.name}: non-allowlisted class token(s) {disallowed}"
+        assert not disallowed, (
+            f"{template_path.name}: non-allowlisted class token(s) {disallowed}"
+        )
 
     @pytest.mark.parametrize(
         "token",
-        ["w-[37px]", "text-base-content/60", "sm:flex", "2xl:hidden", "sm:hidden", "2xl:block"],
+        [
+            "w-[37px]",
+            "text-base-content/60",
+            "sm:flex",
+            "2xl:hidden",
+            "sm:hidden",
+            "2xl:block",
+        ],
     )
-    def test_rejects_arbitrary_values_opacity_modifiers_and_disallowed_prefixes(self, token):
+    def test_rejects_arbitrary_values_opacity_modifiers_and_disallowed_prefixes(
+        self, token
+    ):
         assert not is_allowed_utility_class(token)
 
     @pytest.mark.parametrize(
@@ -372,9 +397,19 @@ class TestUtilityClassAllowlist:
 #: Attributes whose value is shown to a reader as language. Everything else —
 #: ``size``, ``cols``, ``md``, ``gap``, ``muted``, ``name`` — configures a
 #: component and is not translated.
-READER_FACING_ATTRIBUTES = ("title", "label", "text", "heading", "message", "placeholder", "alt")
+READER_FACING_ATTRIBUTES = (
+    "title",
+    "label",
+    "text",
+    "heading",
+    "message",
+    "placeholder",
+    "alt",
+)
 
-BLOCKTRANSLATE_RE = re.compile(r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL)
+BLOCKTRANSLATE_RE = re.compile(
+    r"\{%\s*blocktranslate\b.*?%\}.*?\{%\s*endblocktranslate\s*%\}", re.DOTALL
+)
 TRANSLATE_TAG_RE = re.compile(r"\{%\s*trans(?:late)?\s+[\"'][^\"']*[\"']\s*%\}")
 #: ``{# … #}`` is a SINGLE-LINE comment. Django's own lexer compiles
 #: ``({%.*?%}|{{.*?}}|{#.*?#})`` without ``re.DOTALL``, so a ``{#`` whose ``#}``
@@ -440,7 +475,9 @@ def unwrapped_reader_attributes(source: str) -> list[str]:
     text = TRANSLATE_TAG_RE.sub(" ", text)
     text = DJANGO_TAG_RE.sub(" ", text)
     text = DJANGO_VAR_RE.sub(" ", text)
-    return [value for value in READER_ATTRIBUTE_RE.findall(text) if LETTER_RE.search(value)]
+    return [
+        value for value in READER_ATTRIBUTE_RE.findall(text) if LETTER_RE.search(value)
+    ]
 
 
 def has_unwrapped_reader_text(source: str) -> bool:
@@ -473,13 +510,19 @@ class TestI18nGuard:
         assert has_unwrapped_reader_text("<c-text>Showing results</c-text>")
 
     def test_accepts_the_same_string_wrapped_in_translate(self):
-        assert not has_unwrapped_reader_text('<c-text>{% translate "Showing results" %}</c-text>')
+        assert not has_unwrapped_reader_text(
+            '<c-text>{% translate "Showing results" %}</c-text>'
+        )
 
     def test_ignores_prose_inside_a_template_comment(self):
-        assert not has_unwrapped_reader_text("{# a note to the next reader of this file #}")
+        assert not has_unwrapped_reader_text(
+            "{# a note to the next reader of this file #}"
+        )
 
     def test_ignores_prose_inside_a_block_comment(self):
-        assert not has_unwrapped_reader_text("{% comment %}\n  a note\n  over several lines\n{% endcomment %}")
+        assert not has_unwrapped_reader_text(
+            "{% comment %}\n  a note\n  over several lines\n{% endcomment %}"
+        )
 
     def test_detects_prose_in_a_multiline_single_line_comment(self):
         # Django's lexer has no re.DOTALL, so this is not a comment at all: the
@@ -495,7 +538,9 @@ class TestI18nGuard:
         )
 
     def test_accepts_translate_used_inside_an_attribute_value(self):
-        assert not has_unwrapped_reader_text('<c-section title="{% translate "Dates" %}">')
+        assert not has_unwrapped_reader_text(
+            '<c-section title="{% translate "Dates" %}">'
+        )
 
     @pytest.mark.parametrize(
         "fragment",
@@ -520,16 +565,28 @@ class TestI18nGuard:
         )
 
     def test_detects_a_hard_coded_reader_facing_attribute(self):
-        assert unwrapped_reader_attributes('<c-section title="Contributors">') == ["Contributors"]
+        assert unwrapped_reader_attributes('<c-section title="Contributors">') == [
+            "Contributors"
+        ]
 
     def test_accepts_a_reader_facing_attribute_built_from_translate(self):
-        assert unwrapped_reader_attributes('<c-section title="{% translate "Contributors" %}">') == []
+        assert (
+            unwrapped_reader_attributes(
+                '<c-section title="{% translate "Contributors" %}">'
+            )
+            == []
+        )
 
     def test_accepts_a_reader_facing_attribute_built_from_a_variable(self):
         assert unwrapped_reader_attributes('<c-data-field label="{{ label }}" />') == []
 
     def test_ignores_configuration_attributes(self):
-        assert unwrapped_reader_attributes('<c-text size="sm" muted><c-grid cols="1" md="2" gap="4">') == []
+        assert (
+            unwrapped_reader_attributes(
+                '<c-text size="sm" muted><c-grid cols="1" md="2" gap="4">'
+            )
+            == []
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -540,7 +597,9 @@ class TestI18nGuard:
 #: ``EntryError`` (``literature/importers/ris.py``), reused here from
 #: ``tests/test_ui/test_views.py``'s own fixture so the report page under
 #: test always carries at least one row.
-IMPORT_RIS_FIXTURE = "TY  - JOUR\nAU  - Doe, Jane\nTI  - A Working RIS Reference\nPY  - 2020\nER  -\n"
+IMPORT_RIS_FIXTURE = (
+    "TY  - JOUR\nAU  - Doe, Jane\nTI  - A Working RIS Reference\nPY  - 2020\nER  -\n"
+)
 
 
 class TestImportFormPage:
@@ -568,7 +627,9 @@ class TestImportFormPage:
 class TestItemFormPageMarkup:
     """The reference form page's own button row (item_form.html)."""
 
-    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(
+        self, client, db
+    ):
         # The same defect this page carried since its own phase: see
         # TestImportReportPage's test of the same name.
         content = client.get(reverse("literature:item-create")).content.decode()
@@ -631,7 +692,9 @@ class TestImportReportPage:
         content = self._report_content(client)
         assert f'href="{reverse("literature:item-import")}"' in content
 
-    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(self, client, db):
+    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(
+        self, client, db
+    ):
         # ``<c-group>`` declares row, collapse, wrap, class and gap. An
         # attribute it does not declare is not ignored: Cotton writes it
         # through to the rendered <div>, where it is invalid HTML and lays
@@ -646,7 +709,9 @@ class TestOutcomeFilter:
 
     def _preview_content(self, client):
         upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        client.post(reverse("literature:item-import"), {"format": "ris", "file": upload})
+        client.post(
+            reverse("literature:item-import"), {"format": "ris", "file": upload}
+        )
         return client.get(reverse("literature:item-import-preview")).content.decode()
 
     def _filter_markup(self, content):
@@ -656,7 +721,10 @@ class TestOutcomeFilter:
 
     def _controls(self, content):
         """Each radio in the filter, as its own chunk of markup."""
-        return ["<input" + chunk for chunk in self._filter_markup(content).split("<input")[1:]]
+        return [
+            "<input" + chunk
+            for chunk in self._filter_markup(content).split("<input")[1:]
+        ]
 
     def test_one_control_per_outcome_plus_a_way_back_to_all(self, client, db):
         markup = self._filter_markup(self._preview_content(client))
@@ -672,7 +740,9 @@ class TestOutcomeFilter:
         assert "<form" not in markup
         assert "<a " not in markup
 
-    def test_the_counts_above_the_table_describe_the_whole_file_not_the_filter(self, client, db):
+    def test_the_counts_above_the_table_describe_the_whole_file_not_the_filter(
+        self, client, db
+    ):
         # FR-049a — the counts are rendered from ``report`` directly and sit
         # outside the filter's own x-data scope, so they read the same
         # whatever the table is narrowed to (proved here by their absence of
@@ -688,7 +758,9 @@ class TestOutcomeFilter:
         markup = self._filter_markup(self._preview_content(client))
         assert markup.count('type="radio"') == markup.count("btn-sm")
 
-    def test_each_outcome_control_carries_the_same_tone_as_that_outcome_s_badge(self, client, db):
+    def test_each_outcome_control_carries_the_same_tone_as_that_outcome_s_badge(
+        self, client, db
+    ):
         # The control and the badge for one outcome must read as the same
         # thing. Asserted against the badge's own mapping rather than against
         # tone names written out here, so restyling the badges moves the
@@ -696,7 +768,9 @@ class TestOutcomeFilter:
         controls = self._controls(self._preview_content(client))
         for outcome, variant in OutcomeColumn.VARIANTS.items():
             control = next(c for c in controls if f'value="{outcome.value}"' in c)
-            assert f"btn-{variant}" in control, f"{outcome.value} control is not toned as its badge"
+            assert f"btn-{variant}" in control, (
+                f"{outcome.value} control is not toned as its badge"
+            )
 
     def test_the_way_back_to_all_carries_no_outcome_tone(self, client, db):
         controls = self._controls(self._preview_content(client))
@@ -713,7 +787,9 @@ class TestImportPreviewTemplate:
 
     def _preview(self, client, filename="import.ris", format_name="ris", content=None):
         upload = SimpleUploadedFile(filename, (content or IMPORT_RIS_FIXTURE).encode())
-        client.post(reverse("literature:item-import"), {"format": format_name, "file": upload})
+        client.post(
+            reverse("literature:item-import"), {"format": format_name, "file": upload}
+        )
         return client.get(reverse("literature:item-import-preview"))
 
     def test_carries_no_import_form(self, client, db):
@@ -725,8 +801,12 @@ class TestImportPreviewTemplate:
         assert "Preview import" in content
         assert "Nothing has been imported yet" in content
 
-    def test_a_warning_appears_above_the_table_when_an_entry_was_skipped_or_failed(self, client, db):
-        response = self._preview(client, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n")
+    def test_a_warning_appears_above_the_table_when_an_entry_was_skipped_or_failed(
+        self, client, db
+    ):
+        response = self._preview(
+            client, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n"
+        )
         content = response.content.decode()
         table_index = content.index("<table")
         warning_index = content.index("alert-warning")
@@ -758,7 +838,9 @@ class TestImportPreviewTemplate:
         # AS-12 — confirming would create nothing, so the control that would
         # carry it out is not offered. The reader is left with restart and the
         # way back to the catalogue.
-        response = self._preview(client, filename="wrong-format.bib", format_name="bibtex")
+        response = self._preview(
+            client, filename="wrong-format.bib", format_name="bibtex"
+        )
         content = response.content.decode()
         assert response.context["report"].created == 0
         assert f'action="{reverse("literature:item-import-confirm")}"' not in content
@@ -783,10 +865,14 @@ class TestImportFormPageFieldErrors:
     """
 
     def test_a_missing_files_reason_renders_beside_the_file_field(self, client, db):
-        content = client.post(reverse("literature:item-import"), {"format": "bibtex"}).content.decode()
+        content = client.post(
+            reverse("literature:item-import"), {"format": "bibtex"}
+        ).content.decode()
         assert 'id="error_1_id_file"' in content
 
     def test_a_missing_formats_reason_renders_beside_the_format_field(self, client, db):
         upload = SimpleUploadedFile("x.bib", b"@article{x, title={T}}")
-        content = client.post(reverse("literature:item-import"), {"file": upload}).content.decode()
+        content = client.post(
+            reverse("literature:item-import"), {"file": upload}
+        ).content.decode()
         assert 'id="error_1_id_format"' in content

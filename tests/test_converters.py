@@ -20,7 +20,13 @@ from partial_date import PartialDate
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.converters import from_csl_json, from_csl_json_list, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
-from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
+from tests.factories import (
+    ItemDateFactory,
+    ItemFactory,
+    ItemIdentifierFactory,
+    ItemNameFactory,
+    NameFactory,
+)
 
 # Load the real-world fixture
 _FIXTURE_PATH = os.path.join(os.path.dirname(__file__), "data", "publication-csl.json")
@@ -34,8 +40,21 @@ def _item_scalar_field_names() -> list[str]:
     Mirrors the skip set in ``to_csl_json()`` so this list tracks the model
     automatically as fields are added, instead of a hand-maintained duplicate.
     """
-    skip = {"id", "pk", "citation_key", "type", "categories", "custom", "created", "modified"}
-    return [f.name for f in Item._meta.get_fields() if hasattr(f, "attname") and f.name not in skip]
+    skip = {
+        "id",
+        "pk",
+        "citation_key",
+        "type",
+        "categories",
+        "custom",
+        "created",
+        "modified",
+    }
+    return [
+        f.name
+        for f in Item._meta.get_fields()
+        if hasattr(f, "attname") and f.name not in skip
+    ]
 
 
 @pytest.mark.django_db
@@ -135,13 +154,17 @@ class TestToCslJson:
 
     def test_date_year_month(self, item):
         """to_csl_json() exports year-month PartialDate as [[year, month]] date-parts."""
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08"))
+        ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
+        )
         result = to_csl_json(item)
         assert result["issued"]["date-parts"] == [[2019, 8]]
 
     def test_date_full(self, item):
         """to_csl_json() exports full PartialDate as [[year, month, day]] date-parts."""
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16"))
+        ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+        )
         result = to_csl_json(item)
         assert result["issued"]["date-parts"] == [[2019, 8, 16]]
 
@@ -226,7 +249,13 @@ class TestFromCslJson:
 
     def test_citation_key_preferred_over_id(self):
         """from_csl_json() uses citation-key over id when both are present."""
-        item = from_csl_json({"type": "article-journal", "citation-key": "Preferred2024", "id": "Fallback2024"})
+        item = from_csl_json(
+            {
+                "type": "article-journal",
+                "citation-key": "Preferred2024",
+                "id": "Fallback2024",
+            }
+        )
         assert item.citation_key == "Preferred2024"
 
     def test_falls_back_to_id(self):
@@ -258,7 +287,10 @@ class TestFromCslJson:
         for _ in range(5):
             from_csl_json({"type": "article-journal", "citation-key": "Smith2009"})
 
-        assert list(Item.objects.values_list("citation_key", flat=True)) == ["Smith2009"] * 5
+        assert (
+            list(Item.objects.values_list("citation_key", flat=True))
+            == ["Smith2009"] * 5
+        )
 
     def test_date_year_only(self):
         """from_csl_json() imports year-only date-parts correctly."""
@@ -482,7 +514,9 @@ class TestRoundTripFidelity:
             static_ordering=True,
             parse_names=True,
         )
-        translator = NameFactory(family="", given="", literal="World Health Organization")
+        translator = NameFactory(
+            family="", given="", literal="World Health Organization"
+        )
         ItemNameFactory(item=original, name=author_one, role=NameRole.AUTHOR)
         ItemNameFactory(item=original, name=author_two, role=NameRole.AUTHOR)
         ItemNameFactory(item=original, name=editor, role=NameRole.EDITOR)
@@ -491,9 +525,15 @@ class TestRoundTripFidelity:
         # Every CSL date form, one per date-variable slot: year-only,
         # year-month, full date, full date range, partial date range, and a
         # literal/season/circa date with no date-parts at all.
-        ItemDateFactory(item=original, date_type=DateType.ORIGINAL_DATE, begin=PartialDate("2015"))
-        ItemDateFactory(item=original, date_type=DateType.ACCESSED, begin=PartialDate("2020-03"))
-        ItemDateFactory(item=original, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16"))
+        ItemDateFactory(
+            item=original, date_type=DateType.ORIGINAL_DATE, begin=PartialDate("2015")
+        )
+        ItemDateFactory(
+            item=original, date_type=DateType.ACCESSED, begin=PartialDate("2020-03")
+        )
+        ItemDateFactory(
+            item=original, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+        )
         ItemDateFactory(
             item=original,
             date_type=DateType.EVENT_DATE,
@@ -517,9 +557,15 @@ class TestRoundTripFidelity:
 
         # A set of identifiers: several known top-level types plus one
         # unknown type routed through the custom object.
-        ItemIdentifierFactory(item=original, type=IdentifierType.DOI, value="10.1234/full-round-trip")
-        ItemIdentifierFactory(item=original, type=IdentifierType.ISBN, value="978-3-16-148410-0")
-        ItemIdentifierFactory(item=original, type=IdentifierType.ISSN, value="0956-540X")
+        ItemIdentifierFactory(
+            item=original, type=IdentifierType.DOI, value="10.1234/full-round-trip"
+        )
+        ItemIdentifierFactory(
+            item=original, type=IdentifierType.ISBN, value="978-3-16-148410-0"
+        )
+        ItemIdentifierFactory(
+            item=original, type=IdentifierType.ISSN, value="0956-540X"
+        )
         ItemIdentifierFactory(item=original, type="arXiv", value="2103.12345")
 
         exported = to_csl_json(original)
@@ -536,7 +582,9 @@ class TestRoundTripFidelity:
         def _name_signature(for_item):
             return [
                 (n.role, n.order, n.name.family, n.name.given, n.name.literal)
-                for n in ItemName.objects.filter(item=for_item).order_by("role", "order")
+                for n in ItemName.objects.filter(item=for_item).order_by(
+                    "role", "order"
+                )
             ]
 
         assert _name_signature(reimported) == _name_signature(original)
@@ -558,7 +606,9 @@ class TestRoundTripFidelity:
 
         # Identifiers: same (type, value) set.
         def _identifier_signature(for_item):
-            return {(i.type, i.value) for i in ItemIdentifier.objects.filter(item=for_item)}
+            return {
+                (i.type, i.value) for i in ItemIdentifier.objects.filter(item=for_item)
+            }
 
         assert _identifier_signature(reimported) == _identifier_signature(original)
 
@@ -577,7 +627,9 @@ class TestFromCslJsonListStillWarns:
     def test_skipping_an_invalid_item_logs_a_warning(self, caplog):
         data = [
             {"type": "article-journal", "citation-key": "Kept"},
-            {"citation-key": "MissingType"},  # missing "type" -> ValidationError, skipped
+            {
+                "citation-key": "MissingType"
+            },  # missing "type" -> ValidationError, skipped
         ]
 
         with caplog.at_level(logging.WARNING, logger="literature.converters"):
@@ -585,4 +637,7 @@ class TestFromCslJsonListStillWarns:
 
         assert len(items) == 1
         assert items[0].citation_key == "Kept"
-        assert any("Skipping invalid CSL JSON item" in record.message for record in caplog.records)
+        assert any(
+            "Skipping invalid CSL JSON item" in record.message
+            for record in caplog.records
+        )

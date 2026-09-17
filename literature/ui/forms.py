@@ -120,7 +120,14 @@ class NameForm(forms.ModelForm):
     #: The fields that make up a ``Name``, in the order T007/T007a compare
     #: and write them. Declared once so ``save()`` and ``__init__`` cannot
     #: drift onto two different sets.
-    NAME_FIELDS = ("family", "given", "dropping_particle", "non_dropping_particle", "suffix", "literal")
+    NAME_FIELDS = (
+        "family",
+        "given",
+        "dropping_particle",
+        "non_dropping_particle",
+        "suffix",
+        "literal",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -166,7 +173,9 @@ class NameForm(forms.ModelForm):
         (T007a, SC-002).
         """
         item_name = super().save(commit=False)
-        submitted = {field: self.cleaned_data.get(field, "") for field in self.NAME_FIELDS}
+        submitted = {
+            field: self.cleaned_data.get(field, "") for field in self.NAME_FIELDS
+        }
 
         if item_name.name_id is None:
             item_name.name = self.create_name(submitted)
@@ -174,7 +183,9 @@ class NameForm(forms.ModelForm):
             linked_name = item_name.name
             stored = {field: getattr(linked_name, field) for field in self.NAME_FIELDS}
             if submitted != stored:
-                shared_elsewhere = linked_name.item_names.exclude(pk=item_name.pk).exists()
+                shared_elsewhere = linked_name.item_names.exclude(
+                    pk=item_name.pk
+                ).exists()
                 if shared_elsewhere:
                     item_name.name = self.create_name(submitted)
                 else:
@@ -302,12 +313,18 @@ class ItemDateForm(SetPolicedConstraintMixin, forms.ModelForm):
 
     def __init__(self, *args, occupied_slots=frozenset(), **kwargs):
         super().__init__(*args, **kwargs)
-        settled_type = self.instance.date_type if self.instance.pk else self.initial.get("date_type")
+        settled_type = (
+            self.instance.date_type
+            if self.instance.pk
+            else self.initial.get("date_type")
+        )
         if settled_type:
             self.fields["date_type"].disabled = True
         else:
             self.fields["date_type"].choices = [
-                choice for choice in self.fields["date_type"].choices if choice[0] not in occupied_slots
+                choice
+                for choice in self.fields["date_type"].choices
+                if choice[0] not in occupied_slots
             ]
         # T016 (FR-018) — a stored date whose only content is unparsed has
         # nothing in begin/end for the person to see. Showing that content
@@ -351,7 +368,12 @@ class IdentifierKindWidget(forms.TextInput):
             '<option value="{}">',
             ((kind,) for kind in IdentifierType.values),
         )
-        return format_html('{}<datalist id="{}">{}</datalist>', input_html, context["datalist_id"], options)
+        return format_html(
+            '{}<datalist id="{}">{}</datalist>',
+            input_html,
+            context["datalist_id"],
+            options,
+        )
 
 
 class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
@@ -428,7 +450,8 @@ class ImportForm(forms.Form):
         # freeze the set at import time, and a format configured afterwards
         # would never appear (FR-005).
         self.fields["format"].choices = [
-            (name, format_class.label) for name, format_class in available_formats().items()
+            (name, format_class.label)
+            for name, format_class in available_formats().items()
         ]
 
 

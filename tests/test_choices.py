@@ -69,4 +69,11 @@ class TestIdentifierType:
 
     def test_known_values(self):
         """IdentifierType must contain the 6 known CSL identifier field names."""
-        assert set(IdentifierType.values) == {"DOI", "ISBN", "ISSN", "PMID", "PMCID", "URL"}
+        assert set(IdentifierType.values) == {
+            "DOI",
+            "ISBN",
+            "ISSN",
+            "PMID",
+            "PMCID",
+            "URL",
+        }

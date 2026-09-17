@@ -184,7 +184,9 @@ class TestWorkflowMethodsAreIndividuallyCallable:
     def test_import_entry_stores_one_entry_and_returns_its_result(self):
         fmt = make_echo_format([])()
 
-        result = fmt.import_entry({"kind": "good", "id": "a", "type": "book"}, 0, dry_run=False)
+        result = fmt.import_entry(
+            {"kind": "good", "id": "a", "type": "book"}, 0, dry_run=False
+        )
 
         assert result.outcome == Outcome.CREATED
         assert result.index == 0
@@ -203,7 +205,10 @@ class TestWorkflowMethodsAreIndividuallyCallable:
             dry_run=False,
         )
 
-        assert [entry.outcome for entry in results] == [Outcome.CREATED, Outcome.SKIPPED]
+        assert [entry.outcome for entry in results] == [
+            Outcome.CREATED,
+            Outcome.SKIPPED,
+        ]
 
     def test_get_result_builds_an_import_result_from_entry_results(self):
         fmt = make_echo_format([])()
@@ -263,7 +268,9 @@ class TestOverridingGetResult:
 
         class DropsSkippedFromTheReport(make_echo_format(entries)):
             def get_result(self, entries, *, dry_run):
-                entries = [entry for entry in entries if entry.outcome != Outcome.SKIPPED]
+                entries = [
+                    entry for entry in entries if entry.outcome != Outcome.SKIPPED
+                ]
                 return super().get_result(entries, dry_run=dry_run)
 
         result = DropsSkippedFromTheReport().import_file(io.StringIO())
@@ -304,7 +311,9 @@ class TestReporting:
 
     def test_every_failure_carries_a_reason(self):
         """FR-010."""
-        entries = [{"kind": "entry_error", "reason": "unrecognised item type", "id": "a"}]
+        entries = [
+            {"kind": "entry_error", "reason": "unrecognised item type", "id": "a"}
+        ]
         result = make_echo_format(entries)().import_file(io.StringIO())
 
         assert len(result.failed) == 1
@@ -325,7 +334,9 @@ class TestReporting:
 
     def test_a_failed_entrys_handle_is_also_carried(self):
         """FR-009, SC-009: a failure locates its entry by handle too, where offered."""
-        entries = [{"kind": "entry_error", "reason": "bad", "id": "a", "handle": "smith2020"}]
+        entries = [
+            {"kind": "entry_error", "reason": "bad", "id": "a", "handle": "smith2020"}
+        ]
         result = make_echo_format(entries)().import_file(io.StringIO())
 
         assert result.failed[0].handle == "smith2020"
@@ -395,7 +406,9 @@ class TestLazyConsumption:
             {"kind": "good", "id": "b", "type": "book"},
             {"kind": "good", "id": "c", "type": "book"},
         ]
-        result = make_echo_format(entries, on_yield=on_yield)().import_file(io.StringIO())
+        result = make_echo_format(entries, on_yield=on_yield)().import_file(
+            io.StringIO()
+        )
 
         assert observed_counts_before_yield == [0, 1, 2]
         assert len(result.created) == 3
@@ -450,10 +463,19 @@ class TestResilience:
         assert len(result.failed) == 1
         assert _counts() == before
 
-    def test_partial_failure_from_an_integrity_error_leaves_nothing_behind(self, bypass_identifier_validation):
+    def test_partial_failure_from_an_integrity_error_leaves_nothing_behind(
+        self, bypass_identifier_validation
+    ):
         """FR-006, SC-008, research.md R2: a real IntegrityError, not just a
         ValidationError, must also leave nothing behind."""
-        entries = [{"kind": "good", "id": "a", "type": "book", "custom": DuplicateCustomIdentifier()}]
+        entries = [
+            {
+                "kind": "good",
+                "id": "a",
+                "type": "book",
+                "custom": DuplicateCustomIdentifier(),
+            }
+        ]
         before = _counts()
 
         result = make_echo_format(entries)().import_file(io.StringIO())
@@ -461,11 +483,18 @@ class TestResilience:
         assert len(result.failed) == 1
         assert _counts() == before
 
-    def test_an_entry_after_an_integrity_error_still_imports(self, bypass_identifier_validation):
+    def test_an_entry_after_an_integrity_error_still_imports(
+        self, bypass_identifier_validation
+    ):
         """research.md R2: the savepoint protects the entries that follow a
         database-level failure, not only ones that follow a ValidationError."""
         entries = [
-            {"kind": "good", "id": "a", "type": "book", "custom": DuplicateCustomIdentifier()},
+            {
+                "kind": "good",
+                "id": "a",
+                "type": "book",
+                "custom": DuplicateCustomIdentifier(),
+            },
             {"kind": "good", "id": "b", "type": "book"},
         ]
         result = make_echo_format(entries)().import_file(io.StringIO())
@@ -479,9 +508,14 @@ class TestResilience:
         as from ``to_csl_json``, so it must not escape either."""
         entries = [{"kind": "good", "id": "a", "type": "book"}]
 
-        result = make_failing_parse_format(entries, reason="entry 2 is malformed")().import_file(io.StringIO())
+        result = make_failing_parse_format(
+            entries, reason="entry 2 is malformed"
+        )().import_file(io.StringIO())
 
-        assert [entry.outcome for entry in result.entries] == [Outcome.CREATED, Outcome.FAILED]
+        assert [entry.outcome for entry in result.entries] == [
+            Outcome.CREATED,
+            Outcome.FAILED,
+        ]
         assert result.entries[1].index == 1
         assert result.entries[1].reason == "entry 2 is malformed"
         assert Item.objects.count() == 1
@@ -517,7 +551,9 @@ class TestResilience:
 
     def test_unparseable_file_returns_a_one_entry_failed_result(self):
         """FR-014, SC-007."""
-        result = make_unparseable_format(reason="not a BibTeX file")().import_file(io.StringIO())
+        result = make_unparseable_format(reason="not a BibTeX file")().import_file(
+            io.StringIO()
+        )
 
         assert len(result.entries) == 1
         assert result.entries[0].outcome == Outcome.FAILED
@@ -533,13 +569,17 @@ class TestResilience:
 
     def test_unexpected_encoding_is_reported_not_stored_corrupted(self):
         """A parse failure naming the encoding, not corrupted stored text."""
-        result = make_unparseable_format(reason="cannot decode file as UTF-8")().import_file(io.StringIO())
+        result = make_unparseable_format(
+            reason="cannot decode file as UTF-8"
+        )().import_file(io.StringIO())
 
         assert result.entries[0].outcome == Outcome.FAILED
         assert "UTF-8" in result.entries[0].reason
         assert Item.objects.count() == 0
 
-    def test_a_format_that_parses_the_whole_file_up_front_reports_rather_than_raises(self):
+    def test_a_format_that_parses_the_whole_file_up_front_reports_rather_than_raises(
+        self,
+    ):
         """FR-014 for a ``parse`` that is not a generator.
 
         Most third-party bibliography parsers read a whole file in one call, so
@@ -567,7 +607,9 @@ class TestResilience:
         assert result.entries[0].reason == "file is not valid BibTeX"
         assert Item.objects.count() == 0
 
-    def test_truncated_file_reports_recovered_entries_and_a_failure_for_the_remainder(self):
+    def test_truncated_file_reports_recovered_entries_and_a_failure_for_the_remainder(
+        self,
+    ):
         """Edge case: a ParseError raised mid-stream, after some entries."""
 
         class _TruncatedFormat(BibFormat):
@@ -626,12 +668,19 @@ class TestExceptionsOutsideTheContract:
 
         result = make_echo_format(entries)().import_file(io.StringIO())
 
-        assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.FAILED, Outcome.CREATED]
+        assert [entry.outcome for entry in result] == [
+            Outcome.CREATED,
+            Outcome.FAILED,
+            Outcome.CREATED,
+        ]
         assert Item.objects.count() == 2
         assert "AttributeError" in result.failed[0].reason
 
     def test_a_name_variable_of_the_wrong_type_fails_one_entry_only(self):
-        entries = [{"id": "a", "type": "book", "author": 42}, {"id": "b", "type": "book"}]
+        entries = [
+            {"id": "a", "type": "book", "author": 42},
+            {"id": "b", "type": "book"},
+        ]
 
         result = make_echo_format(entries)().import_file(io.StringIO())
 
@@ -643,7 +692,9 @@ class TestExceptionsOutsideTheContract:
         signal in the contract's vocabulary. It still cannot cost the caller
         the report for every other entry.
         """
-        result = make_raising_format([{"id": "a"}], KeyError("author"))().import_file(io.StringIO())
+        result = make_raising_format([{"id": "a"}], KeyError("author"))().import_file(
+            io.StringIO()
+        )
 
         assert [entry.outcome for entry in result] == [Outcome.FAILED]
         assert "KeyError" in result.failed[0].reason
@@ -651,9 +702,9 @@ class TestExceptionsOutsideTheContract:
     def test_a_format_whose_reader_has_a_bug_ends_the_file_and_is_reported(self):
         entries = [{"kind": "good", "id": "a", "type": "book"}]
 
-        result = make_raising_format(entries, RuntimeError("iterator broke"), stage="parse")().import_file(
-            io.StringIO()
-        )
+        result = make_raising_format(
+            entries, RuntimeError("iterator broke"), stage="parse"
+        )().import_file(io.StringIO())
 
         assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.FAILED]
         assert result.failed[0].index == 1
@@ -667,7 +718,9 @@ class TestExceptionsOutsideTheContract:
         """
         entries = [{"kind": "good", "id": "a", "type": "book"}]
 
-        result = make_raising_format(entries, SkipEntry("trailing junk"), stage="parse")().import_file(io.StringIO())
+        result = make_raising_format(
+            entries, SkipEntry("trailing junk"), stage="parse"
+        )().import_file(io.StringIO())
 
         assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.SKIPPED]
         assert result.skipped[0].reason == "trailing junk"
@@ -677,11 +730,19 @@ class TestExceptionsOutsideTheContract:
         outer handler caught it, the index had already moved past the entry
         that raised, so entry 1 got no result and the failure claimed index 2.
         """
-        entries = [{"kind": "good", "id": "a", "type": "book"}, {"id": "b", "type": "book"}]
+        entries = [
+            {"kind": "good", "id": "a", "type": "book"},
+            {"id": "b", "type": "book"},
+        ]
 
-        result = make_raising_format(entries, ParseError("boom"))().import_file(io.StringIO())
+        result = make_raising_format(entries, ParseError("boom"))().import_file(
+            io.StringIO()
+        )
 
-        assert [(entry.index, entry.outcome) for entry in result] == [(0, Outcome.FAILED), (1, Outcome.FAILED)]
+        assert [(entry.index, entry.outcome) for entry in result] == [
+            (0, Outcome.FAILED),
+            (1, Outcome.FAILED),
+        ]
 
 
 @pytest.mark.django_db
@@ -694,7 +755,9 @@ class TestFailureReasons:
         quotes and all — for the failure mode the contract names as a format's
         ordinary way of rejecting an entry.
         """
-        result = make_echo_format([{"id": "a", "type": "nope"}])().import_file(io.StringIO())
+        result = make_echo_format([{"id": "a", "type": "nope"}])().import_file(
+            io.StringIO()
+        )
 
         assert result.failed[0].reason == "Unknown CSL JSON item type: 'nope'"
 
@@ -702,7 +765,9 @@ class TestFailureReasons:
         """``str(EntryError())`` is ``""`` — not ``None``, so it passed the
         invariant, and printed as a blank line next to the entry's index.
         """
-        result = make_raising_format([{"id": "a"}], EntryError())().import_file(io.StringIO())
+        result = make_raising_format([{"id": "a"}], EntryError())().import_file(
+            io.StringIO()
+        )
 
         assert result.failed[0].reason.strip()
         assert "EntryError" in result.failed[0].reason
@@ -711,7 +776,9 @@ class TestFailureReasons:
         """The contract's own exceptions carry a message written for whoever
         has to fix the file, so nothing is prepended to it.
         """
-        result = make_raising_format([{"id": "a"}], EntryError("no author, no year"))().import_file(io.StringIO())
+        result = make_raising_format(
+            [{"id": "a"}], EntryError("no author, no year")
+        )().import_file(io.StringIO())
 
         assert result.failed[0].reason == "no author, no year"
 
@@ -732,7 +799,9 @@ class TestResilienceOutsideATestTransaction:
     atomicity promise rests on.
     """
 
-    def test_a_database_failure_rolls_back_its_entry_alone(self, bypass_identifier_validation):
+    def test_a_database_failure_rolls_back_its_entry_alone(
+        self, bypass_identifier_validation
+    ):
         entries = [
             {"kind": "good", "id": "a", "type": "book"},
             {"id": "b", "type": "book", "custom": DuplicateCustomIdentifier()},
@@ -741,7 +810,11 @@ class TestResilienceOutsideATestTransaction:
 
         result = make_echo_format(entries)().import_file(io.StringIO())
 
-        assert [entry.outcome for entry in result] == [Outcome.CREATED, Outcome.FAILED, Outcome.CREATED]
+        assert [entry.outcome for entry in result] == [
+            Outcome.CREATED,
+            Outcome.FAILED,
+            Outcome.CREATED,
+        ]
         assert Item.objects.count() == 2
         assert not Item.objects.filter(citation_key="b").exists()
         assert ItemIdentifier.objects.count() == 0
@@ -750,7 +823,14 @@ class TestResilienceOutsideATestTransaction:
         """FR-006, SC-008 — an entry is atomic, counted across every table it
         would have touched.
         """
-        entries = [{"id": "a", "type": "book", "author": [{"family": "Kuhn"}], "issued": "2020"}]
+        entries = [
+            {
+                "id": "a",
+                "type": "book",
+                "author": [{"family": "Kuhn"}],
+                "issued": "2020",
+            }
+        ]
 
         result = make_echo_format(entries)().import_file(io.StringIO())
 
@@ -775,7 +855,9 @@ class TestDryRun:
         assert _counts() == before
 
     def test_a_failing_entrys_reason_appears_identically(self):
-        entries = [{"kind": "entry_error", "reason": "unrecognised item type", "id": "a"}]
+        entries = [
+            {"kind": "entry_error", "reason": "unrecognised item type", "id": "a"}
+        ]
 
         result = make_echo_format(entries)().import_file(io.StringIO(), dry_run=True)
 
@@ -804,9 +886,15 @@ class TestDryRun:
         dry = fmt().import_file(io.StringIO(), dry_run=True)
         real = fmt().import_file(io.StringIO())
 
-        assert [entry.outcome for entry in dry.entries] == [entry.outcome for entry in real.entries]
-        assert [entry.reason for entry in dry.entries] == [entry.reason for entry in real.entries]
-        assert [entry.handle for entry in dry.entries] == [entry.handle for entry in real.entries]
+        assert [entry.outcome for entry in dry.entries] == [
+            entry.outcome for entry in real.entries
+        ]
+        assert [entry.reason for entry in dry.entries] == [
+            entry.reason for entry in real.entries
+        ]
+        assert [entry.handle for entry in dry.entries] == [
+            entry.handle for entry in real.entries
+        ]
 
     def test_dry_run_entries_carry_no_item_even_when_created(self):
         """plan.md: exposing a rolled-back instance would hand back an object
@@ -836,13 +924,20 @@ class TestDryRun:
         ]
         assert _counts() == before
 
-    def test_a_database_level_failure_inside_a_dry_run_does_not_poison_the_rest(self, bypass_identifier_validation):
+    def test_a_database_level_failure_inside_a_dry_run_does_not_poison_the_rest(
+        self, bypass_identifier_validation
+    ):
         """research.md R2's savepoint-per-entry mechanism, exercised with the
         outer dry-run transaction also open — a genuine IntegrityError nested
         inside the rollback-only outer block must not prevent the entry after
         it from being reported as created."""
         entries = [
-            {"kind": "good", "id": "a", "type": "book", "custom": DuplicateCustomIdentifier()},
+            {
+                "kind": "good",
+                "id": "a",
+                "type": "book",
+                "custom": DuplicateCustomIdentifier(),
+            },
             {"kind": "good", "id": "b", "type": "book"},
         ]
         before = _counts()
@@ -938,7 +1033,9 @@ class TestDryRunFollowsTheRouter:
         assert Item.objects.count() == 0
 
     def test_a_real_run_still_commits_on_the_routed_database(self):
-        result = make_echo_format([{"kind": "good", "id": "a", "type": "book"}])().import_file(io.StringIO())
+        result = make_echo_format(
+            [{"kind": "good", "id": "a", "type": "book"}]
+        )().import_file(io.StringIO())
 
         assert len(result.created) == 1
         assert Item.objects.count() == 1
@@ -950,7 +1047,9 @@ class TestHandleReachesParseUnchanged:
     ``parse`` receives, whether it reads ``str`` or ``bytes``.
     """
 
-    @pytest.mark.parametrize("handle", [io.StringIO("irrelevant"), io.BytesIO(b"irrelevant")])
+    @pytest.mark.parametrize(
+        "handle", [io.StringIO("irrelevant"), io.BytesIO(b"irrelevant")]
+    )
     def test_the_handle_reaches_parse_unchanged(self, handle):
         received = []
 

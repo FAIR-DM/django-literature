@@ -69,14 +69,20 @@ class TestUpdateRouteReverses:
     """T017 — the update flow's route, added by US-2 (plan.md D-6, D-8)."""
 
     def test_item_update_reverses(self):
-        assert reverse("literature:item-update", kwargs={"pk": 1}) == "/catalogue/1/update/"
+        assert (
+            reverse("literature:item-update", kwargs={"pk": 1})
+            == "/catalogue/1/update/"
+        )
 
 
 class TestDeleteRouteReverses:
     """T020 — the delete flow's route, added by US-3 (plan.md D-6, D-8)."""
 
     def test_item_delete_reverses(self):
-        assert reverse("literature:item-delete", kwargs={"pk": 1}) == "/catalogue/1/delete/"
+        assert (
+            reverse("literature:item-delete", kwargs={"pk": 1})
+            == "/catalogue/1/delete/"
+        )
 
 
 class TestImportRouteReverses:
@@ -97,13 +103,19 @@ class TestImportPreviewAndRestartRoutesReverse:
         assert reverse("literature:item-import-preview") == "/catalogue/import/preview/"
 
     def test_item_import_preview_resolves_to_the_preview_view(self):
-        assert resolve("/catalogue/import/preview/").func.view_class is views.ItemImportPreviewView
+        assert (
+            resolve("/catalogue/import/preview/").func.view_class
+            is views.ItemImportPreviewView
+        )
 
     def test_item_import_restart_reverses(self):
         assert reverse("literature:item-import-restart") == "/catalogue/import/restart/"
 
     def test_item_import_restart_resolves_to_the_restart_view(self):
-        assert resolve("/catalogue/import/restart/").func.view_class is views.ItemImportRestartView
+        assert (
+            resolve("/catalogue/import/restart/").func.view_class
+            is views.ItemImportRestartView
+        )
 
 
 class TestCRUDViewsReverse:
@@ -136,7 +148,9 @@ class TestCRUDViewsReverse:
     def test_every_action_the_view_shows_reverses(self, view_class):
         model_meta = Item._meta
         shown_actions = [
-            action for action in view_class.crud_views if getattr(view_class, f"show_{action}_action", False)
+            action
+            for action in view_class.crud_views
+            if getattr(view_class, f"show_{action}_action", False)
         ]
         assert shown_actions, f"{view_class.__name__} shows no CRUD action to test"
         for action in shown_actions:
@@ -147,4 +161,6 @@ class TestCRUDViewsReverse:
             # D14) — like "list"/"create" it names no object, so it takes no
             # pk either.
             kwargs = {} if action in {"list", "create", "import"} else {"pk": 1}
-            reverse(url_name, kwargs=kwargs)  # raises NoReverseMatch if the action is not registered
+            reverse(
+                url_name, kwargs=kwargs
+            )  # raises NoReverseMatch if the action is not registered

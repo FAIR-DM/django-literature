@@ -169,16 +169,18 @@ NAME_FIELD_TABLE: dict[str, _Mapped] = {
 #: This is macro *resolution* (FR-013's territory, the same thing
 #: ``common_strings`` already does for abbreviations), not a value cleanup —
 #: no field's already-parsed content is altered.
-_MONTH_MACROS: dict[str, str] = {calendar.month_name[i].lower(): calendar.month_name[i] for i in range(1, 13)}
+_MONTH_MACROS: dict[str, str] = {
+    calendar.month_name[i].lower(): calendar.month_name[i] for i in range(1, 13)
+}
 
 #: Month name or abbreviation (case-insensitive) -> its 1-based number, for
 #: building date-parts (FR-010). Covers both the abbreviation
 #: ``common_strings`` expands to and the full name ``_MONTH_MACROS`` expands
 #: to, plus the abbreviation itself for a value written in braces or quotes,
 #: which never goes through macro expansion at all.
-_MONTH_NUMBERS: dict[str, int] = {calendar.month_abbr[i].lower(): i for i in range(1, 13)} | {
-    calendar.month_name[i].lower(): i for i in range(1, 13)
-}
+_MONTH_NUMBERS: dict[str, int] = {
+    calendar.month_abbr[i].lower(): i for i in range(1, 13)
+} | {calendar.month_name[i].lower(): i for i in range(1, 13)}
 
 
 def _month_number(raw: str) -> int | None:
@@ -206,7 +208,9 @@ def _month_number(raw: str) -> int | None:
 #: exports actually emit is XML escaping — Crossref's own BibTeX export
 #: writes ``Knowledge Discovery &amp; Data Mining`` — so this recognises
 #: exactly that and leaves every other ampersand alone.
-_ENTITY_RE = re.compile(r"&(?:(amp|lt|gt|quot|apos)|#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6}));")
+_ENTITY_RE = re.compile(
+    r"&(?:(amp|lt|gt|quot|apos)|#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6}));"
+)
 
 _NAMED_ENTITIES = {"amp": "&", "lt": "<", "gt": ">", "quot": '"', "apos": "'"}
 
@@ -361,7 +365,11 @@ def _name_to_csl(name: str) -> dict[str, Any]:
 
 def _names_to_csl(raw: str) -> list[dict[str, Any]]:
     """A whole BibTeX name-list field to a CSL name-variable array, in order."""
-    return [parsed for parsed in (_name_to_csl(one) for one in _split_name_list(raw)) if parsed]
+    return [
+        parsed
+        for parsed in (_name_to_csl(one) for one in _split_name_list(raw))
+        if parsed
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +383,9 @@ def _names_to_csl(raw: str) -> list[dict[str, Any]]:
 #: a value in one of those forms does not match and falls to the ``literal``
 #: fallback below, the same as any other date the source states that this
 #: importer cannot resolve to a structured one (FR-020).
-_BIBLATEX_DATE_RE = re.compile(r"^(?P<year>\d{4})(-(?P<month>\d{2})(-(?P<day>\d{2}))?)?$")
+_BIBLATEX_DATE_RE = re.compile(
+    r"^(?P<year>\d{4})(-(?P<month>\d{2})(-(?P<day>\d{2}))?)?$"
+)
 
 
 def _parse_biblatex_date(value: str) -> dict[str, Any] | None:
@@ -547,7 +557,10 @@ def _unmapped_fields(raw: dict[str, Any], consumed: set[str]) -> dict[str, str]:
     return {
         key: value
         for key, value in raw.items()
-        if key not in _STRUCTURAL_KEYS and key not in consumed and not key.startswith("_") and value
+        if key not in _STRUCTURAL_KEYS
+        and key not in consumed
+        and not key.startswith("_")
+        and value
     }
 
 
@@ -590,7 +603,10 @@ def _mapping_document() -> str:
         "| BibTeX entry type | CSL item type | Dialect |",
         "| --- | --- | --- |",
     ]
-    lines += [f"| `@{key}` | `{m.csl}` | {m.dialect} |" for key, m in sorted(ENTRY_TYPE_TABLE.items())]
+    lines += [
+        f"| `@{key}` | `{m.csl}` | {m.dialect} |"
+        for key, m in sorted(ENTRY_TYPE_TABLE.items())
+    ]
     lines += [
         "",
         f"An entry type with no row above becomes `{_FALLBACK_TYPE}` rather than failing the entry.",
@@ -601,7 +617,9 @@ def _mapping_document() -> str:
         "| --- | --- | --- |",
     ]
     fields = {**FIELD_TABLE, **NAME_FIELD_TABLE, **IDENTIFIER_FIELD_TABLE}
-    lines += [f"| `{key}` | `{m.csl}` | {m.dialect} |" for key, m in sorted(fields.items())]
+    lines += [
+        f"| `{key}` | `{m.csl}` | {m.dialect} |" for key, m in sorted(fields.items())
+    ]
     lines += [
         "",
         "## Dates",
@@ -721,9 +739,9 @@ class BibTeXFormat(BibFormat):
                 text = raw.decode("utf-8-sig")
             except UnicodeDecodeError as exc:
                 raise ParseError(
-                    _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
-                        encoding=exc.encoding, offset=exc.start
-                    )
+                    _(
+                        "Could not decode this file as {encoding}: invalid byte at offset {offset}."
+                    ).format(encoding=exc.encoding, offset=exc.start)
                 ) from exc
         else:
             text = raw
@@ -765,11 +783,15 @@ class BibTeXFormat(BibFormat):
         """
         if isinstance(raw, _NonRecord):
             if raw.kind == "preamble":
-                raise SkipEntry(_("This is a @preamble block, not a bibliographic record."))
+                raise SkipEntry(
+                    _("This is a @preamble block, not a bibliographic record.")
+                )
             raise SkipEntry(_("This is a @comment block, not a bibliographic record."))
 
         result: dict[str, Any] = {
-            "type": ENTRY_TYPE_TABLE.get(raw.get("ENTRYTYPE", ""), _Mapped(_FALLBACK_TYPE, "classic")).csl,
+            "type": ENTRY_TYPE_TABLE.get(
+                raw.get("ENTRYTYPE", ""), _Mapped(_FALLBACK_TYPE, "classic")
+            ).csl,
             "citation-key": raw.get("ID", ""),
         }
 
@@ -800,7 +822,10 @@ class BibTeXFormat(BibFormat):
                 value = raw.get(bib_key)
                 if not value:
                     continue
-                if mapping.csl in claimed and FIELD_TABLE[claimed[mapping.csl]].dialect == dialect:
+                if (
+                    mapping.csl in claimed
+                    and FIELD_TABLE[claimed[mapping.csl]].dialect == dialect
+                ):
                     continue
                 cleaned = _clean_text(value)
                 if mapping.csl == "language":

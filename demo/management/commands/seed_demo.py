@@ -10,7 +10,9 @@ from django.db import transaction
 from literature.converters import from_csl_json_list
 from literature.models import Item, Name
 
-DEFAULT_SEED_PATH = Path(__file__).resolve().parent.parent.parent / "seed" / "catalogue.json"
+DEFAULT_SEED_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "seed" / "catalogue.json"
+)
 
 
 def key_of(entry):
@@ -55,11 +57,17 @@ class Command(BaseCommand):
                 # raising, so a half-loaded catalogue must be caught here (FR-020).
                 loaded_keys = {item.citation_key for item in loaded}
                 missing = [
-                    key_of(entry) or "<unidentified entry>" for entry in entries if key_of(entry) not in loaded_keys
+                    key_of(entry) or "<unidentified entry>"
+                    for entry in entries
+                    if key_of(entry) not in loaded_keys
                 ]
                 raise CommandError(
                     f"seed_demo loaded {len(loaded)} of {len(entries)} entries from {seed_path}; "
                     f"failed to load: {', '.join(missing)}"
                 )
 
-        self.stdout.write(self.style.SUCCESS(f"seed_demo loaded {len(loaded)} references from {seed_path}"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"seed_demo loaded {len(loaded)} references from {seed_path}"
+            )
+        )
