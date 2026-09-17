@@ -32,7 +32,9 @@ IMPORT_FIXTURE_PATH = Path(__file__).resolve().parent / "seed" / "import-sample.
 BODY_EXCERPT_LIMIT = 500
 
 ITEM_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/)"[^>]*>(?P<text>[^<]+)<')
-CONTRIBUTOR_LINK_RE = re.compile(r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<')
+CONTRIBUTOR_LINK_RE = re.compile(
+    r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<'
+)
 
 # The catalogue list's search box (FR-033): its `name="q"` input is rendered
 # outside the filter modal's own <form>, associated with it only by the
@@ -48,7 +50,9 @@ SEARCH_INPUT_RE = re.compile(r'<input[^>]+name="q"[^>]+form="filterForm"')
 # link that carries no page parameter at all. The captured group is raw
 # HTML: a caller unescapes it with ``html.unescape`` before using it to
 # build a URL.
-SECOND_PAGE_LINK_RE = re.compile(r'href="(?P<query>\?(?:[^"]*&(?:amp;)?)?page=2(?:&(?:amp;)?[^"]*)?)"')
+SECOND_PAGE_LINK_RE = re.compile(
+    r'href="(?P<query>\?(?:[^"]*&(?:amp;)?)?page=2(?:&(?:amp;)?[^"]*)?)"'
+)
 
 # The write pass's own links (T021, D-9): the catalogue's Add action, and a
 # reference page's Edit and Delete actions. Unlike the two patterns above,
@@ -75,12 +79,16 @@ IMPORT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/import/)"')
 # in this module it matches a <form>'s action, not an <a>'s href — the
 # control that carries out a previewed import is a POST, never a link
 # (decisions.md D16, import_report.html).
-CONFIRM_IMPORT_RE = re.compile(r'<form[^>]+action="(?P<path>/catalogue/import/confirm/)"')
+CONFIRM_IMPORT_RE = re.compile(
+    r'<form[^>]+action="(?P<path>/catalogue/import/confirm/)"'
+)
 
 # The preview's own restart control (T918, US-6): same shape as
 # CONFIRM_IMPORT_RE — a <form>'s action, since discarding the staged file is
 # a POST, never a link (import_preview.html).
-RESTART_IMPORT_RE = re.compile(r'<form[^>]+action="(?P<path>/catalogue/import/restart/)"')
+RESTART_IMPORT_RE = re.compile(
+    r'<form[^>]+action="(?P<path>/catalogue/import/restart/)"'
+)
 
 
 class FormFieldParser(HTMLParser):
@@ -188,7 +196,9 @@ def form_fields(body: str) -> dict[str, str]:
     return parser.fields
 
 
-def encode_multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]) -> tuple[bytes, str]:
+def encode_multipart(
+    fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]
+) -> tuple[bytes, str]:
     """Build a ``multipart/form-data`` body and its ``Content-Type`` header value (T301, T303).
 
     ``post`` below urlencodes a plain field dict, which is what every write-pass
@@ -214,7 +224,9 @@ def encode_multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes, 
         lines.append(value.encode())
     for name, (filename, content, content_type) in files.items():
         lines.append(f"--{boundary}".encode())
-        lines.append(f'Content-Disposition: form-data; name="{name}"; filename="{filename}"'.encode())
+        lines.append(
+            f'Content-Disposition: form-data; name="{name}"; filename="{filename}"'.encode()
+        )
         lines.append(f"Content-Type: {content_type}".encode())
         lines.append(b"")
         lines.append(content)
@@ -240,14 +252,21 @@ class DemoWalk:
 
     def __init__(self, base_url):
         self.base_url = base_url.rstrip("/")
-        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+        )
 
     def run(self):
         list_url = f"{self.base_url}/catalogue/"
         list_body = self.get(list_url)
         item_links = ITEM_LINK_RE.findall(list_body)
         if not item_links:
-            self.fail(list_url, 200, "no reference link on the catalogue list — the seed did not load", list_body)
+            self.fail(
+                list_url,
+                200,
+                "no reference link on the catalogue list — the seed did not load",
+                list_body,
+            )
 
         self.walk_narrowed_catalogue(list_url, list_body)
         self.walk_to_contributor(item_links)
@@ -277,7 +296,12 @@ class DemoWalk:
         """
         fields = form_fields(list_body)
         if "type" not in fields or "language" not in fields:
-            self.fail(list_url, 200, "the catalogue list's filter form carries no type or language control", list_body)
+            self.fail(
+                list_url,
+                200,
+                "the catalogue list's filter form carries no type or language control",
+                list_body,
+            )
         if SEARCH_INPUT_RE.search(list_body) is None:
             self.fail(list_url, 200, "no search box on the catalogue list", list_body)
 
@@ -287,7 +311,10 @@ class DemoWalk:
         search_body = self.get(search_url)
         if "A Mathematical Theory of Communication" not in search_body:
             self.fail(
-                search_url, 200, "searching citation key 'Shannon1948' did not return its own reference", search_body
+                search_url,
+                200,
+                "searching citation key 'Shannon1948' did not return its own reference",
+                search_body,
             )
         if "Attention Is All You Need" in search_body:
             self.fail(
@@ -308,7 +335,12 @@ class DemoWalk:
                 filter_body,
             )
         if "A Mathematical Theory of Communication" in filter_body:
-            self.fail(filter_url, 200, "filtering to type=dataset also returned a non-dataset reference", filter_body)
+            self.fail(
+                filter_url,
+                200,
+                "filtering to type=dataset also returned a non-dataset reference",
+                filter_body,
+            )
 
         # A page move over a narrowed result: the seed's dominant language
         # clears the page size (decisions.md D22), so a reader following
@@ -318,22 +350,47 @@ class DemoWalk:
         narrowed_body = self.get(narrowed_url)
         if "Cien años de soledad" in narrowed_body:
             self.fail(
-                narrowed_url, 200, "filtering to language=en also returned a Spanish-language reference", narrowed_body
+                narrowed_url,
+                200,
+                "filtering to language=en also returned a Spanish-language reference",
+                narrowed_body,
             )
         first_page_paths = {path for path, _text in ITEM_LINK_RE.findall(narrowed_body)}
         if not first_page_paths:
-            self.fail(narrowed_url, 200, "filtering to language=en returned no references at all", narrowed_body)
+            self.fail(
+                narrowed_url,
+                200,
+                "filtering to language=en returned no references at all",
+                narrowed_body,
+            )
 
         second_page_match = SECOND_PAGE_LINK_RE.search(narrowed_body)
         if second_page_match is None:
-            self.fail(narrowed_url, 200, "no second-page link on the language=en narrowed result", narrowed_body)
+            self.fail(
+                narrowed_url,
+                200,
+                "no second-page link on the language=en narrowed result",
+                narrowed_body,
+            )
         second_page_url = f"{list_url}{html.unescape(second_page_match.group('query'))}"
         second_page_body = self.get(second_page_url)
         if "Cien años de soledad" in second_page_body:
-            self.fail(second_page_url, 200, "the language filter was lost on the page move", second_page_body)
-        second_page_paths = {path for path, _text in ITEM_LINK_RE.findall(second_page_body)}
+            self.fail(
+                second_page_url,
+                200,
+                "the language filter was lost on the page move",
+                second_page_body,
+            )
+        second_page_paths = {
+            path for path, _text in ITEM_LINK_RE.findall(second_page_body)
+        }
         if not second_page_paths:
-            self.fail(second_page_url, 200, "no reference link on the narrowed result's second page", second_page_body)
+            self.fail(
+                second_page_url,
+                200,
+                "no reference link on the narrowed result's second page",
+                second_page_body,
+            )
         if second_page_paths & first_page_paths:
             self.fail(
                 second_page_url,
@@ -350,7 +407,12 @@ class DemoWalk:
             tried.append(item_url)
             item_body = self.get(item_url)
             if title not in item_body:
-                self.fail(item_url, 200, f"reference page does not carry the catalogue's title {title!r}", item_body)
+                self.fail(
+                    item_url,
+                    200,
+                    f"reference page does not carry the catalogue's title {title!r}",
+                    item_body,
+                )
 
             contributor_match = CONTRIBUTOR_LINK_RE.search(item_body)
             if contributor_match is None:
@@ -411,7 +473,12 @@ class DemoWalk:
                 detail_body,
             )
         if title not in detail_body:
-            self.fail(detail_url, 200, f"created reference's page does not carry its own title {title!r}", detail_body)
+            self.fail(
+                detail_url,
+                200,
+                f"created reference's page does not carry its own title {title!r}",
+                detail_body,
+            )
 
         list_after_create = self.get(list_url)
         listed_paths = [path for path, _text in ITEM_LINK_RE.findall(list_after_create)]
@@ -427,12 +494,24 @@ class DemoWalk:
         # the list page, not only from the reference page below. Scoped to
         # the row carrying this item's own link, so a different row's edit
         # control landing on the right form by coincidence would not pass.
-        item_row = next((row for row in ROW_RE.findall(list_after_create) if item_path in row), None)
+        item_row = next(
+            (row for row in ROW_RE.findall(list_after_create) if item_path in row), None
+        )
         if item_row is None:
-            self.fail(list_url, 200, f"no table row on the catalogue list carries {item_path}", list_after_create)
+            self.fail(
+                list_url,
+                200,
+                f"no table row on the catalogue list carries {item_path}",
+                list_after_create,
+            )
         row_edit_match = EDIT_LINK_RE.search(item_row)
         if row_edit_match is None:
-            self.fail(list_url, 200, f"catalogue row for {item_path} carries no edit control", item_row)
+            self.fail(
+                list_url,
+                200,
+                f"catalogue row for {item_path} carries no edit control",
+                item_row,
+            )
         row_edit_url = f"{self.base_url}{row_edit_match.group('path')}"
 
         row_edit_form_body = self.get(row_edit_url)
@@ -448,7 +527,12 @@ class DemoWalk:
 
         edit_match = EDIT_LINK_RE.search(detail_body)
         if edit_match is None:
-            self.fail(detail_url, 200, "no Edit link on the created reference's page", detail_body)
+            self.fail(
+                detail_url,
+                200,
+                "no Edit link on the created reference's page",
+                detail_body,
+            )
         edit_url = f"{self.base_url}{edit_match.group('path')}"
 
         edit_form_body = self.get(edit_url)
@@ -481,16 +565,26 @@ class DemoWalk:
 
         delete_match = DELETE_LINK_RE.search(updated_body)
         if delete_match is None:
-            self.fail(updated_url, 200, "no Delete link on the corrected reference's page", updated_body)
+            self.fail(
+                updated_url,
+                200,
+                "no Delete link on the corrected reference's page",
+                updated_body,
+            )
         delete_url = f"{self.base_url}{delete_match.group('path')}"
 
         delete_form_body = self.get(delete_url)
         delete_fields = form_fields(delete_form_body)
         list_after_delete, _final_url = self.post(delete_url, delete_url, delete_fields)
-        remaining_paths = [path for path, _text in ITEM_LINK_RE.findall(list_after_delete)]
+        remaining_paths = [
+            path for path, _text in ITEM_LINK_RE.findall(list_after_delete)
+        ]
         if item_path in remaining_paths:
             self.fail(
-                list_url, 200, f"catalogue list still lists the deleted reference at {item_path}", list_after_delete
+                list_url,
+                200,
+                f"catalogue list still lists the deleted reference at {item_path}",
+                list_after_delete,
             )
 
     def walk_related_rows(self, list_url, list_body):
@@ -534,7 +628,12 @@ class DemoWalk:
 
         edit_match = EDIT_LINK_RE.search(detail_body)
         if edit_match is None:
-            self.fail(detail_url, 200, "no Edit link on the created reference's page", detail_body)
+            self.fail(
+                detail_url,
+                200,
+                "no Edit link on the created reference's page",
+                detail_body,
+            )
         edit_url = f"{self.base_url}{edit_match.group('path')}"
 
         # Credit a contributor (US-1, FR-001 through FR-011).
@@ -542,7 +641,9 @@ class DemoWalk:
         contributor_fields = form_fields(self.get(edit_url))
         contributor_fields["item_names-0-role"] = "author"
         contributor_fields["item_names-0-family"] = contributor_name
-        after_contributor_body, landed_url = self.post(edit_url, edit_url, contributor_fields)
+        after_contributor_body, landed_url = self.post(
+            edit_url, edit_url, contributor_fields
+        )
         if urllib.parse.urlparse(landed_url).path != item_path:
             self.fail(
                 landed_url,
@@ -572,7 +673,10 @@ class DemoWalk:
             )
         if date_value not in after_date_body:
             self.fail(
-                landed_url, 200, f"reference page does not show the date {date_value!r} after saving", after_date_body
+                landed_url,
+                200,
+                f"reference page does not show the date {date_value!r} after saving",
+                after_date_body,
             )
 
         # Give the reference an identifier (US-3, FR-021 through FR-030).
@@ -580,7 +684,9 @@ class DemoWalk:
         identifier_fields = form_fields(self.get(edit_url))
         identifier_fields["item_identifiers-0-type"] = "DOI"
         identifier_fields["item_identifiers-0-value"] = identifier_value
-        after_identifier_body, landed_url = self.post(edit_url, edit_url, identifier_fields)
+        after_identifier_body, landed_url = self.post(
+            edit_url, edit_url, identifier_fields
+        )
         if urllib.parse.urlparse(landed_url).path != item_path:
             self.fail(
                 landed_url,
@@ -641,13 +747,24 @@ class DemoWalk:
         import_form_body = self.get(import_url)
         fields = form_fields(import_form_body)
         if "format" not in fields or "file" not in fields:
-            self.fail(import_url, 200, "the import form carries no format or file control", import_form_body)
+            self.fail(
+                import_url,
+                200,
+                "the import form carries no format or file control",
+                import_form_body,
+            )
 
         text_fields = {key: value for key, value in fields.items() if key != "file"}
         text_fields["format"] = "bibtex"
         body, content_type = encode_multipart(
             text_fields,
-            {"file": (IMPORT_FIXTURE_PATH.name, IMPORT_FIXTURE_PATH.read_bytes(), "application/octet-stream")},
+            {
+                "file": (
+                    IMPORT_FIXTURE_PATH.name,
+                    IMPORT_FIXTURE_PATH.read_bytes(),
+                    "application/octet-stream",
+                )
+            },
         )
         headers = {"Referer": import_url, "Content-Type": content_type}
         request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
@@ -661,11 +778,19 @@ class DemoWalk:
                 preview_body,
             )
         if "preview" not in preview_body.lower():
-            self.fail(preview_url, 200, "the preview address was not rendered as a preview", preview_body)
+            self.fail(
+                preview_url,
+                200,
+                "the preview address was not rendered as a preview",
+                preview_body,
+            )
         self._check_import_report(preview_url, preview_body, "the preview")
 
         list_before_confirm = self.get(list_url)
-        for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
+        for created_title in (
+            "Field Notes on Alpine Meltwater Monitoring",
+            "Notes Toward a Typology of Silence",
+        ):
             if created_title in list_before_confirm:
                 self.fail(
                     list_url,
@@ -680,10 +805,14 @@ class DemoWalk:
         # the ending this walk is here to prove.
         restart_match = RESTART_IMPORT_RE.search(preview_body)
         if restart_match is None:
-            self.fail(preview_url, 200, "the preview carries no restart control", preview_body)
+            self.fail(
+                preview_url, 200, "the preview carries no restart control", preview_body
+            )
         restart_url = f"{self.base_url}{restart_match.group('path')}"
         restart_form_body = preview_body[restart_match.start() :]
-        form_after_restart_body, landed_url = self.post(restart_url, preview_url, form_fields(restart_form_body))
+        form_after_restart_body, landed_url = self.post(
+            restart_url, preview_url, form_fields(restart_form_body)
+        )
         if landed_url != import_url:
             self.fail(
                 landed_url,
@@ -694,7 +823,10 @@ class DemoWalk:
         restarted_fields = form_fields(form_after_restart_body)
         if restarted_fields.get("file"):
             self.fail(
-                import_url, 200, "the form restarting lands on still carries a file value", form_after_restart_body
+                import_url,
+                200,
+                "the form restarting lands on still carries a file value",
+                form_after_restart_body,
             )
 
         # Re-stage the fixture for the real run: restart discarded the file
@@ -702,7 +834,13 @@ class DemoWalk:
         # would after restarting.
         body, content_type = encode_multipart(
             text_fields,
-            {"file": (IMPORT_FIXTURE_PATH.name, IMPORT_FIXTURE_PATH.read_bytes(), "application/octet-stream")},
+            {
+                "file": (
+                    IMPORT_FIXTURE_PATH.name,
+                    IMPORT_FIXTURE_PATH.read_bytes(),
+                    "application/octet-stream",
+                )
+            },
         )
         headers = {"Referer": import_url, "Content-Type": content_type}
         request = urllib.request.Request(import_url, data=body, headers=headers)  # noqa: S310 — http(s) only, built from base_url argv, never external input
@@ -717,11 +855,15 @@ class DemoWalk:
 
         confirm_match = CONFIRM_IMPORT_RE.search(preview_body)
         if confirm_match is None:
-            self.fail(preview_url, 200, "the preview carries no confirm control", preview_body)
+            self.fail(
+                preview_url, 200, "the preview carries no confirm control", preview_body
+            )
         confirm_url = f"{self.base_url}{confirm_match.group('path')}"
 
         confirm_form_body = preview_body[confirm_match.start() :]
-        list_after_confirm_body, landed_url = self.post(confirm_url, preview_url, form_fields(confirm_form_body))
+        list_after_confirm_body, landed_url = self.post(
+            confirm_url, preview_url, form_fields(confirm_form_body)
+        )
         if landed_url != list_url:
             self.fail(
                 landed_url,
@@ -738,7 +880,10 @@ class DemoWalk:
             )
 
         list_after_import = self.get(list_url)
-        for created_title in ("Field Notes on Alpine Meltwater Monitoring", "Notes Toward a Typology of Silence"):
+        for created_title in (
+            "Field Notes on Alpine Meltwater Monitoring",
+            "Notes Toward a Typology of Silence",
+        ):
             if created_title not in list_after_import:
                 self.fail(
                     list_url,
@@ -756,11 +901,23 @@ class DemoWalk:
         """
         for created_key in ("ImportFixtureAlpha2024", "ImportFixtureBeta2023"):
             if created_key not in body:
-                self.fail(url, 200, f"{what} does not carry the fixture's created entry {created_key!r}", body)
+                self.fail(
+                    url,
+                    200,
+                    f"{what} does not carry the fixture's created entry {created_key!r}",
+                    body,
+                )
         if "ImportFixtureGamma2022" not in body:
-            self.fail(url, 200, f"{what} does not carry the fixture's failing entry 'ImportFixtureGamma2022'", body)
+            self.fail(
+                url,
+                200,
+                f"{what} does not carry the fixture's failing entry 'ImportFixtureGamma2022'",
+                body,
+            )
         if "Ensure this value has at most 255 characters" not in body:
-            self.fail(url, 200, f"{what} does not carry the failing entry's own reason", body)
+            self.fail(
+                url, 200, f"{what} does not carry the failing entry's own reason", body
+            )
 
     def get(self, url):
         """GET url, following redirects, and fail if any lands on a login page (FR-005, T015)."""
@@ -808,7 +965,12 @@ class DemoWalk:
         # page anywhere in it is a failure of that openness, checked rather
         # than assumed.
         if "login" in urllib.parse.urlparse(final_url).path.lower():
-            self.fail(display_url, 200, f"redirected to a login page ({final_url}) on an unauthenticated walk", body)
+            self.fail(
+                display_url,
+                200,
+                f"redirected to a login page ({final_url}) on an unauthenticated walk",
+                body,
+            )
 
         return body, final_url
 

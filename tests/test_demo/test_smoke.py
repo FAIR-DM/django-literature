@@ -54,14 +54,19 @@ class TestItemLinkPattern:
         response = client.get(reverse("literature:item-list"))
         matches = ITEM_LINK_RE.findall(response.content.decode())
 
-        assert (reverse("literature:item-detail", kwargs={"pk": item.pk}), item.title) in matches
+        assert (
+            reverse("literature:item-detail", kwargs={"pk": item.pk}),
+            item.title,
+        ) in matches
 
     def test_does_not_match_a_contributor_link(self, db):
         # Both live under /catalogue/; only the reference page's path is a bare
         # primary key (ADR-0015), and a pattern that matched both would send the
         # walk to a contributor page while reporting a reference page.
         item_name = ItemNameFactory(item=ItemFactory())
-        contributor_path = reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        contributor_path = reverse(
+            "literature:contributor-detail", kwargs={"pk": item_name.name.pk}
+        )
 
         assert ITEM_LINK_RE.search(f'<a href="{contributor_path}">Someone</a>') is None
 
@@ -85,7 +90,9 @@ class TestSecondPageLinkPattern:
         assert match is not None
         assert match.group("query") == "?page=2"
 
-    def test_matches_a_link_the_paginated_list_renders_when_a_filter_is_also_in_force(self, client, db):
+    def test_matches_a_link_the_paginated_list_renders_when_a_filter_is_also_in_force(
+        self, client, db
+    ):
         # A second query parameter joins the pagination link with the HTML
         # entity `&amp;`, not a bare `&` (`{% querystring %}`'s own
         # escaping, decisions.md D13) — the guard reads this straight off
@@ -129,7 +136,9 @@ class TestContributorLinkPattern:
         match = CONTRIBUTOR_LINK_RE.search(response.content.decode())
 
         assert match is not None
-        assert match.group("path") == reverse("literature:contributor-detail", kwargs={"pk": item_name.name.pk})
+        assert match.group("path") == reverse(
+            "literature:contributor-detail", kwargs={"pk": item_name.name.pk}
+        )
         assert match.group("text") == str(item_name.name)
 
 
@@ -144,7 +153,9 @@ class TestPatternPrefix:
         # FR-021 forbids.
         source = DEMO_URLS.read_text(encoding="utf-8")
 
-        assert re.search(r'path\(\s*"catalogue/",\s*include\(\s*"literature\.ui\.urls"\s*\)', source)
+        assert re.search(
+            r'path\(\s*"catalogue/",\s*include\(\s*"literature\.ui\.urls"\s*\)', source
+        )
 
 
 class TestFailureReport:
@@ -156,7 +167,12 @@ class TestFailureReport:
         walk = DemoWalk("http://127.0.0.1:8000")
 
         with pytest.raises(SmokeCheckFailed) as excinfo:
-            walk.fail("http://127.0.0.1:8000/catalogue/", 500, "unsuccessful response", "SECRET" * 1000)
+            walk.fail(
+                "http://127.0.0.1:8000/catalogue/",
+                500,
+                "unsuccessful response",
+                "SECRET" * 1000,
+            )
 
         body_excerpt = str(excinfo.value).split("\n", 1)[1]
         assert len(body_excerpt) == BODY_EXCERPT_LIMIT
@@ -165,7 +181,9 @@ class TestFailureReport:
         walk = DemoWalk("http://127.0.0.1:8000")
 
         with pytest.raises(SmokeCheckFailed) as excinfo:
-            walk.fail("http://127.0.0.1:8000/catalogue/2/", 404, "unsuccessful response")
+            walk.fail(
+                "http://127.0.0.1:8000/catalogue/2/", 404, "unsuccessful response"
+            )
 
         message = str(excinfo.value)
         assert "http://127.0.0.1:8000/catalogue/2/" in message
@@ -219,7 +237,9 @@ class TestUnauthenticatedWalk:
     def test_a_page_served_without_a_login_returns_its_body(self, monkeypatch):
         monkeypatch.setattr(
             "urllib.request.OpenerDirector.open",
-            lambda self, url, timeout=None: FakeResponse("<h1>Catalogue</h1>", "http://127.0.0.1:8000/catalogue/"),
+            lambda self, url, timeout=None: FakeResponse(
+                "<h1>Catalogue</h1>", "http://127.0.0.1:8000/catalogue/"
+            ),
         )
         walk = DemoWalk("http://127.0.0.1:8000")
 
@@ -239,7 +259,11 @@ class TestSharedOpener:
         walk = DemoWalk("http://127.0.0.1:8000")
 
         assert isinstance(walk.opener, urllib.request.OpenerDirector)
-        cookie_handlers = [h for h in walk.opener.handlers if isinstance(h, urllib.request.HTTPCookieProcessor)]
+        cookie_handlers = [
+            h
+            for h in walk.opener.handlers
+            if isinstance(h, urllib.request.HTTPCookieProcessor)
+        ]
         assert len(cookie_handlers) == 1
 
 
@@ -264,7 +288,9 @@ class TestEditLinkPattern:
         match = EDIT_LINK_RE.search(response.content.decode())
 
         assert match is not None
-        assert match.group("path") == reverse("literature:item-update", kwargs={"pk": item.pk})
+        assert match.group("path") == reverse(
+            "literature:item-update", kwargs={"pk": item.pk}
+        )
 
 
 class TestRelatedRowFieldsOnTheEditPage:
@@ -278,7 +304,9 @@ class TestRelatedRowFieldsOnTheEditPage:
     the reachability finding T027 asks for, asserted rather than merely read.
     """
 
-    def test_the_edit_page_carries_a_contributor_row_a_date_row_and_an_identifier_row(self, client, db):
+    def test_the_edit_page_carries_a_contributor_row_a_date_row_and_an_identifier_row(
+        self, client, db
+    ):
         item = ItemFactory()
 
         response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
@@ -332,8 +360,12 @@ class TestRowLinkPattern:
 
         assert first_edit is not None
         assert second_edit is not None
-        assert first_edit.group("path") == reverse("literature:item-update", kwargs={"pk": first.pk})
-        assert second_edit.group("path") == reverse("literature:item-update", kwargs={"pk": second.pk})
+        assert first_edit.group("path") == reverse(
+            "literature:item-update", kwargs={"pk": first.pk}
+        )
+        assert second_edit.group("path") == reverse(
+            "literature:item-update", kwargs={"pk": second.pk}
+        )
 
     def test_does_not_find_a_different_rows_edit_link(self):
         row = '<tr><td><a href="/catalogue/1/">One</a></td></tr>'
@@ -351,7 +383,9 @@ class TestDeleteLinkPattern:
         match = DELETE_LINK_RE.search(response.content.decode())
 
         assert match is not None
-        assert match.group("path") == reverse("literature:item-delete", kwargs={"pk": item.pk})
+        assert match.group("path") == reverse(
+            "literature:item-delete", kwargs={"pk": item.pk}
+        )
 
 
 class TestFormFields:
@@ -365,7 +399,9 @@ class TestFormFields:
     checks its regex against the markup the front end really renders.
     """
 
-    def test_captures_the_csrf_token_and_every_named_field_on_the_create_form(self, client, db):
+    def test_captures_the_csrf_token_and_every_named_field_on_the_create_form(
+        self, client, db
+    ):
         response = client.get(reverse("literature:item-create"))
         fields = form_fields(response.content.decode())
 
@@ -392,7 +428,9 @@ class TestFormFields:
 
         assert fields["abstract"] == "An abstract spanning\nmultiple lines."
 
-    def test_the_show_every_field_toggle_carries_no_name_and_is_not_captured(self, client, db):
+    def test_the_show_every_field_toggle_carries_no_name_and_is_not_captured(
+        self, client, db
+    ):
         # item_form.html's <c-form.field type="checkbox" ... x-model="form.showAll" />
         # names no `name` attribute — a browser posts nothing for it, and a
         # scraper that invented one would post a field the view never declared.
@@ -428,10 +466,18 @@ class TestMultipartEncoder:
     def test_a_view_parses_back_the_same_fields_and_file(self):
         body, content_type = encode_multipart(
             {"format": "bibtex"},
-            {"file": ("import-sample.bib", b"@book{Key2020, title={A Title}}", "application/octet-stream")},
+            {
+                "file": (
+                    "import-sample.bib",
+                    b"@book{Key2020, title={A Title}}",
+                    "application/octet-stream",
+                )
+            },
         )
 
-        request = RequestFactory().post("/catalogue/import/", data=body, content_type=content_type)
+        request = RequestFactory().post(
+            "/catalogue/import/", data=body, content_type=content_type
+        )
 
         assert request.POST.get("format") == "bibtex"
         uploaded = request.FILES["file"]
@@ -457,8 +503,14 @@ class TestConfirmImportPattern:
     following that redirect, not on the response to the upload itself."""
 
     def test_matches_the_form_the_preview_page_really_renders(self, client, db):
-        upload = SimpleUploadedFile("import.bib", b"@article{Key2020, title={A Title}, address={x}}")
-        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload}, follow=True)
+        upload = SimpleUploadedFile(
+            "import.bib", b"@article{Key2020, title={A Title}, address={x}}"
+        )
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload},
+            follow=True,
+        )
         match = CONFIRM_IMPORT_RE.search(response.content.decode())
 
         assert match is not None
@@ -470,8 +522,14 @@ class TestRestartImportPattern:
     (T918, US-6, FR-051)."""
 
     def test_matches_the_form_the_preview_page_really_renders(self, client, db):
-        upload = SimpleUploadedFile("import.bib", b"@article{Key2020, title={A Title}, address={x}}")
-        response = client.post(reverse("literature:item-import"), {"format": "bibtex", "file": upload}, follow=True)
+        upload = SimpleUploadedFile(
+            "import.bib", b"@article{Key2020, title={A Title}, address={x}}"
+        )
+        response = client.post(
+            reverse("literature:item-import"),
+            {"format": "bibtex", "file": upload},
+            follow=True,
+        )
         match = RESTART_IMPORT_RE.search(response.content.decode())
 
         assert match is not None

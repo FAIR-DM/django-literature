@@ -48,16 +48,16 @@ def _resolve() -> dict[str, type[BibFormat]]:
     configured = getattr(settings, "LITERATURE", {})
     if not isinstance(configured, dict):
         raise ImproperlyConfigured(
-            _("LITERATURE must be a dict, not {actual} — the format list goes under a 'BIB_FORMATS' key.").format(
-                actual=type(configured).__name__
-            )
+            _(
+                "LITERATURE must be a dict, not {actual} — the format list goes under a 'BIB_FORMATS' key."
+            ).format(actual=type(configured).__name__)
         )
     paths = configured.get("BIB_FORMATS", DEFAULTS)
     if isinstance(paths, str | bytes) or not isinstance(paths, list | tuple):
         raise ImproperlyConfigured(
-            _("LITERATURE['BIB_FORMATS'] must be a list of dotted paths, not {actual}: {value!r}").format(
-                actual=type(paths).__name__, value=paths
-            )
+            _(
+                "LITERATURE['BIB_FORMATS'] must be a list of dotted paths, not {actual}: {value!r}"
+            ).format(actual=type(paths).__name__, value=paths)
         )
     resolved: dict[str, type[BibFormat]] = {}
     for path in paths:
@@ -65,23 +65,29 @@ def _resolve() -> dict[str, type[BibFormat]]:
             format_class = import_string(path)
         except ImportError as exc:
             raise ImproperlyConfigured(
-                _("'{path}' in LITERATURE['BIB_FORMATS'] could not be imported: {error}").format(path=path, error=exc)
+                _(
+                    "'{path}' in LITERATURE['BIB_FORMATS'] could not be imported: {error}"
+                ).format(path=path, error=exc)
             ) from exc
         if not (isinstance(format_class, type) and issubclass(format_class, BibFormat)):
             raise ImproperlyConfigured(
-                _("'{path}' in LITERATURE['BIB_FORMATS'] is not a BibFormat subclass.").format(path=path)
+                _(
+                    "'{path}' in LITERATURE['BIB_FORMATS'] is not a BibFormat subclass."
+                ).format(path=path)
             )
         missing = sorted(format_class.__abstractmethods__)
         if missing:
             raise ImproperlyConfigured(
-                _("'{path}' in LITERATURE['BIB_FORMATS'] does not implement {missing} and cannot be used.").format(
-                    path=path, missing=", ".join(missing)
-                )
+                _(
+                    "'{path}' in LITERATURE['BIB_FORMATS'] does not implement {missing} and cannot be used."
+                ).format(path=path, missing=", ".join(missing))
             )
         name = getattr(format_class, "name", None)
         if not isinstance(name, str) or not name.strip():
             raise ImproperlyConfigured(
-                _("'{path}' in LITERATURE['BIB_FORMATS'] must set a non-empty 'name'.").format(path=path)
+                _(
+                    "'{path}' in LITERATURE['BIB_FORMATS'] must set a non-empty 'name'."
+                ).format(path=path)
             )
         resolved[name] = format_class
     return resolved

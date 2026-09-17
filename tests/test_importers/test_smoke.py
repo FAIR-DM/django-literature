@@ -68,7 +68,11 @@ class LineFormat(BibFormat):
         if len(parts) != 3:
             # A format reports what it cannot read rather than letting the
             # error escape, so the rest of the file still imports.
-            raise EntryError(_("expected 'key | type | title', got {count} fields").format(count=len(parts)))
+            raise EntryError(
+                _("expected 'key | type | title', got {count} fields").format(
+                    count=len(parts)
+                )
+            )
         key, item_type, title = parts
         return {"citation-key": key, "type": item_type, "title": title}
 
@@ -81,7 +85,9 @@ def smoke_format(settings):
     directly, so ``setting_changed`` fires and undoes it — and invalidates
     :mod:`literature.importers.config`'s cache — after the test.
     """
-    settings.LITERATURE = {"BIB_FORMATS": ["tests.test_importers.test_smoke.LineFormat"]}
+    settings.LITERATURE = {
+        "BIB_FORMATS": ["tests.test_importers.test_smoke.LineFormat"]
+    }
     return LineFormat
 
 
@@ -101,7 +107,9 @@ class TestTheWholeContract:
         outcomes in the same order, the rehearsal stores nothing, and what the
         real run reported as created is exactly what ends up in the catalogue.
         """
-        preview = get_format("smoke-lines")().import_file(io.StringIO(LIBRARY), dry_run=True)
+        preview = get_format("smoke-lines")().import_file(
+            io.StringIO(LIBRARY), dry_run=True
+        )
 
         assert preview.dry_run is True
         assert [entry.outcome for entry in preview] == [
@@ -115,17 +123,23 @@ class TestTheWholeContract:
         assert [entry.handle for entry in preview.failed] == ["notype", "halfaline"]
         assert all(entry.reason for entry in preview.failed)
         assert all(entry.item is None for entry in preview)
-        assert Item.objects.count() == 0, "a rehearsal must leave the catalogue untouched"
+        assert Item.objects.count() == 0, (
+            "a rehearsal must leave the catalogue untouched"
+        )
 
         result = get_format("smoke-lines")().import_file(io.StringIO(LIBRARY))
 
         assert result.dry_run is False
         assert result.format_name == "smoke-lines"
-        assert [entry.outcome for entry in result] == [entry.outcome for entry in preview]
+        assert [entry.outcome for entry in result] == [
+            entry.outcome for entry in preview
+        ]
         assert [entry.handle for entry in result] == [entry.handle for entry in preview]
 
         assert Item.objects.count() == len(result.created) == 2
-        assert {item.pk for item in Item.objects.all()} == {entry.item.pk for entry in result.created}
+        assert {item.pk for item in Item.objects.all()} == {
+            entry.item.pk for entry in result.created
+        }
         assert set(Item.objects.values_list("title", flat=True)) == {
             "The Structure of Scientific Revolutions",
             "The Logic of Scientific Discovery",
@@ -193,4 +207,6 @@ class TestPublicSurface:
         """Not a copy, not a wrapper — the same object, so ``isinstance`` and
         ``except`` clauses behave identically whichever route a caller took.
         """
-        assert getattr(importers, name) is getattr(importlib.import_module(module), name)
+        assert getattr(importers, name) is getattr(
+            importlib.import_module(module), name
+        )

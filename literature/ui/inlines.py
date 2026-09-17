@@ -63,7 +63,9 @@ class ContributorFormSet(BaseInlineFormSet):
             instance = form.instance
             if not instance.pk or form in self.deleted_forms:
                 continue
-            by_role[instance.role].append((form.cleaned_data.get("ORDER") or 0, instance))
+            by_role[instance.role].append(
+                (form.cleaned_data.get("ORDER") or 0, instance)
+            )
 
         for entries in by_role.values():
             entries.sort(key=lambda pair: pair[0])
@@ -103,7 +105,9 @@ class ContributorInline(InlineFormSet):
         and this set holds every role's rows on one page; an ungrouped list
         shows positions running 0, 0, 1, 2, 0 and reads as broken.
         """
-        return sorted(forms, key=lambda form: (form.instance.role or "", form.instance.pk or 0))
+        return sorted(
+            forms, key=lambda form: (form.instance.role or "", form.instance.pk or 0)
+        )
 
 
 class ItemDateFormSet(BaseInlineFormSet):
@@ -188,7 +192,9 @@ class DateInline(InlineFormSet):
         type of its own.
         """
         item_type = getattr(self.instance, "type", None)
-        return frozenset({DateType.ISSUED}) | TYPE_DATE_SLOTS.get(item_type, frozenset())
+        return frozenset({DateType.ISSUED}) | TYPE_DATE_SLOTS.get(
+            item_type, frozenset()
+        )
 
     def stored_slots(self):
         """The slots the reference already holds a row for, whatever the

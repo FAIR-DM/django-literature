@@ -73,7 +73,11 @@ def _accounted_for(bib_key: str, csl: dict) -> bool:
     bibtex_custom = bibtex_custom if isinstance(bibtex_custom, dict) else {}
     if bib_key in bibtex_custom or bib_key in custom:
         return True
-    mapping = FIELD_TABLE.get(bib_key) or NAME_FIELD_TABLE.get(bib_key) or IDENTIFIER_FIELD_TABLE.get(bib_key)
+    mapping = (
+        FIELD_TABLE.get(bib_key)
+        or NAME_FIELD_TABLE.get(bib_key)
+        or IDENTIFIER_FIELD_TABLE.get(bib_key)
+    )
     if mapping is not None:
         return mapping.csl in csl
     if bib_key in {"year", "month", "date"}:
@@ -145,7 +149,9 @@ class TestParse:
 
     def test_preserves_source_order(self):
         with fixture("clean_multi_type.bib") as handle:
-            handles = [BibTeXFormat().handle_for(raw) for raw in BibTeXFormat().parse(handle)]
+            handles = [
+                BibTeXFormat().handle_for(raw) for raw in BibTeXFormat().parse(handle)
+            ]
         assert handles == [
             "shannon1948mathematical",
             "knuth1984texbook",
@@ -188,7 +194,9 @@ class TestHandles:
             "berners1989information",
             "w3c2024standards",
         ]
-        assert set(Item.objects.values_list("citation_key", flat=True)) == {e.handle for e in result.created}
+        assert set(Item.objects.values_list("citation_key", flat=True)) == {
+            e.handle for e in result.created
+        }
 
 
 class TestParseAcceptsEitherHandle:
@@ -210,7 +218,9 @@ class TestParseAcceptsEitherHandle:
             return [(e.outcome, e.handle) for e in result]
 
         assert as_pairs(binary_result) == as_pairs(text_result)
-        assert binary_result.created, "the fixture is expected to produce created entries"
+        assert binary_result.created, (
+            "the fixture is expected to produce created entries"
+        )
 
     def test_undecodable_bytes_report_a_parse_error_not_a_type_error(self):
         with (FIXTURES / "latin1_encoded.bib").open("rb") as handle:
@@ -224,25 +234,38 @@ class TestParseAcceptsEitherHandle:
 class TestEntryTypes:
     """Every classic entry type maps to its CSL item type (FR-006)."""
 
-    @pytest.mark.parametrize(("bibtex_type", "mapping"), sorted(ENTRY_TYPE_TABLE.items()))
+    @pytest.mark.parametrize(
+        ("bibtex_type", "mapping"), sorted(ENTRY_TYPE_TABLE.items())
+    )
     def test_every_classic_type_maps_to_its_csl_equivalent(self, bibtex_type, mapping):
-        assert BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"] == mapping.csl
+        assert (
+            BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"]
+            == mapping.csl
+        )
 
     @pytest.mark.parametrize("bibtex_type", ["set", "xdata", ""])
-    def test_an_unrecognised_type_maps_to_document_rather_than_failing(self, bibtex_type):
+    def test_an_unrecognised_type_maps_to_document_rather_than_failing(
+        self, bibtex_type
+    ):
         """``set`` and ``xdata`` are real BibLaTeX types with no CSL meaning:
         one groups other entries, the other only supplies fields to them.
         They are the examples here because they are the two the entry-type
         table is expected never to carry, so this test cannot be made to fail
         by mapping more of BibLaTeX correctly.
         """
-        assert BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"] == "document"
+        assert (
+            BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"]
+            == "document"
+        )
 
     def test_unknown_types_from_the_corpus_land_as_document(self):
         """``unknown_entry_type.bib``: neither type maps to a CSL type."""
         with fixture("unknown_entry_type.bib") as handle:
             raws = list(BibTeXFormat().parse(handle))
-        assert [BibTeXFormat().to_csl_json(raw)["type"] for raw in raws] == ["document", "document"]
+        assert [BibTeXFormat().to_csl_json(raw)["type"] for raw in raws] == [
+            "document",
+            "document",
+        ]
 
 
 #: A field whose value the importer normalizes rather than copying through,
@@ -260,7 +283,9 @@ class TestFields:
 
     @pytest.mark.parametrize(("bibtex_field", "mapping"), sorted(FIELD_TABLE.items()))
     def test_every_classic_field_maps_to_its_csl_variable(self, bibtex_field, mapping):
-        source, expected = _FIELD_SAMPLES.get(bibtex_field, ("some value", "some value"))
+        source, expected = _FIELD_SAMPLES.get(
+            bibtex_field, ("some value", "some value")
+        )
         raw = entry(**{bibtex_field: source})
         assert BibTeXFormat().to_csl_json(raw)[mapping.csl] == expected
 
@@ -285,17 +310,23 @@ class TestNames:
     def test_von_particle_lands_as_non_dropping_particle(self):
         raw = entry(author="van Beethoven, Ludwig")
         csl = BibTeXFormat().to_csl_json(raw)
-        assert csl["author"] == [{"given": "Ludwig", "family": "Beethoven", "non-dropping-particle": "van"}]
+        assert csl["author"] == [
+            {"given": "Ludwig", "family": "Beethoven", "non-dropping-particle": "van"}
+        ]
 
     def test_jr_suffix_lands_as_suffix(self):
         raw = entry(author="King, Jr., Martin Luther")
         csl = BibTeXFormat().to_csl_json(raw)
-        assert csl["author"] == [{"given": "Martin Luther", "family": "King", "suffix": "Jr."}]
+        assert csl["author"] == [
+            {"given": "Martin Luther", "family": "King", "suffix": "Jr."}
+        ]
 
     def test_first_von_last_form_is_understood_too(self):
         raw = entry(author="Ludwig van Beethoven")
         csl = BibTeXFormat().to_csl_json(raw)
-        assert csl["author"] == [{"given": "Ludwig", "family": "Beethoven", "non-dropping-particle": "van"}]
+        assert csl["author"] == [
+            {"given": "Ludwig", "family": "Beethoven", "non-dropping-particle": "van"}
+        ]
 
     def test_brace_wrapped_institutional_name_goes_to_literal_unsplit(self):
         with fixture("clean_multi_type.bib") as handle:
@@ -324,14 +355,18 @@ class TestDates:
         with fixture("string_macros.bib") as handle:
             raws = list(BibTeXFormat().parse(handle))
         hopper = next(raw for raw in raws if raw["ID"] == "uses_macro_two")
-        assert BibTeXFormat().to_csl_json(hopper)["issued"] == {"date-parts": [[1952, 1]]}
+        assert BibTeXFormat().to_csl_json(hopper)["issued"] == {
+            "date-parts": [[1952, 1]]
+        }
 
     def test_bare_full_month_name_does_not_pad_a_day(self):
         """``real_crossref_classic.bib`` writes bare ``month=July`` (no day stated)."""
         with fixture("real_crossref_classic.bib") as handle:
             raws = list(BibTeXFormat().parse(handle))
         akiba = next(raw for raw in raws if raw["ID"] == "Akiba_2019")
-        assert BibTeXFormat().to_csl_json(akiba)["issued"] == {"date-parts": [[2019, 7]]}
+        assert BibTeXFormat().to_csl_json(akiba)["issued"] == {
+            "date-parts": [[2019, 7]]
+        }
 
 
 class TestIdentifiers:
@@ -380,7 +415,9 @@ class TestIdentifiers:
         (D-7, T020) changes nothing here: a shape-valid, checksum-invalid ISBN is still not a
         value the catalogue accepts (FR-029), and still lands in ``custom`` rather than ``ISBN``.
         """
-        csl = BibTeXFormat().to_csl_json(entry(isbn="978-0-306-40615-0"))  # wrong check digit
+        csl = BibTeXFormat().to_csl_json(
+            entry(isbn="978-0-306-40615-0")
+        )  # wrong check digit
         assert "ISBN" not in csl
         assert csl["custom"]["isbn"] == "978-0-306-40615-0"
 
@@ -404,7 +441,11 @@ class TestBlocks:
             result = BibTeXFormat().import_file(handle)
 
         assert result.ok
-        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.SKIPPED, Outcome.SKIPPED]
+        assert [e.outcome for e in result] == [
+            Outcome.CREATED,
+            Outcome.SKIPPED,
+            Outcome.SKIPPED,
+        ]
         assert Item.objects.count() == 1
         assert Item.objects.get().citation_key == "after_the_blocks"
 
@@ -467,7 +508,10 @@ class TestCrossref:
 
         assert result.ok
         assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
-        assert [e.handle for e in result] == ["chapter_referencing_later_parent", "the_parent_book"]
+        assert [e.handle for e in result] == [
+            "chapter_referencing_later_parent",
+            "the_parent_book",
+        ]
 
         chapter = Item.objects.get(citation_key="chapter_referencing_later_parent")
         assert chapter.title == "A Chapter In A Collection"
@@ -479,7 +523,11 @@ class TestCrossref:
         with fixture("crossref_cycle.bib") as handle:
             result = BibTeXFormat().import_file(handle)
 
-        assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED, Outcome.CREATED]
+        assert [e.outcome for e in result] == [
+            Outcome.CREATED,
+            Outcome.CREATED,
+            Outcome.CREATED,
+        ]
         assert {item.title for item in Item.objects.all()} == {
             "Entry A",
             "Entry B",
@@ -518,7 +566,11 @@ class TestCleaning:
         this the normalizer runs on every clean ISBN and is never asked to
         strip anything.
         """
-        raw = {"ENTRYTYPE": "book", "ID": "labelled_isbn", "isbn": "ISBN-13: 0-201-13447-0"}
+        raw = {
+            "ENTRYTYPE": "book",
+            "ID": "labelled_isbn",
+            "isbn": "ISBN-13: 0-201-13447-0",
+        }
         assert BibTeXFormat().to_csl_json(raw)["ISBN"] == "0-201-13447-0"
 
     def test_latex_accents_decode_to_the_characters_they_represent(self):
@@ -539,7 +591,9 @@ class TestCleaning:
         assert "{" not in csl["title"]
         assert "}" not in csl["title"]
 
-    def test_a_construct_the_decoder_does_not_recognise_is_left_visible_not_dropped(self):
+    def test_a_construct_the_decoder_does_not_recognise_is_left_visible_not_dropped(
+        self,
+    ):
         """``unknown_macro2020``: the decoder knows ``\\u`` as an accent command,
 
         so ``\\unknownmacro`` is not left untouched character-for-character —
@@ -559,7 +613,9 @@ class TestRecovery:
     """A value cleaning cannot rescue is preserved, not failed (FR-019, FR-020, FR-021)."""
 
     @pytest.mark.django_db
-    def test_an_identifier_that_still_will_not_validate_after_cleaning_is_preserved(self):
+    def test_an_identifier_that_still_will_not_validate_after_cleaning_is_preserved(
+        self,
+    ):
         with fixture("doi_labelled.bib") as handle:
             result = BibTeXFormat().import_file(handle)
 
@@ -591,7 +647,13 @@ class TestRecovery:
 
     @pytest.mark.django_db
     @pytest.mark.parametrize(
-        "filename", ["doi_as_url.bib", "doi_labelled.bib", "unparseable_date.bib", "latex_escapes.bib"]
+        "filename",
+        [
+            "doi_as_url.bib",
+            "doi_labelled.bib",
+            "unparseable_date.bib",
+            "latex_escapes.bib",
+        ],
     )
     def test_no_recoverable_malformation_fails_its_entry(self, filename):
         """FR-021: with cleaning and preservation in place, none of these
@@ -619,14 +681,18 @@ class TestCorpusRecovery:
     _WHOLE_FILE_UNREADABLE = {"latin1_encoded.bib", "not_bibtex.bib"}
 
     @pytest.mark.django_db
-    def test_no_entry_across_the_corpus_is_refused_for_a_reason_normalization_resolves(self):
+    def test_no_entry_across_the_corpus_is_refused_for_a_reason_normalization_resolves(
+        self,
+    ):
         failures: list[str] = []
         for path in sorted(FIXTURES.glob("*.bib")):
             with fixture(path.name) as handle:
                 result = BibTeXFormat().import_file(handle, dry_run=True)
             for entry_result in result:
                 if entry_result.outcome is Outcome.FAILED:
-                    assert entry_result.reason, f"{path.name}#{entry_result.index} failed with no reason"
+                    assert entry_result.reason, (
+                        f"{path.name}#{entry_result.index} failed with no reason"
+                    )
                     failures.append(path.name)
 
         assert set(failures) <= self._WHOLE_FILE_UNREADABLE, (
@@ -687,11 +753,15 @@ class TestBibLaTeX:
             ("1970", [1970]),
         ],
     )
-    def test_a_single_date_field_stores_at_the_precision_it_states(self, date, date_parts):
+    def test_a_single_date_field_stores_at_the_precision_it_states(
+        self, date, date_parts
+    ):
         raw = entry(date=date)
         assert BibTeXFormat().to_csl_json(raw)["issued"] == {"date-parts": [date_parts]}
 
-    def test_a_date_field_in_a_shape_this_importer_does_not_resolve_falls_back_to_literal(self):
+    def test_a_date_field_in_a_shape_this_importer_does_not_resolve_falls_back_to_literal(
+        self,
+    ):
         """A range, a valid BibLaTeX ``date`` shape, is not one of the
         year/year-month/full-date precisions FR-010 asks this importer to
         resolve. Not discarded either way (FR-020) — the same fallback an
@@ -702,15 +772,21 @@ class TestBibLaTeX:
 
     @pytest.mark.parametrize(
         ("bibtex_type", "mapping"),
-        sorted(item for item in ENTRY_TYPE_TABLE.items() if item[1].dialect == "biblatex"),
+        sorted(
+            item for item in ENTRY_TYPE_TABLE.items() if item[1].dialect == "biblatex"
+        ),
     )
-    def test_every_biblatex_only_type_maps_to_a_real_csl_type_not_the_fallback(self, bibtex_type, mapping):
+    def test_every_biblatex_only_type_maps_to_a_real_csl_type_not_the_fallback(
+        self, bibtex_type, mapping
+    ):
         csl_type = BibTeXFormat().to_csl_json(entry(entry_type=bibtex_type))["type"]
         assert csl_type == mapping.csl
         assert csl_type != "document"
 
     @pytest.mark.django_db
-    def test_constructed_biblatex_corpus_imports_with_real_types_container_titles_and_date_precision(self):
+    def test_constructed_biblatex_corpus_imports_with_real_types_container_titles_and_date_precision(
+        self,
+    ):
         with fixture("constructed_biblatex.bib") as handle:
             result = BibTeXFormat().import_file(handle)
 
@@ -727,9 +803,15 @@ class TestBibLaTeX:
         assert by_key["collected1995"].type == "collection"
         assert by_key["chapter1995"].type == "chapter"
 
-        assert by_key["lecun2015deep"].item_dates.get(date_type="issued").begin == PartialDate("2015-05-28")
-        assert by_key["w3c2024standards"].item_dates.get(date_type="issued").begin == PartialDate("2024-01")
-        assert by_key["codd1970relational"].item_dates.get(date_type="issued").begin == PartialDate("1970")
+        assert by_key["lecun2015deep"].item_dates.get(
+            date_type="issued"
+        ).begin == PartialDate("2015-05-28")
+        assert by_key["w3c2024standards"].item_dates.get(
+            date_type="issued"
+        ).begin == PartialDate("2024-01")
+        assert by_key["codd1970relational"].item_dates.get(
+            date_type="issued"
+        ).begin == PartialDate("1970")
 
     @pytest.mark.django_db
     def test_a_file_mixing_both_conventions_across_entries_imports_correctly(self):
@@ -760,13 +842,19 @@ class TestPrecedence:
 
     def test_conflicting_journaltitle_and_journal_resolve_to_journaltitle(self):
         raw = entry(journal="Classic Field Name", journaltitle="BibLaTeX Field Name")
-        assert BibTeXFormat().to_csl_json(raw)["container-title"] == "BibLaTeX Field Name"
+        assert (
+            BibTeXFormat().to_csl_json(raw)["container-title"] == "BibLaTeX Field Name"
+        )
 
-    def test_a_journaltitle_and_journal_that_agree_resolve_the_same_way_either_would_alone(self):
+    def test_a_journaltitle_and_journal_that_agree_resolve_the_same_way_either_would_alone(
+        self,
+    ):
         raw = entry(journal="Nature", journaltitle="Nature")
         assert BibTeXFormat().to_csl_json(raw)["container-title"] == "Nature"
 
-    def test_the_corpus_mixed_dialect_entry_resolves_both_conflicts_deterministically(self):
+    def test_the_corpus_mixed_dialect_entry_resolves_both_conflicts_deterministically(
+        self,
+    ):
         """``mixed_dialect_entry`` in ``constructed_biblatex.bib`` carries both
         forms of both conflicts at once: ``journal`` vs. ``journaltitle``, and
         ``year`` vs. ``date``.
@@ -809,11 +897,14 @@ class TestDialectEquivalence:
         classic_by_key = {e.handle: e.item for e in classic_result.created}
         biblatex_by_key = {e.handle: e.item for e in biblatex_result.created}
         assert classic_by_key.keys() == biblatex_by_key.keys()
-        assert not {item.pk for item in classic_by_key.values()} & {item.pk for item in biblatex_by_key.values()}
+        assert not {item.pk for item in classic_by_key.values()} & {
+            item.pk for item in biblatex_by_key.values()
+        }
 
         def contributors(item):
             return [
-                (name.role, name.name.given, name.name.family) for name in item.item_names.order_by("role", "order")
+                (name.role, name.name.given, name.name.family)
+                for name in item.item_names.order_by("role", "order")
             ]
 
         def identifiers(item):
@@ -848,7 +939,9 @@ class TestPreservation:
     """
 
     def test_unmapped_fields_are_collected_under_a_single_bibtex_key(self):
-        raw = entry(file=":home/sam/papers/x.pdf:PDF", owner="sam", timestamp="2024-03-11")
+        raw = entry(
+            file=":home/sam/papers/x.pdf:PDF", owner="sam", timestamp="2024-03-11"
+        )
         csl = BibTeXFormat().to_csl_json(raw)
         assert csl["custom"]["bibtex"] == {
             "file": ":home/sam/papers/x.pdf:PDF",
@@ -864,7 +957,9 @@ class TestPreservation:
         it has no CSL equivalent and is not consumed by anything else here.
         """
         raw = entry(key="alpha-sort")
-        assert BibTeXFormat().to_csl_json(raw)["custom"]["bibtex"] == {"key": "alpha-sort"}
+        assert BibTeXFormat().to_csl_json(raw)["custom"]["bibtex"] == {
+            "key": "alpha-sort"
+        }
 
     @pytest.mark.django_db
     def test_unmapped_fields_are_retrievable_from_the_stored_item(self):
@@ -900,7 +995,13 @@ class TestPreservation:
 
         entry_result = result.created[0]
         assert entry_result.reason is None
-        assert {f.name for f in dataclasses.fields(entry_result)} == {"outcome", "index", "handle", "item", "reason"}
+        assert {f.name for f in dataclasses.fields(entry_result)} == {
+            "outcome",
+            "index",
+            "handle",
+            "item",
+            "reason",
+        }
 
     @pytest.mark.django_db
     def test_an_unresolvable_crossref_is_preserved_as_an_ordinary_unmapped_field(self):
@@ -963,7 +1064,9 @@ class TestCorpusPreservation:
                             gaps.append(f"{path.name}#{raw.get('ID')}: {bib_key!r}")
 
         assert unreadable == UNREADABLE_FIXTURES
-        assert checked > 1000, "the sweep looked at far fewer fields than the corpus holds"
+        assert checked > 1000, (
+            "the sweep looked at far fewer fields than the corpus holds"
+        )
         assert not gaps
 
 
@@ -1039,13 +1142,17 @@ class TestDialectFieldCoverage:
         ],
     )
     def test_the_biblatex_spelling_maps(self, bibtex_field, value, csl, expected):
-        assert BibTeXFormat().to_csl_json(entry(**{bibtex_field: value}))[csl] == expected
+        assert (
+            BibTeXFormat().to_csl_json(entry(**{bibtex_field: value}))[csl] == expected
+        )
 
     def test_the_biblatex_spelling_wins_over_its_classic_pair(self):
         """``location`` over ``address`` and ``annotation`` over ``annote``,
         the same precedence ``journaltitle`` already has over ``journal``.
         """
-        raw = entry(address="Old", location="New", annote="Old note", annotation="New note")
+        raw = entry(
+            address="Old", location="New", annote="Old note", annotation="New note"
+        )
         csl = BibTeXFormat().to_csl_json(raw)
         assert csl["publisher-place"] == "New"
         assert csl["annote"] == "New note"
@@ -1056,7 +1163,10 @@ class TestDialectFieldCoverage:
             result = BibTeXFormat().import_file(handle)
 
         assert result.ok, [e.reason for e in result.failed]
-        assert Item.objects.get(citation_key="collected1995").publisher_place == "Cambridge"
+        assert (
+            Item.objects.get(citation_key="collected1995").publisher_place
+            == "Cambridge"
+        )
         assert Item.objects.get(citation_key="lecun2015deep").language == "en"
 
 
@@ -1072,7 +1182,13 @@ class TestLanguage:
 
     @pytest.mark.parametrize(
         ("source", "expected"),
-        [("english", "en"), ("British", "en-GB"), ("ngerman", "de"), ("en-GB", "en-GB"), ("pt-BR", "pt-BR")],
+        [
+            ("english", "en"),
+            ("British", "en-GB"),
+            ("ngerman", "de"),
+            ("en-GB", "en-GB"),
+            ("pt-BR", "pt-BR"),
+        ],
     )
     def test_a_recognised_language_becomes_its_tag(self, source, expected):
         assert BibTeXFormat().to_csl_json(entry(langid=source))["language"] == expected
@@ -1088,7 +1204,9 @@ class TestLanguage:
         stored as written: ``Item.language`` is ten characters, so a longer
         value would fail ``full_clean`` and take the whole entry with it.
         """
-        source = "@misc{long_language, title = {A title}, langid = {Middle High German}}"
+        source = (
+            "@misc{long_language, title = {A title}, langid = {Middle High German}}"
+        )
         result = BibTeXFormat().import_file(io.StringIO(source))
 
         assert [e.outcome for e in result] == [Outcome.CREATED]
@@ -1112,7 +1230,9 @@ class TestAccessDate:
 
         assert result.ok, [e.reason for e in result.failed]
         item = Item.objects.get(citation_key="w3c2024standards")
-        assert item.item_dates.get(date_type="accessed").begin == PartialDate("2024-06-01")
+        assert item.item_dates.get(date_type="accessed").begin == PartialDate(
+            "2024-06-01"
+        )
 
     @pytest.mark.django_db
     def test_a_urldate_that_will_not_parse_takes_the_literal_slot(self):
@@ -1158,7 +1278,9 @@ class TestPublishedMapping:
     def test_the_document_on_disk_matches_the_tables(self):
         from literature.importers.bibtex import _mapping_document
 
-        published = (Path(__file__).parent.parent.parent / "docs" / "bibtex-mapping.md").read_text(encoding="utf-8")
+        published = (
+            Path(__file__).parent.parent.parent / "docs" / "bibtex-mapping.md"
+        ).read_text(encoding="utf-8")
         assert published == _mapping_document(), (
             "docs/bibtex-mapping.md is stale — regenerate it from literature.importers.bibtex._mapping_document()"
         )
@@ -1167,7 +1289,12 @@ class TestPublishedMapping:
         from literature.importers.bibtex import _mapping_document
 
         document = _mapping_document()
-        for table in (ENTRY_TYPE_TABLE, FIELD_TABLE, NAME_FIELD_TABLE, IDENTIFIER_FIELD_TABLE):
+        for table in (
+            ENTRY_TYPE_TABLE,
+            FIELD_TABLE,
+            NAME_FIELD_TABLE,
+            IDENTIFIER_FIELD_TABLE,
+        ):
             for key, mapping in table.items():
                 assert f"`{mapping.csl}`" in document, key
         assert "`@article`" in document
@@ -1201,7 +1328,9 @@ class TestUntrustedInput:
     """
 
     @pytest.mark.django_db
-    @pytest.mark.parametrize("path", sorted(FIXTURES.glob("*.bib")), ids=lambda p: p.name)
+    @pytest.mark.parametrize(
+        "path", sorted(FIXTURES.glob("*.bib")), ids=lambda p: p.name
+    )
     def test_no_corpus_file_raises_out_of_the_import(self, path):
         """Every outcome arrives through the result, including the failures.
 
@@ -1221,10 +1350,22 @@ class TestUntrustedInput:
 
     def test_the_module_reaches_nothing_outside_itself(self):
         """No import that could execute, spawn, or connect on file content."""
-        source = (Path(__file__).parent.parent.parent / "literature" / "importers" / "bibtex.py").read_text(
-            encoding="utf-8"
-        )
-        for forbidden in ("subprocess", "socket", "urllib", "requests", "os.system", "eval(", "exec(", "pickle"):
+        source = (
+            Path(__file__).parent.parent.parent
+            / "literature"
+            / "importers"
+            / "bibtex.py"
+        ).read_text(encoding="utf-8")
+        for forbidden in (
+            "subprocess",
+            "socket",
+            "urllib",
+            "requests",
+            "os.system",
+            "eval(",
+            "exec(",
+            "pickle",
+        ):
             assert forbidden not in source, forbidden
 
     @pytest.mark.parametrize(
@@ -1272,15 +1413,27 @@ class TestNothingIsOverwritten:
     """
 
     def test_a_second_field_naming_the_same_variable_is_preserved(self):
-        csl = BibTeXFormat().to_csl_json(entry(entry_type="incollection", booktitle="Big Book", journal="Journal"))
+        csl = BibTeXFormat().to_csl_json(
+            entry(entry_type="incollection", booktitle="Big Book", journal="Journal")
+        )
         assert csl["container-title"] == "Big Book"
         assert csl["custom"]["bibtex"] == {"journal": "Journal"}
 
     def test_every_loser_among_four_publisher_fields_is_preserved(self):
-        raw = entry(entry_type="techreport", institution="MIT", publisher="Acme", organization="ACM", school="Harvard")
+        raw = entry(
+            entry_type="techreport",
+            institution="MIT",
+            publisher="Acme",
+            organization="ACM",
+            school="Harvard",
+        )
         csl = BibTeXFormat().to_csl_json(raw)
         assert csl["publisher"] == "MIT"
-        assert csl["custom"]["bibtex"] == {"publisher": "Acme", "organization": "ACM", "school": "Harvard"}
+        assert csl["custom"]["bibtex"] == {
+            "publisher": "Acme",
+            "organization": "ACM",
+            "school": "Harvard",
+        }
 
     def test_the_classic_value_a_biblatex_field_overrules_is_preserved(self):
         """D17 decides which value is *stored*. It does not make the other
@@ -1313,13 +1466,17 @@ class TestImpossibleDates:
     and its identifiers over one field.
     """
 
-    @pytest.mark.parametrize("impossible", ["2024-13-45", "2024-02-30", "2024-00-10", "2024-06-31"])
+    @pytest.mark.parametrize(
+        "impossible", ["2024-13-45", "2024-02-30", "2024-00-10", "2024-06-31"]
+    )
     def test_an_impossible_date_takes_the_literal_slot(self, impossible):
         csl = BibTeXFormat().to_csl_json(entry(date=impossible))
         assert csl["issued"] == {"literal": impossible}
 
     def test_a_leap_day_is_not_mistaken_for_one(self):
-        assert BibTeXFormat().to_csl_json(entry(date="2024-02-29"))["issued"] == {"date-parts": [[2024, 2, 29]]}
+        assert BibTeXFormat().to_csl_json(entry(date="2024-02-29"))["issued"] == {
+            "date-parts": [[2024, 2, 29]]
+        }
 
     @pytest.mark.django_db
     def test_the_rest_of_the_entry_survives_an_impossible_date(self):
@@ -1329,7 +1486,9 @@ class TestImpossibleDates:
         )
         result = BibTeXFormat().import_file(io.StringIO(source))
 
-        assert [e.outcome for e in result] == [Outcome.CREATED], [e.reason for e in result.failed]
+        assert [e.outcome for e in result] == [Outcome.CREATED], [
+            e.reason for e in result.failed
+        ]
         item = Item.objects.get(citation_key="bad_date")
         assert item.title == "A Title"
         assert item.item_names.count() == 1
@@ -1419,7 +1578,9 @@ class TestCiteKeyCollision:
         assert [e.outcome for e in result] == [Outcome.CREATED, Outcome.CREATED]
         assert [e.handle for e in result] == ["samekey", "samekey"]
         assert [e.item.citation_key for e in result.created] == ["samekey", "samekey"]
-        assert Item.objects.count() == 2, "a collision must not overwrite the first entry"
+        assert Item.objects.count() == 2, (
+            "a collision must not overwrite the first entry"
+        )
 
 
 class TestVolume:

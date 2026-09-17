@@ -60,7 +60,11 @@ def make_echo_format(entries, *, on_yield=None, format_name="echo"):
                 raise SkipEntry(raw.get("reason", ""))
             if kind == "entry_error":
                 raise EntryError(raw.get("reason", "bad entry"))
-            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+            return {
+                key: value
+                for key, value in raw.items()
+                if key not in ("kind", "handle")
+            }
 
         def handle_for(self, raw):
             return raw.get("handle")
@@ -86,13 +90,19 @@ def make_failing_parse_format(entries, reason="bad entry", format_name="failing-
             raise EntryError(reason)
 
         def to_csl_json(self, raw):
-            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+            return {
+                key: value
+                for key, value in raw.items()
+                if key not in ("kind", "handle")
+            }
 
     _FailingParseFormat.name = format_name
     return _FailingParseFormat
 
 
-def make_bad_handle_format(entries, reason="cannot read this entry's key", format_name="bad-handle"):
+def make_bad_handle_format(
+    entries, reason="cannot read this entry's key", format_name="bad-handle"
+):
     """Build a ``BibFormat`` whose ``handle_for`` raises on untrusted content.
 
     ``handle_for`` reads the same raw entry as ``to_csl_json``, so a
@@ -107,7 +117,11 @@ def make_bad_handle_format(entries, reason="cannot read this entry's key", forma
             yield from entries
 
         def to_csl_json(self, raw):
-            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+            return {
+                key: value
+                for key, value in raw.items()
+                if key not in ("kind", "handle")
+            }
 
         def handle_for(self, raw):
             raise EntryError(reason)
@@ -133,7 +147,9 @@ def make_unparseable_format(reason="not this format", format_name="unparseable")
             yield  # pragma: no cover - unreachable, keeps this a generator function
 
         def to_csl_json(self, raw):
-            raise AssertionError("to_csl_json must not be called when parse() cannot yield an entry")
+            raise AssertionError(
+                "to_csl_json must not be called when parse() cannot yield an entry"
+            )
 
     _UnparseableFormat.name = format_name
     return _UnparseableFormat
@@ -178,7 +194,9 @@ def bypass_identifier_validation(monkeypatch):
     """
     from literature.models import ItemIdentifier
 
-    monkeypatch.setattr(ItemIdentifier, "full_clean", lambda self, *args, **kwargs: None)
+    monkeypatch.setattr(
+        ItemIdentifier, "full_clean", lambda self, *args, **kwargs: None
+    )
 
 
 def make_skipping_handle_format(entries, format_name="skipping-handle"):
@@ -197,7 +215,11 @@ def make_skipping_handle_format(entries, format_name="skipping-handle"):
             yield from entries
 
         def to_csl_json(self, raw):
-            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+            return {
+                key: value
+                for key, value in raw.items()
+                if key not in ("kind", "handle")
+            }
 
         def handle_for(self, raw):
             raise SkipEntry("not a record, apparently")
@@ -206,7 +228,9 @@ def make_skipping_handle_format(entries, format_name="skipping-handle"):
     return _SkippingHandleFormat
 
 
-def make_raising_format(entries, exception, *, stage="to_csl_json", format_name="raising"):
+def make_raising_format(
+    entries, exception, *, stage="to_csl_json", format_name="raising"
+):
     """Build a ``BibFormat`` that raises ``exception`` at ``stage``.
 
     For the exception types the contract does *not* name. A format is
@@ -226,7 +250,11 @@ def make_raising_format(entries, exception, *, stage="to_csl_json", format_name=
         def to_csl_json(self, raw):
             if stage == "to_csl_json":
                 raise exception
-            return {key: value for key, value in raw.items() if key not in ("kind", "handle")}
+            return {
+                key: value
+                for key, value in raw.items()
+                if key not in ("kind", "handle")
+            }
 
     _RaisingFormat.name = format_name
     return _RaisingFormat

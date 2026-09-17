@@ -80,7 +80,9 @@ def snippet_words():
     """
     source = (UI_TEMPLATES / "item_list_item.html").read_text(encoding="utf-8")
     match = re.search(r"abstract\|truncatewords:(\d+)", source)
-    assert match, "the catalogue row no longer truncates the abstract with truncatewords"
+    assert match, (
+        "the catalogue row no longer truncates the abstract with truncatewords"
+    )
     return int(match.group(1))
 
 
@@ -99,7 +101,9 @@ class TestSeedCatalogue:
         counts = [len(contributors(entry)) for entry in catalogue]
         assert 2 in counts
 
-    def test_a_contributor_is_credited_on_two_references_under_two_different_roles(self, catalogue):
+    def test_a_contributor_is_credited_on_two_references_under_two_different_roles(
+        self, catalogue
+    ):
         roles_by_name = defaultdict(lambda: defaultdict(set))
         for entry in catalogue:
             for role, name in contributors(entry):
@@ -111,11 +115,16 @@ class TestSeedCatalogue:
             references = set().union(*roles.values())
             if len(references) >= 2:
                 return
-        raise AssertionError("no contributor is credited under two different roles across two references")
+        raise AssertionError(
+            "no contributor is credited under two different roles across two references"
+        )
 
     def test_has_a_year_only_date(self, catalogue):
         precisions = {
-            date_precision(entry[date_key]) for entry in catalogue for date_key in DATE_KEYS if date_key in entry
+            date_precision(entry[date_key])
+            for entry in catalogue
+            for date_key in DATE_KEYS
+            if date_key in entry
         }
         assert "year" in precisions
 
@@ -132,20 +141,29 @@ class TestSeedCatalogue:
 
     def test_has_a_date_range(self, catalogue):
         precisions = {
-            date_precision(entry[date_key]) for entry in catalogue for date_key in DATE_KEYS if date_key in entry
+            date_precision(entry[date_key])
+            for entry in catalogue
+            for date_key in DATE_KEYS
+            if date_key in entry
         }
         assert "range" in precisions
 
     def test_has_identifiers_of_more_than_one_type_including_a_doi(self, catalogue):
-        identifier_types_present = {key for entry in catalogue for key in IDENTIFIER_KEYS if key in entry}
+        identifier_types_present = {
+            key for entry in catalogue for key in IDENTIFIER_KEYS if key in entry
+        }
         assert len(identifier_types_present) >= 2
         assert "DOI" in identifier_types_present
 
-    def test_has_exactly_one_reference_with_no_contributors_dates_or_identifiers(self, catalogue):
+    def test_has_exactly_one_reference_with_no_contributors_dates_or_identifiers(
+        self, catalogue
+    ):
         def is_bare(entry):
             has_contributors = bool(contributors(entry))
             has_dates = any(date_key in entry for date_key in DATE_KEYS)
-            has_identifiers = any(identifier_key in entry for identifier_key in IDENTIFIER_KEYS)
+            has_identifiers = any(
+                identifier_key in entry for identifier_key in IDENTIFIER_KEYS
+            )
             return not (has_contributors or has_dates or has_identifiers)
 
         bare_entries = [entry for entry in catalogue if is_bare(entry)]
@@ -154,11 +172,17 @@ class TestSeedCatalogue:
     def test_has_enough_references_to_paginate(self, catalogue, paginate_by):
         assert len(catalogue) > paginate_by
 
-    def test_has_a_reference_whose_abstract_the_row_must_truncate(self, catalogue, snippet_words):
+    def test_has_a_reference_whose_abstract_the_row_must_truncate(
+        self, catalogue, snippet_words
+    ):
         # A row shows the abstract as a snippet. A seed carrying only short
         # abstracts, or none, demonstrates the row's other branch and leaves
         # this one unseen by anyone running the demo.
-        lengths = [len(entry["abstract"].split()) for entry in catalogue if entry.get("abstract")]
+        lengths = [
+            len(entry["abstract"].split())
+            for entry in catalogue
+            if entry.get("abstract")
+        ]
         assert lengths, "no seeded reference carries an abstract"
         assert max(lengths) > snippet_words
 
@@ -175,11 +199,15 @@ class TestSeedCatalogue:
         languages = {entry["language"] for entry in catalogue if entry.get("language")}
         assert len(languages) >= 4
 
-    def test_filtering_to_the_dominant_language_still_leaves_more_than_one_page(self, catalogue, paginate_by):
+    def test_filtering_to_the_dominant_language_still_leaves_more_than_one_page(
+        self, catalogue, paginate_by
+    ):
         # decisions.md D22: the guard reaches a second page of a narrowed
         # result by filtering on the dominant language. Read from the view's
         # own paginate_by rather than typed out, so a later shrink of the
         # seed fails here rather than in the guard (plan.md D-11).
-        counts = Counter(entry["language"] for entry in catalogue if entry.get("language"))
+        counts = Counter(
+            entry["language"] for entry in catalogue if entry.get("language")
+        )
         dominant_count = counts.most_common(1)[0][1]
         assert dominant_count > paginate_by

@@ -26,7 +26,12 @@ from literature.importers.base import BibFormat
 from literature.importers.exceptions import EntryError, ParseError, SkipEntry
 from literature.importers.normalizers import IdentifierNormalizer
 from literature.importers.results import EntryResult
-from literature.validators import validate_doi, validate_isbn, validate_issn, validate_url
+from literature.validators import (
+    validate_doi,
+    validate_isbn,
+    validate_issn,
+    validate_url,
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -92,7 +97,9 @@ class RISParser:
     #: amended — see decisions.md D12, D20). Repeatability is RIS syntax, decidable from the tag
     #: alone, and has nothing to do with the CSL mapping, so it lives on the parser rather than on
     #: the (not-yet-built) mapping tables.
-    REPEATABLE_TAGS: ClassVar[frozenset[str]] = frozenset({"AU", "A1", "A2", "A3", "A4", "ED", "KW", "UR", "SN", "N1"})
+    REPEATABLE_TAGS: ClassVar[frozenset[str]] = frozenset(
+        {"AU", "A1", "A2", "A3", "A4", "ED", "KW", "UR", "SN", "N1"}
+    )
 
     def parse(self, file) -> Iterator[RISEntry | str]:
         """Yield this file's entries, one at a time, in source order.
@@ -115,9 +122,9 @@ class RISParser:
                 text = raw.decode("utf-8-sig")
             except UnicodeDecodeError as exc:
                 raise ParseError(
-                    _("Could not decode this file as {encoding}: invalid byte at offset {offset}.").format(
-                        encoding=exc.encoding, offset=exc.start
-                    )
+                    _(
+                        "Could not decode this file as {encoding}: invalid byte at offset {offset}."
+                    ).format(encoding=exc.encoding, offset=exc.start)
                 ) from exc
         else:
             text = raw
@@ -142,9 +149,17 @@ class RISParser:
                     break
 
         if not has_tag_line:
-            raise ParseError(_("No RIS tag lines found. Is this an RIS file, or in an unexpected encoding?"))
+            raise ParseError(
+                _(
+                    "No RIS tag lines found. Is this an RIS file, or in an unexpected encoding?"
+                )
+            )
         if not has_ty:
-            raise ParseError(_("This file carries RIS tags but no 'TY' (reference type) tag anywhere."))
+            raise ParseError(
+                _(
+                    "This file carries RIS tags but no 'TY' (reference type) tag anywhere."
+                )
+            )
 
         yield from self._entries(lines)
 
@@ -183,10 +198,18 @@ class RISParser:
 
             if tag == "TY":
                 if pairs:
-                    yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
+                    yield RISEntry(
+                        tags=tuple((t, v) for t, v in pairs),
+                        index=index,
+                        start_line=start_line,
+                    )
                     index += 1
                 elif stray:
-                    yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
+                    yield RISEntry(
+                        tags=tuple((t, v) for t, v in stray),
+                        index=index,
+                        start_line=stray_start_line,
+                    )
                     index += 1
                     stray = []
                 elif not header_yielded:
@@ -200,11 +223,19 @@ class RISParser:
 
             if tag == "ER":
                 if pairs:
-                    yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
+                    yield RISEntry(
+                        tags=tuple((t, v) for t, v in pairs),
+                        index=index,
+                        start_line=start_line,
+                    )
                     index += 1
                     pairs = []
                 elif stray:
-                    yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
+                    yield RISEntry(
+                        tags=tuple((t, v) for t, v in stray),
+                        index=index,
+                        start_line=stray_start_line,
+                    )
                     index += 1
                     stray = []
                 continue
@@ -219,9 +250,15 @@ class RISParser:
                 stray.append([tag, value])
 
         if pairs:
-            yield RISEntry(tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line)
+            yield RISEntry(
+                tags=tuple((t, v) for t, v in pairs), index=index, start_line=start_line
+            )
         elif stray:
-            yield RISEntry(tags=tuple((t, v) for t, v in stray), index=index, start_line=stray_start_line)
+            yield RISEntry(
+                tags=tuple((t, v) for t, v in stray),
+                index=index,
+                start_line=stray_start_line,
+            )
 
     def _continue_value(self, pairs: list[list[str]], line: str) -> None:
         """Resolve one untagged line against the tag it follows (FR-007, amended).
@@ -358,7 +395,20 @@ def _page_variable(ref_type: str) -> str:
 #: R9): a genuine Scopus record carries the book's editors in ``A2`` under ``TY - JOUR``, with
 #: ``M3 - Book Chapter`` the more reliable type signal Scopus does not act on itself.
 _CHAPTER_LIKE_A2_EDITOR_TYPES: frozenset[str] = frozenset(
-    {"CHAP", "ECHAP", "CONF", "CPAPER", "ENCYC", "DICT", "SER", "EBOOK", "MUSIC", "ANCIENT", "BLOG", "JOUR"}
+    {
+        "CHAP",
+        "ECHAP",
+        "CONF",
+        "CPAPER",
+        "ENCYC",
+        "DICT",
+        "SER",
+        "EBOOK",
+        "MUSIC",
+        "ANCIENT",
+        "BLOG",
+        "JOUR",
+    }
 )
 
 #: On ``BOOK``, ``A3`` is the editor (research.md R4 — the one type where ``A2``/``A3`` invert).
@@ -407,7 +457,9 @@ def _name_to_csl(name: str) -> dict[str, Any]:
     return result
 
 
-def _add_contributors(roles: dict[str, list[dict[str, Any]]], role: str, names: list[str]) -> None:
+def _add_contributors(
+    roles: dict[str, list[dict[str, Any]]], role: str, names: list[str]
+) -> None:
     """Parse each of ``names`` and append it to ``role``'s list, in order."""
     for name in names:
         parsed = _name_to_csl(name)
@@ -600,7 +652,9 @@ _REPORT_LIKE_SN_TYPES: frozenset[str] = frozenset({"RPRT", "PAT"})
 
 #: Scopus's inline hint, stripped before shape resolution -- it names which identifier the value
 #: is, but is not part of the value itself (research.md R6, T025: ``SN - 20411723 (ISSN)``).
-_SN_ANNOTATION_RE = re.compile(r"^(?P<value>.*?)\s*\((?:ISSN|ISBN)\)\s*$", re.IGNORECASE)
+_SN_ANNOTATION_RE = re.compile(
+    r"^(?P<value>.*?)\s*\((?:ISSN|ISBN)\)\s*$", re.IGNORECASE
+)
 
 #: Scopus strips the hyphen from an 8-character ISSN before annotating it (research.md R6:
 #: ``SN - 20411723 (ISSN)``). ``validate_issn`` requires the hyphen, so a bare candidate of this
@@ -652,7 +706,9 @@ def _sn_identifier(value: str) -> tuple[str, str] | None:
     return None
 
 
-def _add_preserved(preserved: dict[str, str | list[str]], tag: str, values: list[str]) -> None:
+def _add_preserved(
+    preserved: dict[str, str | list[str]], tag: str, values: list[str]
+) -> None:
     """Record ``values`` (already resolved to be surplus or unrescuable) under ``tag`` in
     ``preserved``: a bare string for a single value, so the common one-value case stays exactly
     the shape :class:`TestUnrescuableIdentifierPreservation` already asserts, and a list only when
@@ -681,7 +737,9 @@ def _consumed_tags(ref_type: str) -> frozenset[str]:
     tags came to be dropped on every other type: marked mapped, so the sweep skipped them, while
     no role claimed them (decisions.md D43).
     """
-    return _ALWAYS_CONSUMED_TAGS | frozenset(t for t in _CONTRIBUTOR_TAGS if _contributor_role(t, ref_type))
+    return _ALWAYS_CONSUMED_TAGS | frozenset(
+        t for t in _CONTRIBUTOR_TAGS if _contributor_role(t, ref_type)
+    )
 
 
 def _unmapped(raw: RISEntry, ref_type: str) -> dict[str, str | list[str]]:
@@ -739,7 +797,11 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
 
     do_values = raw.values("DO")
     if any(v.strip() for v in do_values):
-        normalized_dois = [IdentifierNormalizer.normalize_doi(v.strip()) for v in do_values if v.strip()]
+        normalized_dois = [
+            IdentifierNormalizer.normalize_doi(v.strip())
+            for v in do_values
+            if v.strip()
+        ]
         first_doi, *surplus_dois = normalized_dois
         try:
             validate_doi(first_doi)
@@ -910,7 +972,10 @@ def _mapping_document() -> str:
         "| RIS `TY` | CSL item type |",
         "| --- | --- |",
     ]
-    lines += [f"| `{ris_type}` | `{csl_type}` |" for ris_type, csl_type in sorted(REFERENCE_TYPE_TABLE.items())]
+    lines += [
+        f"| `{ris_type}` | `{csl_type}` |"
+        for ris_type, csl_type in sorted(REFERENCE_TYPE_TABLE.items())
+    ]
     lines += [
         "",
         f"A reference type with no row above becomes `{_FALLBACK_TYPE}` rather than failing the entry.",
@@ -920,7 +985,9 @@ def _mapping_document() -> str:
         "| RIS tag | CSL variable |",
         "| --- | --- |",
     ]
-    lines += [f"| `{tag}` | `{csl_key}` |" for tag, csl_key in sorted(FIELD_TABLE.items())]
+    lines += [
+        f"| `{tag}` | `{csl_key}` |" for tag, csl_key in sorted(FIELD_TABLE.items())
+    ]
     lines += [
         "",
         "`T2` and `SP` map to different CSL variables depending on the entry's reference type, so",
@@ -941,18 +1008,30 @@ def _mapping_document() -> str:
         "",
         "| RIS tag | CSL role | Reference types |",
         "| --- | --- | --- |",
-        "| `AU` | `editor` | " + ", ".join(f"`{t}`" for t in sorted(_AU_EDITOR_TYPES)) + " |",
+        "| `AU` | `editor` | "
+        + ", ".join(f"`{t}`" for t in sorted(_AU_EDITOR_TYPES))
+        + " |",
         "| `AU` | `author` | everywhere else |",
         "| `ED` | `editor` | all — Web of Science's own editor tag, used in place of `A2` |",
-        "| `A2` | `editor` | " + ", ".join(f"`{t}`" for t in sorted(_CHAPTER_LIKE_A2_EDITOR_TYPES)) + " |",
+        "| `A2` | `editor` | "
+        + ", ".join(f"`{t}`" for t in sorted(_CHAPTER_LIKE_A2_EDITOR_TYPES))
+        + " |",
         "| `A2` | `collection-editor` | "
-        + ", ".join(f"`{t}`" for t in sorted(_BOOK_LIKE_TYPES - _CHAPTER_LIKE_A2_EDITOR_TYPES))
+        + ", ".join(
+            f"`{t}`" for t in sorted(_BOOK_LIKE_TYPES - _CHAPTER_LIKE_A2_EDITOR_TYPES)
+        )
         + " |",
-        "| `A3` | `editor` | " + ", ".join(f"`{t}`" for t in sorted(_A3_EDITOR_TYPES)) + " |",
+        "| `A3` | `editor` | "
+        + ", ".join(f"`{t}`" for t in sorted(_A3_EDITOR_TYPES))
+        + " |",
         "| `A3` | `collection-editor` | "
-        + ", ".join(f"`{t}`" for t in sorted(_A3_COLLECTION_EDITOR_TYPES - _A3_EDITOR_TYPES))
+        + ", ".join(
+            f"`{t}`" for t in sorted(_A3_COLLECTION_EDITOR_TYPES - _A3_EDITOR_TYPES)
+        )
         + " |",
-        "| `A4` | `translator` | " + ", ".join(f"`{t}`" for t in sorted(_A4_TRANSLATOR_TYPES)) + " |",
+        "| `A4` | `translator` | "
+        + ", ".join(f"`{t}`" for t in sorted(_A4_TRANSLATOR_TYPES))
+        + " |",
         "",
         "A tag with no row for a given reference type is left unmapped there rather than guessed",
         "at, and its value is kept under `custom.ris` like any other unmapped tag rather than",
@@ -1072,7 +1151,11 @@ class RISFormat(BibFormat):
             raise EntryError(_("This entry carries no 'TY' (reference type) tag."))
 
         if all(tag == "TY" for tag, _ in raw.tags):
-            raise SkipEntry(_("This entry carries only a 'TY' (reference type) tag and no other content."))
+            raise SkipEntry(
+                _(
+                    "This entry carries only a 'TY' (reference type) tag and no other content."
+                )
+            )
 
         ref_type = ty_values[0].strip()
 
@@ -1131,7 +1214,9 @@ class RISFormat(BibFormat):
             return None
         return _citation_key(raw, _issued_date(raw), raw.index)
 
-    def entry_created(self, *, index: int, handle: str | None, item: Any, dry_run: bool) -> EntryResult:
+    def entry_created(
+        self, *, index: int, handle: str | None, item: Any, dry_run: bool
+    ) -> EntryResult:
         """Report the citation key **as stored**, read off the item rather than re-derived from
         the entry (T016, FR-022), so the report cannot drift from what the store actually holds.
 
@@ -1141,4 +1226,6 @@ class RISFormat(BibFormat):
         which is what lets a dry run still report the key it would have stored. No change to
         ``base.py``, ``results.py`` or ``converters.py`` is needed for this (SC-009).
         """
-        return super().entry_created(index=index, handle=item.citation_key, item=item, dry_run=dry_run)
+        return super().entry_created(
+            index=index, handle=item.citation_key, item=item, dry_run=dry_run
+        )

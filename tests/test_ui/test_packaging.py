@@ -19,7 +19,10 @@ def load_pyproject():
 def names_django_mvp(requirement):
     """A PEP 508 requirement string names django-mvp if it starts with the
     package name, ignoring any version specifier or environment marker."""
-    return requirement.split(";")[0].split("(")[0].strip().split()[0].lower() == "django-mvp"
+    return (
+        requirement.split(";")[0].split("(")[0].strip().split()[0].lower()
+        == "django-mvp"
+    )
 
 
 class TestDjangoMVPIsOptOnly:
@@ -41,14 +44,18 @@ class TestDjangoMVPIsOptOnly:
         for extra_name, requirements in extras.items():
             if extra_name == "ui":
                 continue
-            assert not any(names_django_mvp(requirement) for requirement in requirements)
+            assert not any(
+                names_django_mvp(requirement) for requirement in requirements
+            )
 
     def test_django_mvp_is_absent_from_every_poetry_dependency_group(self):
         pyproject = load_pyproject()
         groups = pyproject.get("tool", {}).get("poetry", {}).get("group", {})
         for group_name, group in groups.items():
             dependencies = group.get("dependencies", {})
-            assert "django-mvp" not in dependencies, f"django-mvp found in poetry group '{group_name}'"
+            assert "django-mvp" not in dependencies, (
+                f"django-mvp found in poetry group '{group_name}'"
+            )
 
 
 class TestOnlyLiteratureIsPackaged:
@@ -66,7 +73,9 @@ class TestNoDemoOnlyDependencyEntersTheBuild:
     it. Both dependency lists are pinned to their known-good contents, so
     any addition — whatever it is for — fails here first."""
 
-    def test_the_hard_dependency_list_is_exactly_the_declared_runtime_dependencies(self):
+    def test_the_hard_dependency_list_is_exactly_the_declared_runtime_dependencies(
+        self,
+    ):
         pyproject = load_pyproject()
         dependencies = pyproject["project"]["dependencies"]
         assert dependencies == [

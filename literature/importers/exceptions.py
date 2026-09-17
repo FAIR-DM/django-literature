@@ -70,10 +70,14 @@ class UnknownFormat(ImporterError):
         self.name = name
         self.available = sorted(available)
         if self.available:
-            message = _("No import format named '{name}'. Configured formats: {available}.").format(
+            message = _(
+                "No import format named '{name}'. Configured formats: {available}."
+            ).format(
                 name=name,
                 available=", ".join(self.available),
             )
         else:
-            message = _("No import format named '{name}'. No import formats are configured.").format(name=name)
+            message = _(
+                "No import format named '{name}'. No import formats are configured."
+            ).format(name=name)
         super().__init__(message)

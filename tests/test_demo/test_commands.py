@@ -112,7 +112,9 @@ def run_seed_demo(db_path: Path, seed_path: Path) -> dict:
     return read_result_json(result)
 
 
-def run_seed_demo_strict_encoding(db_path: Path, seed_path: Path) -> subprocess.CompletedProcess:
+def run_seed_demo_strict_encoding(
+    db_path: Path, seed_path: Path
+) -> subprocess.CompletedProcess:
     """Run ``seed_demo`` with every implicit text encoding escalated to an error.
 
     ``-X warn_default_encoding`` makes CPython emit an ``EncodingWarning`` wherever
@@ -151,7 +153,9 @@ class TestSeedDemo:
         # fine. Escalating EncodingWarning to an error catches the whole class here
         # rather than leaving it to whoever runs the demo on a different locale.
         result = run_seed_demo_strict_encoding(tmp_path / "db.sqlite3", REAL_CATALOGUE)
-        assert result.returncode == 0, f"implicit text encoding on the seed path:\n{result.stderr}"
+        assert result.returncode == 0, (
+            f"implicit text encoding on the seed path:\n{result.stderr}"
+        )
 
     def test_running_twice_leaves_the_same_number_not_double(self, tmp_path):
         db_path = tmp_path / "db.sqlite3"
@@ -165,7 +169,11 @@ class TestSeedDemo:
         catalogue_a.write_text(
             json.dumps(
                 [
-                    {"citation-key": "Alpha2020", "type": "article-journal", "title": "Alpha"},
+                    {
+                        "citation-key": "Alpha2020",
+                        "type": "article-journal",
+                        "title": "Alpha",
+                    },
                 ]
             )
         )
@@ -185,7 +193,9 @@ class TestSeedDemo:
         assert result["item_count"] == 2
         assert result["citation_keys"] == ["Beta2021", "Gamma2022"]
 
-    def test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds(self, tmp_path):
+    def test_fails_non_zero_and_names_entries_when_fewer_load_than_the_file_holds(
+        self, tmp_path
+    ):
         db_path = tmp_path / "db.sqlite3"
         catalogue = tmp_path / "catalogue.json"
         catalogue.write_text(
@@ -195,7 +205,11 @@ class TestSeedDemo:
                     # "not-a-real-type" is not a recognised CSL JSON item type, so
                     # from_csl_json_list skips this entry and logs a warning
                     # (literature/converters.py) — seed_demo must not report success.
-                    {"citation-key": "Bad2020", "type": "not-a-real-type", "title": "Bad"},
+                    {
+                        "citation-key": "Bad2020",
+                        "type": "not-a-real-type",
+                        "title": "Bad",
+                    },
                 ]
             )
         )
@@ -213,13 +227,21 @@ class TestSeedDemo:
         # catalogue nor the new one (RC-002).
         db_path = tmp_path / "db.sqlite3"
         good = tmp_path / "good.json"
-        good.write_text(json.dumps([{"citation-key": "Alpha2020", "type": "book", "title": "Alpha"}]))
+        good.write_text(
+            json.dumps(
+                [{"citation-key": "Alpha2020", "type": "book", "title": "Alpha"}]
+            )
+        )
         partial = tmp_path / "partial.json"
         partial.write_text(
             json.dumps(
                 [
                     {"citation-key": "Beta2021", "type": "book", "title": "Beta"},
-                    {"citation-key": "Bad2020", "type": "not-a-real-type", "title": "Bad"},
+                    {
+                        "citation-key": "Bad2020",
+                        "type": "not-a-real-type",
+                        "title": "Bad",
+                    },
                 ]
             )
         )
@@ -248,7 +270,9 @@ class TestMissingUIExtra:
         # been installed.
         stub_dir = tmp_path / "stub"
         stub_dir.mkdir()
-        (stub_dir / "mvp.py").write_text("raise ImportError(\"No module named 'mvp'\")\n")
+        (stub_dir / "mvp.py").write_text(
+            "raise ImportError(\"No module named 'mvp'\")\n"
+        )
 
         env = os.environ.copy()
         env["DJANGO_SETTINGS_MODULE"] = "demo.settings"

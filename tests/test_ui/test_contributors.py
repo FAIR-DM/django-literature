@@ -5,7 +5,11 @@ from django.utils.translation import override
 
 from literature.choices import NameRole
 from literature.models import ItemName
-from literature.ui.contributors import ContributorGroups, contributor_groups, stored_contributor_names
+from literature.ui.contributors import (
+    ContributorGroups,
+    contributor_groups,
+    stored_contributor_names,
+)
 from tests.factories import ItemFactory, ItemNameFactory, NameFactory
 
 
@@ -23,7 +27,10 @@ class TestRoleLabel:
         # whose plural is not "the singular plus a letter" is served correctly.
         # ``Boîtiers``-style forms and the three- and four-form languages both
         # depend on this being a separate message rather than a suffix.
-        assert ContributorGroups.role_label(NameRole.EDITORIAL_DIRECTOR, 2) == "Editorial Directors"
+        assert (
+            ContributorGroups.role_label(NameRole.EDITORIAL_DIRECTOR, 2)
+            == "Editorial Directors"
+        )
 
     def test_every_role_has_a_label_pair(self):
         assert set(ContributorGroups.ROLE_LABELS) == set(NameRole)
@@ -71,8 +78,12 @@ class TestContributorGroups:
 
     def test_names_keep_the_position_order_stored_within_a_role(self):
         item = ItemFactory()
-        first = ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="Aardvark"))
-        second = ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="Zebra"))
+        first = ItemNameFactory(
+            item=item, role=NameRole.AUTHOR, name=NameFactory(family="Aardvark")
+        )
+        second = ItemNameFactory(
+            item=item, role=NameRole.AUTHOR, name=NameFactory(family="Zebra")
+        )
         (group,) = contributor_groups(item)
         assert group["names"] == [first.name, second.name]
 
@@ -104,11 +115,15 @@ class TestContributorGroups:
         (group,) = CreatorGroups(item).groups()
         assert group["label"] == "Creators"
 
-    def test_it_reads_the_prefetch_rather_than_querying_per_role(self, django_assert_num_queries):
+    def test_it_reads_the_prefetch_rather_than_querying_per_role(
+        self, django_assert_num_queries
+    ):
         item = ItemFactory()
         ItemNameFactory(item=item, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, role=NameRole.EDITOR)
-        prefetched = type(item).objects.prefetch_related("item_names__name").get(pk=item.pk)
+        prefetched = (
+            type(item).objects.prefetch_related("item_names__name").get(pk=item.pk)
+        )
         with django_assert_num_queries(0):
             contributor_groups(prefetched)
 
