@@ -12,7 +12,7 @@ on:
 
 jobs:
   call-docs:
-    uses: django-mvp/shared/.github/workflows/docs.yml@v0.4.0
+    uses: django-mvp/shared/.github/workflows/docs.yml@v0.4.1
     permissions:
       contents: read
       pages: write
