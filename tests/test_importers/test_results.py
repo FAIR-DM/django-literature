@@ -47,7 +47,9 @@ class TestEntryResult:
         assert result.reason is None
 
     def test_carries_index_and_handle(self):
-        result = EntryResult(outcome=Outcome.FAILED, index=3, handle="smith2020", reason="bad")
+        result = EntryResult(
+            outcome=Outcome.FAILED, index=3, handle="smith2020", reason="bad"
+        )
         assert result.index == 3
         assert result.handle == "smith2020"
 
@@ -59,11 +61,15 @@ class TestEntryResult:
     def test_reason_belongs_only_to_failure(self):
         """D18: a created entry may still never carry a reason. A skipped one now may."""
         with pytest.raises(ValueError, match="reason"):
-            EntryResult(outcome=Outcome.CREATED, index=0, reason="why would this be here")
+            EntryResult(
+                outcome=Outcome.CREATED, index=0, reason="why would this be here"
+            )
 
     def test_a_skipped_entry_may_carry_a_reason(self):
         """D18: the format may say what it recognised but did not store."""
-        result = EntryResult(outcome=Outcome.SKIPPED, index=0, reason="a @comment block")
+        result = EntryResult(
+            outcome=Outcome.SKIPPED, index=0, reason="a @comment block"
+        )
         assert result.reason == "a @comment block"
 
     def test_a_skipped_entry_without_a_reason_is_still_valid(self):
@@ -74,7 +80,9 @@ class TestEntryResult:
     def test_reason_is_stringified_so_lazy_messages_survive(self):
         from django.utils.translation import gettext_lazy as _
 
-        result = EntryResult(outcome=Outcome.FAILED, index=0, reason=_("unknown item type"))
+        result = EntryResult(
+            outcome=Outcome.FAILED, index=0, reason=_("unknown item type")
+        )
         assert result.reason == "unknown item type"
 
 
@@ -97,13 +105,17 @@ class TestImportResult:
         assert len(mixed.created) == 2
         assert len(mixed.failed) == 1
         assert len(mixed.skipped) == 1
-        assert len(mixed.created) + len(mixed.failed) + len(mixed.skipped) == len(mixed.entries)
+        assert len(mixed.created) + len(mixed.failed) + len(mixed.skipped) == len(
+            mixed.entries
+        )
 
     def test_ok_is_false_when_anything_failed(self, mixed):
         assert mixed.ok is False
 
     def test_ok_is_true_when_nothing_failed(self):
-        result = ImportResult(entries=[EntryResult(outcome=Outcome.SKIPPED, index=0)], dry_run=False)
+        result = ImportResult(
+            entries=[EntryResult(outcome=Outcome.SKIPPED, index=0)], dry_run=False
+        )
         assert result.ok is True
 
     def test_empty_run_is_ok(self):

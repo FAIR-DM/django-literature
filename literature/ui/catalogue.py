@@ -46,26 +46,30 @@ def catalogue_view_class():
     configured = getattr(settings, "LITERATURE", {})
     if not isinstance(configured, dict):
         raise ImproperlyConfigured(
-            _("LITERATURE must be a dict, not {actual} — the catalogue view goes under a 'CATALOGUE_VIEW' key.").format(
-                actual=type(configured).__name__
-            )
+            _(
+                "LITERATURE must be a dict, not {actual} — the catalogue view goes under a 'CATALOGUE_VIEW' key."
+            ).format(actual=type(configured).__name__)
         )
     path = configured.get("CATALOGUE_VIEW", DEFAULT_CATALOGUE_VIEW)
     if not isinstance(path, str):
         raise ImproperlyConfigured(
-            _("LITERATURE['CATALOGUE_VIEW'] must be a dotted path to a view class, not {actual}: {value!r}").format(
-                actual=type(path).__name__, value=path
-            )
+            _(
+                "LITERATURE['CATALOGUE_VIEW'] must be a dotted path to a view class, not {actual}: {value!r}"
+            ).format(actual=type(path).__name__, value=path)
         )
     try:
         view_class = import_string(path)
     except ImportError as exc:
         raise ImproperlyConfigured(
-            _("'{path}' in LITERATURE['CATALOGUE_VIEW'] could not be imported: {error}").format(path=path, error=exc)
+            _(
+                "'{path}' in LITERATURE['CATALOGUE_VIEW'] could not be imported: {error}"
+            ).format(path=path, error=exc)
         ) from exc
     if not (isinstance(view_class, type) and hasattr(view_class, "as_view")):
         raise ImproperlyConfigured(
-            _("'{path}' in LITERATURE['CATALOGUE_VIEW'] is not a class-based view.").format(path=path)
+            _(
+                "'{path}' in LITERATURE['CATALOGUE_VIEW'] is not a class-based view."
+            ).format(path=path)
         )
     return view_class
 

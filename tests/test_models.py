@@ -16,7 +16,13 @@ from partial_date import PartialDate
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
-from tests.factories import ItemDateFactory, ItemFactory, ItemIdentifierFactory, ItemNameFactory, NameFactory
+from tests.factories import (
+    ItemDateFactory,
+    ItemFactory,
+    ItemIdentifierFactory,
+    ItemNameFactory,
+    NameFactory,
+)
 
 
 @pytest.mark.django_db
@@ -77,7 +83,9 @@ class TestItemModel:
 
     def test_str_returns_title_when_set(self):
         """Item.__str__ returns the title when it is set (T006)."""
-        item = ItemFactory(citation_key="CiteKey2024", type=ItemType.ARTICLE, title="A Short Title")
+        item = ItemFactory(
+            citation_key="CiteKey2024", type=ItemType.ARTICLE, title="A Short Title"
+        )
         assert str(item) == "A Short Title"
 
     def test_str_fallback_to_citation_key(self):
@@ -88,7 +96,9 @@ class TestItemModel:
     def test_str_truncates_long_title(self):
         """Item.__str__ truncates titles over 80 characters with an ellipsis (T006)."""
         long_title = "A" * 81
-        item = ItemFactory(citation_key="LongTitle2024", type=ItemType.BOOK, title=long_title)
+        item = ItemFactory(
+            citation_key="LongTitle2024", type=ItemType.BOOK, title=long_title
+        )
         result = str(item)
         assert result == "A" * 80 + "…"
         assert len(result) == 81  # 80 chars + 1 ellipsis char
@@ -199,7 +209,9 @@ class TestItemNameModel:
         ItemNameFactory(item=item, name=n1, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, name=n2, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, name=n3, role=NameRole.AUTHOR)
-        ordered = list(ItemName.objects.filter(item=item, role=NameRole.AUTHOR).order_by("order"))
+        ordered = list(
+            ItemName.objects.filter(item=item, role=NameRole.AUTHOR).order_by("order")
+        )
         assert [in_.name.family for in_ in ordered] == ["First", "Second", "Third"]
 
     def test_ordering_scoped_per_role(self, item):
@@ -209,9 +221,15 @@ class TestItemNameModel:
         authors must form their own 0-based sequence, unperturbed by the
         interleaved editor, and the editor must start its own sequence at 0.
         """
-        a1 = ItemNameFactory(item=item, name=NameFactory(family="Auth1"), role=NameRole.AUTHOR)
-        e1 = ItemNameFactory(item=item, name=NameFactory(family="Edit1"), role=NameRole.EDITOR)
-        a2 = ItemNameFactory(item=item, name=NameFactory(family="Auth2"), role=NameRole.AUTHOR)
+        a1 = ItemNameFactory(
+            item=item, name=NameFactory(family="Auth1"), role=NameRole.AUTHOR
+        )
+        e1 = ItemNameFactory(
+            item=item, name=NameFactory(family="Edit1"), role=NameRole.EDITOR
+        )
+        a2 = ItemNameFactory(
+            item=item, name=NameFactory(family="Auth2"), role=NameRole.AUTHOR
+        )
         a1.refresh_from_db()
         e1.refresh_from_db()
         a2.refresh_from_db()
@@ -230,19 +248,25 @@ class TestItemDateModel:
 
     def test_year_only(self, item):
         """ItemDate stores a year-only partial date via begin field."""
-        item_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
+        item_date = ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019")
+        )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin) == "2019"
 
     def test_year_month(self, item):
         """ItemDate stores a year+month partial date."""
-        item_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08"))
+        item_date = ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
+        )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08")
 
     def test_full_date(self, item):
         """ItemDate stores a full date."""
-        item_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16"))
+        item_date = ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+        )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-16")
 
@@ -262,11 +286,15 @@ class TestItemDateModel:
         """ItemDate enforces uniqueness of (item, date_type)."""
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
         with pytest.raises(Exception):  # IntegrityError on duplicate
-            ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2020"))
+            ItemDateFactory(
+                item=item, date_type=DateType.ISSUED, begin=PartialDate("2020")
+            )
 
     def test_str_non_empty(self, item):
         """ItemDate.__str__ returns a non-empty string."""
-        item_date = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16"))
+        item_date = ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+        )
         assert len(str(item_date)) > 0
 
     def test_all_fields(self, item):
@@ -298,8 +326,15 @@ class TestItemDateSpanRule:
     def test_end_without_begin_is_rejected(self, item):
         """An end with no begin is refused rather than stored."""
         with pytest.raises(ValidationError):
-            ItemDateFactory(item=item, date_type=DateType.EVENT_DATE, begin=None, end=PartialDate("2019-08-16"))
-        assert not ItemDate.objects.filter(item=item, date_type=DateType.EVENT_DATE).exists()
+            ItemDateFactory(
+                item=item,
+                date_type=DateType.EVENT_DATE,
+                begin=None,
+                end=PartialDate("2019-08-16"),
+            )
+        assert not ItemDate.objects.filter(
+            item=item, date_type=DateType.EVENT_DATE
+        ).exists()
 
     def test_end_before_begin_is_rejected(self, item):
         """An end earlier than its begin is refused rather than stored."""
@@ -310,7 +345,9 @@ class TestItemDateSpanRule:
                 begin=PartialDate("2019-08-16"),
                 end=PartialDate("2019-08-12"),
             )
-        assert not ItemDate.objects.filter(item=item, date_type=DateType.EVENT_DATE).exists()
+        assert not ItemDate.objects.filter(
+            item=item, date_type=DateType.EVENT_DATE
+        ).exists()
 
     def test_end_equal_to_begin_is_accepted(self, item):
         """A single-day span — begin and end the same date — is not a rejection."""
@@ -354,12 +391,22 @@ class TestItemDateSpanRule:
     def test_direct_create_rejects_the_defect(self, item):
         """``objects.create()`` refuses an end-without-begin, not only ``full_clean()``."""
         with pytest.raises(ValidationError):
-            ItemDate.objects.create(item=item, date_type=DateType.EVENT_DATE, begin=None, end=PartialDate("2019"))
+            ItemDate.objects.create(
+                item=item,
+                date_type=DateType.EVENT_DATE,
+                begin=None,
+                end=PartialDate("2019"),
+            )
 
     def test_instance_save_rejects_the_defect(self, item):
         """A bare instance ``.save()`` refuses an end-without-begin."""
         with pytest.raises(ValidationError):
-            ItemDate(item=item, date_type=DateType.EVENT_DATE, begin=None, end=PartialDate("2019")).save()
+            ItemDate(
+                item=item,
+                date_type=DateType.EVENT_DATE,
+                begin=None,
+                end=PartialDate("2019"),
+            ).save()
 
     def test_an_empty_string_end_is_treated_as_no_end(self, item):
         """A ``ModelForm`` over a blank, optional ``end`` leaves the instance
@@ -372,7 +419,12 @@ class TestItemDateSpanRule:
         one built with ``end=None`` — not raise ``AttributeError`` from
         comparing a string against ``begin.date``.
         """
-        item_date = ItemDate(item=item, date_type=DateType.EVENT_DATE, begin=PartialDate("2019-08-16"), end="")
+        item_date = ItemDate(
+            item=item,
+            date_type=DateType.EVENT_DATE,
+            begin=PartialDate("2019-08-16"),
+            end="",
+        )
         item_date.save()
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-16")
@@ -388,7 +440,12 @@ class TestItemDateSpanRule:
         the span check must convert it before comparing rather than assuming
         ``.date`` is already there.
         """
-        item_date = ItemDate(item=item, date_type=DateType.EVENT_DATE, begin="2019-08-12", end="2019-08-16")
+        item_date = ItemDate(
+            item=item,
+            date_type=DateType.EVENT_DATE,
+            begin="2019-08-12",
+            end="2019-08-16",
+        )
         item_date.save()
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-12")
@@ -396,7 +453,12 @@ class TestItemDateSpanRule:
 
     def test_raw_date_strings_out_of_order_are_still_rejected(self, item):
         with pytest.raises(ValidationError):
-            ItemDate(item=item, date_type=DateType.EVENT_DATE, begin="2019-08-16", end="2019-08-12").save()
+            ItemDate(
+                item=item,
+                date_type=DateType.EVENT_DATE,
+                begin="2019-08-16",
+                end="2019-08-12",
+            ).save()
 
 
 @pytest.mark.django_db
@@ -432,11 +494,15 @@ class TestItemIdentifierModel:
         """ItemIdentifier enforces uniqueness of (item, type)."""
         ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/first")
         with pytest.raises(Exception):  # IntegrityError on duplicate
-            ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/second")
+            ItemIdentifierFactory(
+                item=item, type=IdentifierType.DOI, value="10.1234/second"
+            )
 
     def test_str_non_empty(self, item):
         """ItemIdentifier.__str__ returns a non-empty string."""
-        ident = ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/test")
+        ident = ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1234/test"
+        )
         assert len(str(ident)) > 0
 
 
@@ -455,20 +521,28 @@ class TestItemIdentifierWritePathValidation:
             (IdentifierType.URL, "/relative/path"),
         ],
     )
-    def test_direct_create_rejects_invalid_known_type(self, item, identifier_type, value):
+    def test_direct_create_rejects_invalid_known_type(
+        self, item, identifier_type, value
+    ):
         """objects.create() refuses a malformed value for a known identifier type."""
         with pytest.raises(ValidationError):
             ItemIdentifier.objects.create(item=item, type=identifier_type, value=value)
-        assert not ItemIdentifier.objects.filter(item=item, type=identifier_type).exists()
+        assert not ItemIdentifier.objects.filter(
+            item=item, type=identifier_type
+        ).exists()
 
     def test_instance_save_rejects_invalid_known_type(self, item):
         """A bare instance .save() refuses a malformed value."""
         with pytest.raises(ValidationError):
-            ItemIdentifier(item=item, type=IdentifierType.DOI, value="10.1/too-few-digits").save()
+            ItemIdentifier(
+                item=item, type=IdentifierType.DOI, value="10.1/too-few-digits"
+            ).save()
 
     def test_update_to_invalid_value_is_rejected(self, item):
         """Re-saving a stored identifier with a malformed value is refused."""
-        ident = ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/valid")
+        ident = ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1234/valid"
+        )
         ident.value = "not-a-doi"
         with pytest.raises(ValidationError):
             ident.save()
@@ -476,7 +550,9 @@ class TestItemIdentifierWritePathValidation:
 
     def test_direct_create_accepts_unknown_type(self, item):
         """Unknown identifier types carry no format constraint (FR-017)."""
-        ident = ItemIdentifier.objects.create(item=item, type="arXiv", value="anything at all")
+        ident = ItemIdentifier.objects.create(
+            item=item, type="arXiv", value="anything at all"
+        )
         assert ItemIdentifier.objects.get(pk=ident.pk).value == "anything at all"
 
     def test_bulk_create_bypasses_validation(self, item):
@@ -485,5 +561,10 @@ class TestItemIdentifierWritePathValidation:
         This is Django's documented behaviour for every model, not a gap specific
         to this package. The test pins it so the limitation stays visible.
         """
-        ItemIdentifier.objects.bulk_create([ItemIdentifier(item=item, type=IdentifierType.DOI, value="not-a-doi")])
-        assert ItemIdentifier.objects.get(item=item, type=IdentifierType.DOI).value == "not-a-doi"
+        ItemIdentifier.objects.bulk_create(
+            [ItemIdentifier(item=item, type=IdentifierType.DOI, value="not-a-doi")]
+        )
+        assert (
+            ItemIdentifier.objects.get(item=item, type=IdentifierType.DOI).value
+            == "not-a-doi"
+        )

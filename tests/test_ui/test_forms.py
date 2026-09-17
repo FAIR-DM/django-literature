@@ -37,7 +37,9 @@ class TestItemFormFields:
 @pytest.mark.django_db
 class TestItemFormValidation:
     def test_a_form_with_only_type_and_citation_key_is_valid(self):
-        form = ItemForm(data={"type": ItemType.ARTICLE_JOURNAL, "citation_key": "Doe2024"})
+        form = ItemForm(
+            data={"type": ItemType.ARTICLE_JOURNAL, "citation_key": "Doe2024"}
+        )
         assert form.is_valid(), form.errors
 
     def test_a_form_missing_type_is_invalid_and_names_the_field(self):
@@ -54,14 +56,18 @@ class TestItemFormValidation:
         # FR-007 — citation_key is indexed but not globally unique; a
         # colliding key is a fact the store holds, never a validation error.
         existing = ItemFactory(citation_key="Doe2024")
-        form = ItemForm(data={"type": ItemType.ARTICLE_JOURNAL, "citation_key": "Doe2024"})
+        form = ItemForm(
+            data={"type": ItemType.ARTICLE_JOURNAL, "citation_key": "Doe2024"}
+        )
         assert form.is_valid(), form.errors
         saved = form.save()
         assert saved.pk != existing.pk
 
     def test_a_duplicate_citation_key_is_stored_unchanged(self):
         ItemFactory(citation_key="Doe2024")
-        form = ItemForm(data={"type": ItemType.ARTICLE_JOURNAL, "citation_key": "Doe2024"})
+        form = ItemForm(
+            data={"type": ItemType.ARTICLE_JOURNAL, "citation_key": "Doe2024"}
+        )
         assert form.is_valid(), form.errors
         saved = form.save()
         assert saved.citation_key == "Doe2024"
@@ -74,14 +80,19 @@ class TestImportForm:
         # FR-005 — not a hard-coded pair: whatever LITERATURE["BIB_FORMATS"]
         # resolves to, and nothing else.
         choices = dict(ImportForm().fields["format"].choices)
-        expected = {name: format_class.label for name, format_class in available_formats().items()}
+        expected = {
+            name: format_class.label
+            for name, format_class in available_formats().items()
+        }
         assert choices == expected
 
     def test_the_choices_are_built_when_the_form_is_instantiated(self):
         # FR-005 — a format configured after import time still appears: the
         # choices must be read from available_formats() in __init__, not
         # frozen on the class at import time.
-        with override_settings(LITERATURE={"BIB_FORMATS": ["literature.importers.bibtex.BibTeXFormat"]}):
+        with override_settings(
+            LITERATURE={"BIB_FORMATS": ["literature.importers.bibtex.BibTeXFormat"]}
+        ):
             choices = dict(ImportForm().fields["format"].choices)
         assert list(choices) == ["bibtex"]
 
@@ -173,7 +184,14 @@ class TestNameForm:
 
     def test_declares_family_and_given_and_the_disclosure_fields(self):
         fields = NameForm().fields
-        for name in ("family", "given", "dropping_particle", "non_dropping_particle", "suffix", "literal"):
+        for name in (
+            "family",
+            "given",
+            "dropping_particle",
+            "non_dropping_particle",
+            "suffix",
+            "literal",
+        ):
             assert name in fields
 
     def test_a_contributor_with_only_an_unparsed_name_saves(self, item):
@@ -199,7 +217,9 @@ class TestNameForm:
         assert form.non_field_errors()
 
     def test_a_valid_contributor_with_family_and_given_saves(self, item):
-        form = NameForm(data={"role": NameRole.AUTHOR, "family": "Doe", "given": "Jane"})
+        form = NameForm(
+            data={"role": NameRole.AUTHOR, "family": "Doe", "given": "Jane"}
+        )
         assert form.is_valid(), form.errors
         item_name = form.save(commit=False)
         item_name.item = item
@@ -257,7 +277,9 @@ class TestItemDateFormPrecision:
 
     @pytest.mark.parametrize("value", ["2019", "2019-03", "2019-03-14"])
     def test_each_precision_round_trips(self, value, item):
-        form = ItemDateForm(data={"date_type": DateType.ISSUED, "begin": value, "end": ""})
+        form = ItemDateForm(
+            data={"date_type": DateType.ISSUED, "begin": value, "end": ""}
+        )
         assert form.is_valid(), form.errors
         instance = form.save(commit=False)
         instance.item = item
@@ -276,20 +298,32 @@ class TestItemDateFormSpan:
     """
 
     def test_a_year_to_year_span_is_valid(self):
-        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "2019", "end": "2021"})
+        form = ItemDateForm(
+            data={"date_type": DateType.EVENT_DATE, "begin": "2019", "end": "2021"}
+        )
         assert form.is_valid(), form.errors
 
     def test_a_mixed_precision_span_is_valid(self):
-        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "2019", "end": "2021-06-15"})
+        form = ItemDateForm(
+            data={
+                "date_type": DateType.EVENT_DATE,
+                "begin": "2019",
+                "end": "2021-06-15",
+            }
+        )
         assert form.is_valid(), form.errors
 
     def test_an_end_with_no_begin_is_rejected_as_a_form_error_not_an_exception(self):
-        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "", "end": "2021"})
+        form = ItemDateForm(
+            data={"date_type": DateType.EVENT_DATE, "begin": "", "end": "2021"}
+        )
         assert not form.is_valid()
         assert form.non_field_errors()
 
     def test_an_end_before_its_begin_is_rejected_as_a_form_error_not_an_exception(self):
-        form = ItemDateForm(data={"date_type": DateType.EVENT_DATE, "begin": "2021", "end": "2019"})
+        form = ItemDateForm(
+            data={"date_type": DateType.EVENT_DATE, "begin": "2021", "end": "2019"}
+        )
         assert not form.is_valid()
         assert form.non_field_errors()
 
@@ -347,7 +381,9 @@ class TestItemDateFormUnparsedRepair:
     """
 
     def test_a_date_with_only_a_literal_value_shows_it(self, item):
-        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="circa 1922")
+        instance = ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, literal="circa 1922"
+        )
         form = ItemDateForm(instance=instance)
         assert form.fields["begin"].widget.attrs.get("placeholder") == "circa 1922"
 
@@ -357,12 +393,18 @@ class TestItemDateFormUnparsedRepair:
         assert form.fields["begin"].widget.attrs.get("placeholder") == "1922?"
 
     def test_a_date_already_carrying_begin_shows_no_placeholder(self, item):
-        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1922", literal="circa 1922")
+        instance = ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin="1922", literal="circa 1922"
+        )
         form = ItemDateForm(instance=instance)
         assert "placeholder" not in form.fields["begin"].widget.attrs
 
-    def test_replacing_the_unparsed_value_stores_the_readable_date_and_leaves_literal_alone(self, item):
-        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="circa 1922")
+    def test_replacing_the_unparsed_value_stores_the_readable_date_and_leaves_literal_alone(
+        self, item
+    ):
+        instance = ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, literal="circa 1922"
+        )
         form = ItemDateForm(
             data={"date_type": DateType.ISSUED, "begin": "1922", "end": ""},
             instance=instance,
@@ -415,8 +457,12 @@ class TestItemIdentifierFormNormalization:
         assert not form.is_valid()
         assert form.non_field_errors()
 
-    def test_a_genuinely_unknown_kind_is_stored_exactly_as_given_and_unchecked(self, item):
-        form = ItemIdentifierForm(data={"type": "arxiv", "value": "anything at all, unchecked"})
+    def test_a_genuinely_unknown_kind_is_stored_exactly_as_given_and_unchecked(
+        self, item
+    ):
+        form = ItemIdentifierForm(
+            data={"type": "arxiv", "value": "anything at all, unchecked"}
+        )
         assert form.is_valid(), form.errors
         instance = form.save(commit=False)
         instance.item = item

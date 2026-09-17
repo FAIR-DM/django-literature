@@ -146,7 +146,9 @@ class TestIdentifierValidation:
         with pytest.raises(ValidationError):
             _clean_identifier(IdentifierType.PMID, pmid)
 
-    @pytest.mark.parametrize("pmcid", ["PMC2728067", "PMC1234", "4567890", "1", "12345678901"])
+    @pytest.mark.parametrize(
+        "pmcid", ["PMC2728067", "PMC1234", "4567890", "1", "12345678901"]
+    )
     def test_pmcid_valid(self, pmcid):
         """The canonical PMC-prefixed form and a bare digit string are both valid."""
         _clean_identifier(IdentifierType.PMCID, pmcid)

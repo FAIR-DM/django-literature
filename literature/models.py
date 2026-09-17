@@ -379,7 +379,9 @@ class Item(models.Model):
         max_length=100,
         blank=True,
         verbose_name=_("citation label"),
-        help_text=_("CSL JSON: citation-label (processor-generated; stored for round-trip)"),
+        help_text=_(
+            "CSL JSON: citation-label (processor-generated; stored for round-trip)"
+        ),
     )
     citation_number = models.CharField(
         max_length=50,
@@ -391,7 +393,9 @@ class Item(models.Model):
         max_length=50,
         blank=True,
         verbose_name=_("first reference note number"),
-        help_text=_("CSL JSON: first-reference-note-number (string-or-number stored as string)"),
+        help_text=_(
+            "CSL JSON: first-reference-note-number (string-or-number stored as string)"
+        ),
     )
     locator = models.CharField(
         max_length=100,
@@ -573,7 +577,9 @@ class ItemName(models.Model):
             )
         ]
         indexes = [
-            models.Index(fields=["item", "role", "order"], name="itemname_item_role_order_idx"),
+            models.Index(
+                fields=["item", "role", "order"], name="itemname_item_role_order_idx"
+            ),
             models.Index(fields=["name", "role"], name="itemname_name_role_idx"),
         ]
 
@@ -586,7 +592,9 @@ class ItemName(models.Model):
         """
         if self._state.adding and self.order is None:
             last = (
-                ItemName.objects.filter(item=self.item, role=self.role).aggregate(models.Max("order")).get("order__max")
+                ItemName.objects.filter(item=self.item, role=self.role)
+                .aggregate(models.Max("order"))
+                .get("order__max")
             )
             self.order = 0 if last is None else last + 1
         super().save(*args, **kwargs)
@@ -624,19 +632,25 @@ class ItemDate(models.Model):
         null=True,
         blank=True,
         verbose_name=_("begin date"),
-        help_text=_("CSL JSON: date-parts[0] — start or single date with partial-date precision."),
+        help_text=_(
+            "CSL JSON: date-parts[0] — start or single date with partial-date precision."
+        ),
     )
     end = PartialDateField(
         null=True,
         blank=True,
         verbose_name=_("end date"),
-        help_text=_("CSL JSON: date-parts[1] — end date for ranges. Must not be set without begin."),
+        help_text=_(
+            "CSL JSON: date-parts[1] — end date for ranges. Must not be set without begin."
+        ),
     )
     season = models.CharField(
         max_length=20,
         blank=True,
         verbose_name=_("season"),
-        help_text=_("CSL JSON: season ('1'=Spring, '2'=Summer, '3'=Autumn, '4'=Winter or custom)"),
+        help_text=_(
+            "CSL JSON: season ('1'=Spring, '2'=Summer, '3'=Autumn, '4'=Winter or custom)"
+        ),
     )
     circa = models.BooleanField(
         default=False,
@@ -647,7 +661,9 @@ class ItemDate(models.Model):
         max_length=255,
         blank=True,
         verbose_name=_("literal"),
-        help_text=_("CSL JSON: literal — free-text date when structured representation is impossible."),
+        help_text=_(
+            "CSL JSON: literal — free-text date when structured representation is impossible."
+        ),
     )
     raw = models.CharField(
         max_length=255,
@@ -659,7 +675,9 @@ class ItemDate(models.Model):
         null=True,
         blank=True,
         verbose_name=_("raw date parts"),
-        help_text=_("CSL JSON: date-parts — stores original array when normalization to PartialDate fails."),
+        help_text=_(
+            "CSL JSON: date-parts — stores original array when normalization to PartialDate fails."
+        ),
     )
 
     class Meta:
@@ -672,7 +690,9 @@ class ItemDate(models.Model):
             )
         ]
         indexes = [
-            models.Index(fields=["item", "date_type"], name="itemdate_item_date_type_idx"),
+            models.Index(
+                fields=["item", "date_type"], name="itemdate_item_date_type_idx"
+            ),
             models.Index(fields=["begin"], name="itemdate_begin_idx"),
             models.Index(fields=["end"], name="itemdate_end_idx"),
         ]
@@ -713,13 +733,25 @@ class ItemDate(models.Model):
         anything, so both are normalized here the same way the field itself
         already accepts them.
         """
-        begin = PartialDate(self.begin) if isinstance(self.begin, str) and self.begin else self.begin or None
-        end = PartialDate(self.end) if isinstance(self.end, str) and self.end else self.end or None
+        begin = (
+            PartialDate(self.begin)
+            if isinstance(self.begin, str) and self.begin
+            else self.begin or None
+        )
+        end = (
+            PartialDate(self.end)
+            if isinstance(self.end, str) and self.end
+            else self.end or None
+        )
         if end is not None:
             if begin is None:
-                raise ValidationError(_("A date range's end must not be set without a begin."))
+                raise ValidationError(
+                    _("A date range's end must not be set without a begin.")
+                )
             if begin.date > end.date:
-                raise ValidationError(_("A date range's end must not fall before its begin."))
+                raise ValidationError(
+                    _("A date range's end must not fall before its begin.")
+                )
         super().clean()
 
     def save(self, *args, **kwargs):
@@ -762,7 +794,9 @@ class ItemIdentifier(models.Model):
     type = models.CharField(
         max_length=50,
         verbose_name=_("identifier type"),
-        help_text=_("Identifier type string (e.g. DOI, ISBN, ISSN, PMID, PMCID, URL, arXiv)."),
+        help_text=_(
+            "Identifier type string (e.g. DOI, ISBN, ISSN, PMID, PMCID, URL, arXiv)."
+        ),
     )
     value = models.CharField(
         max_length=500,
@@ -781,7 +815,9 @@ class ItemIdentifier(models.Model):
         ]
         indexes = [
             models.Index(fields=["item", "type"], name="itemidentifier_item_type_idx"),
-            models.Index(fields=["type", "value"], name="itemidentifier_type_value_idx"),
+            models.Index(
+                fields=["type", "value"], name="itemidentifier_type_value_idx"
+            ),
             models.Index(fields=["value"], name="itemidentifier_value_idx"),
         ]
 

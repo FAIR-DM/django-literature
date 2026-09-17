@@ -86,7 +86,9 @@ def _isbn13_valid(digits: str) -> bool | None:
     """
     if not re.match(r"^\d{13}$", digits):
         return None
-    return sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(digits)) % 10 == 0
+    return (
+        sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(digits)) % 10 == 0
+    )
 
 
 def validate_isbn(value: str) -> None:
@@ -109,7 +111,9 @@ def validate_isbn(value: str) -> None:
         return
     if isbn10 is False or isbn13 is False:
         raise ValidationError(
-            _("This ISBN's check digit does not match. Check the number for a mistyped character."),
+            _(
+                "This ISBN's check digit does not match. Check the number for a mistyped character."
+            ),
             code="invalid_isbn_checksum",
             params={"value": value},
         )
@@ -161,7 +165,9 @@ def validate_issn(value: str) -> None:
         return
     if valid is False:
         raise ValidationError(
-            _("This ISSN's check digit does not match. Check the number for a mistyped character."),
+            _(
+                "This ISSN's check digit does not match. Check the number for a mistyped character."
+            ),
             code="invalid_issn_checksum",
             params={"value": value},
         )
