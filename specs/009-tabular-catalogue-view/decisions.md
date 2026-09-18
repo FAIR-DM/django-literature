@@ -134,7 +134,7 @@ than a fork. Deprecating the card view would say the opposite of what issue #81 
 contributor page keeps a live user inside the package, so the card path stays exercised by the
 suite rather than surviving only as a documented promise nobody runs.
 
-**ADR:** docs/adr/0024-the-catalogue-view-is-chosen-by-a-setting.md
+**ADR:** docs/adr/0033-the-catalogue-view-is-chosen-by-a-setting.md
 
 ## D8 — The stack constraint on front-end packages is lifted, on this branch
 
