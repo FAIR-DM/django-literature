@@ -60,6 +60,10 @@ extend = "ruff-base.toml"
 # Tests: asserts, hardcoded test passwords, blind-exception asserts, nested-with
 # and unused variables — style rules that don't pay for themselves in tests.
 "tests/*" = ["S101", "S105", "B017", "F841", "SIM117"]
+# The packaging guards read a wheel built from the working tree, so they run
+# the project's own build tool in a subprocess with `poetry` resolved from
+# PATH — deliberately the same poetry that is running the suite.
+"tests/test_ui/test_packaging.py" = ["S603", "S607"]
 # The bundled demo project ships a throwaway dev SECRET_KEY by design.
 "demo/settings.py" = ["S105"]
 
