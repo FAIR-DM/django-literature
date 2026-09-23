@@ -292,7 +292,9 @@ def _citation_key(data: dict) -> str:
     """
     raw_key = data.get("citation-key") or str(data.get("id", ""))
     if not raw_key:
-        raise ValidationError(_("CSL JSON item missing both 'citation-key' and 'id' fields"))
+        raise ValidationError(
+            _("CSL JSON item missing both 'citation-key' and 'id' fields")
+        )
     return raw_key
 
 
@@ -399,7 +401,9 @@ def from_csl_json(data: dict) -> Any:
     if not csl_type:
         raise ValidationError(_("CSL JSON item missing required 'type' field"))
     if csl_type not in ItemType.values:
-        raise ValidationError(_("Unknown CSL JSON item type: '{type}'").format(type=csl_type))
+        raise ValidationError(
+            _("Unknown CSL JSON item type: '{type}'").format(type=csl_type)
+        )
 
     # --- Read the citation key ---
     citation_key = _citation_key(data)
@@ -421,7 +425,9 @@ def from_csl_json(data: dict) -> Any:
     # Collect all Item field names for validation
     from literature.models import Item  # noqa: F811
 
-    valid_item_fields = {f.name for f in Item._meta.get_fields() if hasattr(f, "attname")}
+    valid_item_fields = {
+        f.name for f in Item._meta.get_fields() if hasattr(f, "attname")
+    }
 
     for csl_key, value in data.items():
         if csl_key in non_scalar:
@@ -433,7 +439,10 @@ def from_csl_json(data: dict) -> Any:
         django_field = _csl_key_to_django_field(csl_key)
         if django_field and django_field in valid_item_fields:
             # Convert numbers to strings for string-or-number fields
-            if isinstance(value, (int, float)) and django_field not in ("categories", "custom"):
+            if isinstance(value, (int, float)) and django_field not in (
+                "categories",
+                "custom",
+            ):
                 value = str(value)
             item_fields[django_field] = value
 
@@ -474,7 +483,9 @@ def from_csl_json(data: dict) -> Any:
     if isinstance(custom_data, dict):
         for key, value in custom_data.items():
             if key not in _KNOWN_IDENTIFIER_TYPES and isinstance(value, str):
-                logger.warning("Unknown identifier type '%s' for item '%s'", key, citation_key)
+                logger.warning(
+                    "Unknown identifier type '%s' for item '%s'", key, citation_key
+                )
                 ident = ItemIdentifier(item=item, type=key, value=value)
                 ident.full_clean()
                 ident.save()

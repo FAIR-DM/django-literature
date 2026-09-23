@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../../.openclaw/workspaces/forge/engineering-org/kit/schemas/feature-state.schema.json",
   "feature": "003-import-contract",
   "branch": "003-import-contract",
   "repo": "FAIR-DM/django-literature",

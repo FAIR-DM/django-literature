@@ -28,7 +28,11 @@ FORBIDDEN_ROOTS = (
 
 
 def core_modules():
-    return [path for path in sorted(LITERATURE_ROOT.rglob("*.py")) if UI_ROOT not in path.parents]
+    return [
+        path
+        for path in sorted(LITERATURE_ROOT.rglob("*.py"))
+        if UI_ROOT not in path.parents
+    ]
 
 
 def imported_names(path):
@@ -61,7 +65,10 @@ class TestCoreImportsNothingFromTheUIStack:
         offending = {
             name
             for name in imported
-            if any(name == forbidden or name.startswith(f"{forbidden}.") for forbidden in FORBIDDEN_ROOTS)
+            if any(
+                name == forbidden or name.startswith(f"{forbidden}.")
+                for forbidden in FORBIDDEN_ROOTS
+            )
         }
         assert not offending, f"{path} imports forbidden module(s): {offending}"
 
@@ -75,7 +82,9 @@ class TestSearchAndFilterAreDeclaredOnce:
     replaced the import with a copy — this is the one that would not.
     """
 
-    def test_views_module_imports_search_fields_and_filterset_rather_than_declaring_them(self):
+    def test_views_module_imports_search_fields_and_filterset_rather_than_declaring_them(
+        self,
+    ):
         views_path = UI_ROOT / "views.py"
         imported = imported_names(views_path)
         assert "literature.ui.filters.SEARCH_FIELDS" in imported
@@ -89,6 +98,12 @@ class TestSearchAndFilterAreDeclaredOnce:
             for target in node.targets
             if isinstance(target, ast.Name)
         }
-        class_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)}
-        assert "SEARCH_FIELDS" not in top_level_assignments, "SEARCH_FIELDS is declared again in views.py"
-        assert "ItemFilterSet" not in class_names, "ItemFilterSet is declared again in views.py"
+        class_names = {
+            node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
+        }
+        assert "SEARCH_FIELDS" not in top_level_assignments, (
+            "SEARCH_FIELDS is declared again in views.py"
+        )
+        assert "ItemFilterSet" not in class_names, (
+            "ItemFilterSet is declared again in views.py"
+        )

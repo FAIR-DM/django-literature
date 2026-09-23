@@ -37,7 +37,12 @@ from literature.ui.contributors import contributor_groups, stored_contributor_na
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
 from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
-from literature.ui.forms import CONTRIBUTOR_NAMES_DATALIST_ID, ConfirmImportForm, ImportForm, ItemForm
+from literature.ui.forms import (
+    CONTRIBUTOR_NAMES_DATALIST_ID,
+    ConfirmImportForm,
+    ImportForm,
+    ItemForm,
+)
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
 from literature.ui.links import web_url
@@ -89,7 +94,12 @@ CRUD_VIEWS = {
 #: import time, not per-request: the mapping is a module-level constant
 #: (``literature/ui/fieldgroups.py``), so there is nothing request-specific
 #: to recompute.
-TYPE_GROUPS_JSON = json.dumps({item_type: sorted(FieldGroups.groups_for(item_type)) for item_type in ItemType.values})
+TYPE_GROUPS_JSON = json.dumps(
+    {
+        item_type: sorted(FieldGroups.groups_for(item_type))
+        for item_type in ItemType.values
+    }
+)
 
 
 def field_group_context(form, forced_groups=frozenset()):
@@ -194,7 +204,10 @@ class CatalogueListMixin:
         # "Showing 1-24 of 28 {verbose_name_plural}" directly under the page's
         # heading. Left to the model's own name, the two lines name the same
         # collection two different ways a few pixels apart.
-        return {**super().get_model_info(), "verbose_name_plural": CATALOGUE_NAME_PLURAL}
+        return {
+            **super().get_model_info(),
+            "verbose_name_plural": CATALOGUE_NAME_PLURAL,
+        }
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -351,7 +364,9 @@ class ItemTableView(MVPTableViewMixin, FilterView):
     # django-mvp's own empty state otherwise renders the same "nothing here"
     # copy either way.
     no_matches_heading = _("No references match your search")
-    no_matches_message = _("Try a different search term, or clear the search and filters.")
+    no_matches_message = _(
+        "Try a different search term, or clear the search and filters."
+    )
 
     def get_empty_state_heading(self):
         if self.catalogue_is_narrowed():
@@ -375,7 +390,9 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         """
         if self.request.GET.get("q", "").strip():
             return True
-        return any(self.request.GET.get(name, "").strip() for name in self.filterset.filters)
+        return any(
+            self.request.GET.get(name, "").strip() for name in self.filterset.filters
+        )
 
     def get_queryset(self):
         # Both prefetches, not one: the credited-names cell reads
@@ -395,9 +412,9 @@ class ItemTableView(MVPTableViewMixin, FilterView):
             .prefetch_related(
                 Prefetch(
                     "item_names",
-                    queryset=ItemName.objects.filter(role__in=(NameRole.AUTHOR, NameRole.EDITOR)).select_related(
-                        "name"
-                    ),
+                    queryset=ItemName.objects.filter(
+                        role__in=(NameRole.AUTHOR, NameRole.EDITOR)
+                    ).select_related("name"),
                     to_attr="contributors",
                 ),
                 "item_dates",
@@ -453,7 +470,10 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         # Same reasoning as ItemListView.get_model_info(): the table
         # template's own position line otherwise reads "of 28 items"
         # directly under a heading that says Publications.
-        return {**super().get_model_info(), "verbose_name_plural": CATALOGUE_NAME_PLURAL}
+        return {
+            **super().get_model_info(),
+            "verbose_name_plural": CATALOGUE_NAME_PLURAL,
+        }
 
     def get_table_kwargs(self):
         # show_action("update") is CRUDDirectoryMixin's own method, read
@@ -461,7 +481,10 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         # that dict resolves a URL for *this* view's own single object and
         # is empty for a list view's kwargs (FR-020, literature/ui/tables.py
         # ItemTable.__init__).
-        return {**super().get_table_kwargs(), "show_update_action": self.show_action("update")}
+        return {
+            **super().get_table_kwargs(),
+            "show_update_action": self.show_action("update"),
+        }
 
 
 class ItemCreateView(MVPInlineCreateView):
@@ -624,7 +647,9 @@ class ItemImportPreviewView(MVPFormView):
     show_list_action = True
     crud_views = CRUD_VIEWS
     page_title = _("Preview import")
-    page_subtitle = _("What importing this file would do. Nothing has been imported yet.")
+    page_subtitle = _(
+        "What importing this file would do. Nothing has been imported yet."
+    )
     # This page reads; it never writes. Confirming and restarting each have
     # their own address, so nothing here submits to this one. Without this,
     # the form base class answers a POST by looking for a success address
@@ -660,13 +685,18 @@ class ItemImportPreviewView(MVPFormView):
         # to.
         context["table"] = ImportReportTable(
             report.rows,
-            row_attrs={"x-show": lambda record: f"outcome === 'all' || outcome === '{record.outcome.value}'"},
+            row_attrs={
+                "x-show": lambda record: (
+                    f"outcome === 'all' || outcome === '{record.outcome.value}'"
+                )
+            },
         )
         # Value, label and the tone that outcome's badge already uses, so the
         # control and the badge for one outcome read as the same thing and
         # restyling the badges moves the filter with them.
         context["outcome_choices"] = [
-            (outcome.value, outcome.label, OutcomeColumn.VARIANTS[outcome]) for outcome in Outcome
+            (outcome.value, outcome.label, OutcomeColumn.VARIANTS[outcome])
+            for outcome in Outcome
         ]
         preview_id = request.session.get(IMPORT_PREVIEW_SESSION_KEY)
         context["confirm_form"] = ConfirmImportForm(initial={"preview": preview_id})
@@ -717,7 +747,9 @@ class ItemImportConfirmView(View):
             # must not take it away from them (FR-042).
             messages.warning(
                 request,
-                _("There was nothing to confirm. The staged file is no longer available."),
+                _(
+                    "There was nothing to confirm. The staged file is no longer available."
+                ),
             )
             return redirect("literature:item-list")
 
@@ -733,7 +765,9 @@ class ItemImportConfirmView(View):
             # or swept — either way there is nothing to import (FR-044).
             messages.warning(
                 request,
-                _("There was nothing to confirm. The staged file is no longer available."),
+                _(
+                    "There was nothing to confirm. The staged file is no longer available."
+                ),
             )
             return redirect("literature:item-list")
 
@@ -745,7 +779,11 @@ class ItemImportConfirmView(View):
         messages.success(
             request,
             _("%(created)d created, %(skipped)d skipped, %(failed)d failed.")
-            % {"created": report.created, "skipped": report.skipped, "failed": report.failed},
+            % {
+                "created": report.created,
+                "skipped": report.skipped,
+                "failed": report.failed,
+            },
         )
         return redirect("literature:item-list")
 
@@ -780,7 +818,11 @@ class ItemUpdateView(MVPInlineUpdateView):
         # groups_holding_values(self.object) is the forced-visible set
         # FR-010/FR-014 ask for — a group the stored type would not
         # otherwise show still renders when a value already lives in it.
-        context.update(field_group_context(context["form"], FieldGroups.groups_holding_values(self.object)))
+        context.update(
+            field_group_context(
+                context["form"], FieldGroups.groups_holding_values(self.object)
+            )
+        )
         context.update(contributor_datalist_context())
         return context
 
@@ -817,7 +859,11 @@ class ItemDetailView(MVPDetailView):
     crud_views = CRUD_VIEWS
 
     def get_queryset(self):
-        return super().get_queryset().prefetch_related("item_names__name", "item_dates", "item_identifiers")
+        return (
+            super()
+            .get_queryset()
+            .prefetch_related("item_names__name", "item_dates", "item_identifiers")
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -907,7 +953,9 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
     list_item_template = "literature/ui/contributor_item.html"
 
     empty_state_heading = _("Not credited on anything yet")
-    empty_state_message = _("This contributor has no credited references in the catalogue.")
+    empty_state_message = _(
+        "This contributor has no credited references in the catalogue."
+    )
 
     @cached_property
     def contributor(self):
@@ -921,7 +969,9 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
         # item has two ItemName rows, and without it the item would appear
         # twice (FR-035). The catalogue's own ordering and prefetching come
         # from CatalogueListMixin, which is what FR-036 asks for.
-        return super().get_queryset().filter(item_names__name=self.contributor).distinct()
+        return (
+            super().get_queryset().filter(item_names__name=self.contributor).distinct()
+        )
 
     def get_page_title(self):
         # The name as the store holds it (FR-033) — Name.__str__ renders an
@@ -945,7 +995,9 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
         # The role(s) *this* contributor held on each item, from a single
         # further query — not one per row.
         roles_by_item = defaultdict(list)
-        for item_name in ItemName.objects.filter(name=self.contributor, item__in=items_on_page):
+        for item_name in ItemName.objects.filter(
+            name=self.contributor, item__in=items_on_page
+        ):
             roles_by_item[item_name.item_id].append(item_name.get_role_display())
         for page_item in items_on_page:
             page_item.credited_roles = roles_by_item[page_item.id]

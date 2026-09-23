@@ -160,13 +160,17 @@ class TestAMisconfiguredEntryFailsAtFirstRead:
         with pytest.raises(ImproperlyConfigured, match="DoesNotExist"):
             available_formats()
 
-    def test_a_path_that_is_not_a_bibformat_subclass_fails_naming_the_entry(self, settings):
+    def test_a_path_that_is_not_a_bibformat_subclass_fails_naming_the_entry(
+        self, settings
+    ):
         settings.LITERATURE = {"BIB_FORMATS": [NOT_A_FORMAT_PATH]}
 
         with pytest.raises(ImproperlyConfigured, match="NotABibFormat"):
             available_formats()
 
-    def test_a_format_missing_its_required_stages_fails_naming_the_entry(self, settings):
+    def test_a_format_missing_its_required_stages_fails_naming_the_entry(
+        self, settings
+    ):
         """A subclass that never implements ``parse``/``to_csl_json`` would
         otherwise resolve cleanly and fail later with a raw ``TypeError``
         from inside ``import_file`` — outside the exception vocabulary the

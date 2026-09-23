@@ -110,8 +110,13 @@ class TestUnknownFormat:
             str(UnknownFormat("bibtex", available=["ris"]))
 
         assert seen, "the message was assembled without going through gettext"
-        assert "{name}" in seen[0], "the template must carry placeholders, not interpolated values"
+        assert "{name}" in seen[0], (
+            "the template must carry placeholders, not interpolated values"
+        )
 
     def test_available_names_are_sorted(self):
         """Order should not depend on configuration order, or the message churns."""
-        assert UnknownFormat("x", available=["ris", "bibtex"]).available == ["bibtex", "ris"]
+        assert UnknownFormat("x", available=["ris", "bibtex"]).available == [
+            "bibtex",
+            "ris",
+        ]

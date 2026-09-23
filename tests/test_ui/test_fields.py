@@ -27,7 +27,9 @@ class TestScalarFields:
     def test_a_choice_field_yields_its_label_not_its_stored_value(self):
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
         pairs = {str(label): value for label, value in scalar_fields(item)}
-        assert pairs[str(item._meta.get_field("type").verbose_name)] == "Journal Article"
+        assert (
+            pairs[str(item._meta.get_field("type").verbose_name)] == "Journal Article"
+        )
 
     def test_a_stored_value_matching_no_label_is_yielded_unchanged(self):
         # get_FOO_display() falls back to the raw value, so a slug the
@@ -61,7 +63,9 @@ class TestScalarFields:
 
     def test_caller_supplied_skip_overrides_the_default(self):
         item = ItemFactory(title="A Title")
-        pairs = {str(label): value for label, value in scalar_fields(item, skip={"title"})}
+        pairs = {
+            str(label): value for label, value in scalar_fields(item, skip={"title"})
+        }
         assert str(item._meta.get_field("title").verbose_name) not in pairs
         # The default skip set no longer applies — created is now carried.
         assert str(item._meta.get_field("created").verbose_name) in pairs

@@ -9,15 +9,17 @@ requires-poetry = '>=2.0,<3.0'
 # Family toolchain bundle; the pin tag is the family-standard version. The
 # python marker keeps the package's 3.11 floor for consumers — dev tooling
 # never ships to them.
-mvp-shared = { git = "https://github.com/django-mvp/shared.git", tag = "v0.2.0", extras = [
+mvp-shared = { git = "https://github.com/django-mvp/shared.git", tag = "v0.4.1", extras = [
     "dev",
     "test",
 ], python = ">=3.12" }
 
 [tool.poetry.group.docs.dependencies]
+# Same marker as mvp-shared above: docs tooling needs 3.12 but never ships to
+# consumers, so it must not drag the package's own 3.11 floor up with it.
 fairdm-docs = { git = "https://github.com/FAIR-DM/fairdm-docs", extras = [
     "sphinx_book_theme",
-] }
+], python = ">=3.12" }
 
 [build-system]
 requires = ['poetry-core (>=2.0,<3.0)']
@@ -52,66 +54,12 @@ branch = true
 source = ["literature"]
 
 [tool.ruff]
-target-version = "py311"
-line-length = 120
-fix = true
-# migrations are generated code — never linted or reformatted.
-exclude = ['docs/', '**/migrations/**']
-
-[tool.ruff.lint]
-# Family-standard rule set (mirrors django-easy-icons / django-content-license).
-select = [
-    # flake8-2020
-    "YTT",
-    # flake8-bandit
-    "S",
-    # flake8-bugbear
-    "B",
-    # flake8-builtins
-    "A",
-    # flake8-comprehensions
-    "C4",
-    # flake8-debugger
-    "T10",
-    # flake8-simplify
-    "SIM",
-    # isort
-    "I",
-    # mccabe
-    "C90",
-    # pycodestyle
-    "E", "W",
-    # pyflakes
-    "F",
-    # pygrep-hooks
-    "PGH",
-    # pyupgrade
-    "UP",
-    # ruff
-    "RUF",
-    # tryceratops
-    "TRY",
-]
-ignore = [
-    # LineTooLong
-    "E501",
-    # DoNotAssignLambda
-    "E731",
-    # Mutable class attributes (noise on Django Meta)
-    "RUF012",
-    # Avoid long messages outside the exception class
-    "TRY003",
-    # Class attribute shadowing a builtin (Django field names)
-    "A003",
-    # Function too complex
-    "C901",
-]
+extend = "ruff-base.toml"
 
 [tool.ruff.lint.per-file-ignores]
-# Tests: asserts, hardcoded test passwords, blind-exception asserts, builtin
-# shadowing, unused variables, nested-with and raise-in-try — style rules that
-# don't pay for themselves in tests.
-"tests/*" = ["S101", "S105", "S106", "B017", "A001", "RUF059", "F841", "SIM117", "TRY301"]
+# Tests: asserts, hardcoded test passwords, blind-exception asserts, nested-with
+# and unused variables — style rules that don't pay for themselves in tests.
+"tests/*" = ["S101", "S105", "B017", "F841", "SIM117"]
 # The bundled demo project ships a throwaway dev SECRET_KEY by design.
 "demo/settings.py" = ["S105"]
 

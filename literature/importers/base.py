@@ -172,7 +172,9 @@ class BibFormat(abc.ABC):
         # nothing branches on ``dry_run`` except this wrapper and what
         # ``entry_created`` hands back (data-model.md: a dry run's rows do not
         # survive the rollback, so returning one would look saved and not be).
-        outer_transaction = transaction.atomic(using=using) if dry_run else contextlib.nullcontext()
+        outer_transaction = (
+            transaction.atomic(using=using) if dry_run else contextlib.nullcontext()
+        )
 
         with outer_transaction:
             entries = self.import_entries(self._parsed(file), dry_run=dry_run)
@@ -197,7 +199,9 @@ class BibFormat(abc.ABC):
         """
         yield from self.parse(file)
 
-    def import_entries(self, entries: Iterator[Any], *, dry_run: bool) -> list[EntryResult]:
+    def import_entries(
+        self, entries: Iterator[Any], *, dry_run: bool
+    ) -> list[EntryResult]:
         """Import each raw entry ``parse`` produced, consuming it one at a time.
 
         Assigns each entry its zero-based index (FR-009) and delegates the
@@ -221,7 +225,9 @@ class BibFormat(abc.ABC):
             # exactly as ``import_entry`` carries one (D18): whoever reads the
             # report should not be able to tell which stage recognised the
             # element, only what was skipped and why.
-            results.append(self.entry_skipped(index=index, handle=None, reason=_skip_reason(exc)))
+            results.append(
+                self.entry_skipped(index=index, handle=None, reason=_skip_reason(exc))
+            )
         except Exception as exc:
             # A format may report the file as unreadable (``ParseError``),
             # report that the *next* entry is bad before converting it
@@ -229,7 +235,9 @@ class BibFormat(abc.ABC):
             # generator is finished, so the failure is filed at the index
             # it stopped at.
             logger.warning("Parsing failed at entry %s", index, exc_info=True)
-            results.append(self.entry_failed(index=index, handle=None, reason=_reason_for(exc)))
+            results.append(
+                self.entry_failed(index=index, handle=None, reason=_reason_for(exc))
+            )
         return results
 
     def import_entry(self, raw: Any, index: int, *, dry_run: bool) -> EntryResult:
@@ -256,7 +264,9 @@ class BibFormat(abc.ABC):
         try:
             csl_json = self.to_csl_json(raw)
         except SkipEntry as exc:
-            return self.entry_skipped(index=index, handle=handle, reason=_skip_reason(exc))
+            return self.entry_skipped(
+                index=index, handle=handle, reason=_skip_reason(exc)
+            )
         except Exception as exc:
             # Deliberately every exception, not the contract's three. A
             # format is third-party code reading untrusted content, and
@@ -267,7 +277,9 @@ class BibFormat(abc.ABC):
             # already stored committed — the one failure FR-013, FR-014 and
             # FR-023 exist to rule out.
             logger.warning("Entry %s could not be converted", index, exc_info=True)
-            return self.entry_failed(index=index, handle=handle, reason=_reason_for(exc))
+            return self.entry_failed(
+                index=index, handle=handle, reason=_reason_for(exc)
+            )
 
         using = router.db_for_write(Item)
         try:
@@ -280,9 +292,13 @@ class BibFormat(abc.ABC):
                 item = from_csl_json(csl_json)
         except Exception as exc:
             logger.warning("Entry %s could not be stored", index, exc_info=True)
-            return self.entry_failed(index=index, handle=handle, reason=_reason_for(exc))
+            return self.entry_failed(
+                index=index, handle=handle, reason=_reason_for(exc)
+            )
 
-        return self.entry_created(index=index, handle=handle, item=item, dry_run=dry_run)
+        return self.entry_created(
+            index=index, handle=handle, item=item, dry_run=dry_run
+        )
 
     def get_result(self, entries: list[EntryResult], *, dry_run: bool) -> ImportResult:
         """Build the :class:`~literature.importers.results.ImportResult` for a run.
@@ -293,23 +309,38 @@ class BibFormat(abc.ABC):
         """
         return ImportResult(entries=entries, dry_run=dry_run, format_name=self.name)
 
-    def entry_created(self, *, index: int, handle: str | None, item: Any, dry_run: bool) -> EntryResult:
+    def entry_created(
+        self, *, index: int, handle: str | None, item: Any, dry_run: bool
+    ) -> EntryResult:
         """Report one entry as stored.
 
         ``item`` is dropped on a dry run: its rows live inside a transaction
         that is about to be rolled back, so handing it back would look saved
         and not be (data-model.md).
         """
-        return EntryResult(outcome=Outcome.CREATED, index=index, handle=handle, item=None if dry_run else item)
+        return EntryResult(
+            outcome=Outcome.CREATED,
+            index=index,
+            handle=handle,
+            item=None if dry_run else item,
+        )
 
-    def entry_skipped(self, *, index: int, handle: str | None, reason: str | None = None) -> EntryResult:
+    def entry_skipped(
+        self, *, index: int, handle: str | None, reason: str | None = None
+    ) -> EntryResult:
         """Report one entry as recognised but not a bibliographic record.
 
         ``reason`` is optional (D18): a format that knows what it skipped
         passes it along, and one that does not is not required to invent one.
         """
-        return EntryResult(outcome=Outcome.SKIPPED, index=index, handle=handle, reason=reason)
+        return EntryResult(
+            outcome=Outcome.SKIPPED, index=index, handle=handle, reason=reason
+        )
 
-    def entry_failed(self, *, index: int, handle: str | None, reason: str) -> EntryResult:
+    def entry_failed(
+        self, *, index: int, handle: str | None, reason: str
+    ) -> EntryResult:
         """Report one entry as unable to be stored, with the reason why."""
-        return EntryResult(outcome=Outcome.FAILED, index=index, handle=handle, reason=reason)
+        return EntryResult(
+            outcome=Outcome.FAILED, index=index, handle=handle, reason=reason
+        )

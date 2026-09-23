@@ -28,8 +28,22 @@ from literature.choices import DateType, ItemType
 #: which is itself CSL's own grouping (plan.md D-1).
 GROUPS: dict[str, tuple[str, ...]] = {
     "core": ("type", "citation_key", "title", "abstract"),
-    "general": ("note", "annote", "keyword", "language", "status", "source", "call_number"),
-    "titles": ("title_short", "original_title", "part_title", "volume_title", "volume_title_short"),
+    "general": (
+        "note",
+        "annote",
+        "keyword",
+        "language",
+        "status",
+        "source",
+        "call_number",
+    ),
+    "titles": (
+        "title_short",
+        "original_title",
+        "part_title",
+        "volume_title",
+        "volume_title_short",
+    ),
     "container": (
         "container_title",
         "container_title_short",
@@ -37,7 +51,14 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "collection_title",
         "collection_number",
     ),
-    "publication": ("publisher", "publisher_place", "edition", "medium", "genre", "version"),
+    "publication": (
+        "publisher",
+        "publisher_place",
+        "edition",
+        "medium",
+        "genre",
+        "version",
+    ),
     "original": ("original_publisher", "original_publisher_place"),
     "numbering": (
         "volume",
@@ -324,7 +345,9 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
 # relative's evidence, the same discipline `TYPE_GROUPS` applies to `titles`.
 TYPE_DATE_SLOTS: dict[str, frozenset[str]] = {
     ItemType.ARTICLE: frozenset(),  # DC6
-    ItemType.ARTICLE_JOURNAL: frozenset({DateType.AVAILABLE_DATE}),  # DC2 — "a journal article"
+    ItemType.ARTICLE_JOURNAL: frozenset(
+        {DateType.AVAILABLE_DATE}
+    ),  # DC2 — "a journal article"
     ItemType.ARTICLE_MAGAZINE: frozenset(),  # DC6
     ItemType.ARTICLE_NEWSPAPER: frozenset(),  # DC6
     ItemType.BILL: frozenset(),  # DC6
@@ -366,7 +389,9 @@ TYPE_DATE_SLOTS: dict[str, frozenset[str]] = {
     ItemType.SPEECH: frozenset({DateType.EVENT_DATE}),  # DC3
     ItemType.STANDARD: frozenset(),  # DC6
     ItemType.THESIS: frozenset(),  # DC6
-    ItemType.TREATY: frozenset({DateType.AVAILABLE_DATE}),  # DC2 — "a treaty was made available for signing"
+    ItemType.TREATY: frozenset(
+        {DateType.AVAILABLE_DATE}
+    ),  # DC2 — "a treaty was made available for signing"
     ItemType.WEBPAGE: frozenset({DateType.ACCESSED}),  # DC1 — "intrinsically online"
 }
 

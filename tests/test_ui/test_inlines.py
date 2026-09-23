@@ -74,14 +74,18 @@ class TestOrderingSpike:
     found no working precedent for this combination.
     """
 
-    def test_can_order_adds_an_order_field_alongside_the_unbound_name_fields(self, item):
+    def test_can_order_adds_an_order_field_alongside_the_unbound_name_fields(
+        self, item
+    ):
         formset = _build_formset(ContributorInline, item)
         empty_form = formset.empty_form
         assert "ORDER" in empty_form.fields
         assert "family" in empty_form.fields
         assert "given" in empty_form.fields
 
-    def test_the_prefix_reaches_every_field_the_same_way_custom_and_generated_alike(self, item):
+    def test_the_prefix_reaches_every_field_the_same_way_custom_and_generated_alike(
+        self, item
+    ):
         # The __prefix__ token the browser substitutes on "Add row"
         # (mvp/static/js/formset.js) is this same prefix, index-substituted.
         # If a custom declared field resolved its name/id differently from a
@@ -104,14 +108,18 @@ class TestOrderingSpike:
         assert "__prefix__-family" in rendered
         assert "__prefix__-ORDER" in rendered
 
-    def test_two_new_rows_in_one_role_with_colliding_order_save_with_a_coherent_sequence(self, item):
+    def test_two_new_rows_in_one_role_with_colliding_order_save_with_a_coherent_sequence(
+        self, item
+    ):
         # The real proof: two rows posted as if cloned via __prefix__ (index
         # 0 and 1, matching TOTAL_FORMS), both claiming position "1" — the
         # library's own can_order does not itself reject a collision, and
         # renumbering (T009's own job, not yet built at spike time) is what
         # turns "1, 1" into a coherent sequence rather than either silently
         # winning.
-        formset_class = ContributorInline(Item, RequestFactory().post("/"), item, view=None).get_formset_class()
+        formset_class = ContributorInline(
+            Item, RequestFactory().post("/"), item, view=None
+        ).get_formset_class()
         data = {
             "item_names-TOTAL_FORMS": "2",
             "item_names-INITIAL_FORMS": "0",
@@ -127,7 +135,10 @@ class TestOrderingSpike:
         formset = formset_class(data=data, instance=item)
         assert formset.is_valid(), formset.errors
         formset.save()
-        assert set(item.item_names.values_list("name__family", flat=True)) == {"First", "Second"}
+        assert set(item.item_names.values_list("name__family", flat=True)) == {
+            "First",
+            "Second",
+        }
 
 
 @pytest.mark.django_db
@@ -164,7 +175,11 @@ class TestDistinctPrefixes:
         view.request = request
         formsets = view.construct_inlines()
         assert len(formsets) == 3
-        assert {formset.model for formset in formsets} == {ItemName, ItemDate, ItemIdentifier}
+        assert {formset.model for formset in formsets} == {
+            ItemName,
+            ItemDate,
+            ItemIdentifier,
+        }
 
 
 @pytest.mark.django_db
@@ -202,14 +217,18 @@ class TestDateInlineSlots:
         declaration = DateInline(Item, RequestFactory().get("/"), item, view=None)
         assert declaration.extra_slots == [DateType.AVAILABLE_DATE]
 
-    def test_a_slot_outside_the_types_own_set_but_holding_a_value_still_renders(self, item):
+    def test_a_slot_outside_the_types_own_set_but_holding_a_value_still_renders(
+        self, item
+    ):
         # FR-018 — ARTICLE leads with no extra slots of its own (DC6); a
         # stored accessed date must still appear as one of the set's forms.
         item.type = ItemType.ARTICLE
         item.save()
         ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
         formset = _build_formset(DateInline, item)
-        rendered_slots = {form.instance.date_type for form in formset.forms if form.instance.pk}
+        rendered_slots = {
+            form.instance.date_type for form in formset.forms if form.instance.pk
+        }
         assert DateType.ACCESSED in rendered_slots
 
     def test_changing_item_type_never_drops_a_stored_date(self, item):
@@ -222,7 +241,9 @@ class TestDateInlineSlots:
         item.type = ItemType.MAP  # MAP leads with no date slots either (DC6)
         item.save()
         formset = _build_formset(DateInline, item)
-        rendered_slots = {form.instance.date_type for form in formset.forms if form.instance.pk}
+        rendered_slots = {
+            form.instance.date_type for form in formset.forms if form.instance.pk
+        }
         assert DateType.ACCESSED in rendered_slots
 
 
@@ -268,11 +289,15 @@ class TestDateInlineAddRow:
     the page.
     """
 
-    def test_a_type_leading_only_with_issued_offers_the_other_five_on_the_added_row(self, item):
+    def test_a_type_leading_only_with_issued_offers_the_other_five_on_the_added_row(
+        self, item
+    ):
         item.type = ItemType.MAP  # DC6 — no extra leading slots
         item.save()
         formset = _build_formset(DateInline, item)
-        empty_choices = {choice[0] for choice in formset.empty_form.fields["date_type"].choices}
+        empty_choices = {
+            choice[0] for choice in formset.empty_form.fields["date_type"].choices
+        }
         assert DateType.ACCESSED in empty_choices
         assert DateType.ISSUED not in empty_choices
 
@@ -281,8 +306,12 @@ class TestDateInlineAddRow:
         item.save()
         ItemDateFactory(item=item, date_type=DateType.SUBMITTED)
         formset = _build_formset(DateInline, item)
-        empty_choices = {choice[0] for choice in formset.empty_form.fields["date_type"].choices}
-        assert empty_choices.isdisjoint({DateType.ISSUED, DateType.AVAILABLE_DATE, DateType.SUBMITTED})
+        empty_choices = {
+            choice[0] for choice in formset.empty_form.fields["date_type"].choices
+        }
+        assert empty_choices.isdisjoint(
+            {DateType.ISSUED, DateType.AVAILABLE_DATE, DateType.SUBMITTED}
+        )
         assert DateType.ACCESSED in empty_choices
         assert DateType.EVENT_DATE in empty_choices
         assert DateType.ORIGINAL_DATE in empty_choices
@@ -327,7 +356,9 @@ class TestDateSetDeletion:
         formset = formset_class(data=data, instance=item)
         assert formset.is_valid(), formset.errors
         formset.save()
-        assert set(item.item_dates.values_list("date_type", flat=True)) == {DateType.ISSUED}
+        assert set(item.item_dates.values_list("date_type", flat=True)) == {
+            DateType.ISSUED
+        }
         assert str(item.item_dates.get().begin) == "2020"
 
 
@@ -415,7 +446,9 @@ class TestItemIdentifierFormSetUniqueness:
     """
 
     def test_two_new_rows_claiming_the_same_kind_are_refused(self, item):
-        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        declaration = IdentifierInline(
+            Item, RequestFactory().post("/"), item, view=None
+        )
         formset_class = declaration.get_formset_class()
         data = {
             "item_identifiers-TOTAL_FORMS": "2",
@@ -437,8 +470,12 @@ class TestItemIdentifierFormSetUniqueness:
     def test_a_deleted_rows_kind_is_excluded_from_the_collision_check(self, item):
         # Removing one identifier and adding a corrected one of the same
         # kind in the same submission is a replacement, not a collision.
-        stored = ItemIdentifierFactory(item=item, type=IdentifierType.ISBN, value="0-306-40615-2")
-        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        stored = ItemIdentifierFactory(
+            item=item, type=IdentifierType.ISBN, value="0-306-40615-2"
+        )
+        declaration = IdentifierInline(
+            Item, RequestFactory().post("/"), item, view=None
+        )
         formset_class = declaration.get_formset_class()
         data = {
             "item_identifiers-TOTAL_FORMS": "2",
@@ -463,7 +500,9 @@ class TestIdentifierSetAddAndRemove:
     """
 
     def test_adding_an_identifier_through_the_set_stores_it(self, item):
-        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        declaration = IdentifierInline(
+            Item, RequestFactory().post("/"), item, view=None
+        )
         formset_class = declaration.get_formset_class()
         data = {
             "item_identifiers-TOTAL_FORMS": "1",
@@ -479,8 +518,12 @@ class TestIdentifierSetAddAndRemove:
         assert item.item_identifiers.get().value == "10.1234/added"
 
     def test_removing_an_identifier_through_the_set_deletes_the_link(self, item):
-        stored = ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/gone")
-        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        stored = ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1234/gone"
+        )
+        declaration = IdentifierInline(
+            Item, RequestFactory().post("/"), item, view=None
+        )
         formset_class = declaration.get_formset_class()
         data = {
             "item_identifiers-TOTAL_FORMS": "1",
@@ -498,7 +541,9 @@ class TestIdentifierSetAddAndRemove:
         assert not item.item_identifiers.exists()
 
     def test_a_rejected_identifiers_message_reaches_the_person_on_the_form(self, item):
-        declaration = IdentifierInline(Item, RequestFactory().post("/"), item, view=None)
+        declaration = IdentifierInline(
+            Item, RequestFactory().post("/"), item, view=None
+        )
         formset_class = declaration.get_formset_class()
         data = {
             "item_identifiers-TOTAL_FORMS": "1",

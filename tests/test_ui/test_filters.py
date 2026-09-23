@@ -39,7 +39,9 @@ class TestItemFilterSetType:
     def test_narrows_to_the_chosen_type(self):
         book = ItemFactory(type=ItemType.BOOK)
         ItemFactory(type=ItemType.ARTICLE_JOURNAL)
-        filterset = ItemFilterSet(data={"type": ItemType.BOOK}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"type": ItemType.BOOK}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == [book]
 
     def test_choices_are_the_translatable_type_labels(self):
@@ -57,25 +59,38 @@ class TestItemFilterSetContributor:
         ItemNameFactory(item=item, name=NameFactory(family="Darwin"))
         other = ItemFactory()
         ItemNameFactory(item=other, name=NameFactory(family="Wallace"))
-        filterset = ItemFilterSet(data={"contributor": "darwin"}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"contributor": "darwin"}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == [item]
 
     def test_matches_a_given_name_fragment(self):
         item = ItemFactory()
         ItemNameFactory(item=item, name=NameFactory(given="Charles"))
-        filterset = ItemFilterSet(data={"contributor": "charles"}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"contributor": "charles"}, queryset=Item.objects.all()
+        )
         assert item in filterset.qs
 
     def test_matches_a_literal_organizational_name(self):
         item = ItemFactory()
-        ItemNameFactory(item=item, name=NameFactory(family="", given="", literal="Smithsonian Institution"))
-        filterset = ItemFilterSet(data={"contributor": "smithsonian"}, queryset=Item.objects.all())
+        ItemNameFactory(
+            item=item,
+            name=NameFactory(family="", given="", literal="Smithsonian Institution"),
+        )
+        filterset = ItemFilterSet(
+            data={"contributor": "smithsonian"}, queryset=Item.objects.all()
+        )
         assert item in filterset.qs
 
     def test_matches_a_contributor_regardless_of_role(self):
         item = ItemFactory()
-        ItemNameFactory(item=item, name=NameFactory(family="Darwin"), role=NameRole.EDITOR)
-        filterset = ItemFilterSet(data={"contributor": "darwin"}, queryset=Item.objects.all())
+        ItemNameFactory(
+            item=item, name=NameFactory(family="Darwin"), role=NameRole.EDITOR
+        )
+        filterset = ItemFilterSet(
+            data={"contributor": "darwin"}, queryset=Item.objects.all()
+        )
         assert item in filterset.qs
 
 
@@ -88,14 +103,24 @@ class TestItemFilterSetDistinct:
         darwin = NameFactory(family="Darwin")
         ItemNameFactory(item=item, name=darwin, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, name=darwin, role=NameRole.EDITOR)
-        filterset = ItemFilterSet(data={"contributor": "darwin"}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"contributor": "darwin"}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == [item]
 
-    def test_two_related_rows_matching_the_same_filter_still_return_the_reference_once(self):
+    def test_two_related_rows_matching_the_same_filter_still_return_the_reference_once(
+        self,
+    ):
         item = ItemFactory()
-        ItemNameFactory(item=item, name=NameFactory(family="Darwin"), role=NameRole.AUTHOR)
-        ItemNameFactory(item=item, name=NameFactory(given="Darwiniana"), role=NameRole.EDITOR)
-        filterset = ItemFilterSet(data={"contributor": "darwin"}, queryset=Item.objects.all())
+        ItemNameFactory(
+            item=item, name=NameFactory(family="Darwin"), role=NameRole.AUTHOR
+        )
+        ItemNameFactory(
+            item=item, name=NameFactory(given="Darwiniana"), role=NameRole.EDITOR
+        )
+        filterset = ItemFilterSet(
+            data={"contributor": "darwin"}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == [item]
 
 
@@ -113,7 +138,9 @@ class TestItemFilterSetLanguage:
     @staticmethod
     def _computed_choices(filterset):
         language_filter = filterset.filters["language"]
-        _ = language_filter.field  # triggers LanguageFilter.field, which populates extra["choices"]
+        _ = (
+            language_filter.field
+        )  # triggers LanguageFilter.field, which populates extra["choices"]
         return language_filter.extra["choices"]
 
     def test_choices_are_the_distinct_stored_languages(self):
@@ -152,7 +179,9 @@ class TestItemFilterSetIssuedYear:
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
         other = ItemFactory()
         ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
-        filterset = ItemFilterSet(data={"issued_year": 2020}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"issued_year": 2020}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == [item]
 
     def test_a_range_qualifies_for_the_year_it_begins_in(self):
@@ -160,24 +189,32 @@ class TestItemFilterSetIssuedYear:
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
         other = ItemFactory()
         ItemDateFactory(item=other, date_type=DateType.ISSUED, begin="2021")
-        filterset = ItemFilterSet(data={"issued_year": 2019}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"issued_year": 2019}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == [item]
 
     def test_a_range_does_not_qualify_for_a_year_it_only_ends_in(self):
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
-        filterset = ItemFilterSet(data={"issued_year": 2021}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"issued_year": 2021}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == []
 
     def test_a_reference_with_no_issued_date_is_excluded(self):
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
-        filterset = ItemFilterSet(data={"issued_year": 2020}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"issued_year": 2020}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == []
 
     def test_a_reference_carrying_no_date_at_all_is_excluded(self):
         ItemFactory()
-        filterset = ItemFilterSet(data={"issued_year": 2020}, queryset=Item.objects.all())
+        filterset = ItemFilterSet(
+            data={"issued_year": 2020}, queryset=Item.objects.all()
+        )
         assert list(filterset.qs) == []
 
     def test_unfiltered_the_annotation_is_still_present_for_ordering(self):

@@ -38,29 +38,45 @@ class ContributorGroups:
     ROLE_LABELS = {
         NameRole.AUTHOR: ngettext_lazy("Author", "Authors", "count"),
         NameRole.CHAIR: ngettext_lazy("Chair", "Chairs", "count"),
-        NameRole.COLLECTION_EDITOR: ngettext_lazy("Collection Editor", "Collection Editors", "count"),
+        NameRole.COLLECTION_EDITOR: ngettext_lazy(
+            "Collection Editor", "Collection Editors", "count"
+        ),
         NameRole.COMPILER: ngettext_lazy("Compiler", "Compilers", "count"),
         NameRole.COMPOSER: ngettext_lazy("Composer", "Composers", "count"),
-        NameRole.CONTAINER_AUTHOR: ngettext_lazy("Container Author", "Container Authors", "count"),
+        NameRole.CONTAINER_AUTHOR: ngettext_lazy(
+            "Container Author", "Container Authors", "count"
+        ),
         NameRole.CONTRIBUTOR: ngettext_lazy("Contributor", "Contributors", "count"),
         NameRole.CURATOR: ngettext_lazy("Curator", "Curators", "count"),
         NameRole.DIRECTOR: ngettext_lazy("Director", "Directors", "count"),
         NameRole.EDITOR: ngettext_lazy("Editor", "Editors", "count"),
-        NameRole.EDITORIAL_DIRECTOR: ngettext_lazy("Editorial Director", "Editorial Directors", "count"),
-        NameRole.EXECUTIVE_PRODUCER: ngettext_lazy("Executive Producer", "Executive Producers", "count"),
+        NameRole.EDITORIAL_DIRECTOR: ngettext_lazy(
+            "Editorial Director", "Editorial Directors", "count"
+        ),
+        NameRole.EXECUTIVE_PRODUCER: ngettext_lazy(
+            "Executive Producer", "Executive Producers", "count"
+        ),
         NameRole.GUEST: ngettext_lazy("Guest", "Guests", "count"),
         NameRole.HOST: ngettext_lazy("Host", "Hosts", "count"),
         NameRole.ILLUSTRATOR: ngettext_lazy("Illustrator", "Illustrators", "count"),
         NameRole.INTERVIEWER: ngettext_lazy("Interviewer", "Interviewers", "count"),
         NameRole.NARRATOR: ngettext_lazy("Narrator", "Narrators", "count"),
         NameRole.ORGANIZER: ngettext_lazy("Organizer", "Organizers", "count"),
-        NameRole.ORIGINAL_AUTHOR: ngettext_lazy("Original Author", "Original Authors", "count"),
+        NameRole.ORIGINAL_AUTHOR: ngettext_lazy(
+            "Original Author", "Original Authors", "count"
+        ),
         NameRole.PERFORMER: ngettext_lazy("Performer", "Performers", "count"),
         NameRole.PRODUCER: ngettext_lazy("Producer", "Producers", "count"),
         NameRole.RECIPIENT: ngettext_lazy("Recipient", "Recipients", "count"),
-        NameRole.REVIEWED_AUTHOR: ngettext_lazy("Reviewed Author", "Reviewed Authors", "count"),
-        NameRole.SCRIPT_WRITER: ngettext_lazy("Script Writer", "Script Writers", "count"),
-        NameRole.SERIES_CREATOR: ngettext_lazy("Series Creator", "Series Creators", "count"),
+        NameRole.REVIEWED_AUTHOR: ngettext_lazy(
+            "Reviewed Author", "Reviewed Authors", "count"
+        ),
+        NameRole.SCRIPT_WRITER: ngettext_lazy(
+            "Script Writer", "Script Writers", "count"
+        ),
+        NameRole.SERIES_CREATOR: ngettext_lazy(
+            "Series Creator", "Series Creators", "count"
+        ),
         NameRole.TRANSLATOR: ngettext_lazy("Translator", "Translators", "count"),
     }
 
@@ -121,4 +137,9 @@ def stored_contributor_names():
     FR-006); an unparsed organizational name has no family part to suggest,
     so it is excluded here rather than offering an empty option.
     """
-    return list(Name.objects.exclude(family="").order_by("family").values_list("family", flat=True).distinct())
+    return list(
+        Name.objects.exclude(family="")
+        .order_by("family")
+        .values_list("family", flat=True)
+        .distinct()
+    )

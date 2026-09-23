@@ -67,7 +67,9 @@ class ImportReport:
         # narrowing the contract's own, deliberately looser, type.
         item_url = None
         if entry.item is not None:
-            item_url = reverse("literature:item-detail", kwargs={"pk": cast(Item, entry.item).pk})
+            item_url = reverse(
+                "literature:item-detail", kwargs={"pk": cast(Item, entry.item).pk}
+            )
         return ImportReportRow(
             position=entry.index + 1,
             outcome=entry.outcome,

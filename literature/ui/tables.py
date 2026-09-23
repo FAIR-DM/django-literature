@@ -35,8 +35,16 @@ class ContributorsColumn(tables.TemplateColumn):
     def get_context_data(self, record, **kwargs):
         context = super().get_context_data(record=record, **kwargs)
         item_names = getattr(record, "contributors", [])
-        authors = [item_name.name for item_name in item_names if item_name.role == NameRole.AUTHOR]
-        credited = authors or [item_name.name for item_name in item_names if item_name.role == NameRole.EDITOR]
+        authors = [
+            item_name.name
+            for item_name in item_names
+            if item_name.role == NameRole.AUTHOR
+        ]
+        credited = authors or [
+            item_name.name
+            for item_name in item_names
+            if item_name.role == NameRole.EDITOR
+        ]
         context["names"] = credited[:3]
         context["hidden_count"] = max(len(credited) - 3, 0)
         return context
@@ -57,7 +65,11 @@ class IssuedColumn(tables.TemplateColumn):
     def get_context_data(self, record, **kwargs):
         context = super().get_context_data(record=record, **kwargs)
         context["item_date"] = next(
-            (item_date for item_date in record.item_dates.all() if item_date.date_type == DateType.ISSUED),
+            (
+                item_date
+                for item_date in record.item_dates.all()
+                if item_date.date_type == DateType.ISSUED
+            ),
             None,
         )
         return context
@@ -213,7 +225,13 @@ class ItemTable(tables.Table):
         whose text is the empty-value marker cannot be read or clicked with
         confidence, so a title-less reference duplicates its key instead.
         """
-        return record.title or record.title_short or record.original_title or record.volume_title or record.citation_key
+        return (
+            record.title
+            or record.title_short
+            or record.original_title
+            or record.volume_title
+            or record.citation_key
+        )
 
     def order_issued(self, queryset, is_descending):
         """Sort by the ``issued`` annotation, undated references last either way (FR-018).
@@ -228,7 +246,11 @@ class ItemTable(tables.Table):
         name.
         """
         issued = F("issued")
-        ordering = issued.desc(nulls_last=True) if is_descending else issued.asc(nulls_last=True)
+        ordering = (
+            issued.desc(nulls_last=True)
+            if is_descending
+            else issued.asc(nulls_last=True)
+        )
         # ``pk`` last, for the same reason every other sortable column names
         # it: references sharing an issued date are otherwise ordered
         # arbitrarily, and each page of the catalogue is its own query.

@@ -103,7 +103,9 @@ def _item_csl_fields():
 class TestDocstringCoverage:
     """Every public class and function carries a docstring (SC-004)."""
 
-    @pytest.mark.parametrize("label,obj", _ALL_SYMBOLS, ids=[s[0] for s in _ALL_SYMBOLS])
+    @pytest.mark.parametrize(
+        "label,obj", _ALL_SYMBOLS, ids=[s[0] for s in _ALL_SYMBOLS]
+    )
     def test_public_symbol_has_docstring(self, label, obj):
         """Every public class and function must have a non-empty __doc__."""
         assert obj.__doc__, f"{label} is missing a docstring"
@@ -118,4 +120,6 @@ class TestHelpTextCoverage:
         from literature.models import Item
 
         field = Item._meta.get_field(field_name)
-        assert field.help_text, f"Item.{field_name} is missing help_text describing its CSL JSON mapping"
+        assert field.help_text, (
+            f"Item.{field_name} is missing help_text describing its CSL JSON mapping"
+        )

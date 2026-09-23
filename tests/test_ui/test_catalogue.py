@@ -85,13 +85,20 @@ class TestChoosingTheCardList:
             assert client.get(reverse(name, kwargs=kwargs)).status_code == 200
 
     def test_a_project_can_name_its_own_subclass(self, client, db, settings):
-        settings.LITERATURE = {"CATALOGUE_VIEW": "tests.test_ui.test_catalogue.ItemTableViewSubclass"}
+        settings.LITERATURE = {
+            "CATALOGUE_VIEW": "tests.test_ui.test_catalogue.ItemTableViewSubclass"
+        }
         ItemFactory.create_batch(8)
 
         assert catalogue_view_class() is ItemTableViewSubclass
         # The subclass's own page size, not ItemTableView's 24 — proof the
         # route served the configured class rather than its parent.
-        assert client.get(reverse("literature:item-list")).context["page_obj"].paginator.per_page == 5
+        assert (
+            client.get(reverse("literature:item-list"))
+            .context["page_obj"]
+            .paginator.per_page
+            == 5
+        )
 
 
 class TestAMisconfiguredSetting:

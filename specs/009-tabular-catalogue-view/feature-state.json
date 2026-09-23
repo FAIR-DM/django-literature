@@ -1,5 +1,4 @@
 {
-  "$schema": "https://forge.local/schemas/feature-state.schema.json",
   "feature": "009-tabular-catalogue-view",
   "branch": "009-tabular-catalogue-view",
   "repo": "FAIR-DM/django-literature",
