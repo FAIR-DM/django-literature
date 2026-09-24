@@ -6,7 +6,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- The package is built with hatchling instead of poetry-core, and developed with uv instead of
+  Poetry. The wheel contains the same files as before. The source distribution does too, plus the
+  repository's `.gitignore`, which hatchling includes so that a build from it leaves out the same
+  files.
+
 ### Added
+
+- Django 6.1 is supported, and tested on every change alongside 5.2 and 6.0.
 
 - **Importing a bibliography file through the front end.** The catalogue carries an Import
   action, on both presentations, that opens a page to choose a configured format and attach a
