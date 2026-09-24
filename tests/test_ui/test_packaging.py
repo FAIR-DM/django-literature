@@ -111,14 +111,16 @@ class TestDjangoMVPIsOptOnly:
                 names_django_mvp(requirement) for requirement in requirements
             )
 
-    def test_django_mvp_is_absent_from_every_poetry_dependency_group(self):
+    def test_django_mvp_is_absent_from_every_dependency_group(self):
         pyproject = load_pyproject()
-        groups = pyproject.get("tool", {}).get("poetry", {}).get("group", {})
-        for group_name, group in groups.items():
-            dependencies = group.get("dependencies", {})
-            assert "django-mvp" not in dependencies, (
-                f"django-mvp found in poetry group '{group_name}'"
-            )
+        groups = pyproject.get("dependency-groups", {})
+        for group_name, requirements in groups.items():
+            for requirement in requirements:
+                if not isinstance(requirement, str):
+                    continue
+                assert not names_django_mvp(requirement), (
+                    f"django-mvp found in dependency group '{group_name}'"
+                )
 
 
 class TestOnlyLiteratureIsPackaged:
@@ -127,7 +129,8 @@ class TestOnlyLiteratureIsPackaged:
 
     def test_the_packages_declaration_includes_only_literature(self):
         pyproject = load_pyproject()
-        assert pyproject["tool"]["poetry"]["packages"] == [{"include": "literature"}]
+        wheel = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]
+        assert wheel["packages"] == ["literature"]
 
 
 class TestNoDemoOnlyDependencyEntersTheBuild:

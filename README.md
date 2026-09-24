@@ -63,7 +63,7 @@ way to use the package in full. Install the core on its own, or add the UI when 
 ## Requirements
 
 - Python 3.12+
-- Django 5.2 or 6.0
+- Django 5.2, 6.0 or 6.1
 - [django-partial-date](https://github.com/ktowen/django_partial_date)
 
 ---
@@ -353,10 +353,10 @@ The repository carries a runnable demo of everything above, wired the same way t
 documents. From a fresh clone, with dependencies installed:
 
 ```bash
-poetry install --extras ui
-python manage.py migrate
-python manage.py seed_demo
-python manage.py runserver
+uv sync --extra ui
+uv run python manage.py migrate
+uv run python manage.py seed_demo
+uv run python manage.py runserver
 ```
 
 `migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
@@ -593,8 +593,8 @@ Full documentation is available in [docs/](docs/).
 To build locally:
 
 ```bash
-poetry install --with docs
-poetry run sphinx-build -b html docs docs/_build/html
+uv sync --group docs
+uv run sphinx-build -b html docs docs/_build/html
 ```
 
 ---
@@ -604,8 +604,8 @@ poetry run sphinx-build -b html docs docs/_build/html
 ```bash
 git clone https://github.com/FAIR-DM/django-literature.git
 cd django-literature
-poetry install
-poetry run pytest
+uv sync
+uv run pytest
 ```
 
 ---

@@ -949,7 +949,7 @@ def _mapping_document() -> str:
     documentation generator does not belong in it. Regenerate the published page after changing any
     table above::
 
-        poetry run python -c "from literature.importers.ris import _mapping_document; \
+        uv run python -c "from literature.importers.ris import _mapping_document; \
             open('docs/ris-mapping.md','w').write(_mapping_document())"
 
     A test asserts the file on disk still matches, so a table change that skips this step fails

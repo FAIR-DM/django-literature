@@ -1,29 +1,35 @@
-[tool.poetry]
-# Source of truth for the release flow: tag-release cuts v<version> when no
-# matching tag exists on a main push touching this file.
-version = "0.1.9"
-packages = [{ include = "literature" }]
-requires-poetry = '>=2.0,<3.0'
-
-[tool.poetry.group.dev.dependencies]
-# Family toolchain bundle; the pin tag is the family-standard version. The
-# python marker keeps the package's 3.11 floor for consumers — dev tooling
-# never ships to them.
-mvp-shared = { git = "https://github.com/django-mvp/shared.git", tag = "v0.4.1", extras = [
-    "dev",
-    "test",
-], python = ">=3.12" }
-
-[tool.poetry.group.docs.dependencies]
-# Same marker as mvp-shared above: docs tooling needs 3.12 but never ships to
-# consumers, so it must not drag the package's own 3.11 floor up with it.
-fairdm-docs = { git = "https://github.com/FAIR-DM/fairdm-docs", extras = [
-    "sphinx_book_theme",
-], python = ">=3.12" }
-
 [build-system]
-requires = ['poetry-core (>=2.0,<3.0)']
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["literature"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/literature", "/README.md", "/LICENSE"]
+
+[dependency-groups]
+# Toolchain bundle; the tag in [tool.uv.sources] below is the shared toolchain
+# version. The python marker keeps the package's 3.11 floor for consumers, since
+# mvp-shared needs 3.12 and dev tooling never ships to them.
+#
+# The front end's dependencies sit here too, so the default sync installs the
+# opt-in `ui` extra: without them every literature.ui test is silently skipped
+# and the suite shrinks to the core. They repeat the floors declared in the `ui`
+# extra of [project.optional-dependencies].
+dev = [
+    "mvp-shared[dev,test] ; python_version >= '3.12'",
+    "django-literature[ui] ; python_version >= '3.12'",
+]
+# Same marker as above: docs tooling needs 3.12 but never ships to consumers, so
+# it must not drag the package's own 3.11 floor up with it.
+docs = [
+    "fairdm-docs[sphinx_book_theme] ; python_version >= '3.12'",
+]
+
+[tool.uv.sources]
+mvp-shared = { git = "https://github.com/django-mvp/shared.git", tag = "v0.6.0" }
+fairdm-docs = { git = "https://github.com/FAIR-DM/fairdm-docs" }
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
@@ -119,7 +125,7 @@ DEP003 = ["literature"]
 name = "django-literature"
 description = "A scientific literature management tool for Django"
 license = "MIT"
-dynamic = ["version"]
+version = "0.1.9"
 readme = "README.md"
 authors = [{ name = "Sam Jennings", email = "samuel.scott.jennings@gmail.com" }]
 requires-python = '>=3.11,<4.0'
@@ -134,6 +140,7 @@ classifiers = [
     "Framework :: Django",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Programming Language :: Python :: 3.11",
@@ -143,7 +150,7 @@ classifiers = [
 
 [project.optional-dependencies]
 # django-mvp declares requires-python >=3.12, while this project keeps its
-# >=3.11 floor for core-only consumers (see T001) — the marker keeps `poetry
+# >=3.11 floor for core-only consumers (see T001) — the marker keeps `uv
 # lock` resolvable on 3.11 by making the extra unavailable there rather than
 # raising the whole project's floor. django-mvp brings django-cotton,
 # easy-icons and flex-menus itself, so those are not listed.
@@ -176,8 +183,8 @@ ui = [
 ]
 
 [project.urls]
-homepage = "https://github.com/FAIR-DM/django-literature"
-repository = "https://github.com/FAIR-DM/django-literature"
+Homepage = "https://github.com/FAIR-DM/django-literature"
+Repository = "https://github.com/FAIR-DM/django-literature"
 
 [tool.forge.conformance]
 # tests/test_ui/test_templates.py tests the shipped templates under

@@ -10,13 +10,15 @@ CSL JSON import/export with round-trip fidelity. See `CONTEXT.md` for the ubiqui
 
 ## Stack & commands
 
-- **Stack:** Python ≥3.11 / Django 5.2 + 6.0 (family standard — supported releases only, CI matrix
-  Python 3.12–3.13), Poetry-managed. Dev toolchain via the `mvp-shared` bundle. Ships to PyPI.
-- **Install:** `poetry install`
-- **Test:** `poetry run pytest` (pytest-django; settings module `tests.settings`)
-- **Lint/format:** `poetry run pre-commit run --all-files` (ruff lint + ruff-format; local mypy + deptry hooks)
-- **Type-check:** `poetry run mypy`
-- **Build:** `poetry build`
+- **Stack:** Python ≥3.11 / Django 5.2, 6.0 + 6.1 (supported releases only, CI matrix
+  Python 3.12–3.13), uv-managed. Dev toolchain via the `mvp-shared` bundle. Ships to PyPI.
+- **Install:** `uv sync`
+- **Test:** `uv run pytest` (pytest-django; settings module `tests.settings`)
+- **Lint/format:** `uv run pre-commit run --all-files` (ruff lint + ruff-format; local mypy + deptry hooks)
+- **Type-check:** `uv run mypy`
+- **Build:** `uv build`
+- **Bump the version:** `uv version` — never edit `pyproject.toml` alone, because `uv.lock`
+  records this package's own version too
 
 ## Agent skills
 
