@@ -341,18 +341,29 @@ a required check in the branch ruleset is a repository-settings action either wa
 project. No such package exists today — `demo/` imports nothing beyond `literature` and Django —
 so there is no name to deny, and a denylist written against an empty set guards nothing.
 
-**Chosen**: pin both dependency lists to their exact current contents. Any addition to
-`[project] dependencies` or to the `ui` extra fails the assertion, whatever the newcomer is for.
+**Chosen**: pin both dependency lists to their exact set of package *names*, read from the wheel a
+build of the working tree produces. Any name entering or leaving `[project] dependencies` or the
+`ui` extra fails the assertion, whatever the newcomer is for.
 
 **Why defensible**: the requirement is about a category, not a package, and a closed set is the
 only form that covers a category whose members are not yet known. It also needs no fixture data
 and no maintenance of a name list that would go stale the first time someone invented a new way
-to depend on something.
+to depend on something. Reading the built wheel rather than the declaration means the check
+answers the question a consumer actually asks — what does installing this resolve — and D14's
+proxy argument does not have to be made for it.
 
 **Consequence**: a legitimate new runtime dependency fails this test and the author has to add it
 to the assertion. That is the intended cost — it makes widening the package's dependency surface
 a deliberate, reviewed edit rather than a line nobody notices in a diff. The class name and
 docstring say so, so the failure is self-explaining.
+
+**Version specifiers are outside the set.** Raising a floor on a package already named changes
+which release is resolved, never which packages are, so it is not the kind of edit this check
+exists to catch. Refined 2026-09-23: the first version of the assertion compared whole PEP 508
+requirement strings, which made a floor move indistinguishable from a new dependency. Dependabot's
+`django>=4.2` → `django>=5.2.17` bump failed all four test jobs on it, and the `ui` extra's
+assertion had already been hand-edited twice for django-mvp floor moves. Every such bump would
+have cost the same edit.
 
 **ADR:** none — a test-design choice inside one story, with no consequence outside the module
 it lives in.
