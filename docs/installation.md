@@ -12,10 +12,10 @@
 pip install django-literature
 ```
 
-Or with [Poetry](https://python-poetry.org/):
+Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-poetry add django-literature
+uv add django-literature
 ```
 
 ## Configure Django

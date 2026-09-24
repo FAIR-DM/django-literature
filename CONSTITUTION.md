@@ -217,7 +217,7 @@ item types, name variables, date variables, and metadata fields.
 django-literature is a reusable Django app, not a standalone portal; its users are Django
 developers embedding literature management in their own projects.
 
-- Installable via pip/Poetry and enabled by adding `literature` to
+- Installable via pip or uv and enabled by adding `literature` to
   `INSTALLED_APPS`; no mandatory structural changes to the host project.
 - Everything public is importable from the `literature` namespace and does not collide with common
   Django project structures.
