@@ -3,9 +3,9 @@
 Two audiences, deliberately separated:
 
 - ``SkipEntry``, ``EntryError`` and ``ParseError`` are how a format talks to its
-  own workflow methods about one entry or one file. ``import_entry`` and
-  ``import_entries`` (base.py) turn each into an outcome, and none of them
-  reaches the caller of :meth:`~literature.importers.base.BibFormat.import_file`.
+  own workflow methods about one entry or one file. The workflow turns each into
+  an outcome, and none of them reaches the caller of
+  :meth:`~literature.importers.base.BibFormat.import_file`.
 - ``UnknownFormat`` is programmer error rather than anything to do with file
   content, so it does reach the caller.
 
@@ -18,11 +18,6 @@ from django.utils.translation import gettext_lazy as _
 
 class ImporterError(Exception):
     """Root of every exception raised by the import contract."""
-
-
-# --------------------------------------------------------------------------
-# A format's vocabulary — handled by the runner, never seen by a caller
-# --------------------------------------------------------------------------
 
 
 class SkipEntry(ImporterError):
@@ -54,16 +49,12 @@ class ParseError(ImporterError):
     """
 
 
-# --------------------------------------------------------------------------
-# The caller's problem — these propagate
-# --------------------------------------------------------------------------
-
-
 class UnknownFormat(ImporterError):
     """No format is configured under the requested name.
 
     The message names the formats that *are* configured, because the useful
-    reply to "bibtex is not a format" is the list of things that are.
+    reply to "bibtex is not a format" is the list of things that are. Takes the
+    requested ``name`` and the ``available`` configured names.
     """
 
     def __init__(self, name, available=()):

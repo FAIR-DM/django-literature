@@ -1,6 +1,6 @@
 """Which view serves the catalogue route, and how a project changes it.
 
-The route is ``literature:item-list`` and it serves the table (FR-021). A
+The route is ``literature:item-list`` and it serves the table (FS-009, #87). A
 project that prefers the card presentation names ``ItemListView`` under the
 namespaced ``LITERATURE`` setting the package already uses for its format
 registry::
@@ -28,7 +28,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
-#: Served with no configuration (FR-021).
+#: Served with no configuration.
 DEFAULT_CATALOGUE_VIEW = "literature.ui.views.ItemTableView"
 
 

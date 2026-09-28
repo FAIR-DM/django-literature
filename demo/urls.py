@@ -7,10 +7,8 @@ from django.views.generic import RedirectView
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("catalogue/", include("literature.ui.urls")),
-    # django-mvp's mobile footer menu declares a "home" item pointing at a view named
-    # "home" (mvp/menus.py:146), and the shell renders that menu on every page. Without
-    # a route of that name, django-flex-menus writes a reversal failure to stderr on
-    # every render and serves a dead Home button, and the demo's own root address —
-    # the first thing anyone opening a server tries — returns 404 (decisions.md D9).
+    # django-mvp's mobile footer menu (rendered on every page) points at a view named
+    # "home" (mvp/menus.py:146); without this route every render logs a reversal
+    # failure and the demo's own root address 404s (FS-007).
     path("", RedirectView.as_view(pattern_name="literature:item-list"), name="home"),
 ]

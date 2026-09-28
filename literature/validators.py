@@ -1,21 +1,10 @@
-"""Identifier value validators for the literature app.
+"""Format-specific validators for the literature app's known identifier types.
 
-Provides format-specific validation for all known identifier types defined
-in FR-020. Each function follows the Django validator protocol — raises
+Each function follows the Django validator protocol — raises
 ``django.core.exceptions.ValidationError`` for invalid values and returns
-``None`` for valid ones.
-
-Validators:
-    validate_doi    — DOI (regex check for ``10.<4+digits>/`` prefix)
-    validate_isbn   — ISBN-10 and ISBN-13 (check-digit verification)
-    validate_issn   — ISSN (format ``NNNN-NNNX`` plus check-digit verification)
-    validate_url    — HTTP/HTTPS/FTP URL
-    validate_pmid   — PubMed ID (numeric string)
-    validate_pmcid  — PubMed Central ID (``PMC``-prefixed or bare digits)
-
-:func:`validate_identifier` dispatches on identifier type and is the single
-entry point both ``ItemIdentifier.clean()`` and ``ItemIdentifier.save()`` use,
-so every write path applies the same rules.
+``None`` for valid ones. :func:`validate_identifier` dispatches on identifier
+type and is the single entry point both ``ItemIdentifier.clean()`` and
+``ItemIdentifier.save()`` use, so every write path applies the same rules.
 """
 
 from __future__ import annotations
@@ -29,10 +18,6 @@ from django.utils.translation import gettext_lazy as _
 
 from literature.choices import IdentifierType
 
-# ---------------------------------------------------------------------------
-# DOI
-# ---------------------------------------------------------------------------
-
 _DOI_RE = re.compile(r"^10\.\d{4,}/\S+$")
 
 
@@ -41,6 +26,9 @@ def validate_doi(value: str) -> None:
 
     A valid DOI starts with ``10.`` followed by at least four digits, a
     forward slash, and at least one non-whitespace character.
+
+    Args:
+        value: The DOI string to validate.
 
     Raises:
         ValidationError: if the value does not match the DOI pattern.
@@ -53,22 +41,21 @@ def validate_doi(value: str) -> None:
         )
 
 
-# ---------------------------------------------------------------------------
-# ISBN
-# ---------------------------------------------------------------------------
-
-
 _ISBN_STRIP_RE = re.compile(r"[-\s]")
 
 
 def _isbn10_valid(digits: str) -> bool | None:
     """Check *digits* against ISBN-10's shape and, only if it matches, its check digit.
 
+    Args:
+        digits: The candidate ISBN-10 with hyphens and spaces already stripped.
+
     Returns:
-        ``True`` if *digits* is a valid ISBN-10, ``False`` if it has ISBN-10's shape but the
-        wrong check digit, ``None`` if it does not have ISBN-10's shape at all. The three-way
-        return recovers the distinction :func:`validate_isbn` needs (D-7, research R7) —
-        previously both failure cases collapsed to the same ``False`` one line before the raise.
+        bool | None: ``True`` if *digits* is a valid ISBN-10, ``False`` if it
+        has ISBN-10's shape but the wrong check digit, ``None`` if it does
+        not have ISBN-10's shape at all — the three-way return lets
+        :func:`validate_isbn` tell "malformed" from "one mistyped digit"
+        apart (FS-012).
     """
     if not re.match(r"^\d{9}[\dX]$", digits, re.IGNORECASE):
         return None
@@ -79,10 +66,14 @@ def _isbn10_valid(digits: str) -> bool | None:
 def _isbn13_valid(digits: str) -> bool | None:
     """Check *digits* against ISBN-13's shape and, only if it matches, its check digit.
 
+    Args:
+        digits: The candidate ISBN-13 with hyphens and spaces already stripped.
+
     Returns:
-        ``True`` if *digits* is a valid ISBN-13, ``False`` if it has ISBN-13's shape but the
-        wrong check digit, ``None`` if it does not have ISBN-13's shape at all. See
-        :func:`_isbn10_valid` for why the return is three-way rather than a plain bool.
+        bool | None: ``True`` if valid, ``False`` if it has ISBN-13's shape
+        but the wrong check digit, ``None`` if it does not have ISBN-13's
+        shape at all. See :func:`_isbn10_valid` for why the return is
+        three-way rather than a plain bool.
     """
     if not re.match(r"^\d{13}$", digits):
         return None
@@ -94,11 +85,13 @@ def _isbn13_valid(digits: str) -> bool | None:
 def validate_isbn(value: str) -> None:
     """Validate an ISBN-10 or ISBN-13 value (hyphens and spaces ignored).
 
-    A value that matches neither shape at all and a value that matches one shape but carries
-    the wrong check digit are reported apart (D-7, FR-027, SC-004): the latter is the commonest
-    real error — a single mistyped character — and the case a well-formed example helps least
-    with. Recovers a distinction ``_isbn10_valid``/``_isbn13_valid`` already compute and discard,
-    rather than adding a new rule — no value accepted or rejected today moves (FR-029, SC-005).
+    A value that matches neither shape at all and a value that matches one
+    shape but carries the wrong check digit are reported apart (FS-012): the
+    latter is the commonest real error — a single mistyped character — and
+    the case a well-formed example helps least with.
+
+    Args:
+        value: The ISBN string to validate.
 
     Raises:
         ValidationError: ``invalid_isbn_checksum`` if *value* matches an ISBN-10 or ISBN-13
@@ -124,21 +117,20 @@ def validate_isbn(value: str) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# ISSN
-# ---------------------------------------------------------------------------
-
 _ISSN_RE = re.compile(r"^\d{4}-\d{3}[\dX]$", re.IGNORECASE)
 
 
 def _issn_valid(value: str) -> bool | None:
     """Check *value* against ISSN's shape and, only if it matches, its check digit.
 
+    Args:
+        value: The candidate ISSN string.
+
     Returns:
-        ``True`` if *value* is a valid ISSN, ``False`` if it has ISSN's shape but the wrong
-        check digit, ``None`` if it does not have ISSN's shape at all. Mirrors
-        :func:`_isbn10_valid`'s three-way return for the same reason (D-7, #118): the
-        checksum/shape distinction it recovers would otherwise be discarded one line later.
+        bool | None: ``True`` if valid, ``False`` if it has ISSN's shape but
+        the wrong check digit, ``None`` if it does not have ISSN's shape at
+        all. Mirrors :func:`_isbn10_valid`'s three-way return for the same
+        reason (#118).
     """
     if not _ISSN_RE.match(value):
         return None
@@ -148,13 +140,16 @@ def _issn_valid(value: str) -> bool | None:
 
 
 def validate_issn(value: str) -> None:
-    """Validate an ISSN string (#118, split from #48).
+    """Validate an ISSN string (#118).
 
     A valid ISSN has the format ``NNNN-NNNX`` where ``X`` is a digit or the letter X (check
     character), and the eight characters together satisfy the standard's modulo-11 checksum.
     A value that matches the shape but not the checksum is reported apart from a value that
-    does not match the shape at all (D-7, FR-027) — the same distinction :func:`validate_isbn`
-    already reports.
+    does not match the shape at all — the same distinction :func:`validate_isbn` already
+    reports.
+
+    Args:
+        value: The ISSN string to validate.
 
     Raises:
         ValidationError: ``invalid_issn_checksum`` if *value* matches ISSN's shape but its
@@ -178,15 +173,14 @@ def validate_issn(value: str) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# URL
-# ---------------------------------------------------------------------------
-
 _url_validator = URLValidator(schemes=["http", "https", "ftp"])
 
 
 def validate_url(value: str) -> None:
     """Validate an HTTP, HTTPS, or FTP URL using Django's URLValidator.
+
+    Args:
+        value: The URL string to validate.
 
     Raises:
         ValidationError: if the value is not a valid absolute URL with an
@@ -202,16 +196,15 @@ def validate_url(value: str) -> None:
         ) from err
 
 
-# ---------------------------------------------------------------------------
-# PMID / PMCID
-# ---------------------------------------------------------------------------
-
 _NUMERIC_RE = re.compile(r"^\d+$")
 _PMCID_RE = re.compile(r"^(PMC)?\d+$")
 
 
 def validate_pmid(value: str) -> None:
     """Validate a PubMed ID (PMID): must be a non-empty numeric string.
+
+    Args:
+        value: The PMID string to validate.
 
     Raises:
         ValidationError: if the value contains non-digit characters.
@@ -231,6 +224,9 @@ def validate_pmcid(value: str) -> None:
     ``PMC2728067``) and a bare digit string, which is how some sources record
     the same identifier.
 
+    Args:
+        value: The PMCID string to validate.
+
     Raises:
         ValidationError: if the value is neither form.
     """
@@ -241,10 +237,6 @@ def validate_pmcid(value: str) -> None:
             params={"value": value},
         )
 
-
-# ---------------------------------------------------------------------------
-# Dispatch
-# ---------------------------------------------------------------------------
 
 _IDENTIFIER_VALIDATORS: dict[str, Callable[[str], None]] = {
     IdentifierType.DOI: validate_doi,
@@ -257,13 +249,15 @@ _IDENTIFIER_VALIDATORS: dict[str, Callable[[str], None]] = {
 
 
 def validate_identifier(identifier_type: str, value: str) -> None:
-    """Validate *value* against the format rules for *identifier_type* (FR-020).
+    """Validate *value* against the format rules for *identifier_type*.
 
     Unknown identifier types carry no format constraint and pass through
-    unvalidated, so nothing is lost (FR-017).
+    unvalidated, so nothing is lost. Delegates to the matching ``validate_*``
+    function, which raises ``ValidationError`` for a malformed value.
 
-    Raises:
-        ValidationError: if the value is malformed for a known type.
+    Args:
+        identifier_type: The identifier type to look up a validator for.
+        value: The identifier value to validate.
     """
     validator = _IDENTIFIER_VALIDATORS.get(identifier_type)
     if validator is not None:

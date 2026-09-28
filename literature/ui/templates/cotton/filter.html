@@ -1,27 +1,13 @@
 {% load i18n %}
-<c-vars outcomes class />
+{# @description Narrows the import report's table to one outcome, client-side, using daisyUI's filter idiom (a radio group sharing one native name). #}
+{# @prop outcomes:text | description:"Iterable of (value, label, variant) tuples — one radio control per outcome, plus a reset to all of them." #}
+{# @prop class:text | description:"Extra CSS classes merged onto the filter container." #}
 {% comment %}
-Narrows the import report's table to one outcome, client-side (US-6, FR-049,
-decisions.md D30). daisyUI's own filter idiom
-(https://daisyui.com/components/filter/), shipped here because django-mvp
-does not define one — a plain radio group, one input per outcome plus a
-reset back to all of them, sharing one native ``name`` so the browser keeps
-them mutually exclusive.
-
-Each outcome's control carries that outcome's own badge tone, passed in
-with the choices rather than written out here, so the control and the badge
-in the table beneath it read as the same thing and restyling one moves the
-other. The way back to all of them is untoned, because it names no outcome.
-
-Deliberately no ``x-data`` of its own: ``x-model="outcome"`` reads and
-writes the ambient scope the page wraps this component in, the same idiom
-item_form.html already uses for ``form.*`` (cotton/form/index.html opens
-that one) — a second ``x-data`` here would shadow it instead of sharing it.
-No ``<form>`` and no ``<a>``: narrowing shows and hides rows already on the
-page, so this issues no request of its own. The counts above the table are
-never wired to this component (FR-049a) — they come straight from the
-report, untouched by any Alpine expression.
+No `x-data` of its own: `x-model="outcome"` reads and writes the ambient
+Alpine scope the page wraps this component in (see cotton/form/index.html
+for the same idiom) — a fresh `x-data` here would shadow it instead.
 {% endcomment %}
+<c-vars outcomes class />
 <div class="filter {{ class }}" {{ attrs }}>
   <input class="btn btn-sm filter-reset"
          type="radio"

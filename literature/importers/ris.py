@@ -1,17 +1,9 @@
 """Reading RIS files into the catalogue.
 
-The second concrete format behind the import contract (spec 005), following the shape
-:class:`~literature.importers.bibtex.BibTeXFormat` established: it supplies only the two stages
-a format owns, :meth:`~RISFormat.parse` and :meth:`~RISFormat.to_csl_json`; the workflow,
-atomicity, per-entry reporting and dry runs all come from
-:class:`~literature.importers.base.BibFormat` unchanged.
-
-One format reads EndNote, Web of Science and Scopus alike, with no producer detection (FR-029):
-the parser reads what the primary RIS specification defines, and the tags that only some
-producers use are read by the tags themselves rather than by which tool wrote the file.
-
-The parser is hand-rolled rather than built on ``rispy``: see research.md R1 and decisions.md D11
-for why, checked empirically rather than assumed.
+One format reads EndNote, Web of Science and Scopus exports alike, with no producer detection:
+every tag is read by the tag itself, never by which tool wrote the file. The parser is hand-rolled
+because ``rispy`` silently resynchronises past a malformed entry, where the import contract reports
+what happened to every entry (``specs/005-import-references-ris/research.md``).
 """
 
 import dataclasses
@@ -36,12 +28,15 @@ from literature.validators import (
 
 @dataclasses.dataclass(frozen=True)
 class RISEntry:
-    """One RIS entry recovered from a file: its tags in source order, its position among the
-    entries this parser has yielded, and the line its opening ``TY`` tag was found on.
+    """One RIS entry recovered from a file.
 
-    ``tags`` is an ordered sequence of ``(tag, value)`` pairs rather than a dict, because a
-    repeatable tag (``AU``, ``KW``, ...) legitimately appears more than once — see
-    :attr:`RISParser.REPEATABLE_TAGS`.
+    ``tags`` is a sequence of pairs rather than a dict, because a repeatable tag such as ``AU`` or
+    ``KW`` appears more than once (:attr:`RISParser.REPEATABLE_TAGS`).
+
+    Attributes:
+        tags: The entry's ``(tag, value)`` pairs, in source order.
+        index: The entry's position among those the parser yielded.
+        start_line: The line the entry's opening ``TY`` tag was found on.
     """
 
     tags: tuple[tuple[str, str], ...]
@@ -49,15 +44,27 @@ class RISEntry:
     start_line: int
 
     def values(self, tag: str) -> list[str]:
-        """Every value this entry carries under ``tag``, in source order."""
+        """Return every value this entry carries under ``tag``.
+
+        Args:
+            tag: A two-character RIS tag.
+
+        Returns:
+            The values, unstripped, in source order.
+        """
         return [value for t, value in self.tags if t == tag]
 
     def first(self, tag: str) -> str:
-        """This entry's first value under ``tag``, stripped, or ``""`` where it carries none.
+        """Return this entry's first value under ``tag``, stripped.
 
-        A tag present with a blank value reads the same as an absent one here, which is what
-        every mapping site wants: a value that is only whitespace is nothing to store. Sites that
-        genuinely need the unstripped text, or every value, use :meth:`values` instead.
+        A tag with a blank value reads the same as an absent one, since whitespace is nothing to
+        store. Use :meth:`values` for the unstripped text or every value.
+
+        Args:
+            tag: A two-character RIS tag.
+
+        Returns:
+            The first value, or ``""`` where the entry carries none.
         """
         values = self.values(tag)
         return values[0].strip() if values else ""
@@ -66,37 +73,24 @@ class RISEntry:
 class RISParser:
     """Reads one ``.ris`` file into :class:`RISEntry` objects, one at a time.
 
-    A generator, not a list builder (FR-004): the whole file's entries are never materialised
-    before the first is available, which is what lets a caller consume one entry from a
-    several-hundred-entry file and leave the rest unread.
-
-    Accepts ``file`` opened in binary or text mode (011 Phase 0 decisions.md D10, superseding
-    spec 005's D19: both shipped formats now accept either). A binary read is decoded here —
-    ``utf-8-sig``, so a byte-order mark is silently absorbed rather than becoming part of the
-    first tag's value (research.md R1) — and naming the attempted encoding and the byte offset on
-    failure (FR-034) is only possible while the bytes are still in hand, before any decoding. A
-    text read has already been decoded by its caller and passes through unchanged; a caller in a
-    position to name the encoding of an already-decoded read gets no help catching a wrong guess
-    from this parser, but that caller also has no error to hand it in the first place.
+    A generator, so a caller can consume one entry from a large file and leave the rest unread.
+    Accepts a binary or a text handle. Bytes are decoded here as ``utf-8-sig``, so a byte-order
+    mark is absorbed rather than becoming part of the first tag's value, and a decoding failure
+    can name the encoding and byte offset. A text handle passes through unchanged.
     """
 
-    #: Tolerant of the single-space and double-space-after-dash variants real producers emit
-    #: (plan.md "The parser"; research.md R2 documents the two-space form as the specification's
-    #: own, and real exports vary).
+    #: Tolerates the one- and two-space-before-dash variants real exports use alongside the
+    #: specification's own two-space form.
     _TAG_RE: ClassVar[re.Pattern[str]] = re.compile(r"^([A-Z][A-Z0-9])\s{0,2}-\s?(.*)$")
 
-    #: RIS is a line-based format defined over CR, LF and CRLF, and nothing else (decisions.md
-    #: D41). ``str.splitlines`` additionally breaks on vertical tab, form feed, the file/group/
-    #: record separators, NEL and the Unicode line and paragraph separators, so a value carrying
-    #: one of those would be split here and rejoined by the continuation-line rule with the
-    #: character replaced by a space — a record that lands holding less than the file stated.
+    #: RIS lines end at CR, LF or CRLF only. ``str.splitlines`` also breaks on vertical tab, form
+    #: feed, NEL and the Unicode separators, which would split a value carrying one and rejoin it
+    #: with a space in place of the character.
     _LINE_BREAK_RE: ClassVar[re.Pattern[str]] = re.compile(r"\r\n|\r|\n")
 
-    #: An untagged line following one of these tags becomes another value; following any other
-    #: tag, it is a continuation joined onto the previous value with a single space (FR-007,
-    #: amended — see decisions.md D12, D20). Repeatability is RIS syntax, decidable from the tag
-    #: alone, and has nothing to do with the CSL mapping, so it lives on the parser rather than on
-    #: the (not-yet-built) mapping tables.
+    #: After one of these tags an untagged line is another value. After any other tag it continues
+    #: the previous value, joined with a space. Repeatability is RIS syntax, so it lives on the
+    #: parser rather than the mapping tables.
     REPEATABLE_TAGS: ClassVar[frozenset[str]] = frozenset(
         {"AU", "A1", "A2", "A3", "A4", "ED", "KW", "UR", "SN", "N1"}
     )
@@ -104,17 +98,13 @@ class RISParser:
     def parse(self, file) -> Iterator[RISEntry | str]:
         """Yield this file's entries, one at a time, in source order.
 
-        Header material — everything before the first ``TY`` tag — is yielded once, as a plain
-        ``str``, immediately before the first entry (plan.md "How the skipped header is
-        signalled"); :meth:`RISFormat.to_csl_json` raises
-        :class:`~literature.importers.exceptions.SkipEntry` for it, the same pattern
-        ``bibtex.py`` uses for a comment or preamble. A file with no header material at all
-        yields no such sentinel (decisions.md D17).
+        Header material before the first ``TY`` tag is yielded once, as a plain ``str``, just
+        before the first entry, and :meth:`RISFormat.to_csl_json` skips it. A file with no header
+        yields no such string.
 
-        Raises :class:`~literature.importers.exceptions.ParseError` — never lets a decoding or
-        framing failure escape raw — when the file cannot be decoded, when it carries RIS tag
-        lines but no ``TY`` anywhere, or when it carries no recognisable tag lines at all. An
-        empty or whitespace-only file is not an error: it yields nothing (spec Edge Cases).
+        Raises :class:`~literature.importers.exceptions.ParseError` when the file cannot be
+        decoded, carries RIS tag lines but no ``TY``, or carries no tag lines at all. An empty or
+        whitespace-only file yields nothing.
         """
         raw = file.read()
         if isinstance(raw, bytes):
@@ -164,15 +154,18 @@ class RISParser:
         yield from self._entries(lines)
 
     def _entries(self, lines: list[str]) -> Iterator[RISEntry | str]:
-        """The real framing pass: open at ``TY``, close at ``ER`` or the next ``TY`` (FR-006).
+        """Frame entries: open at ``TY``, close at ``ER`` or the next ``TY``.
 
         A block of tags with no ``TY`` of its own, seen after the first entry, is yielded as its
-        own :class:`RISEntry` (its ``tags`` carrying no ``"TY"`` pair) rather than dropped
-        (T021, FR-009 — supersedes decisions.md D18). :meth:`RISFormat.to_csl_json` raises
-        :class:`~literature.importers.exceptions.EntryError` for an entry with no ``TY``, which
-        reports it as its own failed entry rather than ending the file: raising directly from this
-        generator would, per ``import_entries``, stop the whole run at the index it failed on and
-        lose every entry after it, which FR-009's "the rest of the file still imports" forbids.
+        own :class:`RISEntry` rather than dropped, and :meth:`RISFormat.to_csl_json` fails that
+        entry alone. Raising here instead would end the run at this index and lose every entry
+        after it.
+
+        Args:
+            lines: The file's lines.
+
+        Yields:
+            The header text once, if there is any, then each entry.
         """
         header: list[str] = []
         pairs: list[list[str]] = []
@@ -261,10 +254,13 @@ class RISParser:
             )
 
     def _continue_value(self, pairs: list[list[str]], line: str) -> None:
-        """Resolve one untagged line against the tag it follows (FR-007, amended).
+        """Resolve one untagged line against the tag it follows.
 
-        Only called while an entry is open (``pairs`` non-empty), so the most recently added pair
-        always names the tag this line continues.
+        Called only while a block is open, so the last pair names the tag this line continues.
+
+        Args:
+            pairs: The open block's ``[tag, value]`` pairs, modified in place.
+            line: The untagged line.
         """
         last_tag = pairs[-1][0]
         if last_tag in self.REPEATABLE_TAGS:
@@ -273,13 +269,9 @@ class RISParser:
             pairs[-1][1] = f"{pairs[-1][1]} {line.strip()}"
 
 
-#: RIS reference type -> CSL item type (T010, FR-011). A type not listed here maps to the generic
-#: ``document`` type rather than failing the entry, the spec's own fallback for an unrecognised
-#: type ("it will be labeled as Generic", research.md R2). Adapted from citation-js's per-type
-#: table (MIT, research.md R3), not Zotero's (AGPL) — read as evidence only, never copied.
-#: ``GRNT``/``GRANT`` and ``UNPD``/``UNPB`` are the same reference type under the two RIS
-#: specification generations' spellings (research.md R2) and are listed side by side so both reach
-#: the same CSL type rather than one falling to the fallback and the other not.
+#: RIS reference type -> CSL item type, adapted from citation-js's table (MIT). An unlisted type
+#: maps to ``document``, the specification's own fallback. ``GRNT``/``GRANT`` and ``UNPD``/``UNPB``
+#: are one type each, spelled as the two specification versions spell it.
 REFERENCE_TYPE_TABLE: dict[str, str] = {
     "ABST": "article-journal",
     "ADVS": "motion_picture",
@@ -340,13 +332,11 @@ REFERENCE_TYPE_TABLE: dict[str, str] = {
     "VIDEO": "motion_picture",
 }
 
-#: A reference type with no row above becomes ``document`` rather than failing the entry (T010,
-#: FR-011, acceptance scenario 3).
+#: A reference type with no row above becomes this rather than failing the entry.
 _FALLBACK_TYPE = "document"
 
-#: Core RIS tag -> CSL variable (T011, FR-012), for tags whose CSL variable does not depend on the
-#: entry's reference type. ``T2`` and ``SP`` are type-conditional and are resolved separately
-#: (:func:`_container_or_collection_variable`, :func:`_page_variable`).
+#: Core RIS tag -> CSL variable, for tags whose variable does not depend on the reference type.
+#: ``T2`` and ``SP`` do (:func:`_container_or_collection_variable`, :func:`_page_variable`).
 FIELD_TABLE: dict[str, str] = {
     "TI": "title",
     "AB": "abstract",
@@ -360,40 +350,42 @@ FIELD_TABLE: dict[str, str] = {
     "CY": "publisher-place",
 }
 
-#: Reference types that are already their own container — a whole book, a report, a standalone
-#: work — so a ``T2`` one of them carries names the series it belongs to rather than a containing
-#: work (research.md R4's "book-like" set for ``A2``'s collection-editor resolution, reused here:
-#: the same fact about a type — that it has no container of its own — decides both). Everything
-#: else has a genuine container (a journal, a book for one of its chapters), so its ``T2`` is a
-#: container title.
+#: Reference types that are their own container, so ``T2`` names their series rather than a
+#: containing work. The same fact makes ``A2`` a collection editor on them.
 _BOOK_LIKE_TYPES: frozenset[str] = frozenset(
     {"BOOK", "EDBOOK", "RPRT", "ELEC", "MAP", "CLSWK", "COMP", "MULTI", "UNPB"}
 )
 
-#: Reference types where ``SP`` states a page *count* rather than a locator, because the type is a
-#: whole work rather than something with a location inside a container (research.md R11).
+#: Reference types where ``SP`` states a page count rather than a locator, being whole works.
 _PAGE_COUNT_TYPES: frozenset[str] = frozenset({"BOOK", "EBOOK", "EDBOOK", "THES"})
 
 
 def _container_or_collection_variable(ref_type: str) -> str:
-    """The CSL variable ``T2`` maps to for ``ref_type`` (T011, FR-012)."""
+    """Return the CSL variable ``T2`` maps to for ``ref_type``.
+
+    Args:
+        ref_type: The entry's ``TY`` value.
+
+    Returns:
+        ``collection-title`` or ``container-title``.
+    """
     return "collection-title" if ref_type in _BOOK_LIKE_TYPES else "container-title"
 
 
 def _page_variable(ref_type: str) -> str:
-    """The CSL variable ``SP`` maps to for ``ref_type`` (T011, FR-012, research.md R11)."""
+    """Return the CSL variable ``SP`` maps to for ``ref_type``.
+
+    Args:
+        ref_type: The entry's ``TY`` value.
+
+    Returns:
+        ``number-of-pages`` or ``page``.
+    """
     return "number-of-pages" if ref_type in _PAGE_COUNT_TYPES else "page"
 
 
-# ---------------------------------------------------------------------------
-# Contributors (T012, FR-013, FR-014) — role resolved on the reference type, per research.md R4's
-# encoding of the 2011 specification's per-type matrix.
-# ---------------------------------------------------------------------------
-
-#: Reference types with a genuine container (a chapter's book, a paper's proceedings): ``A2`` names
-#: that container's editor. ``JOUR`` is included for Scopus's mistyped book chapters (research.md
-#: R9): a genuine Scopus record carries the book's editors in ``A2`` under ``TY - JOUR``, with
-#: ``M3 - Book Chapter`` the more reliable type signal Scopus does not act on itself.
+#: Reference types with a genuine container, where ``A2`` names its editor. ``JOUR`` is here because
+#: Scopus exports book chapters as ``TY - JOUR`` with the book's editors in ``A2``.
 _CHAPTER_LIKE_A2_EDITOR_TYPES: frozenset[str] = frozenset(
     {
         "CHAP",
@@ -411,7 +403,7 @@ _CHAPTER_LIKE_A2_EDITOR_TYPES: frozenset[str] = frozenset(
     }
 )
 
-#: On ``BOOK``, ``A3`` is the editor (research.md R4 — the one type where ``A2``/``A3`` invert).
+#: On ``BOOK``, ``A3`` is the editor: the one type where ``A2`` and ``A3`` invert.
 _A3_EDITOR_TYPES: frozenset[str] = frozenset({"BOOK"})
 
 #: Elsewhere, where ``A3`` has a documented role, it is the collection editor.
@@ -419,23 +411,27 @@ _A3_COLLECTION_EDITOR_TYPES: frozenset[str] = frozenset(
     {"CHAP", "CONF", "SER", "EBOOK", "ADVS", "MUSIC", "SLIDE", "SOUND", "VIDEO"}
 )
 
-#: On an edited book, the author tag names the editor instead (research.md R4).
+#: On an edited book, the author tag names the editor instead.
 _AU_EDITOR_TYPES: frozenset[str] = frozenset({"EDBOOK"})
 
-#: Reference types where ``A4`` has a documented role at all: translator (research.md R4's table).
-#: Elsewhere ``A4`` is left unmapped rather than guessed at.
+#: Reference types where ``A4`` has a documented role, translator. Elsewhere it is left unmapped.
 _A4_TRANSLATOR_TYPES: frozenset[str] = frozenset(
     {"BOOK", "CHAP", "ANCIENT", "CLSWK", "CTLG", "DICT", "EDBOOK", "ENCYC", "PAMP"}
 )
 
 
 def _name_to_csl(name: str) -> dict[str, Any]:
-    """One RIS name string to a CSL name-variable object.
+    """Convert one RIS name to a CSL name-variable object.
 
-    The primary specification's own author format is ``Family, Given``. A name with no comma is
-    institutional or otherwise unparsed and is stored as a ``literal`` rather than split (FR-014) —
-    forcing it into ``family``/``given`` would invent a split the source never stated. Where a
-    second comma-separated part follows the given name, it is a suffix (``Family, Given, Jr.``).
+    The specification's format is ``Family, Given``, with an optional suffix after a second comma.
+    A name with no comma is institutional or unparsed and becomes a ``literal``, since splitting it
+    would invent a split the source never stated.
+
+    Args:
+        name: One contributor value.
+
+    Returns:
+        The CSL name object, or an empty dict for a blank name.
     """
     stripped = name.strip()
     if not stripped:
@@ -460,7 +456,13 @@ def _name_to_csl(name: str) -> dict[str, Any]:
 def _add_contributors(
     roles: dict[str, list[dict[str, Any]]], role: str, names: list[str]
 ) -> None:
-    """Parse each of ``names`` and append it to ``role``'s list, in order."""
+    """Parse each of ``names`` and append it to ``role``'s list, in order.
+
+    Args:
+        roles: The contributor lists by role, modified in place.
+        role: The CSL role to append to.
+        names: The raw name values.
+    """
     for name in names:
         parsed = _name_to_csl(name)
         if parsed:
@@ -472,15 +474,18 @@ _CONTRIBUTOR_TAGS: tuple[str, ...] = ("AU", "ED", "A2", "A3", "A4")
 
 
 def _contributor_role(tag: str, ref_type: str) -> str | None:
-    """The CSL role ``tag`` names on ``ref_type``, or ``None`` where it names none.
+    """Return the CSL role ``tag`` names on ``ref_type``.
 
-    ``AU`` and ``ED`` always resolve. ``A2``, ``A3`` and ``A4`` resolve only on the reference types
-    research.md R4's per-type matrix documents them for, which is most types for ``A2`` and a
-    minority for ``A3`` and ``A4``.
+    ``AU`` and ``ED`` always resolve. ``A2``, ``A3`` and ``A4`` resolve only on the types the 2011
+    RIS specification's per-type matrix gives them a role on. A tag with no role is not discarded:
+    it is preserved like any other unmapped tag, and :func:`_consumed_tags` keeps the two in step.
 
-    ``None`` does not mean "discard": a contributor tag with no documented role on this entry's
-    reference type is an unmapped tag, and reaches the item through the preservation sweep like
-    any other (decisions.md D43, FR-024). :func:`_consumed_tags` is what keeps the two in step.
+    Args:
+        tag: A contributor tag.
+        ref_type: The entry's ``TY`` value.
+
+    Returns:
+        The CSL role, or ``None`` where the tag names none on this type.
     """
     if tag == "AU":
         return "editor" if ref_type in _AU_EDITOR_TYPES else "author"
@@ -500,12 +505,17 @@ def _contributor_role(tag: str, ref_type: str) -> str | None:
 
 
 def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]]]:
-    """Every contributor tag this entry carries, resolved to its CSL role in source order.
+    """Resolve every contributor tag this entry carries to its CSL role.
 
-    ``ED`` is Web of Science's own editor tag, in neither official RIS specification and used in
-    place of ``A2`` rather than alongside it (research.md R4: a genuine WoS ``CHAP`` record carries
-    three ``ED`` tags and zero ``A2``), so it resolves to ``editor`` unconditionally rather than by
-    reference type.
+    ``ED`` is Web of Science's own editor tag, used in place of ``A2``, so it is ``editor`` on
+    every type.
+
+    Args:
+        raw: The entry.
+        ref_type: The entry's ``TY`` value.
+
+    Returns:
+        The CSL name lists keyed by role, each in source order.
     """
     roles: dict[str, list[dict[str, Any]]] = {}
 
@@ -517,18 +527,17 @@ def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]
     return roles
 
 
-# ---------------------------------------------------------------------------
-# Dates (T013, FR-015, FR-016) — ``PY`` anchors, ``DA`` refines precision, ``Y1`` is a fallback
-# alias for ``PY``, ``Y2`` is the access date. research.md R5: none of this feature's three
-# supported producers emits ``Y1``, but Ovid, CINAHL, RefWorks and others do.
-# ---------------------------------------------------------------------------
-
-
 def _ris_date_parts(value: str) -> tuple[int, ...] | None:
-    """The year, or year/month, or year/month/day ``value`` states, at whatever precision it
-    carries. RIS date fields (``PY``, ``DA``, ``Y1``, ``Y2``) share one shape: up to three
-    slash-separated numeric components, optionally followed by more that this parser does not
-    need. ``None`` for a value that states no leading numeric component at all.
+    """Return the date components ``value`` states, at whatever precision it carries.
+
+    RIS date tags share one shape: up to three slash-separated numbers, optionally followed by
+    more that this parser does not need.
+
+    Args:
+        value: A ``PY``, ``DA``, ``Y1`` or ``Y2`` value.
+
+    Returns:
+        The year, then month and day where stated, or ``None`` with no leading number.
     """
     parts: list[int] = []
     for segment in value.strip().split("/"):
@@ -541,8 +550,7 @@ def _ris_date_parts(value: str) -> tuple[int, ...] | None:
     return tuple(parts) if parts else None
 
 
-#: RIS's three-letter month abbreviations, for splicing Web of Science's year-less ``DA`` onto
-#: ``PY``'s year (research.md R5, T026).
+#: RIS's three-letter month abbreviations, for Web of Science's year-less ``DA``.
 _MONTH_ABBREVIATIONS: dict[str, int] = {
     "JAN": 1,
     "FEB": 2,
@@ -560,12 +568,18 @@ _MONTH_ABBREVIATIONS: dict[str, int] = {
 
 
 def _splice_year_less_da(value: str, year: int) -> tuple[int, ...] | None:
-    """Web of Science's year-less ``DA`` -- a month alone (``DEC``), a month and day (``SEP 22``)
-    -- spliced onto ``PY``'s ``year`` (research.md R5, T026). A range naming two months
-    (``JUL-DEC``) is ambiguous and cannot refine to one, so it is discarded, as is anything else
-    that is not cleanly one recognised month optionally followed by a day number -- ``None`` in
-    every such case, distinct from D25's disagreeing-year case, which this value states no year
-    to disagree with in the first place.
+    """Splice Web of Science's year-less ``DA`` onto ``PY``'s ``year``.
+
+    The value is a month alone (``DEC``) or a month and day (``SEP 22``). A month range such as
+    ``JUL-DEC`` cannot refine to one month and is discarded, as is anything else not cleanly in
+    that shape.
+
+    Args:
+        value: The ``DA`` value.
+        year: The year ``PY`` states.
+
+    Returns:
+        The spliced date components, or ``None``.
     """
     parts = value.strip().split()
     if len(parts) not in (1, 2):
@@ -581,21 +595,19 @@ def _splice_year_less_da(value: str, year: int) -> tuple[int, ...] | None:
 
 
 def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
-    """The entry's ``issued`` date, at the precision the source states (FR-015).
+    """Return the entry's ``issued`` date, at the precision the source states.
 
-    ``PY`` anchors the year. Where ``DA`` also parses and agrees with ``PY``'s year, its extra
-    precision (month, or month and day) is kept and no component the source did not state is
-    padded in. A ``DA`` whose year disagrees is not a refinement of this date and is left alone
-    (a producer that means something else by it, or a malformed tag, is not evidence for the
-    date this entry actually carries — decisions.md D25). Where ``DA`` states no year at all — Web
-    of Science's own shape, ``SEP 22`` or ``DEC`` — it is spliced onto ``PY``'s year instead,
-    unless it is a month range (``JUL-DEC``), which is discarded rather than guessed at (T026,
-    research.md R5). Without ``PY``, ``Y1`` supplies the issued date instead (research.md R5) — at
-    whatever precision it states, since there is no anchor to refine.
+    ``PY`` anchors the year. A ``DA`` whose year agrees adds its month, or month and day, with
+    nothing padded in. A ``DA`` whose year disagrees is not evidence for this date and is ignored,
+    and a ``DA`` with no year, Web of Science's shape, is spliced onto ``PY``'s year. Without
+    ``PY``, ``Y1`` supplies the date, since Ovid, CINAHL and RefWorks write it. Where neither
+    resolves to a structured date, the text goes to the ``literal`` slot, ``PY``'s first.
 
-    Where neither resolves to a structured date but one carries text, that text is kept in the
-    ``literal`` fallback ``ItemDate`` already has, rather than discarded (T020, FR-026) — ``PY``'s
-    own text wins, since it is the anchor tag and ``Y1`` is only ever consulted in its absence.
+    Args:
+        raw: The entry.
+
+    Returns:
+        The CSL date, or ``None`` when the entry states none.
     """
     py_value = raw.first("PY")
     if py_value:
@@ -628,10 +640,15 @@ def _issued_date(raw: RISEntry) -> dict[str, Any] | None:
 
 
 def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
-    """The entry's ``accessed`` date: ``Y2``, and only ``Y2`` (FR-016).
+    """Return the entry's ``accessed`` date, from ``Y2`` only.
 
-    An unparseable ``Y2`` falls back to ``literal`` rather than being discarded (T020, FR-026),
-    the same rule :func:`_issued_date` applies to ``PY``/``Y1``.
+    An unparseable ``Y2`` goes to the ``literal`` slot, as in :func:`_issued_date`.
+
+    Args:
+        raw: The entry.
+
+    Returns:
+        The CSL date, or ``None`` when the entry has no ``Y2``.
     """
     y2_value = raw.first("Y2")
     if not y2_value:
@@ -642,32 +659,31 @@ def _accessed_date(raw: RISEntry) -> dict[str, Any] | None:
     return {"literal": y2_value}
 
 
-# ---------------------------------------------------------------------------
-# Identifiers (T014, FR-017) — ``DO``/``UR`` are unambiguous; ``SN`` is not disambiguated by the
-# format itself and is resolved by value shape first, reference type second (research.md R6).
-# ---------------------------------------------------------------------------
-
-#: On these types, ``SN`` is a report or patent number, not an identifier at all (research.md R6).
+#: On these types ``SN`` is a report or patent number, not an identifier.
 _REPORT_LIKE_SN_TYPES: frozenset[str] = frozenset({"RPRT", "PAT"})
 
-#: Scopus's inline hint, stripped before shape resolution -- it names which identifier the value
-#: is, but is not part of the value itself (research.md R6, T025: ``SN - 20411723 (ISSN)``).
+#: Scopus's inline hint, as in ``SN - 20411723 (ISSN)``, which is not part of the value.
 _SN_ANNOTATION_RE = re.compile(
     r"^(?P<value>.*?)\s*\((?:ISSN|ISBN)\)\s*$", re.IGNORECASE
 )
 
-#: Scopus strips the hyphen from an 8-character ISSN before annotating it (research.md R6:
-#: ``SN - 20411723 (ISSN)``). ``validate_issn`` requires the hyphen, so a bare candidate of this
-#: shape is reformatted before validation rather than rejected for punctuation the source omitted.
+#: Scopus strips the hyphen from an ISSN, which ``validate_issn`` requires, so a bare candidate of
+#: this shape is reformatted before validation.
 _BARE_ISSN_RE = re.compile(r"^\d{7}[\dXx]$")
 
 
 def _sn_candidates(raw_values: list[str]) -> list[str]:
-    """Every individual value this entry's ``SN`` tag(s) carry, across Web of Science's repeated
-    tag, Scopus's ``; ``-packed single tag, and EndNote's continuation-line values (which
-    ``RISParser`` has already split into separate entries in ``raw_values`` by the time this runs,
-    per its ``REPEATABLE_TAGS`` rule) -- with Scopus's inline ``(ISSN)``/``(ISBN)`` annotation
-    stripped, since it is a hint about the value rather than part of it (research.md R6, T025).
+    """Flatten every value this entry's ``SN`` tags carry into one ordered list.
+
+    Covers Web of Science's repeated tag, Scopus's ``; ``-packed single tag and EndNote's
+    continuation lines, which the parser has already split into separate values. Scopus's
+    ``(ISSN)``/``(ISBN)`` annotation is stripped.
+
+    Args:
+        raw_values: Every ``SN`` value, in source order.
+
+    Returns:
+        The individual values.
     """
     candidates = []
     for raw_value in raw_values:
@@ -681,10 +697,13 @@ def _sn_candidates(raw_values: list[str]) -> list[str]:
 
 
 def _sn_identifier(value: str) -> tuple[str, str] | None:
-    """The ``(CSL key, value)`` pair ``value``'s shape resolves to, or ``None`` if it resolves to
-    neither an ISSN nor an ISBN shape (research.md R6). Shape only — the reference-type
-    tiebreaker for a value that could pass as either is not exercised by this feature's own
-    corpus and is left for a later story rather than guessed at here.
+    """Resolve ``value`` to an ISSN or an ISBN by its shape alone.
+
+    Args:
+        value: One ``SN`` candidate.
+
+    Returns:
+        The ``(CSL key, value)`` pair, or ``None`` if it has neither shape.
     """
     issn_candidate = value
     if _BARE_ISSN_RE.match(value):
@@ -709,33 +728,40 @@ def _sn_identifier(value: str) -> tuple[str, str] | None:
 def _add_preserved(
     preserved: dict[str, str | list[str]], tag: str, values: list[str]
 ) -> None:
-    """Record ``values`` (already resolved to be surplus or unrescuable) under ``tag`` in
-    ``preserved``: a bare string for a single value, so the common one-value case stays exactly
-    the shape :class:`TestUnrescuableIdentifierPreservation` already asserts, and a list only when
-    ``tag`` genuinely carries more than one surplus value (T025, T027)."""
+    """Record surplus or unrescuable ``values`` under ``tag`` in ``preserved``.
+
+    A single value is stored as a bare string, the common case, and a list only when there is more
+    than one.
+
+    Args:
+        preserved: The preserved values by tag, modified in place.
+        tag: The RIS tag.
+        values: The values to preserve.
+    """
     if not values:
         return
     preserved[tag] = values[0] if len(values) == 1 else values
 
 
-#: Every tag this module resolves whatever the reference type is -- a CSL variable, a date, an
-#: identifier, or a contributor role that does not vary. The type-conditional contributor tags are
-#: deliberately absent: what they resolve to is a question about one entry, not about the module,
-#: and :func:`_consumed_tags` is the answer to it.
+#: Every tag this module resolves whatever the reference type. The type-conditional contributor
+#: tags are absent, since :func:`_consumed_tags` decides those per entry.
 _ALWAYS_CONSUMED_TAGS: frozenset[str] = frozenset(FIELD_TABLE) | frozenset(
     {"TY", "ID", "T2", "SP", "AU", "ED", "PY", "DA", "Y1", "Y2", "DO", "UR", "SN"}
 )
 
 
 def _consumed_tags(ref_type: str) -> frozenset[str]:
-    """Every tag this module resolves for an entry of ``ref_type`` -- the production record of what
-    "mapped" means, consulted by the unmapped sweep below and by the corpus-wide test that proves
-    nothing else escapes it (T030, T033).
+    """Return every tag this module resolves for an entry of ``ref_type``.
 
-    It takes the reference type because ``A2``, ``A3`` and ``A4`` are only mapped on the types
-    :func:`_contributor_role` documents a role for. Reading it as a flat set instead was how those
-    tags came to be dropped on every other type: marked mapped, so the sweep skipped them, while
-    no role claimed them (decisions.md D43).
+    The one record of what "mapped" means, used by the unmapped sweep. It takes the reference type
+    because ``A2``, ``A3`` and ``A4`` are mapped only where :func:`_contributor_role` gives them a
+    role. A flat set would mark them mapped everywhere, and the sweep would drop them elsewhere.
+
+    Args:
+        ref_type: The entry's ``TY`` value.
+
+    Returns:
+        The consumed tags.
     """
     return _ALWAYS_CONSUMED_TAGS | frozenset(
         t for t in _CONTRIBUTOR_TAGS if _contributor_role(t, ref_type)
@@ -743,15 +769,17 @@ def _consumed_tags(ref_type: str) -> frozenset[str]:
 
 
 def _unmapped(raw: RISEntry, ref_type: str) -> dict[str, str | list[str]]:
-    """Every tag this entry carries that maps to no CSL variable, contributor role, date or
-    identifier, preserved under its own key so nothing an entry states is silently dropped (T030,
-    FR-024, FR-028). ``C7`` -- Scopus's article-number tag -- is a deliberate instance of this
-    rather than a special case (decisions.md D38): it reaches the item through this sweep like
-    any other unmapped tag, never through a dedicated mapping and never dropped.
+    """Return every tag this entry carries that nothing else maps, so nothing is silently dropped.
 
-    A contributor tag with no role on ``ref_type`` is another such instance (decisions.md D43):
-    ``A2`` on a thesis names somebody the file states and this mapping has no CSL role for, so it
-    is preserved rather than discarded.
+    Scopus's article-number tag ``C7`` reaches the item this way rather than through a dedicated
+    mapping, as does a contributor tag with no role on ``ref_type``, such as ``A2`` on a thesis.
+
+    Args:
+        raw: The entry.
+        ref_type: The entry's ``TY`` value.
+
+    Returns:
+        The unmapped values, keyed by tag.
     """
     consumed = _consumed_tags(ref_type)
     preserved: dict[str, str | list[str]] = {}
@@ -765,32 +793,24 @@ def _unmapped(raw: RISEntry, ref_type: str) -> dict[str, str | list[str]]:
 
 
 def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
-    """Every identifier this entry carries, mapped to its CSL top-level key.
+    """Return every identifier this entry carries, keyed by CSL top-level key.
 
-    A value normalization could not turn into something the catalogue accepts is preserved under
-    ``custom["ris"]`` rather than stored as a valid identifier or discarded (T019, FR-024, FR-027).
-    Nested under that single key, never flat: `from_csl_json` turns every flat `custom` key whose
-    value is a plain string into an `ItemIdentifier` row typed by that key, which is exactly what
-    preservation must not become (plan.md "Preservation goes under a single `custom[\"ris\"]` key").
+    A value normalization cannot rescue is preserved under ``custom["ris"]``, never flat on
+    ``custom``, because ``from_csl_json`` turns every flat string-valued ``custom`` key into an
+    ``ItemIdentifier`` row.
 
-    ``SN``'s three producer encodings — Web of Science repeating the tag, Scopus annotating
-    inline and packing several values behind ``; ``, EndNote continuing on an untagged line — are
-    flattened by :func:`_sn_candidates` into one ordered list of individual values; the first
-    value of each kind (ISSN, ISBN) is stored, and every other value — a second value of a kind
-    already stored, or one that resolves to neither shape — is preserved (T025, research R6).
+    ``DO`` and ``UR`` store their first populated value, by source position, and preserve the rest:
+    a Web of Science chapter carries its own DOI and its book's, and EndNote and Mendeley follow the
+    URL with a DOI-resolver link. ``SN`` values are flattened by :func:`_sn_candidates`, then the
+    first of each kind, ISSN and ISBN, is stored and the rest preserved. On report-like types
+    ``SN`` is stored as ``number`` instead.
 
-    An entry carrying more than one ``DO`` tag — a genuine Web of Science chapter record's own
-    and its containing book's — stores the first, by source position, as the DOI, and preserves
-    every other one, each normalized the same way as the first (T027, FR-018).
+    Args:
+        raw: The entry.
+        ref_type: The entry's ``TY`` value.
 
-    An entry carrying more than one ``UR`` tag — every genuine EndNote and Mendeley record does,
-    a search-result link followed by a duplicate DOI-resolver link — stores the first, by source
-    position, as the URL, and preserves every other one the same way (T032, FR-018).
-
-    "First" throughout means the first *populated* occurrence: each of these three blocks asks
-    whether the tag carries any value at all, never whether its first occurrence does. Reading
-    only index 0 dropped the whole tag — identifier and preservation alike — for an entry whose
-    first ``DO`` or ``UR`` line was blank and whose second was not (decisions.md D44).
+    Returns:
+        The CSL identifiers, plus ``custom["ris"]`` when anything was preserved.
     """
     result: dict[str, Any] = {}
     preserved: dict[str, str | list[str]] = {}
@@ -845,29 +865,21 @@ def _identifiers(raw: RISEntry, ref_type: str) -> dict[str, Any]:
     return result
 
 
-# ---------------------------------------------------------------------------
-# Citation keys (T015, FR-019 through FR-023, FR-034) — ``ID`` verbatim where present; otherwise
-# minted deterministically from the entry's own content, since RIS supplies no cite key of its
-# own (unlike BibTeX's ``ID``, which is always present). An entry too sparse to mint from falls
-# back to its own index rather than failing (FR-021).
-# ---------------------------------------------------------------------------
-
-#: Skipped when picking the title's first *significant* word — common articles carry no
-#: bibliographic meaning of their own.
+#: Articles, skipped when picking the title's first significant word.
 _TITLE_STOPWORDS: frozenset[str] = frozenset({"a", "an", "the"})
 
-#: A run of letters (any script), which is what "a word" means for this purpose — digits and
-#: punctuation are not carried into the minted key.
+#: A run of letters in any script, so digits and punctuation stay out of a minted key.
 _TITLE_WORD_RE: re.Pattern[str] = re.compile(r"[^\W\d_]+", re.UNICODE)
 
-#: Non-letter/digit characters stripped from a family name before it goes into a minted key, so
-#: punctuation in the source (``O'Brien``) does not leak into the key's shape.
+#: Punctuation stripped from a family name, such as ``O'Brien``'s, before it goes into a key.
 _KEY_COMPONENT_RE: re.Pattern[str] = re.compile(r"[^\w]+", re.UNICODE)
 
 
 def _citation_key_max_length() -> int:
-    """``Item.citation_key``'s ``max_length``, read from the model rather than duplicated as a
-    constant here, so this stays correct if the column's width ever changes.
+    """Return ``Item.citation_key``'s ``max_length``, read from the model so it stays in step.
+
+    Returns:
+        The column width.
     """
     from literature.models import Item
 
@@ -877,8 +889,13 @@ def _citation_key_max_length() -> int:
 
 
 def _first_significant_title_word(title: str) -> str | None:
-    """The first word of ``title`` that is not a bare stopword, lowercased. ``None`` if the title
-    carries no word at all (FR-021).
+    """Return the first word of ``title`` that is not an article, lowercased.
+
+    Args:
+        title: The entry's title.
+
+    Returns:
+        The word, or ``None`` if the title carries no word.
     """
     for word in _TITLE_WORD_RE.findall(title):
         word = str(word)
@@ -888,9 +905,13 @@ def _first_significant_title_word(title: str) -> str | None:
 
 
 def _first_author_family(raw: RISEntry) -> str | None:
-    """The first ``AU`` value's family name, stripped of punctuation for a minted key's shape.
-    ``None`` where there is no ``AU`` value, or the first one is institutional/unparsed and
-    carries no ``family`` component to mint from.
+    """Return the first ``AU`` value's family name, stripped of punctuation.
+
+    Args:
+        raw: The entry.
+
+    Returns:
+        The family name, or ``None`` when there is no ``AU`` or the first is a literal name.
     """
     au_values = raw.values("AU")
     if not au_values:
@@ -903,11 +924,19 @@ def _first_author_family(raw: RISEntry) -> str | None:
 
 
 def _mint_citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int) -> str:
-    """The key minted for an entry with no ``ID`` tag: first author family name, issued year, and
-    the title's first significant word, concatenated (FR-021). An entry missing any one of the
-    three is too sparse to mint from and falls back to its own index instead — deterministic
-    either way, since an entry's index does not change between two imports of the same file
-    (FR-023).
+    """Mint a citation key for an entry with no ``ID`` tag.
+
+    RIS has no cite key of its own, so the key is the first author's family name, the issued year
+    and the title's first significant word, run together. An entry missing any of the three falls
+    back to its index. Either way the key is the same on every import of the same file.
+
+    Args:
+        raw: The entry.
+        issued: The entry's CSL ``issued`` date, if any.
+        index: The entry's position in the file.
+
+    Returns:
+        The minted key.
     """
     family = _first_author_family(raw)
     year = None
@@ -924,36 +953,35 @@ def _mint_citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int)
 
 
 def _citation_key(raw: RISEntry, issued: dict[str, Any] | None, index: int) -> str:
-    """The citation key this entry carries or mints, and the key it is stored under (FR-019
-    through FR-021)."""
+    """Return the citation key this entry states in ``ID``, or a minted one.
+
+    Args:
+        raw: The entry.
+        issued: The entry's CSL ``issued`` date, if any.
+        index: The entry's position in the file.
+
+    Returns:
+        The citation key.
+    """
     stated = raw.first("ID")
     if stated:
         return stated
     return _mint_citation_key(raw, issued, index)
 
 
-# ---------------------------------------------------------------------------
-# Published mapping (T035, FR-012, decisions.md D40) — rendered from the tables above rather than
-# written alongside them, the same mechanism ``bibtex.py``'s ``_mapping_document`` established for
-# the sibling format, so the page and the code cannot disagree. ``docs/ris-mapping.md`` is this
-# function's output and a test asserts it still is.
-# ---------------------------------------------------------------------------
-
-
 def _mapping_document() -> str:
-    """The reference-type, tag, contributor, date, identifier and citation-key mapping, as a
-    Markdown document.
+    """Render the RIS mapping as a Markdown document.
 
-    Private on purpose, for the same reason ``bibtex._mapping_document`` is: the import contract's
-    public surface is a curated, two-way-asserted list (``literature.importers.__all__``), and a
-    documentation generator does not belong in it. Regenerate the published page after changing any
-    table above::
+    Private, because a documentation generator does not belong in the import contract's public
+    surface. Regenerate ``docs/ris-mapping.md`` after changing any table above::
 
         uv run python -c "from literature.importers.ris import _mapping_document; \
             open('docs/ris-mapping.md','w').write(_mapping_document())"
 
-    A test asserts the file on disk still matches, so a table change that skips this step fails
-    rather than shipping a stale page.
+    A test asserts the file on disk still matches.
+
+    Returns:
+        The Markdown page.
     """
     lines = [
         "# RIS mapping",
@@ -1094,13 +1122,15 @@ def _mapping_document() -> str:
 
 
 def _preserve(result: dict[str, Any], values: dict[str, Any]) -> None:
-    """Merge ``values`` into ``result``'s preservation sink, creating it only if there is something
-    to put in it.
+    """Merge ``values`` into ``result``'s ``custom["ris"]``, creating it only when needed.
 
-    The sink is a single nested ``custom["ris"]`` dict, never flat keys on ``custom``:
-    ``from_csl_json`` turns every flat ``custom`` key whose value is a string into an
-    ``ItemIdentifier`` row, whose ``value`` is capped at 500 characters and validated on save, so a
-    long preserved value written flat would fail the whole entry (plan.md "Preservation").
+    Nested, never flat on ``custom``: ``from_csl_json`` turns every flat string-valued ``custom``
+    key into an ``ItemIdentifier`` row, capped at 500 characters and validated on save, so a long
+    value written flat would fail the whole entry.
+
+    Args:
+        result: The entry's CSL JSON, modified in place.
+        values: The values to preserve, keyed by tag.
     """
     if not values:
         return
@@ -1108,40 +1138,31 @@ def _preserve(result: dict[str, Any], values: dict[str, Any]) -> None:
 
 
 class RISFormat(BibFormat):
-    """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
-
-    The foundational-phase skeleton is a working :class:`RISParser` with no RIS-to-CSL mapping. US-1
-    (issue #36) adds that mapping: reference types, core tags, contributors, dates, identifiers
-    and citation keys.
-    """
+    """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike."""
 
     name = "ris"
     label = _("RIS")
 
     def parse(self, file) -> Iterator[RISEntry | str]:
-        """Yield this file's raw entries, delegating to :class:`RISParser`.
-
-        See :meth:`RISParser.parse` for the framing, decoding and whole-file-outcome rules this
-        defers to.
-        """
+        """Yield this file's raw entries, delegating to :meth:`RISParser.parse`."""
         return RISParser().parse(file)
 
     def to_csl_json(self, raw: RISEntry | str) -> dict[str, Any]:
         """Turn one raw entry into CSL JSON.
 
-        Header material arrives as a plain ``str`` (see :meth:`RISParser.parse`) and is skipped
-        outright, the same pattern ``bibtex.py`` uses for a comment or preamble.
+        An entry carrying only ``TY`` is skipped rather than stored as a near-empty item. The check
+        is on which tags are present, so a second tag with an empty value still counts.
 
-        An entry with no ``TY`` tag at all — the stray block :meth:`RISParser._entries` yields for
-        a mid-file tag block that never opened one — fails alone naming what is missing, rather
-        than ending the file (T021, FR-009).
+        Args:
+            raw: An entry, or the header text :meth:`RISParser.parse` yields.
 
-        FR-009's other half — an entry carrying ``TY`` and no other bibliographic content is
-        reported as skipped rather than stored as a near-empty item — raises
-        :class:`~literature.importers.exceptions.SkipEntry` when every tag the entry carries is
-        ``TY`` (T021, FR-009, decisions.md D31). The check is on which tags are present, not on
-        whether their values are non-empty: a second tag with an empty value still disqualifies
-        the skip.
+        Returns:
+            The entry as CSL JSON.
+
+        Raises:
+            SkipEntry: ``raw`` is header material, or the entry carries only ``TY``.
+            EntryError: The entry has no ``TY`` tag, or its citation key is longer than the
+                catalogue allows. Either fails this entry alone.
         """
         if isinstance(raw, str):
             raise SkipEntry(_("This is header material, not a record."))
@@ -1206,9 +1227,16 @@ class RISFormat(BibFormat):
         return result
 
     def handle_for(self, raw: RISEntry | str) -> str | None:
-        """The citation key this entry will carry — verbatim ``ID``, or minted (FR-022).
-        :meth:`entry_created` overrides the report for a stored entry to the key **as stored**;
-        this is what a failed or skipped entry carries instead, since neither reaches storage.
+        """Return the citation key this entry will carry, stated in ``ID`` or minted.
+
+        :meth:`entry_created` reports a stored entry under its key as stored, so this is the handle
+        only a failed or skipped entry keeps.
+
+        Args:
+            raw: An entry, or header text.
+
+        Returns:
+            The citation key, or ``None`` for header material.
         """
         if isinstance(raw, str):
             return None
@@ -1217,15 +1245,7 @@ class RISFormat(BibFormat):
     def entry_created(
         self, *, index: int, handle: str | None, item: Any, dry_run: bool
     ) -> EntryResult:
-        """Report the citation key **as stored**, read off the item rather than re-derived from
-        the entry (T016, FR-022), so the report cannot drift from what the store actually holds.
-
-        `entry_created` is the documented ``BibFormat`` override point that receives the stored
-        ``item``, on a dry run too — the base drops the *report's* item for a dry run, since its
-        rows do not survive the rollback, but ``item`` itself is passed to this method regardless,
-        which is what lets a dry run still report the key it would have stored. No change to
-        ``base.py``, ``results.py`` or ``converters.py`` is needed for this (SC-009).
-        """
+        """Report the key as stored, read off the item, which arrives on a dry run too."""
         return super().entry_created(
             index=index, handle=item.citation_key, item=item, dry_run=dry_run
         )

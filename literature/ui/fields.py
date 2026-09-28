@@ -1,8 +1,8 @@
-"""Scalar-field iteration for the reference page — D-6.
+"""Scalar-field iteration for the reference page.
 
 Lives beside its only caller, ``item_detail.html``'s view, rather than in
 ``literature/utils/``: the core stays free of a helper an optional app is
-the sole consumer of (FR-006).
+the sole consumer of (FS-006, #55).
 """
 
 DEFAULT_SKIP = frozenset({"created", "modified", "categories", "custom"})
@@ -14,11 +14,11 @@ def scalar_fields(item, skip=DEFAULT_SKIP):
     Excludes relations (fields without ``attname``), the primary key, and any
     field named in ``skip``. A field whose value is ``None``, an empty string,
     or ``False`` is treated as not carried, so it is omitted rather than
-    yielded with a blank value (FR-021).
+    yielded with a blank value.
 
     A field declared with ``choices`` yields its label, not its stored value:
     ``Item.type`` reads "Journal Article" here exactly as it does on the
-    catalogue badge, rather than the raw CSL slug (RC-003). Emptiness is still
+    catalogue badge, rather than the raw CSL slug. Emptiness is still
     judged on the stored value, and Django's ``get_FOO_display()`` returns the
     raw value unchanged when it maps to no label.
     """

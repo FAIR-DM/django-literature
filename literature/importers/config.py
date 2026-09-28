@@ -1,12 +1,9 @@
 """The formats an installation can read, declared in Django settings.
 
-See contracts/importers.md "The registry" and data-model.md "The registry".
-``LITERATURE = {"BIB_FORMATS": [...]}`` lists dotted import paths, one
-namespaced setting per the family convention (``EASY_ICONS`` in
-django-easy-icons, not a flat ``LITERATURE_BIB_FORMATS`` key). Resolved on
-first read and cached — not at import time, so nothing here runs before the
-app registry is ready, and not per call, so enumerating twice does not
-re-import every configured module.
+``LITERATURE = {"BIB_FORMATS": [...]}`` lists dotted import paths. The list is
+resolved on first read and cached: not at import time, so nothing here runs
+before the app registry is ready, and not per call, so enumerating twice does
+not re-import every configured module.
 """
 
 from types import MappingProxyType
@@ -22,7 +19,7 @@ from literature.importers.base import BibFormat
 from literature.importers.exceptions import UnknownFormat
 
 #: The formats this package ships, so the built-in behaviour needs no
-#: configuration (Article X, FR-003). BibTeX landed with #22; RIS with #23.
+#: configuration.
 DEFAULTS: tuple[str, ...] = (
     "literature.importers.bibtex.BibTeXFormat",
     "literature.importers.ris.RISFormat",
@@ -34,16 +31,18 @@ _cache: MappingProxyType[str, type[BibFormat]] | None = None
 def _resolve() -> dict[str, type[BibFormat]]:
     """Import every path in ``LITERATURE["BIB_FORMATS"]`` and key it by name.
 
-    Raises :class:`~django.core.exceptions.ImproperlyConfigured`, naming the
-    offending entry, for a path that does not import, or that imports to
-    something which is not a usable ``BibFormat`` subclass — checked here
-    rather than left to fail later as a raw ``TypeError`` or ``AttributeError``
-    from inside somebody's import run, a long way from the setting that
-    caused it. The shape of the setting itself is checked on the same
-    grounds: most Django list settings are bare lists, so writing
-    ``LITERATURE = [...]`` or ``{"BIB_FORMATS": "one.path"}`` is a plausible
-    slip, and neither should surface as a raw ``AttributeError`` or as a
-    complaint about a one-character import path.
+    Everything is checked here, so a bad setting fails naming the offending
+    entry rather than as a raw ``TypeError`` or ``AttributeError`` deep inside
+    somebody's import run. That includes the setting's own shape: most Django
+    list settings are bare lists, so ``LITERATURE = [...]`` or
+    ``{"BIB_FORMATS": "one.path"}`` is a plausible slip.
+
+    Returns:
+        Each configured format class, keyed by its ``name``.
+
+    Raises:
+        ImproperlyConfigured: The setting is the wrong shape, or a path does
+            not import to a concrete ``BibFormat`` subclass with a ``name``.
     """
     configured = getattr(settings, "LITERATURE", {})
     if not isinstance(configured, dict):
@@ -94,8 +93,12 @@ def _resolve() -> dict[str, type[BibFormat]]:
 
 
 def available_formats() -> MappingProxyType[str, type[BibFormat]]:
-    """The configured set, keyed by name — enumerable without knowing what is
-    in it (FR-017). Read-only: nothing but a setting change can alter it.
+    """Return every configured format, keyed by name.
+
+    Read-only: nothing but a setting change can alter it.
+
+    Returns:
+        A read-only mapping of name to format class.
     """
     global _cache
     if _cache is None:
@@ -106,8 +109,15 @@ def available_formats() -> MappingProxyType[str, type[BibFormat]]:
 def get_format(name: str) -> type[BibFormat]:
     """Return the format configured under ``name``.
 
-    Raises :class:`~literature.importers.exceptions.UnknownFormat`, naming
-    the formats that *are* configured (FR-019).
+    Args:
+        name: The format's registered name, such as ``"bibtex"``.
+
+    Returns:
+        The format class.
+
+    Raises:
+        UnknownFormat: Nothing is configured under ``name``. The message names
+            the formats that are.
     """
     formats = available_formats()
     try:
@@ -119,9 +129,13 @@ def get_format(name: str) -> type[BibFormat]:
 def _reset_cache_on_setting_change(*, setting: str, **kwargs: Any) -> None:
     """Drop the cached mapping when ``LITERATURE`` changes.
 
-    Without this, ``override_settings``/the ``settings`` fixture would leak
-    one test's configured formats into the next: the cache is module-level
-    state, and nothing else would ever invalidate it.
+    Without this, ``override_settings`` would leak one test's configured
+    formats into the next, since nothing else invalidates the module-level
+    cache.
+
+    Args:
+        setting: The name of the setting that changed.
+        **kwargs: The rest of the ``setting_changed`` signal's arguments.
     """
     if setting == "LITERATURE":
         global _cache

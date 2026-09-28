@@ -1,8 +1,8 @@
-"""The catalogue as a table (US-1, FR-001 through FR-012).
+"""The catalogue as a table (FS-009, #87).
 
-New module rather than an addition to ``views.py`` (plan.md D-3): a table
-class is neither a view nor a form, and ``views.py`` is already long. Its
-mirror test is ``tests/test_ui/test_tables.py``, one module split by
+New module rather than an addition to ``views.py``: a table class is
+neither a view nor a form, and ``views.py`` is already long. Its mirror
+test is ``tests/test_ui/test_tables.py``, one module split by
 ``Test<Column>`` classes per the testing standard (§4).
 """
 
@@ -16,23 +16,23 @@ from literature.importers.results import Outcome
 
 
 class ContributorsColumn(tables.TemplateColumn):
-    """The credited-names cell (FR-006 through FR-008).
+    """The credited-names cell.
 
     Selects the values only — reading the ``contributors`` attribute
     ``ItemTableView.get_queryset()`` prefetches onto the record (a
     ``Prefetch(..., to_attr="contributors")``), author-role names if the
     item has any, else editor-role names, first three plus the count of the
-    rest — and leaves building the markup to the template (plan.md D-6,
-    Article V): a contributor's name is free text entered through this
-    package's own open write pages, and nothing here is passed through
-    ``mark_safe``. ``getattr(record, "contributors", [])`` reads the
-    prefetch defensively, so a record drawn through a plain
-    ``SingleTableView`` with no prefetch degrades to the empty-value marker
-    rather than raising (research R9) — and never touches the manager, which
-    would cost one query per row.
+    rest — and leaves building the markup to the template (Article V): a
+    contributor's name is free text entered through this package's own open
+    write pages, and nothing here is passed through ``mark_safe``.
+    ``getattr(record, "contributors", [])`` reads the prefetch defensively,
+    so a record drawn through a plain ``SingleTableView`` with no prefetch
+    degrades to the empty-value marker rather than raising — and never
+    touches the manager, which would cost one query per row.
     """
 
     def get_context_data(self, record, **kwargs):
+        """Add the credited names and the hidden-remainder count."""
         context = super().get_context_data(record=record, **kwargs)
         item_names = getattr(record, "contributors", [])
         authors = [
@@ -51,18 +51,19 @@ class ContributorsColumn(tables.TemplateColumn):
 
 
 class IssuedColumn(tables.TemplateColumn):
-    """The issued-date cell (FR-009).
+    """The issued-date cell.
 
     Picks the ``issued`` date slot off the record's prefetched
     ``item_dates`` and hands it to ``date_value.html`` under the name it
     expects, so the precision-and-range rule stays in that one shared
-    partial rather than forking into a second Python implementation
-    (research R8, plan.md D-7). ``.all()`` on a prefetched relation reads
-    the cache rather than issuing a query, exactly as ``item_list_item.html``
-    already relies on for the same relation.
+    partial rather than forking into a second Python implementation.
+    ``.all()`` on a prefetched relation reads the cache rather than issuing
+    a query, exactly as ``item_list_item.html`` already relies on for the
+    same relation.
     """
 
     def get_context_data(self, record, **kwargs):
+        """Add the record's own ``issued`` date, if it has one."""
         context = super().get_context_data(record=record, **kwargs)
         context["item_date"] = next(
             (
@@ -76,7 +77,7 @@ class IssuedColumn(tables.TemplateColumn):
 
 
 class ActionsColumn(tables.TemplateColumn):
-    """The row's edit control (FR-019, FR-020).
+    """The row's edit control.
 
     ``ItemTableView.get_table_kwargs()`` hands the table
     ``show_update_action`` — the same ``CRUDDirectoryMixin`` flag
@@ -89,26 +90,27 @@ class ActionsColumn(tables.TemplateColumn):
     """
 
     def get_context_data(self, table, **kwargs):
+        """Add whether the row's edit control should render."""
         context = super().get_context_data(table=table, **kwargs)
         context["show_update_action"] = table.show_update_action
         return context
 
 
 class ItemTable(tables.Table):
-    """The catalogue, one row per reference (FR-001 through FR-012).
+    """The catalogue, one row per reference.
 
     A row's ``contributors`` and ``issued`` cells each read something the
     plain queryset does not carry on its own: ``item.contributors``, a
     ``Prefetch(..., to_attr="contributors")`` restricted to author- and
     editor-role ``ItemName`` rows, and ``item.item_dates``, an ordinary
-    prefetch. ``ItemTableView.get_queryset()`` supplies both (plan.md D-2);
-    a consumer pairing this table with a plain ``SingleTableView`` of their
-    own must supply them too, or pay one query per row for each.
+    prefetch. ``ItemTableView.get_queryset()`` supplies both; a consumer
+    pairing this table with a plain ``SingleTableView`` of their own must
+    supply them too, or pay one query per row for each.
 
-    ``show_update_action`` (FR-019, FR-020) gates the actions cell's edit
-    control. It defaults to ``True`` — a bare ``ItemTable`` is open, matching
-    this feature's rule that it introduces no access control of its own —
-    and ``ItemTableView.get_table_kwargs()`` overrides it with
+    ``show_update_action`` gates the actions cell's edit control. It
+    defaults to ``True`` — a bare ``ItemTable`` is open, matching this
+    feature's rule that it introduces no access control of its own — and
+    ``ItemTableView.get_table_kwargs()`` overrides it with
     ``self.show_action("update")``, the same ``CRUDDirectoryMixin`` flag
     ``ItemDetailView``'s own edit action already reads.
     """
@@ -125,7 +127,7 @@ class ItemTable(tables.Table):
         # without a tiebreak a sort with ties has no total order — and the
         # catalogue is paginated, so two pages are two independent queries.
         # On PostgreSQL a tied reference can then appear on both pages, or
-        # on neither (FR-016, SC-004).
+        # on neither.
         order_by=("citation_key", "pk"),
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
@@ -135,21 +137,18 @@ class ItemTable(tables.Table):
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
         # No renderer, deliberately: django-tables2 resolves a choice field
         # through get_FOO_display() before any renderer runs (rows.py), so
-        # the translated label (FR-005) arrives on its own while order_by
-        # above keeps ordering on the stored value (FR-017). A render_type
-        # here would only restate what the library already does — do not
-        # add one back.
+        # the translated label arrives on its own while order_by above keeps
+        # ordering on the stored value. A render_type here would only
+        # restate what the library already does — do not add one back.
     )
     title = tables.Column(
         verbose_name=_("Title"),
         # Mandatory: without it, an item whose title resolves to "" never
-        # reaches render_title, defeating the fallback chain in exactly the
-        # case it exists for (research R3).
+        # reaches render_title, defeating the fallback chain it exists for.
         empty_values=(),
         order_by=("title", "pk"),
-        # Item has no get_absolute_url(), so linkify=True cannot be used
-        # (research R2) — the route lives in the table class, inside
-        # literature/ui/.
+        # Item has no get_absolute_url(), so linkify=True cannot be used —
+        # the route lives in the table class, inside literature/ui/.
         linkify=("literature:item-detail", {"pk": A("pk")}),
         attrs={
             "a": {"class": "link link-hover"},
@@ -165,8 +164,7 @@ class ItemTable(tables.Table):
         verbose_name=_("Authors"),
         template_name="literature/ui/table_contributors.html",
         empty_values=(),
-        # An through-model across two roles has no single value to order on
-        # (FR-015).
+        # A through-model across two roles has no single value to order on.
         orderable=False,
         # Stated, not inherited: django-mvp centres any column it cannot
         # resolve to a field and which is not orderable, on the reasoning
@@ -181,8 +179,8 @@ class ItemTable(tables.Table):
         template_name="literature/ui/table_issued.html",
         empty_values=(),
         # order_by names the "issued" annotation ItemTableView.get_queryset()
-        # supplies (T017) — orderable is no longer forced off now that
-        # order_issued (below) can resolve the sort (T018, plan.md D-8).
+        # supplies — orderable is no longer forced off now that
+        # order_issued (below) can resolve the sort.
         order_by="issued",
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
@@ -190,8 +188,8 @@ class ItemTable(tables.Table):
         verbose_name="",
         template_name="literature/ui/table_actions.html",
         empty_values=(),
-        # A control, not data — no single value to order on (FR-015). Also
-        # what earns the column its centred alignment (research R6).
+        # A control, not data — no single value to order on. Also what earns
+        # the column its centred alignment.
         orderable=False,
     )
 
@@ -205,21 +203,20 @@ class ItemTable(tables.Table):
         template_name = "django_tables2/bootstrap5-mvp.html"
         # A flag, not displayed text — the mvp template renders its empty
         # state inside `{% if table.empty_text %}` and shows the view's own
-        # empty_state_heading/message instead (research R5).
+        # empty_state_heading/message instead.
         empty_text = _("Nothing to show.")
-        # FR-010's empty-value marker, translatable — replaces the
-        # library's own plain "—" default (Article VIII).
+        # A translatable empty-value marker, replacing the library's own
+        # plain "—" default (Article VIII).
         default = _("—")
         # No order_by: an alias naming a column that does not exist (e.g.
-        # "created") is silently dropped by django-tables2, and FR-002
-        # forbids a "created" column existing to name. Newest-first comes
-        # from Item.Meta.ordering, exactly as ItemListView already relies
-        # on (plan.md D-3).
+        # "created") is silently dropped by django-tables2, and no "created"
+        # column exists to name. Newest-first comes from Item.Meta.ordering,
+        # exactly as ItemListView already relies on.
         # No fields: every column is declared explicitly, so a field added
         # to Item later never silently becomes a column.
 
     def render_title(self, record):
-        """The first value the reference carries down its title chain (FR-003).
+        """The first value the reference carries down its title chain.
 
         Ends at the citation key, which is also its own column — a link
         whose text is the empty-value marker cannot be read or clicked with
@@ -234,16 +231,15 @@ class ItemTable(tables.Table):
         )
 
     def order_issued(self, queryset, is_descending):
-        """Sort by the ``issued`` annotation, undated references last either way (FR-018).
+        """Sort by the ``issued`` annotation, undated references last either way.
 
         django-tables2 hands ordering straight to ``QuerySet.order_by()`` and
         does nothing about NULLs on its own, and SQLite and PostgreSQL place
         them differently — both of which this package supports — so
         ``nulls_last=True`` is stated explicitly in both directions rather
-        than left to whichever the database defaults to (plan.md D-8,
-        research R7). Returning ``True`` tells django-tables2 the queryset is
-        already ordered, so it does not also try `"issued"` as a plain field
-        name.
+        than left to whichever the database defaults to. Returning ``True``
+        tells django-tables2 the queryset is already ordered, so it does not
+        also try `"issued"` as a plain field name.
         """
         issued = F("issued")
         ordering = (
@@ -251,25 +247,23 @@ class ItemTable(tables.Table):
             if is_descending
             else issued.asc(nulls_last=True)
         )
-        # ``pk`` last, for the same reason every other sortable column names
-        # it: references sharing an issued date are otherwise ordered
-        # arbitrarily, and each page of the catalogue is its own query.
+        # ``pk`` last, same tiebreak reason as citation_key above.
         return queryset.order_by(ordering, "pk"), True
 
 
 class OutcomeColumn(tables.TemplateColumn):
-    """The outcome cell (US-1, FR-019, decisions.md D17).
+    """The outcome cell (FS-011, #103).
 
     Renders django-mvp's ``<c-badge>`` around the outcome's own translated
     label — the badge wraps the label, it does not replace it, so a failed
     entry stays distinguishable by the word itself and not only by colour.
     The variant mapping is settled and not re-litigated here: created =
     success, skipped = warning, failed = error. Skipped is a warning rather
-    than a neutral tone because a skipped entry may now carry a reason
-    (D18), which is worth the reader's eye. Built as a ``TemplateColumn``,
-    the same way ``ContributorsColumn`` and ``IssuedColumn`` are, so the
-    template — not a ``mark_safe``/``format_html`` call here — is what
-    escapes the label.
+    than a neutral tone because a skipped entry may now carry a reason,
+    which is worth the reader's eye. Built as a ``TemplateColumn``, the same
+    way ``ContributorsColumn`` and ``IssuedColumn`` are, so the template —
+    not a ``mark_safe``/``format_html`` call here — is what escapes the
+    label.
     """
 
     VARIANTS = {
@@ -279,6 +273,7 @@ class OutcomeColumn(tables.TemplateColumn):
     }
 
     def get_context_data(self, record, **kwargs):
+        """Add the outcome's badge variant and its translated label."""
         context = super().get_context_data(record=record, **kwargs)
         context["variant"] = self.VARIANTS[record.outcome]
         context["label"] = record.outcome.label
@@ -286,14 +281,14 @@ class OutcomeColumn(tables.TemplateColumn):
 
 
 class ImportReportTable(tables.Table):
-    """The import report, one row per entry the format found (US-1, FR-019).
+    """The import report, one row per entry the format found (FS-011, #103).
 
     Built over a plain list of :class:`~literature.ui.importing.ImportReportRow`,
-    never a queryset — the report has no model behind it (research R4). The
-    position column is the only link: a created row's citation key may be
-    absent (``EntryResult.handle`` is ``None`` by default, AS-10 forbids
-    inventing one), but its position never is, so the link hangs there
-    rather than on the key.
+    never a queryset — the report has no model behind it. The position
+    column is the only link: a created row's citation key may be absent
+    (``EntryResult.handle`` is ``None`` by default, never invented for an
+    entry whose source carried none), but its position never is, so the
+    link hangs there rather than on the key.
     """
 
     position = tables.Column(
@@ -313,6 +308,6 @@ class ImportReportTable(tables.Table):
         template_name = "django_tables2/bootstrap5-mvp.html"
         empty_text = _("Nothing to show.")
         default = _("—")
-        # Fixed source order (FR-019) — nothing here is sortable, so no
-        # header advertises a control that would not do anything.
+        # Fixed source order — nothing here is sortable, so no header
+        # advertises a control that would not do anything.
         orderable = False

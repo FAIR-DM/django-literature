@@ -2,7 +2,7 @@
 
 Lives beside its callers' views rather than in ``literature/utils/``, on the
 same reasoning as :mod:`literature.ui.fields`: the core stays free of a helper
-an optional app is the sole consumer of (FR-006), which is also why this is not
+an optional app is the sole consumer of, which is also why this is not
 a method on ``Item``.
 
 A role heading has to agree with the number of names under it — "Authors" over
@@ -103,7 +103,7 @@ class ContributorGroups:
 
         Groups follow ``ItemName``'s declared ordering — role, then the
         position stored within that role — so both the order and the grouping
-        are the store's rather than this class's (FR-013, FR-022).
+        are the store's rather than this class's.
 
         Reads ``item.item_names`` as given, so an item drawn through
         ``prefetch_related("item_names__name")`` costs no further query. A list
@@ -128,14 +128,13 @@ def contributor_groups(item):
 
 
 def stored_contributor_names():
-    """Distinct, non-empty family names the catalogue already holds
-    (plan.md D-1, D-12, T008).
+    """Distinct, non-empty family names the catalogue already holds.
 
     Read once per page and offered as ``<datalist>`` suggestions to every
     contributor row's family-name input — a spelling aid only. Accepting a
-    suggestion writes its text and links the reference to nothing (FR-005,
-    FR-006); an unparsed organizational name has no family part to suggest,
-    so it is excluded here rather than offering an empty option.
+    suggestion writes its text and links the reference to nothing; an
+    unparsed organizational name has no family part to suggest, so it is
+    excluded here rather than offering an empty option.
     """
     return list(
         Name.objects.exclude(family="")

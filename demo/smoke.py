@@ -1,13 +1,13 @@
-"""The guard's assertion script (plan.md D-5, D-8, D-9; FR-017 through FR-022, FR-032, FR-033).
+"""The guard's assertion script (FS-007, FS-008, FS-009, FS-011, FS-012).
 
 Speaks real HTTP against a running demo server. It knows one address — the
 catalogue list — and reaches every other page by following the links a
-browser would click, never by reversing a detail URL: SC-003 requires every
-page to be reachable "with no address typed by hand", and a script that
-constructs its own URLs would pass over a catalogue whose links are broken.
+browser would click, never by reversing a detail URL: every page must be
+reachable with no address typed by hand, and a script that constructs its
+own URLs would pass over a catalogue whose links are broken.
 
 Not a test module: standard library only, run directly against a live
-server, not under pytest (conventions; constitution Article VII).
+server, not under pytest (constitution Article VII).
 """
 
 import html
@@ -21,14 +21,14 @@ import uuid
 from html.parser import HTMLParser
 from pathlib import Path
 
-# The import fixture (T301) sits beside this module's own seed data, never
-# reversed from a Django setting: the walk speaks HTTP only and has no
-# access to the demo's app registry to ask it (module docstring).
+# Sits beside this module's own seed data, never reversed from a Django
+# setting: the walk speaks HTTP only and has no access to the demo's app
+# registry to ask it (FS-011).
 IMPORT_FIXTURE_PATH = Path(__file__).resolve().parent / "seed" / "import-sample.bib"
 
-# The demo runs with DEBUG = True (plan.md D-5): an unbounded body on failure
-# would put Django's technical-500 page, including settings and the request
-# environment, into a public CI log.
+# The demo runs with DEBUG = True: an unbounded body on failure would put
+# Django's technical-500 page, including settings and the request
+# environment, into a public CI log (FS-007).
 BODY_EXCERPT_LIMIT = 500
 
 ITEM_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/)"[^>]*>(?P<text>[^<]+)<')
@@ -36,25 +36,22 @@ CONTRIBUTOR_LINK_RE = re.compile(
     r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<'
 )
 
-# The catalogue list's search box (FR-033): its `name="q"` input is rendered
-# outside the filter modal's own <form>, associated with it only by the
-# HTML5 `form="filterForm"` attribute (mvp's search.html), so it is
-# confirmed here rather than through ``form_fields``, which only walks a
-# page's first physically-nested <form>.
+# The `name="q"` input is rendered outside the filter modal's own <form>,
+# associated with it only by the HTML5 `form="filterForm"` attribute (mvp's
+# search.html), so it needs its own check rather than ``form_fields``, which
+# only walks a page's first physically-nested <form> (FS-010).
 SEARCH_INPUT_RE = re.compile(r'<input[^>]+name="q"[^>]+form="filterForm"')
 
 # A rendered pagination link carrying another parameter joins it to `page=2`
 # with the HTML entity `&amp;`, not a bare `&` (`{% querystring %}`'s own
-# escaping, decisions.md D13) — tolerated here so this still matches a link
-# that also carries a search, a filter or a sort, without also matching a
-# link that carries no page parameter at all. The captured group is raw
-# HTML: a caller unescapes it with ``html.unescape`` before using it to
-# build a URL.
+# escaping) — tolerated here so this still matches a link that also carries
+# a search, a filter or a sort. The captured group is raw HTML: a caller
+# unescapes it with ``html.unescape`` before building a URL (FS-010).
 SECOND_PAGE_LINK_RE = re.compile(
     r'href="(?P<query>\?(?:[^"]*&(?:amp;)?)?page=2(?:&(?:amp;)?[^"]*)?)"'
 )
 
-# The write pass's own links (T021, D-9): the catalogue's Add action, and a
+# The write pass's own links (FS-008): the catalogue's Add action, and a
 # reference page's Edit and Delete actions. Unlike the two patterns above,
 # these do not capture link text — the button's visible text sits behind an
 # icon element (mvp's <c-button>), not immediately after the href's closing
@@ -63,36 +60,33 @@ CREATE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/add/)"')
 EDIT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/update/)"')
 DELETE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/delete/)"')
 
-# One row of the catalogue table (T026, FR-019, FR-028): scopes EDIT_LINK_RE
-# to the row that also carries a given item's own link, so the walk follows
-# that row's own edit control rather than the first edit link anywhere on
-# the page, which could belong to a different row.
+# One row of the catalogue table (FS-009): scopes EDIT_LINK_RE to the row
+# that also carries a given item's own link, so the walk follows that row's
+# own edit control rather than the first edit link anywhere on the page.
 ROW_RE = re.compile(r"<tr\b.*?</tr>", re.DOTALL)
 
-# The import pass's own link (T301, T304): the catalogue's Import action.
-# Same shape as CREATE_LINK_RE — the button's visible text sits behind an
-# icon element (mvp's <c-button>), not immediately after the href's closing
-# ``>``, so only the address is captured.
+# The import pass's own link (FS-011): the catalogue's Import action. Same
+# shape as CREATE_LINK_RE — the button's visible text sits behind an icon
+# element (mvp's <c-button>), so only the address is captured.
 IMPORT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/import/)"')
 
-# The preview's own confirm control (T512, US-4): unlike every other pattern
-# in this module it matches a <form>'s action, not an <a>'s href — the
-# control that carries out a previewed import is a POST, never a link
-# (decisions.md D16, import_report.html).
+# The preview's own confirm control (FS-011): unlike every other pattern in
+# this module it matches a <form>'s action, not an <a>'s href — the control
+# that carries out a previewed import is a POST, never a link.
 CONFIRM_IMPORT_RE = re.compile(
     r'<form[^>]+action="(?P<path>/catalogue/import/confirm/)"'
 )
 
-# The preview's own restart control (T918, US-6): same shape as
+# The preview's own restart control (FS-011): same shape as
 # CONFIRM_IMPORT_RE — a <form>'s action, since discarding the staged file is
-# a POST, never a link (import_preview.html).
+# a POST, never a link.
 RESTART_IMPORT_RE = re.compile(
     r'<form[^>]+action="(?P<path>/catalogue/import/restart/)"'
 )
 
 
 class FormFieldParser(HTMLParser):
-    """Field name → current value for the first ``<form>`` on a page (T021, D-9).
+    """Field name → current value for the first ``<form>`` on a page (FS-008).
 
     Walks ``input``, ``select``/``option`` and ``textarea`` tags the way a
     browser's own form submission would: an element with no ``name``
@@ -102,8 +96,8 @@ class FormFieldParser(HTMLParser):
     otherwise its first option (a browser's own default), and a
     ``textarea``'s value is its text content. This is what lets a caller post
     the whole form back with one field changed rather than build a payload by
-    hand — posting only the changed field blanks the rest, for the
-    ``construct_instance`` reason plan.md D-3 states.
+    hand — posting only the changed field blanks the rest, which
+    ``construct_instance`` would otherwise do.
     """
 
     def __init__(self):
@@ -120,6 +114,7 @@ class FormFieldParser(HTMLParser):
         self.textarea_chunks: list[str] = []
 
     def handle_starttag(self, tag, attrs):
+        """Record the field this start tag contributes, if any."""
         attr_dict = dict(attrs)
         if tag == "form":
             if not self.first_form_done:
@@ -163,6 +158,7 @@ class FormFieldParser(HTMLParser):
                 self.fields.setdefault(self.current_textarea, "")
 
     def handle_endtag(self, tag):
+        """Close off tracking for the tag this end tag closes."""
         if tag == "form":
             if self.in_form:
                 self.first_form_done = True
@@ -185,12 +181,13 @@ class FormFieldParser(HTMLParser):
             self.textarea_chunks = []
 
     def handle_data(self, data):
+        """Accumulate text content while inside a ``textarea``."""
         if self.current_textarea is not None:
             self.textarea_chunks.append(data)
 
 
 def form_fields(body: str) -> dict[str, str]:
-    """The name → value pairs the first ``<form>`` in ``body`` would post (T021, D-9)."""
+    """Return the name → value pairs the first ``<form>`` in ``body`` would post (FS-008)."""
     parser = FormFieldParser()
     parser.feed(body)
     return parser.fields
@@ -199,21 +196,21 @@ def form_fields(body: str) -> dict[str, str]:
 def encode_multipart(
     fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]
 ) -> tuple[bytes, str]:
-    """Build a ``multipart/form-data`` body and its ``Content-Type`` header value (T301, T303).
+    """Build a ``multipart/form-data`` body and its ``Content-Type`` header value (FS-011).
 
     ``post`` below urlencodes a plain field dict, which is what every write-pass
     form on the catalogue needs — none of them carries a file. The import form
-    does, and a file cannot ride inside a urlencoded body (D-9's own reasoning
-    for ``post`` does not extend to this), so this is a second encoder beside
-    it, not a change to it.
+    does, and a file cannot ride inside a urlencoded body, so this is a second
+    encoder beside it, not a change to it.
 
     Args:
         fields: Ordinary form fields, name to value.
         files: File fields, name to ``(filename, content, content_type)``.
 
     Returns:
-        ``(body, content_type)`` — ``content_type`` carries the boundary, and a
-        caller sends it as the request's own ``Content-Type`` header.
+        tuple[bytes, str]: The encoded body and its content-type header
+        value, which carries the boundary and which a caller sends as the
+        request's own ``Content-Type``.
     """
     boundary = uuid.uuid4().hex
     lines: list[bytes] = []
@@ -236,14 +233,14 @@ def encode_multipart(
 
 
 class SmokeCheckFailed(Exception):
-    """The URL, status and a bounded body excerpt of a failed check (FR-020)."""
+    """The URL, status and a bounded body excerpt of a failed check (FS-007)."""
 
 
 class DemoWalk:
-    """Walks the demo from its catalogue list, following links only (plan.md D-5, D-9).
+    """Walks the demo from its catalogue list, following links only (FS-007).
 
     ``self.opener`` is built once and reused for every request the walk
-    makes, read or write (T021). A create or edit form sets a CSRF cookie
+    makes, read or write (FS-008). A create or edit form sets a CSRF cookie
     while it is GET'd, and the walk's own POST back to that same form has to
     carry it — two independent ``urlopen`` calls would not share that state,
     so one ``HTTPCookieProcessor``-backed opener carries it across the whole
@@ -257,6 +254,7 @@ class DemoWalk:
         )
 
     def run(self):
+        """Walk every check in order, starting from the catalogue list."""
         list_url = f"{self.base_url}/catalogue/"
         list_body = self.get(list_url)
         item_links = ITEM_LINK_RE.findall(list_body)
@@ -272,16 +270,15 @@ class DemoWalk:
         self.walk_to_contributor(item_links)
         self.walk_write_pass(list_url, list_body)
         self.walk_related_rows(list_url, list_body)
-        # Last (T301, T304): unlike walk_write_pass, this leaves its
-        # references behind, and on a developer's persistent demo database
-        # they accumulate across runs. Every check above it has already run
-        # against the catalogue as the seed alone left it — putting this
-        # earlier would make walk_narrowed_catalogue's exact-membership
-        # assertions fail on the second run of the day.
+        # Last (FS-011): unlike walk_write_pass, this leaves its references
+        # behind, and on a developer's persistent demo database they
+        # accumulate across runs — putting it earlier would make
+        # walk_narrowed_catalogue's exact-membership assertions fail on the
+        # second run of the day.
         self.walk_import(list_url, list_body)
 
     def walk_narrowed_catalogue(self, list_url, list_body):
-        """A search, a filter, and a page move over a narrowed result (FR-033, decisions.md D22).
+        """A search, a filter, and a page move over a narrowed result (FS-010).
 
         Each step submits one query parameter alone, the same as a browser
         leaving every other filter control untouched — a multi-select
@@ -343,9 +340,8 @@ class DemoWalk:
             )
 
         # A page move over a narrowed result: the seed's dominant language
-        # clears the page size (decisions.md D22), so a reader following
-        # the rendered page-2 link lands on a genuine second page of a
-        # genuinely narrowed set.
+        # clears the page size (FS-010), so a reader following the rendered
+        # page-2 link lands on a genuine second page of a narrowed set.
         narrowed_url = f"{list_url}?{urllib.parse.urlencode({'language': 'en'})}"
         narrowed_body = self.get(narrowed_url)
         if "Cien años de soledad" in narrowed_body:
@@ -400,7 +396,7 @@ class DemoWalk:
             )
 
     def walk_to_contributor(self, item_links):
-        """Follow the list's reference links in order until one has a contributor (plan.md D-5)."""
+        """Follow the list's reference links in order until one has a contributor (FS-007)."""
         tried = []
         for path, title in item_links:
             item_url = f"{self.base_url}{path}"
@@ -438,18 +434,17 @@ class DemoWalk:
         )
 
     def walk_write_pass(self, list_url, list_body):
-        """Create, correct and remove a reference over HTTP (T021, D-9).
+        """Create, correct and remove a reference over HTTP (FS-008).
 
         Follows the catalogue's own Add/Edit/Delete links, the same
-        discipline the read walk above uses — no address is typed by hand
-        (SC-003). Every POST carries the whole rendered form back with only
-        the field this step claims to change, built by ``form_fields``: a
-        bare field dict would blank the other fields for the
-        ``construct_instance`` reason plan.md D-3 states, which is exactly
-        the defect this pass exists to catch, and correcting a field this
-        way is also the over-HTTP proof of D-3's no-loss guarantee (SC-003).
+        discipline the read walk above uses — no address is typed by hand.
+        Every POST carries the whole rendered form back with only the field
+        this step claims to change, built by ``form_fields``: a bare field
+        dict would blank the other fields via ``construct_instance``, which
+        is exactly the defect this pass exists to catch, and correcting a
+        field this way is also the over-HTTP proof that no data is lost.
         Each step asserts the catalogue changed as it claims, never just that
-        a page returned 200 (FR-032, ADR-0018).
+        a page returned 200 (ADR-0018).
         """
         create_match = CREATE_LINK_RE.search(list_body)
         if create_match is None:
@@ -490,10 +485,10 @@ class DemoWalk:
                 list_after_create,
             )
 
-        # US-5, FR-028: reach an edit form from a row's own edit control on
-        # the list page, not only from the reference page below. Scoped to
-        # the row carrying this item's own link, so a different row's edit
-        # control landing on the right form by coincidence would not pass.
+        # Reach an edit form from a row's own edit control on the list page,
+        # not only from the reference page below (FS-009). Scoped to the row
+        # carrying this item's own link, so a different row's edit control
+        # landing on the right form by coincidence would not pass.
         item_row = next(
             (row for row in ROW_RE.findall(list_after_create) if item_path in row), None
         )
@@ -588,22 +583,20 @@ class DemoWalk:
             )
 
     def walk_related_rows(self, list_url, list_body):
-        """Credit a contributor, date the reference and give it an identifier
-        through the edit form's three related-row sets (T027, T028, US-4,
-        FR-042, FR-043).
+        """Credit a contributor, date and identify a reference through its edit form (FS-012).
 
         Follows the same Add and Edit links ``walk_write_pass`` does — the
-        three sets add nothing new to reach (T027's own finding: they
-        already render on the page that link leads to). Creates and removes
-        its own reference, the same discipline ``walk_write_pass`` uses, so
-        a run against a developer's persistent demo database leaves nothing
+        three related-row sets add nothing new to reach; they already render
+        on the page that link leads to. Creates and removes its own
+        reference, the same discipline ``walk_write_pass`` uses, so a run
+        against a developer's persistent demo database leaves nothing
         behind.
 
         Each addition is its own POST, checked on its own, so a broken flow
-        is named on its own step (SC-008) instead of being folded into one
-        submission where a second flow's success could mask the first's
-        failure. Every step asserts what the reference's own page now shows,
-        never a status code alone (ADR-0018).
+        is named on its own step instead of being folded into one submission
+        where a second flow's success could mask the first's failure. Every
+        step asserts what the reference's own page now shows, never a status
+        code alone (ADR-0018).
         """
         create_match = CREATE_LINK_RE.search(list_body)
         if create_match is None:
@@ -636,7 +629,7 @@ class DemoWalk:
             )
         edit_url = f"{self.base_url}{edit_match.group('path')}"
 
-        # Credit a contributor (US-1, FR-001 through FR-011).
+        # Credit a contributor (FS-012).
         contributor_name = f"Smoke Contributor {uuid.uuid4().hex[:6]}"
         contributor_fields = form_fields(self.get(edit_url))
         contributor_fields["item_names-0-role"] = "author"
@@ -659,7 +652,7 @@ class DemoWalk:
                 after_contributor_body,
             )
 
-        # Give the reference a date (US-2, FR-012 through FR-020).
+        # Give the reference a date (FS-012).
         date_value = "2021"
         date_fields = form_fields(self.get(edit_url))
         date_fields["item_dates-0-begin"] = date_value
@@ -679,7 +672,7 @@ class DemoWalk:
                 after_date_body,
             )
 
-        # Give the reference an identifier (US-3, FR-021 through FR-030).
+        # Give the reference an identifier (FS-012).
         identifier_value = f"10.9999/smoke-{uuid.uuid4().hex[:8]}"
         identifier_fields = form_fields(self.get(edit_url))
         identifier_fields["item_identifiers-0-type"] = "DOI"
@@ -703,7 +696,7 @@ class DemoWalk:
             )
 
         # This walk's own reference is not part of the seed and does not
-        # need to stay for anything downstream (unlike walk_import's, T304).
+        # need to stay for anything downstream (unlike walk_import's, FS-011).
         delete_match = DELETE_LINK_RE.search(after_identifier_body)
         if delete_match is None:
             self.fail(
@@ -717,26 +710,23 @@ class DemoWalk:
         self.post(delete_url, delete_url, delete_fields)
 
     def walk_import(self, list_url, list_body):
-        """Preview the fixture file, confirm it, and confirm both the message
-        left behind and the catalogue show it (T301, T304, T513, T918, US-4,
-        US-6).
+        """Preview the fixture file, confirm it, and confirm the catalogue and its message (FS-011).
 
         Follows the catalogue's own Import link, the same discipline every
-        other step in this class uses (SC-003). Submitting the form now
-        redirects to the preview's own address rather than rendering it
-        directly (FR-045, decisions.md D30), and ``self.fetch`` follows that
-        redirect the same way a browser would — the landed-on address is
-        checked against the preview's own, expected one, not merely against
-        "did not stay on the form". That response is asserted to be a
-        preview: labelled as one, reporting the same two entries that would
-        convert and the one that would not with the reason a reader could
-        act on (demo/seed/import-sample.bib, decisions.md D15), and the
+        other step in this class uses (FS-007). Submitting the form redirects
+        to the preview's own address rather than rendering it directly, and
+        ``self.fetch`` follows that redirect the same way a browser would —
+        the landed-on address is checked against the preview's own, expected
+        one, not merely against "did not stay on the form". That response is
+        asserted to be a preview: labelled as one, reporting the same two
+        entries that would convert and the one that would not with the
+        reason a reader could act on (demo/seed/import-sample.bib), and the
         catalogue is checked to still hold none of them. Only then is the
         preview's own confirm control followed, which redirects again, this
-        time to the catalogue with a message stating the counts (FR-052,
-        decisions.md D31) — there is no success page or address any more —
-        and the catalogue is re-fetched to confirm the references actually
-        arrived, not only that the preview claimed they would.
+        time to the catalogue with a message stating the counts — there is
+        no success page or address any more — and the catalogue is
+        re-fetched to confirm the references actually arrived, not only that
+        the preview claimed they would.
         """
         import_match = IMPORT_LINK_RE.search(list_body)
         if import_match is None:
@@ -799,7 +789,7 @@ class DemoWalk:
                     list_before_confirm,
                 )
 
-        # Restart (FR-051): discards this preview's staged file and returns
+        # Restart (FS-011): discards this preview's staged file and returns
         # to an empty form. Exercised and confirmed before the real run
         # below stages a fresh file of its own — restarting is a detour, not
         # the ending this walk is here to prove.
@@ -893,9 +883,9 @@ class DemoWalk:
                 )
 
     def _check_import_report(self, url, body, what):
-        """The three assertions a preview and a real report both have to satisfy (T513).
+        """The three assertions a preview and a real report both have to satisfy (FS-011).
 
-        A preview reports exactly what a real import would (FR-038), so
+        A preview reports exactly what a real import would, so
         ``walk_import`` runs this once against each response rather than
         keeping two copies of the same three checks.
         """
@@ -920,12 +910,12 @@ class DemoWalk:
             )
 
     def get(self, url):
-        """GET url, following redirects, and fail if any lands on a login page (FR-005, T015)."""
+        """GET url, following redirects, and fail if any lands on a login page (FS-007)."""
         body, _final_url = self.fetch(url, url)
         return body
 
     def post(self, url, referer, fields):
-        """POST fields to url through the walk's shared opener (T021, D-9).
+        """POST fields to url through the walk's shared opener (FS-008).
 
         ``referer`` is the page the form was rendered on — the walk always
         posts a create or edit form back to the address it was fetched from,
@@ -933,7 +923,7 @@ class DemoWalk:
         named for what it is documents why a ``Referer`` header is sent at
         all: the demo's ``CsrfViewMiddleware`` only needs a CSRF cookie over
         plain HTTP, but sending ``Referer`` too matches what a browser
-        actually sends and is what plan.md D-9 specifies.
+        actually sends.
 
         Returns ``(body, final_url)`` — a caller asserts where the response
         landed as well as what it carries, since create and edit are
@@ -947,7 +937,7 @@ class DemoWalk:
         """Send request — a URL string or a ``urllib.request.Request`` — through the shared opener.
 
         Fails if the response is unsuccessful or lands on a login page
-        (FR-005). ``display_url`` is what a failure reports: a ``Request``
+        (FS-007). ``display_url`` is what a failure reports: a ``Request``
         knows its own address too, but passing it explicitly keeps this
         method from needing to special-case which kind of argument it got.
         """
@@ -961,7 +951,7 @@ class DemoWalk:
         except urllib.error.URLError as exc:
             self.fail(display_url, None, f"could not connect: {exc.reason}")
 
-        # The whole walk is unauthenticated (FR-005) — a redirect to a login
+        # The whole walk is unauthenticated (FS-007) — a redirect to a login
         # page anywhere in it is a failure of that openness, checked rather
         # than assumed.
         if "login" in urllib.parse.urlparse(final_url).path.lower():
@@ -975,11 +965,17 @@ class DemoWalk:
         return body, final_url
 
     def fail(self, url, status, reason, body=""):
+        """Raise ``SmokeCheckFailed`` with a bounded excerpt of body."""
         excerpt = body[:BODY_EXCERPT_LIMIT]
         raise SmokeCheckFailed(f"{url} [{status}]: {reason}\n{excerpt}")
 
 
 def main(argv):
+    """Run the walk against ``argv[1]`` as the base URL, or ``http://127.0.0.1:8000`` if absent.
+
+    Prints the outcome and returns the process exit code: 0 on success, 1 if
+    a check failed.
+    """
     base_url = argv[1] if len(argv) > 1 else "http://127.0.0.1:8000"
     try:
         DemoWalk(base_url).run()

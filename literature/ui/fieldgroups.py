@@ -1,12 +1,13 @@
-"""The item-type-to-field mapping the write form scopes itself by (plan.md D-1, D-2).
+"""The item-type-to-field mapping the write form scopes itself by.
 
 CSL JSON publishes no such mapping — the schema validates every property on
 every type, and the specification (Appendix III, item types; Appendix IV,
-variables) describes the two separately (research.md §1). This module is the
+variables) describes the two separately
+(specs/008-add-edit-remove-references/research.md §1). This module is the
 package's own artefact, authored against six stated criteria rather than
-inferred, and FR-004 requires the reasoning to be on record: every entry in
-``TYPE_GROUPS`` below carries a one-line comment naming the criterion that put
-it there.
+inferred (specs/008-add-edit-remove-references/plan.md D-1, D-2): every entry
+in ``TYPE_GROUPS`` below carries a one-line comment naming the criterion that
+put it there.
 
 **``titles`` is never assigned by any type.** None of the six criteria name it
 — Appendix III and IV give no type-scoped evidence for the alternate-title
@@ -16,7 +17,8 @@ field" toggle, for every type, rather than being guessed into a default view.
 
 Sits in ``literature/ui/`` and not the core: ``tests/test_ui/test_architecture.py``
 forbids the core importing anything the front end needs, and this mapping
-governs presentation, never what can be stored (D-1).
+governs presentation, never what can be stored
+(specs/008-add-edit-remove-references/plan.md D-1).
 """
 
 from django.utils.translation import gettext_lazy as _
@@ -25,7 +27,8 @@ from literature.choices import DateType, ItemType
 
 #: Field membership, one field in exactly one group (tests/test_ui/test_fieldgroups.py
 #: TestFieldPartition). Grouped as ``models.py`` already organises ``Item``,
-#: which is itself CSL's own grouping (plan.md D-1).
+#: which is itself CSL's own grouping
+#: (specs/008-add-edit-remove-references/plan.md D-1).
 GROUPS: dict[str, tuple[str, ...]] = {
     "core": ("type", "citation_key", "title", "abstract"),
     "general": (
@@ -110,7 +113,9 @@ GROUP_LABELS = {
 
 # --- Per-type assignment ---------------------------------------------------
 #
-# D-1's criteria, applied in this order to every type below:
+# Each type's groups follow the criteria in
+# specs/008-add-edit-remove-references/plan.md (D-1); the code after each
+# entry below names the deciding criterion.
 #
 #   C1   A group Appendix III names for that type.
 #   C2   A group whose fields Appendix IV defines in terms of that type.
@@ -123,7 +128,7 @@ GROUP_LABELS = {
 #   C5   `original` where republication or translation is ordinary.
 #   C6   Otherwise: not used. Absence is the default.
 #
-# C4 and C5 name no worked examples in plan.md — applying them is this task's
+# D-1 names no worked examples for C4 and C5 — applying them is this task's
 # own judgement call, so each C4/C5 line below states the sub-case reasoned
 # from, not just the criterion number:
 #
@@ -133,24 +138,26 @@ GROUP_LABELS = {
 #        `container`, the position within it via `numbering`.
 #   C4c  a document identified by an official/report number
 #
-# Correction (T030): the first pass applied C2 as though the four clusters
-# named in plan.md D-1 point 2's closing sentence (legal/review/event/
-# physical) were the whole of it, and never reached C2a or the itemized
-# evidence the same paragraph states ahead of that sentence. Re-derived below
-# against the full itemized list: `container-title`'s own definition names
-# chapter, article-journal, song and speech; `version` names software;
-# `chapter-number` names chapter and song; `number-of-volumes` and `ISBN`
-# name the book-like types; `authority`/`jurisdiction`/`division` name patent
-# in addition to the named legal-types cluster.
+# Correction (specs/008-add-edit-remove-references/tasks.md T030): the first
+# pass applied C2 as though the four clusters named in D-1 point 2's closing
+# sentence (legal/review/event/physical) were the whole of it, and never
+# reached C2a or the itemized evidence the same paragraph states ahead of
+# that sentence. Re-derived below against the full itemized list:
+# `container-title`'s own definition names chapter, article-journal, song and
+# speech; `version` names software; `chapter-number` names chapter and song;
+# `number-of-volumes` and `ISBN` name the book-like types;
+# `authority`/`jurisdiction`/`division` name patent in addition to the named
+# legal-types cluster.
 #
 # Thirteen of the 45 types are outside Zotero's 32-type coverage entirely
-# (research.md §1) and rest on the criteria alone, with no plausibility check
-# available: classic, collection, entry, event, figure, musical_score,
-# pamphlet, performance, periodical, regulation, review, review-book, treaty.
-# Every other type's resolved field count (core + general + its extra groups,
-# 11 baseline) is checked against Zotero's covered-type band (16-35, median
-# 24); nine sit genuinely below it, and book alone sits genuinely above it —
-# each with a stated reason rather than a forced fit.
+# (specs/008-add-edit-remove-references/research.md §1) and rest on the
+# criteria alone, with no plausibility check available: classic, collection,
+# entry, event, figure, musical_score, pamphlet, performance, periodical,
+# regulation, review, review-book, treaty. Every other type's resolved field
+# count (core + general + its extra groups, 11 baseline) is checked against
+# Zotero's covered-type band (16-35, median 24); nine sit genuinely below it,
+# and book alone sits genuinely above it — each with a stated reason rather
+# than a forced fit.
 TYPE_GROUPS: dict[str, frozenset[str]] = {
     # C4a — periodical article: volume, issue, page. CSL's bare "article" is
     # the generic/unspecified variant — no host is named for it the way one
@@ -304,12 +311,14 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
 
 # --- Per-type date-slot assignment -----------------------------------------
 #
-# A sibling mapping to TYPE_GROUPS above (plan.md D-5), never folded into
-# `GROUPS`: research.md R6 measured why — `GROUPS` is flattened straight into
-# `ItemForm.Meta.fields`, and a name that is not an `Item` column raises
-# `FieldError` at class-definition time. CSL's six date slots are rows on
-# `ItemDate`, not columns on `Item`, so they get a second structure under the
-# same ADR-0020 discipline rather than a widened first one.
+# A sibling mapping to TYPE_GROUPS above
+# (specs/008-add-edit-remove-references/plan.md D-5), never folded into
+# `GROUPS`: specs/012-reference-contributors-dates/research.md (R6) measured
+# why — `GROUPS` is flattened straight into `ItemForm.Meta.fields`, and a
+# name that is not an `Item` column raises `FieldError` at class-definition
+# time. CSL's six date slots are rows on `ItemDate`, not columns on `Item`,
+# so they get a second structure under the same ADR-0020 discipline rather
+# than a widened first one.
 #
 # `issued` is always-on, the way `core` and `general` are for `TYPE_GROUPS`
 # above, and for the same reason: a bibliographic reference with no issue
@@ -319,7 +328,8 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
 # Every other entry names the slots that additionally lead for that type,
 # decided against these criteria and CSL's own two appendices alone —
 # https://docs.citationstyles.org/en/stable/specification.html, Appendix III
-# (Types) and Appendix IV (Variables, Date Variables):
+# (Types) and Appendix IV (Variables, Date Variables). The code after each
+# entry below names the deciding criterion, same approach as `TYPE_GROUPS`:
 #
 #   DC1  `accessed` — Appendix III's own definition of the type uses the
 #        word "online" to describe it directly.
@@ -413,7 +423,7 @@ class FieldGroups:
     #: Groups every type carries regardless of its own ``TYPE_GROUPS`` entry.
     #: ``processor`` is deliberately absent from this set and from every
     #: entry above — a CSL processor assigns those values, not a person
-    #: filling in a form (plan.md D-1).
+    #: filling in a form (specs/008-add-edit-remove-references/plan.md D-1).
     ALWAYS_ON = frozenset({"core", "general"})
 
     @classmethod
@@ -435,7 +445,8 @@ class FieldGroups:
     def groups_holding_values(cls, item) -> frozenset[str]:
         """Return the groups with at least one non-empty field on ``item``.
 
-        This is the forced-visible set FR-010 and FR-014 ask for: a group the
+        This is the forced-visible set FR-010 and FR-014
+        (specs/008-add-edit-remove-references/spec.md) ask for: a group the
         current type would not otherwise show still renders when a stored
         value already lives in one of its fields. "Non-empty" matches
         :func:`literature.ui.fields.scalar_fields`'s own test — ``None``, an

@@ -129,11 +129,11 @@ class IdentifierType(models.TextChoices):
     """Known CSL JSON identifier field enumeration (6 values).
 
     Lists the well-known identifier field names extracted as top-level
-    CSL JSON properties. Unknown identifier types are also stored but
-    without choices validation (FR-017).
+    CSL JSON properties. Unknown identifier types are also stored, but
+    without choices validation.
 
     Pure acronym labels (DOI, ISBN, ISSN, PMID, PMCID, URL) are exempt
-    from i18n wrapping per FR-018.
+    from i18n wrapping.
     """
 
     DOI = "DOI", "DOI"
