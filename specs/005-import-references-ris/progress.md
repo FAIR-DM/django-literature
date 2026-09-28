@@ -35,11 +35,11 @@ exist when the spec was written:
 
 - **Article XIII — Data-model conventions.** No new model fields in this feature, so it bites only
   if the plan proposes one.
-- **Article XIV — Test structure & fixtures.** `tests/test_importers/test_ris.py` already satisfies
+- **Testing standard §4 — Test structure & fixtures.** `tests/test_importers/test_ris.py` already satisfies
   the mirror rule; the class-grouping and factory rules constrain how the suite is written.
-- **Article XV — Cohesion.** The consequential one. The existing `bibtex.py` is 15 module-level
+- **Article XIV — Cohesion.** The consequential one. The existing `bibtex.py` is 15 module-level
   functions that share subjects (normalization, name parsing, date parsing), which is the shape
-  Article XV now rules out. RIS is planned to the article; `bibtex.py` is pre-existing drift and
+  Article XIV now rules out. RIS is planned to the article; `bibtex.py` is pre-existing drift and
   stays out of scope under the spec's own assumption that the BibTeX format is not modified.
 
 ## 2026-08-05 — S3 PLAN → S3R DESIGN_REVIEW

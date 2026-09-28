@@ -1,7 +1,7 @@
 """Tests for shared identifier normalization (spec 005 T005).
 
 ``IdentifierNormalizer`` is exactly the two format-neutral helpers extracted from
-``bibtex.py`` — ``_normalize_doi`` and ``_normalize_isbn`` — moved verbatim, per Article XV,
+``bibtex.py`` — ``_normalize_doi`` and ``_normalize_isbn`` — moved verbatim, per Article XIV,
 onto a class both the BibTeX and RIS formats can call (plan.md "Shared normalization").
 """
 

@@ -18,7 +18,7 @@ import re
 class IdentifierNormalizer:
     """Normalization for identifier values recoverable into a form the catalogue accepts.
 
-    Grouped per Article XV: both methods share a subject — cleaning one identifier value ahead of
+    Grouped per Article XIV: both methods share a subject — cleaning one identifier value ahead of
     validation — so they belong on a class rather than as two module-level functions.
     """
 

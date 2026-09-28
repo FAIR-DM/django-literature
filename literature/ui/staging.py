@@ -1,7 +1,7 @@
 """Hold an uploaded file on disk between a preview and its confirmation (US-4,
 decisions.md D16).
 
-New module rather than an addition to ``views.py`` (Article XV): saving,
+New module rather than an addition to ``views.py`` (Article XIV): saving,
 reading, discarding and sweeping a staged file share one subject — the file
 itself — and none of it is a view or a form. What is deliberately *not*
 here is any notion of which reader staged which file: that scoping is

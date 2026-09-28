@@ -1,6 +1,6 @@
 """Tests for ``literature/ui/views.py``.
 
-Article XIV: one source module, one test module — the per-view split is
+The testing standard (§4): one source module, one test module — the per-view split is
 expressed with classes, one per story (``TestItemListView`` for US-1,
 ``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
 """

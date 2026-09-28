@@ -397,7 +397,7 @@ TYPE_DATE_SLOTS: dict[str, frozenset[str]] = {
 
 
 class FieldGroups:
-    """Lookups over the mapping above (Article XV — they share one subject).
+    """Lookups over the mapping above (Article XIV — they share one subject).
 
     A constant and a few functions, not a registry or a settings-overridable
     table (Article III) — the mapping is data a subclass may extend the same

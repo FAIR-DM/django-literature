@@ -68,7 +68,7 @@ US-1's `views.py` imports `mvp` directly — a cleanup, not a defect.
 Did: `literature/ui/__init__.py` (docstring only) and `literature/ui/apps.py`
 (`LiteratureUIConfig`, `name = "literature.ui"`, `label = "literature_ui"`, translated
 `verbose_name`, no `default_auto_field` — the app has no models). Created
-`tests/test_ui/__init__.py` (needed by this task's own test collection; Article XIV also assigns
+`tests/test_ui/__init__.py` (needed by this task's own test collection; testing standard §4 also assigns
 it to T004, which finds it already present).
 
 Test-first: `tests/test_ui/test_apps.py` — `TestLiteratureUIConfig` boots Django in a subprocess

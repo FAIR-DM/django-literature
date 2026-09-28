@@ -1,6 +1,6 @@
 """Tests for ``literature/ui/tables.py``.
 
-Article XIV: one source module, one test module — the per-column split is
+The testing standard (§4): one source module, one test module — the per-column split is
 expressed with classes, one per column (``TestItemTableMeta`` for the table's
 own configuration, ``Test<Column>Column`` per column thereafter).
 """

@@ -59,7 +59,7 @@ a project that never installs the front end should get the same diagnosis and th
 | VIII — Internationalization | Every new string is `gettext_lazy`-wrapped, and the message catalogue is regenerated as an explicit task (research R7 — nothing automates it). |
 | XI — Data integrity | The end-without-begin path is a live export data-loss route (research R5); closing it is squarely this article. |
 | XIII — Data-model conventions | No model field is added, so the `help_text`/`verbose_name` obligation applies only to the new form fields. |
-| XIV — Test structure | Tests mirror the source tree; factories exist for all four models already. |
+| Testing standard §4 — Test structure | Tests mirror the source tree; factories exist for all four models already. |
 
 No violation to record in Complexity Tracking.
 

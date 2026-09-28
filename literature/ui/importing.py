@@ -3,7 +3,7 @@
 New module rather than an addition to ``forms.py``, ``tables.py`` or
 ``views.py`` (plan.md "The three seams worth naming before implementation"):
 a presentation row built from an ``ImportResult`` is neither a view nor a
-form, and Article XV wants the row-building grouped on a class rather than
+form, and Article XIV wants the row-building grouped on a class rather than
 scattered across module functions. Its mirror test is
 ``tests/test_ui/test_importing.py``.
 """

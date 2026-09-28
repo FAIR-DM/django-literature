@@ -3,7 +3,7 @@
 New module rather than an addition to ``views.py`` (plan.md D-3): a table
 class is neither a view nor a form, and ``views.py`` is already long. Its
 mirror test is ``tests/test_ui/test_tables.py``, one module split by
-``Test<Column>`` classes per Article XIV.
+``Test<Column>`` classes per the testing standard (§4).
 """
 
 import django_tables2 as tables

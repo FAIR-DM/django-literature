@@ -38,7 +38,7 @@ bound.
 
 **Constraints**: the core resolves no front-end dependency (Article X and the architecture
 constraints); every user-facing string translatable (Article VIII); test modules mirror the source
-tree with class grouping (Article XIV); new lines ≥85% covered, package ≥90% (`codecov.yml`).
+tree with class grouping (testing standard §4); new lines ≥85% covered, package ≥90% (`codecov.yml`).
 
 **Scale/Scope**: one form, one view, two page templates, one action component, one four-line card-list
 wrapper, one table, one presentation module, one core fix, one demo fixture and one demo walk step.
@@ -58,7 +58,7 @@ wrapper, one table, one presentation module, one core fix, one demo fixture and 
 | VIII — i18n (non-negotiable) | Every label, every outcome word, every error, every button. | `gettext_lazy` in Python, `{% translate %}` in templates. The outcome words come from the existing `Outcome` text choices, already translated. |
 | X — Embeddable package | Nothing may require the host to change structure. | Rules out the session-backed report (`research.md` R6). URL stays namespaced and optional. |
 | XII — Living demo | The demo must show the feature and guard it. | US-3 is exactly this. |
-| XIII / XIV / XV | Data-model conventions do not bite (no model). Test layout mirrors, grouped in classes. Related behaviour grouped in a class rather than loose functions. | The report adapter is a class, not four module functions. |
+| XIII / testing §4 / XIV | Data-model conventions do not bite (no model). Test layout mirrors, grouped in classes. Related behaviour grouped in a class rather than loose functions. | The report adapter is a class, not four module functions. |
 
 **No violations to track.** The one thing that reads like a violation — a core change inside a
 front-end feature — is a defect fix that the feature cannot proceed without, recorded as D10 and
@@ -120,7 +120,7 @@ README.md · CHANGELOG.md · docs/index.md · docs/api/ui.md
 there: forms in `forms.py`, views in `views.py`, tables in `tables.py`, templates flat under
 `literature/ui/`. One new module, `importing.py`, holds the adapter between the import result and
 the page — justified the way `tables.py` justifies itself, as something that is neither a view nor a
-form, and by Article XV, which wants the row-building grouped on a class rather than scattered.
+form, and by Article XIV, which wants the row-building grouped on a class rather than scattered.
 
 ### The three seams worth naming before implementation
 

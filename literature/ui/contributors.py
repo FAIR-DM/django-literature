@@ -24,7 +24,7 @@ from literature.models import Name
 class ContributorGroups:
     """One item's contributors, grouped by role and headed by that role's name.
 
-    A class rather than a pair of functions per Article XV: the labels are the
+    A class rather than a pair of functions per Article XIV: the labels are the
     part of this a host project is most likely to want its own version of — a
     repository that calls its authors "Creators", say — and a subclass
     overriding :attr:`ROLE_LABELS` or :meth:`role_label` is a supported way to
