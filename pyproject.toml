@@ -129,7 +129,7 @@ keywords = ["django", "literature", "publications", "scientific", "research"]
 dependencies = [
     'django>=4.2',
     'django-partial-date',
-    "bibtexparser (>=1.4.4,<2)",
+    "bibtexparser>=1.4.4,<3",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
