@@ -14,8 +14,6 @@ from tests.factories import ItemFactory, ItemNameFactory, NameFactory
 
 
 class TestRoleLabel:
-    """A role's heading carries its own plural form, not a template-level "s"."""
-
     def test_one_name_reads_the_singular(self):
         assert ContributorGroups.role_label(NameRole.AUTHOR, 1) == "Author"
 
@@ -52,8 +50,6 @@ class TestRoleLabel:
 
 @pytest.mark.django_db
 class TestContributorGroups:
-    """Contributors grouped by role, in the order the store holds them."""
-
     def test_a_role_with_several_names_is_one_group_headed_by_the_plural(self):
         item = ItemFactory()
         for _ in range(3):
@@ -130,9 +126,6 @@ class TestContributorGroups:
 
 @pytest.mark.django_db
 class TestStoredContributorNames:
-    """The stored-name suggestions offered to every contributor row's
-    family-name input (plan.md D-1, D-12, T008)."""
-
     def test_returns_the_distinct_stored_family_names(self):
         NameFactory(family="Aardvark")
         NameFactory(family="Zebra")

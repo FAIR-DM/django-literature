@@ -1,21 +1,8 @@
-"""Tests for settings-declared formats (contracts/importers.md "The registry"), US3.
+"""Tests for formats declared in the ``LITERATURE`` setting.
 
-Replaces ``test_registry.py`` (T028 deletes it): a format is no longer
-registered by decorating it and holding it in module-level state, it is
-declared by dotted path in the ``LITERATURE`` setting and resolved on read.
-``import_file``'s name-based lookup (FR-018, T018) is exercised here too,
-same as it was in the file this replaces, since it is ``get_format`` that
-makes a name resolvable at all.
-
-Every test that sets ``LITERATURE`` uses the ``settings`` fixture rather
-than mutating ``django.conf.settings`` directly, so ``django.test.signals``'
-``setting_changed`` fires on the way in *and* on the way out — the signal
-``literature.importers.config`` listens for to invalidate its cache. Two
-formats used only as fixtures (:class:`ConfiguredFormat`, :class:`NotABibFormat`,
-:class:`IncompleteFormat`) are defined at module level, because settings
-resolution needs a real dotted import path — a class built by a factory
-closure, the way ``conftest.py``'s other formats are, has no path a setting
-could name.
+Tests set ``LITERATURE`` through the ``settings`` fixture so ``setting_changed`` fires both ways
+and invalidates the module's cache. The fixture formats live at module level because a setting
+can only name a real dotted path.
 """
 
 import io
@@ -77,16 +64,11 @@ DOES_NOT_IMPORT_PATH = "tests.test_importers.test_config.DoesNotExist"
 
 class TestAvailableFormats:
     def test_a_configured_format_is_enumerated(self, settings):
-        """FR-017."""
         settings.LITERATURE = {"BIB_FORMATS": [CONFIGURED_PATH]}
 
         assert available_formats()["configured"] is ConfiguredFormat
 
     def test_an_unset_setting_yields_the_shipped_defaults(self):
-        """FR-020: the built-in behaviour works with no configuration
-        (Article X). BibTeX landed with #22, so the default is no longer the
-        empty mapping this asserted while the package shipped no format; RIS
-        landed with #23, so bibtex is no longer the only one either."""
         from literature.importers.bibtex import BibTeXFormat
         from literature.importers.ris import RISFormat
 
@@ -102,18 +84,13 @@ class TestAvailableFormats:
         assert get_format("configured") is ConfiguredFormat
 
     def test_the_resolved_mapping_is_cached_across_calls(self, settings):
-        """The setting is read once per process, not once per call — proven
-        by asking twice without changing anything in between and getting the
-        identical object back, not merely an equal one."""
         settings.LITERATURE = {"BIB_FORMATS": [CONFIGURED_PATH]}
 
         assert available_formats() is available_formats()
 
     def test_the_cache_is_invalidated_when_the_setting_changes(self, settings):
-        """``override_settings``/the ``settings`` fixture fires
-        ``setting_changed``, which this module listens for — without that,
-        this test (and every use of ``settings.LITERATURE`` in this file)
-        would leak into whichever test ran next."""
+        # Without the setting_changed listener, every settings.LITERATURE override in this
+        # file would leak into whichever test ran next.
         settings.LITERATURE = {"BIB_FORMATS": []}
         assert dict(available_formats()) == {}
 
@@ -124,7 +101,6 @@ class TestAvailableFormats:
 @pytest.mark.django_db
 class TestImportByName:
     def test_a_configured_name_can_be_named_in_an_import(self, settings):
-        """FR-018."""
         settings.LITERATURE = {"BIB_FORMATS": [CONFIGURED_PATH]}
 
         result = get_format("configured")().import_file(io.StringIO("smith2020\n"))
@@ -133,7 +109,6 @@ class TestImportByName:
         assert result.format_name == "configured"
 
     def test_an_unconfigured_name_fails_naming_whats_configured(self, settings):
-        """FR-019."""
         settings.LITERATURE = {"BIB_FORMATS": [CONFIGURED_PATH]}
 
         with pytest.raises(UnknownFormat) as excinfo:
@@ -149,11 +124,6 @@ class TestImportByName:
 
 
 class TestAMisconfiguredEntryFailsAtFirstRead:
-    """FR-017 scenario 5: an entry that does not resolve, or resolves to
-    something unusable, fails naming the offending entry rather than
-    surfacing later as a format silently missing from the enumerated set.
-    """
-
     def test_a_path_that_does_not_import_fails_naming_the_entry(self, settings):
         settings.LITERATURE = {"BIB_FORMATS": [DOES_NOT_IMPORT_PATH]}
 
@@ -171,19 +141,12 @@ class TestAMisconfiguredEntryFailsAtFirstRead:
     def test_a_format_missing_its_required_stages_fails_naming_the_entry(
         self, settings
     ):
-        """A subclass that never implements ``parse``/``to_csl_json`` would
-        otherwise resolve cleanly and fail later with a raw ``TypeError``
-        from inside ``import_file`` — outside the exception vocabulary the
-        contract documents, and a long way from the misconfiguration."""
         settings.LITERATURE = {"BIB_FORMATS": [INCOMPLETE_PATH]}
 
         with pytest.raises(ImproperlyConfigured, match="IncompleteFormat"):
             available_formats()
 
     def test_a_format_with_a_blank_name_fails_naming_the_entry(self, settings):
-        """A complete subclass that forgot to set ``name`` would otherwise
-        resolve to an unreachable entry — nothing could ever key a mapping
-        on whitespace and expect ``get_format`` to find it."""
         settings.LITERATURE = {"BIB_FORMATS": [BLANK_NAME_PATH]}
 
         with pytest.raises(ImproperlyConfigured, match="BlankNameFormat"):
@@ -191,33 +154,19 @@ class TestAMisconfiguredEntryFailsAtFirstRead:
 
 
 class TestAMisshapenSettingFailsAtFirstRead:
-    """The same contract as a misconfigured entry, one level up: the shape of
-    the setting is checked before its contents, so the two plausible ways of
-    writing it wrongly say what is wrong rather than failing raw.
-    """
-
     def test_a_bare_list_says_the_setting_must_be_a_dict(self, settings):
-        """Most Django list settings *are* bare lists, so dropping the
-        ``{"BIB_FORMATS": ...}`` wrapper is the likeliest slip — and reaching
-        straight for ``.get`` on it raises the raw ``AttributeError`` this
-        module exists to convert into something actionable."""
         settings.LITERATURE = [CONFIGURED_PATH]
 
         with pytest.raises(ImproperlyConfigured, match="BIB_FORMATS"):
             available_formats()
 
     def test_a_single_path_written_without_a_list_names_the_value(self, settings):
-        """A bare string is iterable, so it would otherwise be walked
-        character by character and reported as a one-character import path —
-        an error message that describes a setting nobody wrote."""
         settings.LITERATURE = {"BIB_FORMATS": CONFIGURED_PATH}
 
         with pytest.raises(ImproperlyConfigured, match=CONFIGURED_PATH):
             available_formats()
 
     def test_a_tuple_of_paths_is_accepted(self, settings):
-        """Rejecting a string must not also reject the other obvious way of
-        writing a fixed sequence."""
         settings.LITERATURE = {"BIB_FORMATS": (CONFIGURED_PATH,)}
 
         assert available_formats()["configured"] is ConfiguredFormat

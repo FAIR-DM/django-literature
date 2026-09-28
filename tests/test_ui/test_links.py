@@ -1,4 +1,4 @@
-"""Tests for ``literature/ui/links.py`` — RS-001."""
+"""Tests for ``literature/ui/links.py``."""
 
 import pytest
 
@@ -6,8 +6,6 @@ from literature.ui.links import web_url
 
 
 class TestWebUrl:
-    """Only http and https reach an ``href``; everything else is plain text."""
-
     @pytest.mark.parametrize(
         "value",
         [

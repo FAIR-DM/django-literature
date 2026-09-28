@@ -21,8 +21,6 @@ def urlconf():
 
 
 class TestURLs:
-    """``literature/ui/urls.py`` — FR-003, FR-019, FR-032."""
-
     @pytest.mark.parametrize(
         ("name", "kwargs", "expected"),
         [
@@ -36,9 +34,9 @@ class TestURLs:
             assert reverse(name, kwargs=kwargs) == expected
 
     def test_the_catalogue_route_serves_the_table_by_default(self):
-        # FR-021 — the package's documented catalogue route serves the table
+        # The package's documented catalogue route serves the table
         # with no configuration. The route resolves to the one view in this
-        # app a project may choose (FR-022), which picks its class per
+        # app a project may choose, which picks its class per
         # request; which class it picks, and how a project changes it, is
         # tests/test_ui/test_catalogue.py's.
         with override_settings(ROOT_URLCONF=urlconf()):
@@ -46,8 +44,6 @@ class TestURLs:
         assert catalogue_view_class() is views.ItemTableView
 
     def test_importing_urls_has_no_import_time_side_effect_on_the_core(self):
-        """Parsed rather than imported-and-inspected: an import statement naming
-        ``literature`` is the failure mode, whether or not it is ever reached."""
         tree = ast.parse(URLS_PATH.read_text())
         imported_roots = set()
         for node in ast.walk(tree):
@@ -59,15 +55,11 @@ class TestURLs:
 
 
 class TestCreateRouteReverses:
-    """T007/T008 — the create flow's route, added by US-1 (plan.md D-6, D-8)."""
-
     def test_item_create_reverses(self):
         assert reverse("literature:item-create") == "/catalogue/add/"
 
 
 class TestUpdateRouteReverses:
-    """T017 — the update flow's route, added by US-2 (plan.md D-6, D-8)."""
-
     def test_item_update_reverses(self):
         assert (
             reverse("literature:item-update", kwargs={"pk": 1})
@@ -76,8 +68,6 @@ class TestUpdateRouteReverses:
 
 
 class TestDeleteRouteReverses:
-    """T020 — the delete flow's route, added by US-3 (plan.md D-6, D-8)."""
-
     def test_item_delete_reverses(self):
         assert (
             reverse("literature:item-delete", kwargs={"pk": 1})
@@ -86,8 +76,6 @@ class TestDeleteRouteReverses:
 
 
 class TestImportRouteReverses:
-    """T107/T108 — the import route, added by US-1 (plan.md "The three seams")."""
-
     def test_item_import_reverses(self):
         assert reverse("literature:item-import") == "/catalogue/import/"
 
@@ -96,9 +84,6 @@ class TestImportRouteReverses:
 
 
 class TestImportPreviewAndRestartRoutesReverse:
-    """T903/T904/T909/T910 — the preview and restart addresses, added by
-    US-6 (FR-045, FR-051)."""
-
     def test_item_import_preview_reverses(self):
         assert reverse("literature:item-import-preview") == "/catalogue/import/preview/"
 
@@ -119,19 +104,8 @@ class TestImportPreviewAndRestartRoutesReverse:
 
 
 class TestCRUDViewsReverse:
-    """plan.md D-6 — an action a view *shows* must have a resolvable route, or
-    ``get_breadcrumbs()`` raises ``NoReverseMatch`` at render time instead of
-    the button simply not appearing. Checking every ``show_<action>_action``
-    against ``crud_views`` (rather than listing action names by hand) is what
-    DR-006 fixed: a partial per-view override could pass a hand-picked
-    subset while still breaking on the action it left out.
-
-    Every view that carries ``crud_views`` is in the list below, including
-    ``ItemDeleteView``. The check is deliberately driven by each view's own
-    ``show_<action>_action`` flags rather than by a fixed set of action names,
-    so a view that switches an action on without a route to match fails here
-    rather than at render time.
-    """
+    # A shown action with no route raises NoReverseMatch at render, so this is driven by
+    # each view's show_<action>_action flags rather than a hand-picked list.
 
     @pytest.mark.parametrize(
         "view_class",
@@ -157,9 +131,7 @@ class TestCRUDViewsReverse:
             url_name = view_class.crud_views[action].format(
                 model_name=model_meta.model_name, app_name=model_meta.app_label
             )
-            # "import" joined the collection-level set at US-1 (decisions.md
-            # D14) — like "list"/"create" it names no object, so it takes no
-            # pk either.
+            # Like "list"/"create", "import" names no object, so it takes no pk.
             kwargs = {} if action in {"list", "create", "import"} else {"pk": 1}
             reverse(
                 url_name, kwargs=kwargs

@@ -1,10 +1,4 @@
-"""Tests proving django-mvp only ever arrives through the opt-in `ui` extra.
-
-There is no ``literature/ui/packaging.py`` to mirror against — the subject is
-``pyproject.toml`` itself — so this file is one of the standing non-mirror
-exceptions (T025 extends ``[tool.forge.conformance] non-mirror-paths`` with
-it; see decisions.md D13).
-"""
+"""Tests proving django-mvp only ever arrives through the opt-in ``ui`` extra."""
 
 import tomllib
 from pathlib import Path
@@ -17,8 +11,7 @@ def load_pyproject():
 
 
 def names_django_mvp(requirement):
-    """A PEP 508 requirement string names django-mvp if it starts with the
-    package name, ignoring any version specifier or environment marker."""
+    """Return whether a PEP 508 requirement string names django-mvp."""
     return (
         requirement.split(";")[0].split("(")[0].strip().split()[0].lower()
         == "django-mvp"
@@ -26,8 +19,6 @@ def names_django_mvp(requirement):
 
 
 class TestDjangoMVPIsOptOnly:
-    """FR-002 — installing the core alone resolves no front-end dependency."""
-
     def test_django_mvp_is_declared_in_the_ui_extra(self):
         pyproject = load_pyproject()
         ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
@@ -61,9 +52,6 @@ class TestDjangoMVPIsOptOnly:
 
 
 class TestOnlyLiteratureIsPackaged:
-    """FR-023 — the built distribution contains neither the demo project nor
-    its seed catalogue, because the packages declaration names nothing else."""
-
     def test_the_packages_declaration_includes_only_literature(self):
         pyproject = load_pyproject()
         wheel = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]
@@ -71,11 +59,6 @@ class TestOnlyLiteratureIsPackaged:
 
 
 class TestNoDemoOnlyDependencyEntersTheBuild:
-    """FR-024 — the demo adds no runtime dependency to the package, and
-    nothing existing only for the demo is resolved by a project installing
-    it. Both dependency lists are pinned to their known-good contents, so
-    any addition — whatever it is for — fails here first."""
-
     def test_the_hard_dependency_list_is_exactly_the_declared_runtime_dependencies(
         self,
     ):
@@ -90,7 +73,7 @@ class TestNoDemoOnlyDependencyEntersTheBuild:
     def test_the_ui_extra_is_exactly_the_front_end_packages(self):
         pyproject = load_pyproject()
         ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
-        # T001 raised the django-mvp floor to 0.19.3 for the inline formset
+        # The django-mvp floor is 0.19.3 for the inline formset
         # machinery the reference form composes its related rows from; the
         # pinned list moves with it, as it did at 0.19.1.
         assert ui_extra == [

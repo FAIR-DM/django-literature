@@ -1,12 +1,6 @@
 """Tests for the demo project's URL configuration.
 
-Same subprocess mechanism as ``test_commands.py`` and for the same reason: ``demo`` is deliberately
-absent from ``tests.settings`` (plan.md D-10), so the demo's own URLconf can only be exercised from
-an interpreter booted on ``demo.settings``.
-
-Nothing here touches the database. ``DEMO_DB_PATH`` still points at ``tmp_path`` because
-``demo.settings`` is loaded either way and a stray file next to the developer's real database is
-not worth the risk.
+Run in a subprocess booted on ``demo.settings``, for the same reason as ``test_commands.py``.
 """
 
 import json
@@ -71,8 +65,6 @@ def resolve_urls(db_path: Path) -> dict:
 
 
 class TestDemoUrls:
-    """The demo's URLconf gives the shell everything it reverses (decisions.md D9)."""
-
     def test_home_reverses_so_the_shell_menus_render_without_error(self, tmp_path):
         urls = resolve_urls(tmp_path / "db.sqlite3")
         assert urls["home"] == "/"

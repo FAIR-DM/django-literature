@@ -1,16 +1,9 @@
-"""Tests for shared identifier normalization (spec 005 T005).
-
-``IdentifierNormalizer`` is exactly the two format-neutral helpers extracted from
-``bibtex.py`` — ``_normalize_doi`` and ``_normalize_isbn`` — moved verbatim, per Article XIV,
-onto a class both the BibTeX and RIS formats can call (plan.md "Shared normalization").
-"""
+"""Tests for ``literature/importers/normalizers.py``."""
 
 from literature.importers.normalizers import IdentifierNormalizer
 
 
 class TestNormalizeDoi:
-    """Strips a resolver URL prefix or a ``doi:`` label, leaving the bare DOI (FR-025)."""
-
     def test_strips_https_doi_org_prefix(self):
         assert (
             IdentifierNormalizer.normalize_doi("https://doi.org/10.1234/x")
@@ -43,8 +36,6 @@ class TestNormalizeDoi:
 
 
 class TestNormalizeIsbn:
-    """Strips a redundant ``isbn:``/``isbn-13:`` label (FR-025)."""
-
     def test_strips_isbn_label(self):
         assert (
             IdentifierNormalizer.normalize_isbn("isbn:0-201-13447-0") == "0-201-13447-0"

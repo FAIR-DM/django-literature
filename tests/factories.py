@@ -1,10 +1,7 @@
-"""factory_boy factories for the literature models.
+"""factory_boy factories for the literature models, one per model.
 
-One factory per model. Tests build their fixtures on these instead of
-hand-constructing records. ``citation_key`` is driven by a sequence so repeated
-calls never collide on the unique key, and the related models auto-create their
-owning objects through ``SubFactory`` so a single ``ItemNameFactory()`` (or
-``ItemDateFactory`` / ``ItemIdentifierFactory``) call yields a fully-wired row.
+``SubFactory`` wires each related row to its owner, so ``ItemNameFactory()`` alone yields a
+complete row.
 """
 
 import factory

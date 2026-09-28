@@ -1,8 +1,4 @@
-"""Tests for literature.validators — FR-020 identifier value validation.
-
-Covers valid/invalid values for each known identifier type and verifies that
-unknown identifier types accept any value string without error.
-"""
+"""Tests for ``literature/validators.py``."""
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -20,8 +16,6 @@ def _clean_identifier(id_type, value):
 
 @pytest.mark.django_db
 class TestIdentifierValidation:
-    """Value-format validation dispatched per identifier type (FR-020)."""
-
     @pytest.mark.parametrize(
         "doi",
         [
@@ -32,7 +26,6 @@ class TestIdentifierValidation:
         ],
     )
     def test_doi_valid(self, doi):
-        """Valid DOIs (starting with 10.<4+digits>/) pass validation."""
         _clean_identifier(IdentifierType.DOI, doi)
 
     @pytest.mark.parametrize(
@@ -48,7 +41,6 @@ class TestIdentifierValidation:
         ],
     )
     def test_doi_invalid(self, doi):
-        """Malformed DOIs raise ValidationError."""
         with pytest.raises(ValidationError):
             _clean_identifier(IdentifierType.DOI, doi)
 
@@ -63,7 +55,6 @@ class TestIdentifierValidation:
         ],
     )
     def test_isbn_valid(self, isbn):
-        """Valid ISBN-10 and ISBN-13 values pass validation."""
         _clean_identifier(IdentifierType.ISBN, isbn)
 
     @pytest.mark.parametrize(
@@ -77,7 +68,6 @@ class TestIdentifierValidation:
         ],
     )
     def test_isbn_invalid(self, isbn):
-        """Invalid ISBN values raise ValidationError."""
         with pytest.raises(ValidationError):
             _clean_identifier(IdentifierType.ISBN, isbn)
 
@@ -91,7 +81,6 @@ class TestIdentifierValidation:
         ],
     )
     def test_issn_valid(self, issn):
-        """Valid ISSN values (correct format and check digit) pass validation."""
         _clean_identifier(IdentifierType.ISSN, issn)
 
     @pytest.mark.parametrize(
@@ -105,7 +94,6 @@ class TestIdentifierValidation:
         ],
     )
     def test_issn_invalid(self, issn):
-        """Malformed ISSN values raise ValidationError."""
         with pytest.raises(ValidationError):
             _clean_identifier(IdentifierType.ISSN, issn)
 
@@ -118,7 +106,6 @@ class TestIdentifierValidation:
         ],
     )
     def test_url_valid(self, url):
-        """Valid http/https/ftp URLs pass validation."""
         _clean_identifier(IdentifierType.URL, url)
 
     @pytest.mark.parametrize(
@@ -131,18 +118,15 @@ class TestIdentifierValidation:
         ],
     )
     def test_url_invalid(self, url):
-        """Relative or scheme-less URLs raise ValidationError."""
         with pytest.raises(ValidationError):
             _clean_identifier(IdentifierType.URL, url)
 
     @pytest.mark.parametrize("pmid", ["12345678", "1", "9999999999"])
     def test_pmid_valid(self, pmid):
-        """Numeric strings are valid PMIDs."""
         _clean_identifier(IdentifierType.PMID, pmid)
 
     @pytest.mark.parametrize("pmid", ["abc", "12 34", "PMID:1234", ""])
     def test_pmid_invalid(self, pmid):
-        """Non-numeric PMID values raise ValidationError."""
         with pytest.raises(ValidationError):
             _clean_identifier(IdentifierType.PMID, pmid)
 
@@ -150,12 +134,10 @@ class TestIdentifierValidation:
         "pmcid", ["PMC2728067", "PMC1234", "4567890", "1", "12345678901"]
     )
     def test_pmcid_valid(self, pmcid):
-        """The canonical PMC-prefixed form and a bare digit string are both valid."""
         _clean_identifier(IdentifierType.PMCID, pmcid)
 
     @pytest.mark.parametrize("pmcid", ["PMC", "PMC12a", "pmc1234", "abc", ""])
     def test_pmcid_invalid(self, pmcid):
-        """Values that are neither PMC-prefixed digits nor bare digits raise ValidationError."""
         with pytest.raises(ValidationError):
             _clean_identifier(IdentifierType.PMCID, pmcid)
 
@@ -168,19 +150,11 @@ class TestIdentifierValidation:
         ],
     )
     def test_unknown_type_accepts_any_value(self, id_type, value):
-        """Unknown identifier types are not validated — any value is accepted."""
         _clean_identifier(id_type, value)
 
 
 @pytest.mark.django_db
 class TestISBNChecksumDistinction:
-    """T020 (D-7, FR-027, SC-004) — a value of ISBN-10 or ISBN-13 shape whose check digit does
-    not match is reported apart from a value that does not have either shape at all, through a
-    distinct code (``invalid_isbn_checksum``) and a distinct message. Nothing about which values
-    are accepted or rejected changes — that is ``TestIdentifierValidation.test_isbn_valid`` and
-    ``test_isbn_invalid`` above, untouched.
-    """
-
     @pytest.mark.parametrize(
         "isbn",
         [
@@ -217,13 +191,6 @@ class TestISBNChecksumDistinction:
 
 @pytest.mark.django_db
 class TestISSNChecksumDistinction:
-    """#118 — an ISSN of the right shape whose check digit does not satisfy the standard's
-    modulo-11 checksum is reported apart from a value that does not have ISSN's ``NNNN-NNNX``
-    shape at all, through a distinct code (``invalid_issn_checksum``) and a distinct message —
-    the same distinction ``TestISBNChecksumDistinction`` already recovers for ISBN (D-7, split
-    from #48).
-    """
-
     @pytest.mark.parametrize(
         "issn",
         [

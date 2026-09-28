@@ -1,17 +1,7 @@
-"""Tests for ``demo/smoke.py`` — the guard's assertions (FR-018 through FR-022).
+"""Tests for ``demo/smoke.py``: the link patterns and checks the walk depends on.
 
-The script speaks real HTTP to a running demo and is not itself run under pytest
-(``demo/smoke.py``'s docstring). What is testable without a server is everything that
-decides whether the walk means anything: the two link patterns it follows, the prefix
-those patterns assume, the login-redirect check that keeps the walk unauthenticated
-(FR-005), and the bound on the body excerpt a failure reports (FR-020).
-
-Each pattern is asserted against the HTML the front end really renders. A pattern
-checked only against markup written here would keep passing after the templates moved
-on, which is the drift this feature exists to catch.
-
-``demo`` is absent from ``tests.settings.INSTALLED_APPS`` (plan.md D-10), but
-``demo.smoke`` imports nothing from Django, so importing it needs no app registry.
+Each pattern is asserted against the HTML the front end really renders, so it cannot keep
+passing after the templates move on.
 """
 
 import re
@@ -46,8 +36,6 @@ DEMO_URLS = Path(__file__).resolve().parent.parent.parent / "demo" / "urls.py"
 
 
 class TestItemLinkPattern:
-    """The pattern the walk follows from the catalogue list to a reference page."""
-
     def test_matches_the_anchor_the_catalogue_list_renders(self, client, db):
         item = ItemFactory(title="A Walked Reference")
 
@@ -72,15 +60,6 @@ class TestItemLinkPattern:
 
 
 class TestSecondPageLinkPattern:
-    """The pattern the walk follows from the catalogue list to its second page.
-
-    Widened for plan.md D-14/D-12 (T025): the query string now survives a
-    page move (django-mvp/django-mvp#270, closed here as #88), so a link
-    carrying another parameter alongside ``page=2`` is the real render, not
-    a future one — the pattern tolerates that shape without becoming so
-    loose it accepts a link that carries no page parameter at all.
-    """
-
     def test_matches_the_bare_link_the_paginated_list_renders(self, client, db):
         ItemFactory.create_batch(30)
 
@@ -95,7 +74,7 @@ class TestSecondPageLinkPattern:
     ):
         # A second query parameter joins the pagination link with the HTML
         # entity `&amp;`, not a bare `&` (`{% querystring %}`'s own
-        # escaping, decisions.md D13) — the guard reads this straight off
+        # escaping) — the guard reads this straight off
         # raw HTML (demo/smoke.py), so the pattern itself has to tolerate
         # the entity rather than relying on an unescape step upstream of it.
         ItemFactory.create_batch(30, language="en")
@@ -126,8 +105,6 @@ class TestSecondPageLinkPattern:
 
 
 class TestContributorLinkPattern:
-    """The pattern the walk follows from a reference page to a contributor page."""
-
     def test_matches_the_anchor_the_reference_page_renders(self, client, db):
         item = ItemFactory()
         item_name = ItemNameFactory(item=item)
@@ -143,14 +120,12 @@ class TestContributorLinkPattern:
 
 
 class TestPatternPrefix:
-    """Both patterns hard-code ``/catalogue/``, which only the demo's own URLconf sets."""
-
     def test_the_demo_mounts_the_front_end_where_the_patterns_look_for_it(self):
         # The suite reaches these pages through reverse() under tests/urls.py, so a
         # test suite that stayed green would say nothing about where the demo serves
         # them. Read the demo's URLconf as text: importing it evaluates
         # admin.site.urls against the suite's app registry, which is the coupling
-        # FR-021 forbids.
+        # this suite avoids.
         source = DEMO_URLS.read_text(encoding="utf-8")
 
         assert re.search(
@@ -159,8 +134,6 @@ class TestPatternPrefix:
 
 
 class TestFailureReport:
-    """What a failed check tells a CI log (FR-020)."""
-
     def test_bounds_the_body_it_reports(self):
         # The demo runs with DEBUG = True, so an unbounded body would put Django's
         # technical-500 page — settings and the request environment — into a public log.
@@ -212,16 +185,6 @@ class FakeResponse:
 
 
 class TestUnauthenticatedWalk:
-    """FR-005: every page on the walk is served without a login.
-
-    ``get`` reads through ``self.opener`` (T021, D-9) rather than the bare
-    ``urllib.request.urlopen`` it used before the write pass — the whole walk
-    needs one cookie jar so the CSRF cookie a form page sets survives into its
-    POST. ``OpenerDirector.open`` is what every call goes through regardless
-    of which page, so patching it at the class level is what the walk's own
-    mechanism now is (plan.md D-9).
-    """
-
     def test_a_redirect_to_a_login_page_fails_the_check(self, monkeypatch):
         monkeypatch.setattr(
             "urllib.request.OpenerDirector.open",
@@ -247,14 +210,6 @@ class TestUnauthenticatedWalk:
 
 
 class TestSharedOpener:
-    """The write pass needs one cookie jar across the whole walk (T021, D-9).
-
-    A CSRF cookie set while GETting a form page has to still be attached when
-    the walk POSTs back to it — two separate ``urlopen`` calls would not share
-    state, so the walk builds one ``OpenerDirector`` in ``__init__`` and every
-    request goes through it.
-    """
-
     def test_the_walk_builds_one_opener_carrying_a_cookie_processor(self):
         walk = DemoWalk("http://127.0.0.1:8000")
 
@@ -268,8 +223,6 @@ class TestSharedOpener:
 
 
 class TestCreateLinkPattern:
-    """The pattern the write pass follows from the catalogue list to the create form (T021)."""
-
     def test_matches_the_anchor_the_catalogue_list_renders(self, client, db):
         response = client.get(reverse("literature:item-list"))
         match = CREATE_LINK_RE.search(response.content.decode())
@@ -279,8 +232,6 @@ class TestCreateLinkPattern:
 
 
 class TestEditLinkPattern:
-    """The pattern the write pass follows from a reference page to its edit form (T021)."""
-
     def test_matches_the_anchor_the_reference_page_renders(self, client, db):
         item = ItemFactory()
 
@@ -294,16 +245,6 @@ class TestEditLinkPattern:
 
 
 class TestRelatedRowFieldsOnTheEditPage:
-    """T027, FR-042, FR-044: the three flows the related-row walk exercises are already
-    reachable from the edit page ``EDIT_LINK_RE`` above leads to.
-
-    The catalogue list links to a reference page, which links to this same edit page
-    (``EDIT_LINK_RE``), and the page it renders already carries a contributor row, a
-    date row and an identifier row — US-1 through US-3 landed them on ``item_form.html``
-    with no template of this story's own. Nothing here is new production code: this is
-    the reachability finding T027 asks for, asserted rather than merely read.
-    """
-
     def test_the_edit_page_carries_a_contributor_row_a_date_row_and_an_identifier_row(
         self, client, db
     ):
@@ -321,7 +262,7 @@ class TestRelatedRowFieldsOnTheEditPage:
     def test_the_create_page_carries_the_same_three_rows(self, client, db):
         # A contributor, a date and an identifier can also be entered while
         # the reference itself is being created, not only while correcting
-        # one (FR-032) — reached from the catalogue list's own Add link
+        # one — reached from the catalogue list's own Add link
         # (``CREATE_LINK_RE``).
         response = client.get(reverse("literature:item-create"))
         fields = form_fields(response.content.decode())
@@ -334,15 +275,6 @@ class TestRelatedRowFieldsOnTheEditPage:
 
 
 class TestRowLinkPattern:
-    """Scoping ``EDIT_LINK_RE`` to a row's own markup (T026, FR-019, FR-028).
-
-    ``EDIT_LINK_RE`` alone finds the first edit link anywhere on the page.
-    The write pass needs the one that belongs to a *specific* row — the one
-    also carrying that row's own reference link — so it proves the walk
-    followed that row's own control rather than some other row's edit
-    control landing on the right form by coincidence.
-    """
-
     def test_scopes_the_edit_link_to_the_row_carrying_the_item(self, client, db):
         first = ItemFactory(title="First Reference")
         second = ItemFactory(title="Second Reference")
@@ -374,8 +306,6 @@ class TestRowLinkPattern:
 
 
 class TestDeleteLinkPattern:
-    """The pattern the write pass follows from a reference page to its delete confirmation (T021)."""
-
     def test_matches_the_anchor_the_reference_page_renders(self, client, db):
         item = ItemFactory()
 
@@ -389,16 +319,6 @@ class TestDeleteLinkPattern:
 
 
 class TestFormFields:
-    """What the write pass posts back is exactly what the rendered form emits (T021, D-9, D-3).
-
-    Posting a bare field dict would blank every field the walk did not name —
-    the same ``construct_instance`` reason plan.md D-3 states for the front
-    end itself — so the write pass has to scrape the form rather than
-    construct a payload by hand. These tests are the over-HTML-parsing proof
-    that the scrape is right, mirroring how ``TestItemLinkPattern`` above
-    checks its regex against the markup the front end really renders.
-    """
-
     def test_captures_the_csrf_token_and_every_named_field_on_the_create_form(
         self, client, db
     ):
@@ -441,7 +361,7 @@ class TestFormFields:
         assert all(name for name in fields)
 
     def test_the_delete_confirmation_carries_only_the_csrf_token(self, client, db):
-        # require_confirmation is off (plan.md D-7): the confirmation page's
+        # require_confirmation is off: the confirmation page's
         # form has nothing to fill in, only the token to post back.
         item = ItemFactory()
 
@@ -452,17 +372,6 @@ class TestFormFields:
 
 
 class TestMultipartEncoder:
-    """``encode_multipart`` builds a body a real Django view parses back (T301/T302, D-9).
-
-    The walk's existing ``post`` urlencodes ``fields`` (T021), which cannot carry
-    a file — a browser upload is always multipart/form-data. Round-tripped
-    through ``django.test.RequestFactory``, which builds the same
-    ``WSGIRequest`` a live view receives and parses ``.POST``/``.FILES``
-    lazily from the body and ``Content-Type`` header exactly as the demo
-    server would, rather than against a hand-rolled parser this test would
-    also have to trust.
-    """
-
     def test_a_view_parses_back_the_same_fields_and_file(self):
         body, content_type = encode_multipart(
             {"format": "bibtex"},
@@ -486,8 +395,6 @@ class TestMultipartEncoder:
 
 
 class TestImportLinkPattern:
-    """The pattern the walk follows from the catalogue list to the import form (T301/T302)."""
-
     def test_matches_the_anchor_the_catalogue_list_renders(self, client, db):
         response = client.get(reverse("literature:item-list"))
         match = IMPORT_LINK_RE.search(response.content.decode())
@@ -497,11 +404,6 @@ class TestImportLinkPattern:
 
 
 class TestConfirmImportPattern:
-    """The pattern the walk follows from a preview to carrying it out (T512,
-    T918, US-4, US-6). Submitting the form redirects to the preview's own
-    address now (FR-045) — the confirm control lives on the page reached by
-    following that redirect, not on the response to the upload itself."""
-
     def test_matches_the_form_the_preview_page_really_renders(self, client, db):
         upload = SimpleUploadedFile(
             "import.bib", b"@article{Key2020, title={A Title}, address={x}}"
@@ -518,9 +420,6 @@ class TestConfirmImportPattern:
 
 
 class TestRestartImportPattern:
-    """The pattern the walk follows to discard a preview's staged file
-    (T918, US-6, FR-051)."""
-
     def test_matches_the_form_the_preview_page_really_renders(self, client, db):
         upload = SimpleUploadedFile(
             "import.bib", b"@article{Key2020, title={A Title}, address={x}}"

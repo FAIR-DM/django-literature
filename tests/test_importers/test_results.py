@@ -14,8 +14,6 @@ from literature.importers.results import EntryResult, ImportResult, Outcome
 
 
 class TestOutcome:
-    """Three values, every one reachable at merge (data-model.md)."""
-
     def test_has_exactly_three_values(self):
         assert set(Outcome.values) == {"created", "skipped", "failed"}
 
@@ -24,17 +22,10 @@ class TestOutcome:
             assert isinstance(member.label, Promise)
 
     def test_has_no_update_value(self):
-        """Matching against stored records is out of scope (decision D9).
-
-        An unreachable vocabulary value is the speculation Article III forbids.
-        This test is what makes adding one a deliberate act.
-        """
         assert not any("updat" in value for value in Outcome.values)
 
 
 class TestEntryResult:
-    """The fate of one entry."""
-
     def test_is_immutable(self):
         result = EntryResult(outcome=Outcome.CREATED, index=0)
         with pytest.raises(dataclasses.FrozenInstanceError):
@@ -54,26 +45,22 @@ class TestEntryResult:
         assert result.handle == "smith2020"
 
     def test_failed_requires_a_reason(self):
-        """A failure without a reason is the silent drop this feature removes."""
         with pytest.raises(ValueError, match="reason"):
             EntryResult(outcome=Outcome.FAILED, index=0)
 
     def test_reason_belongs_only_to_failure(self):
-        """D18: a created entry may still never carry a reason. A skipped one now may."""
         with pytest.raises(ValueError, match="reason"):
             EntryResult(
                 outcome=Outcome.CREATED, index=0, reason="why would this be here"
             )
 
     def test_a_skipped_entry_may_carry_a_reason(self):
-        """D18: the format may say what it recognised but did not store."""
         result = EntryResult(
             outcome=Outcome.SKIPPED, index=0, reason="a @comment block"
         )
         assert result.reason == "a @comment block"
 
     def test_a_skipped_entry_without_a_reason_is_still_valid(self):
-        """D18: a reason is not required, only permitted."""
         result = EntryResult(outcome=Outcome.SKIPPED, index=0)
         assert result.reason is None
 
@@ -87,8 +74,6 @@ class TestEntryResult:
 
 
 class TestImportResult:
-    """The report for a whole run."""
-
     @pytest.fixture
     def mixed(self):
         return ImportResult(
@@ -119,7 +104,6 @@ class TestImportResult:
         assert result.ok is True
 
     def test_empty_run_is_ok(self):
-        """A file holding no entries is a successful import of nothing."""
         result = ImportResult(entries=[], dry_run=False)
         assert result.ok is True
         assert result.entries == []
@@ -139,15 +123,6 @@ class TestImportResult:
 
 
 class TestAFailureAlwaysExplainsItself:
-    """FR-010, and the hole the original invariant left.
-
-    The guard tested ``reason is None``. An exception raised with no message —
-    ``EntryError()`` — gives ``str(exc) == ""``, which is not ``None``, so a
-    failed entry with nothing to act on passed straight through and printed as
-    a blank line beside its index. That is the silent drop this record exists
-    to make impossible, one indirection further along.
-    """
-
     def test_an_empty_reason_is_refused(self):
         with pytest.raises(ValueError, match="reason"):
             EntryResult(outcome=Outcome.FAILED, index=0, reason="")

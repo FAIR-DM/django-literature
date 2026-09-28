@@ -1,17 +1,8 @@
 """Tests for the demo project's management commands.
 
-``demo`` is deliberately absent from ``tests.settings.INSTALLED_APPS`` (plan.md D-10) — adding it
-there would put the demo's app registry inside the suite's wiring, the exact coupling FR-021
-forbids. So each test here runs the command under test in a fresh subprocess booted from
-``demo.settings``, following the mechanism ``tests/test_ui/test_smoke.py`` already established:
-``django.setup()`` runs once per interpreter and the pytest session has already populated the app
-registry from ``tests.settings``.
-
-``DEMO_DB_PATH`` (T001) points the subprocess at ``tmp_path`` instead of the developer's real demo
-database — ``pytest-django``'s test-database isolation does not reach a subprocess, so without this
-the suite would delete the developer's own demo data. ``DEMO_SEED_PATH`` (this task) gives each test
-control over which catalogue file ``seed_demo`` loads, so the "different items" scenario never has
-to overwrite the tracked ``demo/seed/catalogue.json``.
+``demo`` is not in ``tests.settings.INSTALLED_APPS``, so each command runs in a subprocess booted
+from ``demo.settings``. ``DEMO_DB_PATH`` points it at ``tmp_path``: test-database isolation does
+not reach a subprocess, and without it the suite would delete the developer's demo data.
 """
 
 import json
@@ -137,8 +128,6 @@ def run_seed_demo_strict_encoding(
 
 
 class TestSeedDemo:
-    """``python manage.py seed_demo`` — plan.md D-2."""
-
     def test_loads_the_catalogue(self, tmp_path):
         result = run_seed_demo(tmp_path / "db.sqlite3", REAL_CATALOGUE)
         catalogue = json.loads(REAL_CATALOGUE.read_text(encoding="utf-8"))
@@ -222,9 +211,9 @@ class TestSeedDemo:
 
     def test_a_failed_seed_leaves_the_catalogue_exactly_as_it_was(self, tmp_path):
         # The command deletes before it loads, so without a transaction the
-        # partial-load failure it is built to detect (FR-020) would report
+        # partial-load failure it is built to detect would report
         # correctly and still leave the database holding neither the previous
-        # catalogue nor the new one (RC-002).
+        # catalogue nor the new one.
         db_path = tmp_path / "db.sqlite3"
         good = tmp_path / "good.json"
         good.write_text(
@@ -254,18 +243,11 @@ class TestSeedDemo:
 
 
 class TestMissingUIExtra:
-    """The demo says so plainly when the ``ui`` extra was never installed.
-
-    The subject is the import guard in ``demo/settings.py``, so this holds for every
-    step of the documented sequence rather than for one composite command. It is
-    checked against ``migrate``, the first step someone runs (decisions.md D15).
-    """
-
     def test_fails_with_a_plain_message_when_the_ui_extra_is_missing(self, tmp_path):
         # django.setup() populates every INSTALLED_APPS entry before any management
         # command's handle() runs (django.core.management.ManagementUtility.execute()),
         # so a missing UI dependency can only be caught before that point — in
-        # demo/settings.py itself (decisions.md D8). Shadow the real "mvp" package
+        # demo/settings.py itself. Shadow the real "mvp" package
         # with a stub that fails to import, to simulate the ui extra never having
         # been installed.
         stub_dir = tmp_path / "stub"

@@ -34,8 +34,6 @@ assert config.name == "literature.ui"
 
 
 class TestLiteratureUIConfig:
-    """The app registers cleanly with only the core plus ``literature.ui`` installed."""
-
     def test_app_registry_populates_without_app_registry_not_ready(self):
         result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
             [sys.executable, "-c", BOOT_SCRIPT],
@@ -47,12 +45,8 @@ class TestLiteratureUIConfig:
 
 
 class TestLiteratureUIInit:
-    """``literature/ui/__init__.py`` carries a docstring and nothing else.
-
-    Django imports this module during app-registry phase 1 because
-    ``literature.ui`` is an installed app. Any statement here beyond a
-    docstring is a statement that runs before the app registry is ready.
-    """
+    # Imported during app-registry phase 1, so any statement here runs before the
+    # registry is ready.
 
     def test_init_module_is_a_docstring_and_nothing_else(self):
         tree = ast.parse(INIT_PATH.read_text())

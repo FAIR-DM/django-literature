@@ -1,10 +1,4 @@
-"""Tests for ``literature/ui/importing.py`` — the import report adapter (US-1).
-
-``ImportReport`` is the front end's own rendering of an ``ImportResult``
-(CONTEXT.md "import result / entry result"); it adds no reporting logic of
-its own beyond turning each ``EntryResult`` into a row a template can
-render.
-"""
+"""Tests for ``literature/ui/importing.py``: the import report adapter."""
 
 import pytest
 from django.urls import reverse
@@ -55,7 +49,7 @@ class TestImportReport:
         assert row.citation_key == "Doe2024"
 
     def test_citation_key_absent_where_the_entry_has_none(self):
-        # AS-10 — never invented for an entry whose source carried none.
+        # Never invented for an entry whose source carried none.
         result = ImportResult(
             entries=[EntryResult(outcome=Outcome.SKIPPED, index=0, handle=None)]
         )
@@ -78,7 +72,6 @@ class TestImportReport:
         assert skipped.reason is None
 
     def test_a_skipped_entrys_reason_is_carried_through(self):
-        """D18: a skipped entry's reason, when it has one, is not dropped."""
         result = ImportResult(
             entries=[
                 EntryResult(outcome=Outcome.SKIPPED, index=0, reason="a @comment block")
