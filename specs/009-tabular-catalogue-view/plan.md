@@ -28,7 +28,7 @@ untouched.
 **Storage**: unchanged. Every column reads what the store already holds.
 
 **Testing**: pytest + pytest-django, `tests.settings`. New module `tests/test_ui/test_tables.py`
-mirrors `literature/ui/tables.py`, as testing standard §4 requires; view behaviour extends
+mirrors `literature/ui/tables.py`, as the testing standard (§4) requires; view behaviour extends
 `tests/test_ui/test_views.py`.
 
 **Target Platform**: server-rendered Django, SQLite and PostgreSQL both supported — which is why

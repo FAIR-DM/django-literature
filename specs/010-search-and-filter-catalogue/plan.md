@@ -29,7 +29,7 @@ runtime dependencies are untouched.
 (`decisions.md` D1).
 
 **Testing**: pytest + pytest-django, `tests.settings`. New module `tests/test_ui/test_filters.py`
-mirrors `literature/ui/filters.py` per testing standard §4; view behaviour extends
+mirrors `literature/ui/filters.py` per the testing standard (§4); view behaviour extends
 `tests/test_ui/test_views.py`; packaging assertions move in `tests/test_ui/test_packaging.py`.
 
 **Target Platform**: server-rendered Django, SQLite and PostgreSQL both supported.

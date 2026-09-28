@@ -415,7 +415,7 @@ Did: added `tests/test_demo/` to `[tool.forge.conformance]` `non-mirror-paths` i
 as a single directory-prefix entry (trailing slash), following the four existing entries, with a
 comment naming the real reason — the demo project lives outside the `literature/` tree the mirror
 rule is defined against (plan.md D-9) — rather than "no source module exists to mirror", which
-testing standard §4 would reject given `test_commands.py`'s subject is two Python modules this feature
+The testing standard (§4) would reject given `test_commands.py`'s subject is two Python modules this feature
 creates.
 Verified: read `engineering-org/kit/forgekit/conformance.py`'s own docstring to confirm the
 trailing-slash directory-prefix convention before using it, then ran the kit's own checker —

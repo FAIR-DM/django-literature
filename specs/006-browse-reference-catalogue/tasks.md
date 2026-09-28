@@ -206,7 +206,7 @@ shared state.
   non-mirror-paths = ["tests/test_ui/test_architecture.py", "tests/test_ui/test_boot.py", "tests/test_ui/test_packaging.py", "tests/test_ui/test_templates.py"]
   ```
 
-  testing standard §4 exempts a test whose subject is not a Python module only when the repo declares it, and
+  The testing standard (§4) exempts a test whose subject is not a Python module only when the repo declares it, and
   these four take the package boundary, the core's boot under `tests.settings_core`, `pyproject.toml`
   and the shipped templates as their subject. `test_boot.py` is US-3's own addition: T016's task text
   names a core-only boot test without a filename, and its subject — the core package booting with the

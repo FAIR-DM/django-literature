@@ -113,7 +113,7 @@ tests/
     └── test_templates.py         # utility-class allowlist + i18n ┘
 ```
 
-testing standard §4 puts the three views in **one** `test_views.py` with a class each, because they are one
+The testing standard (§4) puts the three views in **one** `test_views.py` with a class each, because they are one
 source module. The three files whose subject is not a Python module take the article's declared
 exception and are named under `[tool.forge.conformance] non-mirror-paths`.
 
