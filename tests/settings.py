@@ -1,7 +1,7 @@
 """Django settings for the literature test suite, with the opt-in front end wired in.
 
 ``tests.settings_core`` is the base — everything a core-only consumer needs —
-and this module imports from it and appends the UI stack (plan.md D-4).
+and this module imports from it and appends the UI stack (FS-006).
 """
 
 from tests.settings_core import *  # noqa: F403
@@ -19,7 +19,7 @@ INSTALLED_APPS = [
     "django_tables2",
     # The catalogue's search and filter controls render through
     # django-filter, reached through django-mvp's own guarded integration
-    # (research R2).
+    # (FS-006).
     "django_filters",
     # ``mvp`` before ``crispy_tailwind``: django-mvp ships an override of
     # crispy-tailwind's help-text template, and the first app to declare a
@@ -30,17 +30,8 @@ INSTALLED_APPS = [
     "literature.ui",
 ]
 
-# crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
-# with no default, so leaving this unset is an AttributeError on the first form
-# render rather than a fallback to another pack (plan.md D-5).
+# Both required together; see demo/settings.py for why (FS-008).
 CRISPY_TEMPLATE_PACK = "tailwind"
-
-# And the allowlist has to name it too. The {% crispy %} tag validates the pack
-# at TEMPLATE-COMPILE time against CRISPY_ALLOWED_TEMPLATE_PACKS, whose default
-# is ("uni_form", "bootstrap3", "bootstrap4") — so every template carrying the
-# tag fails to compile, whether or not the tag is given an explicit pack and
-# whether or not that branch is the one taken at runtime. django-mvp's own demo
-# sets both settings together for the same reason (plan.md D-5).
 CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 
 TEMPLATES[0]["OPTIONS"]["context_processors"] = [  # noqa: F405
@@ -52,14 +43,10 @@ SITE_ID = 1
 
 ROOT_URLCONF = "tests.urls"
 
-# ``mvp/base.html`` loads the packaged stylesheet with ``{% static %}``
-# unconditionally, so any UI page render needs this — django.contrib.staticfiles
-# being installed is not enough on its own (research R1).
+# Required for any UI page render; see demo/settings.py for why.
 STATIC_URL = "static/"
 
-# django-mvp resolves every icon name it renders through django-easy-icons;
-# without a "default" renderer configured, any page using <c-icon> (which
-# mvp/base.html does) raises ImproperlyConfigured (docs/getting-started.md).
+# Required for any page using <c-icon>; see demo/settings.py for why.
 EASY_ICONS = {
     "default": {
         "renderer": "easy_icons.renderers.ProviderRenderer",
@@ -68,9 +55,7 @@ EASY_ICONS = {
     },
 }
 
-# ``mvp/base.html``'s chrome (sidebar, mobile dock) is rendered by
-# django-flex-menus, which raises ValueError at render time without these
-# renderers configured (docs/getting-started.md's minimal example).
+# Required for the shell's sidebar and mobile dock; see demo/settings.py for why.
 FLEX_MENUS = {
     "renderers": {
         "sidebar": "mvp.renderers.SidebarRenderer",

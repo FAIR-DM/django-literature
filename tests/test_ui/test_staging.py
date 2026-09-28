@@ -1,10 +1,6 @@
-"""Tests for ``literature/ui/staging.py`` — the file a preview holds between the
-first submission and its confirmation (US-4, FR-041 through FR-043, decisions.md D16).
+"""Tests for ``literature/ui/staging.py``: the file a preview holds until it is confirmed.
 
-Nothing here touches a session directly: ``StagedUpload`` is a disk-backed store
-keyed by a random token, with no idea which reader's session issued it. That
-scoping (FR-042) is the view's job — it never carries the token further than
-its own session — and is exercised at that layer in ``test_views.py``, not here.
+Session scoping is the view's job and is tested in ``test_views.py``.
 """
 
 import os
@@ -24,9 +20,6 @@ def staging(tmp_path, settings):
 
 
 class TestStagedUpload:
-    """Save / open / discard / sweep over a directory obtained from Django's
-    storage API (T501, T502)."""
-
     def test_saving_returns_a_token_and_the_bytes_can_be_read_back(self, staging):
         token = staging.save(ContentFile(b"the file's own bytes", name="upload.bib"))
         assert token

@@ -1,19 +1,7 @@
-"""The package as a whole: its public surface, and all three stories together.
+"""Tests for ``literature.importers`` as a whole: its public surface and the end-to-end path.
 
-Two things belong to ``literature.importers`` itself rather than to any one
-submodule, so they live here: the surface the package publishes (FR-021,
-Article X), and the end-to-end path (T022, SC-006).
-
-Every other test in this package exercises one story against a format built by
-a factory in ``conftest.py``. This one writes a format the way a real one will
-be written — a class with two stages, an optional handle, and a settings
-entry — and then uses the contract exactly as ``quickstart.md`` describes:
-enumerate what is available, rehearse the file, import it, and check the
-catalogue agrees with what the two results said.
-
-The format below is the whole of what supporting a new syntax costs. Nothing in
-``base.py``, ``results.py`` or ``converters.py`` knows it exists, which is the
-claim SC-006 makes and this file is the standing demonstration of it.
+The format below is written the way a real one would be, and nothing in ``base.py``,
+``results.py`` or ``converters.py`` knows it exists.
 """
 
 import importlib
@@ -79,12 +67,6 @@ class LineFormat(BibFormat):
 
 @pytest.fixture
 def smoke_format(settings):
-    """Configure :class:`LineFormat`, as a package shipping a format would.
-
-    Uses the ``settings`` fixture rather than mutating ``django.conf.settings``
-    directly, so ``setting_changed`` fires and undoes it — and invalidates
-    :mod:`literature.importers.config`'s cache — after the test.
-    """
     settings.LITERATURE = {
         "BIB_FORMATS": ["tests.test_importers.test_smoke.LineFormat"]
     }
@@ -94,19 +76,12 @@ def smoke_format(settings):
 @pytest.mark.django_db
 class TestTheWholeContract:
     def test_a_configured_format_is_enumerable_by_name_and_label(self, smoke_format):
-        """US3: a caller that knows nothing about formats can list them."""
         formats = available_formats()
 
         assert formats["smoke-lines"] is LineFormat
         assert str(formats["smoke-lines"].label) == "Pipe-separated lines (test-only)"
 
     def test_rehearse_then_import_agrees_with_the_catalogue(self, smoke_format):
-        """US1, US2 and US3 in one run, by name, over a mixed file.
-
-        The rehearsal and the real run see the same entries with the same
-        outcomes in the same order, the rehearsal stores nothing, and what the
-        real run reported as created is exactly what ends up in the catalogue.
-        """
         preview = get_format("smoke-lines")().import_file(
             io.StringIO(LIBRARY), dry_run=True
         )
@@ -168,24 +143,10 @@ PUBLIC_SURFACE = {
 
 class TestPublicSurface:
     def test_all_lists_exactly_the_documented_surface(self):
-        """``__all__`` and the contract agree, in both directions.
-
-        A name added to ``__all__`` but not to the contract fails here just as
-        loudly as one added to the contract and never exported.
-        """
         assert set(importers.__all__) == set(PUBLIC_SURFACE)
 
     @pytest.mark.parametrize("module", sorted(set(PUBLIC_SURFACE.values())))
     def test_every_public_name_a_submodule_defines_is_exported(self, module):
-        """The half a hand-written list cannot catch.
-
-        Both assertions above are derived from ``PUBLIC_SURFACE``, so a name
-        added to a submodule and left out of *both* ``__all__`` and this file
-        passes them without complaint — which is exactly the omission the
-        guard is for. This one reads the submodules instead: anything they
-        define without a leading underscore is public by Python's own
-        convention, and must be reachable from the package (FR-021).
-        """
         submodule = importlib.import_module(module)
         defined_here = {
             name
@@ -199,14 +160,10 @@ class TestPublicSurface:
 
     @pytest.mark.parametrize("name", sorted(PUBLIC_SURFACE))
     def test_name_is_importable_from_the_package(self, name):
-        """FR-021: reachable as ``literature.importers.<name>``."""
         assert hasattr(importers, name)
 
     @pytest.mark.parametrize(("name", "module"), sorted(PUBLIC_SURFACE.items()))
     def test_re_export_is_the_submodule_object_itself(self, name, module):
-        """Not a copy, not a wrapper — the same object, so ``isinstance`` and
-        ``except`` clauses behave identically whichever route a caller took.
-        """
         assert getattr(importers, name) is getattr(
             importlib.import_module(module), name
         )

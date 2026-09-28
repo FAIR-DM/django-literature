@@ -1,10 +1,6 @@
 """Tests proving the core imports nothing from the opt-in front end.
 
-The subject is every module under ``literature/`` outside ``literature/ui/``,
-not a single source module — like ``test_smoke.py`` and unlike most of this
-tree, there is no ``literature/ui/architecture.py`` to mirror against, so this
-file is one of the standing non-mirror exceptions (T025 extends
-``[tool.forge.conformance] non-mirror-paths`` with it; see decisions.md D13).
+The subject is every module outside ``literature/ui/``, so there is no single module to mirror.
 """
 
 import ast
@@ -53,8 +49,6 @@ def imported_names(path):
 
 
 class TestCoreImportsNothingFromTheUIStack:
-    """FR-006 — no core module names ``mvp``, its dependencies, or ``literature.ui``."""
-
     @pytest.mark.parametrize(
         "path",
         core_modules(),
@@ -74,14 +68,6 @@ class TestCoreImportsNothingFromTheUIStack:
 
 
 class TestSearchAndFilterAreDeclaredOnce:
-    """FR-023, plan.md D-1 — what is searchable and what is filterable is
-    defined once, in ``literature/ui/filters.py``, and both presentations
-    (``literature/ui/views.py`` ``ItemListView``/``ItemTableView``) read it
-    from there rather than restating it. A test that both views return the
-    same references for the same query (T024) would still pass if someone
-    replaced the import with a copy — this is the one that would not.
-    """
-
     def test_views_module_imports_search_fields_and_filterset_rather_than_declaring_them(
         self,
     ):

@@ -258,7 +258,7 @@ sufficient.
 
 ## D13 — Two test-infrastructure files created ahead of the task that names them
 **Ambiguity**: two of this story's test files have no natural single-task owner. `tests/test_ui/__init__.py`
-is T004's stated deliverable (Article XIV), but T002 is the first task that needs
+is T004's stated deliverable (testing standard §4), but T002 is the first task that needs
 `tests/test_ui/` to exist as a collectible package, three tasks earlier. `tests/test_ui/test_templates.py`
 is where T003's own base-template test lives (no source module to mirror it against — the
 `literature/ui/templates.py` that would satisfy `check_mirror` does not exist and should not), but

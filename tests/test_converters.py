@@ -1,13 +1,4 @@
-"""Tests for literature.converters module (US2 — Convert Between Model and CSL JSON).
-
-Tests cover contract from contracts/csl-json.md:
-- to_csl_json(): serialization guarantees, blank field omission, name ordering,
-  identifier placement, fixture round-trip, parametrized type round-trips
-- from_csl_json(): validation errors, citation-key reading, keys stored as given,
-  date round-trips, literal names, unknown identifiers
-- from_csl_json_list(): batch import with skip-on-error semantics
-- round trip: a fully populated item survives model -> CSL JSON -> model unchanged
-"""
+"""Tests for ``literature/converters.py``."""
 
 import json
 import logging
@@ -59,10 +50,7 @@ def _item_scalar_field_names() -> list[str]:
 
 @pytest.mark.django_db
 class TestToCslJson:
-    """Serialization from Item to CSL JSON."""
-
     def test_always_has_id_and_type(self):
-        """to_csl_json() output always has 'id' and 'type' keys."""
         item = ItemFactory(citation_key="Test2024", type=ItemType.BOOK)
         result = to_csl_json(item)
         assert "id" in result
@@ -71,7 +59,6 @@ class TestToCslJson:
         assert result["type"] == ItemType.BOOK
 
     def test_omits_blank_fields(self):
-        """to_csl_json() omits blank/null optional fields."""
         item = ItemFactory(citation_key="Minimal2024", type=ItemType.ARTICLE)
         result = to_csl_json(item)
         assert "abstract" not in result
@@ -79,7 +66,6 @@ class TestToCslJson:
         assert "publisher" not in result
 
     def test_includes_non_blank_fields(self):
-        """to_csl_json() includes non-blank fields with correct CSL JSON keys."""
         item = ItemFactory(
             citation_key="Full2024",
             type=ItemType.ARTICLE_JOURNAL,
@@ -99,7 +85,6 @@ class TestToCslJson:
         assert result["container-title"] == "Some Journal"
 
     def test_name_arrays_ordered(self, item):
-        """to_csl_json() exports name arrays in order."""
         n1 = NameFactory(family="Alpha", given="A")
         n2 = NameFactory(family="Beta", given="B")
         n3 = NameFactory(family="Gamma", given="G")
@@ -111,7 +96,6 @@ class TestToCslJson:
         assert [a["family"] for a in result["author"]] == ["Alpha", "Beta", "Gamma"]
 
     def test_known_identifier_as_top_level_key(self, item):
-        """to_csl_json() places known identifiers as top-level CSL JSON keys."""
         ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/test")
         ItemIdentifierFactory(item=item, type=IdentifierType.ISSN, value="0956-540X")
         result = to_csl_json(item)
@@ -119,7 +103,6 @@ class TestToCslJson:
         assert result["ISSN"] == "0956-540X"
 
     def test_unknown_identifier_in_custom(self, item):
-        """to_csl_json() places unknown identifier types in the custom object."""
         ItemIdentifierFactory(item=item, type="arXiv", value="2103.12345")
         result = to_csl_json(item)
         assert "arXiv" not in result
@@ -127,7 +110,6 @@ class TestToCslJson:
         assert result["custom"]["arXiv"] == "2103.12345"
 
     def test_real_fixture(self):
-        """to_csl_json() on a round-tripped real-world CSL fixture preserves key fields."""
         item = from_csl_json(_FIXTURE_CSL)
         result = to_csl_json(item)
         assert result["id"] == item.citation_key
@@ -137,7 +119,6 @@ class TestToCslJson:
 
     @pytest.mark.parametrize("item_type", ItemType.values)
     def test_round_trip_all_types(self, item_type):
-        """Round-trip: export then re-import preserves type for all 45 CSL item types."""
         original = ItemFactory(citation_key=f"RoundTrip_{item_type}", type=item_type)
         exported = to_csl_json(original)
         assert exported["type"] == item_type
@@ -147,13 +128,11 @@ class TestToCslJson:
         assert reimported.citation_key == original.citation_key
 
     def test_date_year_only(self, item):
-        """to_csl_json() exports year-only PartialDate as [[year]] date-parts."""
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
         result = to_csl_json(item)
         assert result["issued"]["date-parts"] == [[2019]]
 
     def test_date_year_month(self, item):
-        """to_csl_json() exports year-month PartialDate as [[year, month]] date-parts."""
         ItemDateFactory(
             item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
         )
@@ -161,7 +140,6 @@ class TestToCslJson:
         assert result["issued"]["date-parts"] == [[2019, 8]]
 
     def test_date_full(self, item):
-        """to_csl_json() exports full PartialDate as [[year, month, day]] date-parts."""
         ItemDateFactory(
             item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
         )
@@ -169,7 +147,6 @@ class TestToCslJson:
         assert result["issued"]["date-parts"] == [[2019, 8, 16]]
 
     def test_date_range(self, item):
-        """to_csl_json() exports date range as [[start], [end]] date-parts."""
         ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
@@ -180,7 +157,6 @@ class TestToCslJson:
         assert result["event-date"]["date-parts"] == [[2019, 8, 12], [2019, 8, 16]]
 
     def test_date_with_literal_season_circa(self, item):
-        """to_csl_json() exports date literal, season, and circa fields."""
         ItemDateFactory(
             item=item,
             date_type=DateType.ISSUED,
@@ -195,7 +171,6 @@ class TestToCslJson:
         assert result["issued"]["circa"] is True
 
     def test_categories_and_custom_json(self):
-        """to_csl_json() exports categories and custom JSONFields directly."""
         item = ItemFactory(
             categories=["physics", "geophysics"],
             custom={"note": "internal reference"},
@@ -205,7 +180,6 @@ class TestToCslJson:
         assert result["custom"]["note"] == "internal reference"
 
     def test_name_all_parts(self, item):
-        """to_csl_json() exports all name part fields when set."""
         name = NameFactory(
             family="García",
             given="José",
@@ -230,25 +204,19 @@ class TestToCslJson:
 
 @pytest.mark.django_db
 class TestFromCslJson:
-    """Import from CSL JSON to Item, with validation, storing each key as given."""
-
     def test_missing_type_raises(self):
-        """from_csl_json() raises ValidationError when 'type' is missing."""
         with pytest.raises(ValidationError, match="type"):
             from_csl_json({"citation-key": "Test2024"})
 
     def test_unknown_type_raises(self):
-        """from_csl_json() raises ValidationError for unknown CSL item type."""
         with pytest.raises(ValidationError, match="Unknown"):
             from_csl_json({"citation-key": "Test2024", "type": "not-a-real-type"})
 
     def test_missing_both_keys_raises(self):
-        """from_csl_json() raises ValidationError when both citation-key and id are absent."""
         with pytest.raises(ValidationError):
             from_csl_json({"type": "article-journal"})
 
     def test_citation_key_preferred_over_id(self):
-        """from_csl_json() uses citation-key over id when both are present."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -259,12 +227,10 @@ class TestFromCslJson:
         assert item.citation_key == "Preferred2024"
 
     def test_falls_back_to_id(self):
-        """from_csl_json() falls back to id when citation-key is absent."""
         item = from_csl_json({"type": "article-journal", "id": "FallbackId2024"})
         assert item.citation_key == "FallbackId2024"
 
     def test_a_key_already_in_the_store_is_stored_again_as_given(self):
-        """A collision changes nothing: the key given is the key stored (ADR 0023)."""
         ItemFactory(citation_key="Smith2009", type=ItemType.ARTICLE)
 
         item = from_csl_json({"type": "article-journal", "citation-key": "Smith2009"})
@@ -273,17 +239,10 @@ class TestFromCslJson:
         assert Item.objects.filter(citation_key="Smith2009").count() == 2
 
     def test_a_key_longer_than_the_column_is_rejected(self):
-        """The key is validated like every other field now that nothing rewrites it: the
-        exclusion that used to skip it existed only for the removed uniqueness handling, so an
-        overlong key fails its entry cleanly instead of reaching the database.
-        """
         with pytest.raises(ValidationError):
             from_csl_json({"type": "article-journal", "citation-key": "x" * 256})
 
     def test_a_key_repeated_many_times_never_acquires_a_suffix(self):
-        """Repeated collisions on one key stay that key, rather than walking a suffix
-        sequence — the store holds as many items under it as were given (ADR 0023).
-        """
         for _ in range(5):
             from_csl_json({"type": "article-journal", "citation-key": "Smith2009"})
 
@@ -293,7 +252,6 @@ class TestFromCslJson:
         )
 
     def test_date_year_only(self):
-        """from_csl_json() imports year-only date-parts correctly."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -306,7 +264,6 @@ class TestFromCslJson:
         assert str(date.begin) == "2019"
 
     def test_date_year_month(self):
-        """from_csl_json() imports year-month date-parts correctly."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -319,7 +276,6 @@ class TestFromCslJson:
         assert str(date.begin).startswith("2019-08")
 
     def test_date_full(self):
-        """from_csl_json() imports full date-parts correctly."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -332,7 +288,6 @@ class TestFromCslJson:
         assert str(date.begin).startswith("2019-08-16")
 
     def test_date_range(self):
-        """from_csl_json() imports date range (begin + end) correctly."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -347,7 +302,6 @@ class TestFromCslJson:
         assert str(date.end).startswith("2019-08-16")
 
     def test_date_raw_fallback(self):
-        """from_csl_json() stores raw_date_parts when date-parts are unparseable."""
         unparseable_parts = [["not-a-year"]]
         item = from_csl_json(
             {
@@ -361,7 +315,6 @@ class TestFromCslJson:
         assert date.raw_date_parts == unparseable_parts
 
     def test_literal_name(self):
-        """from_csl_json() imports literal-only names correctly."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -374,7 +327,6 @@ class TestFromCslJson:
         assert item_names.first().name.literal == "World Health Organization"
 
     def test_name_find_or_create(self):
-        """from_csl_json() reuses existing Name records for identical name parts."""
         # Import same author twice
         from_csl_json(
             {
@@ -394,7 +346,6 @@ class TestFromCslJson:
         assert Name.objects.filter(family="Smith", given="John").count() == 1
 
     def test_deprecated_aliases(self):
-        """from_csl_json() handles deprecated shortTitle and event aliases."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -407,7 +358,6 @@ class TestFromCslJson:
         assert item.event_title == "Some Conference"
 
     def test_unknown_identifier_in_custom(self):
-        """from_csl_json() imports unknown identifier type from custom dict."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -419,7 +369,6 @@ class TestFromCslJson:
         assert ident.value == "2104.00001"
 
     def test_categories_imported(self):
-        """from_csl_json() stores categories JSONField."""
         item = from_csl_json(
             {
                 "type": "article-journal",
@@ -432,10 +381,7 @@ class TestFromCslJson:
 
 @pytest.mark.django_db
 class TestFromCslJsonList:
-    """Batch import with skip-on-error semantics."""
-
     def test_imports_all_valid(self):
-        """from_csl_json_list() returns all successfully imported items."""
         data = [
             {"type": "article-journal", "citation-key": "List1"},
             {"type": "book", "citation-key": "List2"},
@@ -445,7 +391,6 @@ class TestFromCslJsonList:
         assert len(items) == 3
 
     def test_skips_invalid_items(self):
-        """from_csl_json_list() skips invalid items and returns only valid ones."""
         data = [
             {"type": "article-journal", "citation-key": "ValidItem"},
             {"type": "article-journal"},  # missing citation-key and id
@@ -456,12 +401,6 @@ class TestFromCslJsonList:
         assert items[0].citation_key == "ValidItem"
 
     def test_unexpected_error_surfaces(self, monkeypatch):
-        """from_csl_json_list() lets non-validation errors propagate.
-
-        A bug in the importer (here simulated as a TypeError) must not be
-        swallowed and reported as a merely-invalid record. Only ValidationError
-        is skipped; everything else surfaces to the caller.
-        """
         import literature.converters as converters
 
         def boom(_item_data):
@@ -475,19 +414,7 @@ class TestFromCslJsonList:
 
 @pytest.mark.django_db
 class TestRoundTripFidelity:
-    """Full-item round trip: model -> CSL JSON -> model preserves the whole field set.
-
-    SC-002 in spec 001 asks for identical field values across a reference set of
-    test fixtures covering all item types and every CSL JSON date form. The
-    individual pieces are covered by the classes above (per-form date
-    round-trips, name parts, identifier placement, a type-only round-trip over
-    all 45 item types, and one real-world fixture), but no single test
-    round-trips a fully populated item and asserts the whole field set comes
-    back unchanged. This class fills that gap.
-    """
-
     def test_full_item_round_trip_preserves_every_field(self):
-        """A fully populated item survives a to_csl_json/from_csl_json cycle."""
         # Every scalar field gets its own field name as the value: short,
         # collision-free, and self-documenting on a mismatch.
         scalar_kwargs = {name: name for name in _item_scalar_field_names()}
@@ -615,15 +542,6 @@ class TestRoundTripFidelity:
 
 @pytest.mark.django_db
 class TestFromCslJsonListStillWarns:
-    """FR-004 and decision D5 of the import contract (003-import-contract).
-
-    That feature reuses this conversion and must leave it exactly as it was for
-    callers using it directly, so ``literature/converters.py`` is modified by no
-    task in it — the per-entry savepoint lives in the runner instead. What the
-    tests above do not pin down is that skipping still goes through
-    ``logger.warning`` rather than silently, which is what this class adds.
-    """
-
     def test_skipping_an_invalid_item_logs_a_warning(self, caplog):
         data = [
             {"type": "article-journal", "citation-key": "Kept"},

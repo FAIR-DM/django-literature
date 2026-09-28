@@ -1,30 +1,12 @@
 """Reading BibTeX files into the catalogue.
 
-The first concrete format behind the import contract (spec 003). It supplies
-only the two stages a format owns, :meth:`~BibTeXFormat.parse` and
-:meth:`~BibTeXFormat.to_csl_json`, plus :meth:`~BibTeXFormat.handle_for`;
-the workflow, atomicity, per-entry reporting and dry runs all come from
-:class:`~literature.importers.base.BibFormat` unchanged.
-
-One format reads both dialects. Classic BibTeX is what publisher export links
-and academic databases emit; BibLaTeX is what current Zotero and JabRef write
-by default. They share a file syntax and disagree on field names and entry
-types, and someone exporting a library has no way to know which they were
-given, so asking them would be the adoption barrier this feature exists to
-remove (spec 004, D2). Both tables carry both dialects, each entry annotated
-with the one it belongs to.
-
-Where a BibLaTeX field and its classic counterpart both name the same CSL
-variable — ``date`` over ``year``/``month``, ``journaltitle`` over
-``journal`` — and an entry supplies both with disagreeing values, the
-BibLaTeX field wins (FR-024, decisions.md D17). BibLaTeX's own manual treats
-the classic field as the legacy one its BibLaTeX equivalent replaces, and
-``date`` states a precision ``year``/``month`` cannot, so the more expressive
-field is also the more current one.
-
-``bibtexparser`` is imported here and nowhere else in the package. That is
-deliberate and asserted by a test: the parser is an implementation detail of
-this class, which is what makes it replaceable (research.md).
+One format reads both classic BibTeX and BibLaTeX: they share a file syntax, and
+someone exporting a library cannot tell which they were given. Where a BibLaTeX
+field and its classic counterpart name the same CSL variable and disagree
+(``date`` over ``year``/``month``, ``journaltitle`` over ``journal``), the
+BibLaTeX field wins, since BibLaTeX's manual treats the classic one as legacy.
+``bibtexparser`` is imported here and nowhere else, which a test asserts, so the
+parser stays replaceable.
 """
 
 import calendar
@@ -46,31 +28,18 @@ from literature.importers.exceptions import ParseError, SkipEntry
 from literature.importers.normalizers import IdentifierNormalizer
 from literature.validators import validate_identifier
 
-# ---------------------------------------------------------------------------
-# Mapping tables — data, not code (plan.md "Design in brief"). Each entry
-# is annotated with the dialect it belongs to, so US3 can extend these in
-# place rather than maintaining a parallel table.
-# ---------------------------------------------------------------------------
-
 
 @dataclasses.dataclass(frozen=True)
 class _Mapped:
     """One table entry: the CSL name a source key maps to, and its dialect."""
 
     csl: str
-    dialect: str  # "classic" (this story) | "biblatex" (US3, issue #32)
+    dialect: str  # "classic" | "biblatex"
 
 
-#: BibTeX entry type -> CSL item type (FR-006). A type not listed here maps
-#: to the generic ``document`` type rather than failing the entry. The
-#: BibLaTeX-only entries are drawn from the type list its own manual
-#: documents (`3.1 Entry Types`), minus ``set`` (a grouping construct, not a
-#: bibliographic record of its own) and ``xdata`` (data-only, never a real
-#: entry either) — neither would mean anything mapped to a CSL type, and
-#: they are the two this table is expected never to carry. Where Zotero's
-#: own type map (``tests/data/csl-typeMap.xml``) states an equivalent, it is
-#: followed rather than second-guessed: that is where ``artwork``,
-#: ``dataset`` and ``patent`` come from (D18).
+#: BibTeX entry type -> CSL item type. BibLaTeX's ``set`` and ``xdata`` are
+#: absent on purpose, as neither is a bibliographic record. Where Zotero's type
+#: map (``tests/data/csl-typeMap.xml``) states an equivalent, it is followed.
 ENTRY_TYPE_TABLE: dict[str, _Mapped] = {
     "article": _Mapped("article-journal", "classic"),
     "artwork": _Mapped("graphic", "biblatex"),
@@ -106,17 +75,12 @@ ENTRY_TYPE_TABLE: dict[str, _Mapped] = {
     "unpublished": _Mapped("manuscript", "classic"),
 }
 
-#: An entry type with no CSL equivalent lands here rather than failing the
-#: entry (FR-006, acceptance scenario 3).
+#: An entry type with no CSL equivalent lands here rather than failing the entry.
 _FALLBACK_TYPE = "document"
 
-#: Scalar BibTeX field -> CSL variable (FR-007). Name fields, date fields
-#: and identifier fields are mapped separately (later stories in this
-#: file's history); ``key`` (BibTeX's sorting hint) and ``crossref``
-#: (consumed for inheritance, not copied) have no entry here and are simply
-#: not carried directly into CSL JSON — both, like every other field with no
-#: entry in any of this module's tables, are preserved instead under
-#: ``custom["bibtex"]`` (US4, FR-025, :func:`_unmapped_fields`).
+#: Scalar BibTeX field -> CSL variable. Names, dates and identifiers have their
+#: own tables. A field in no table, ``key`` and ``crossref`` included, is kept
+#: under ``custom["bibtex"]`` instead (:func:`_unmapped_fields`).
 FIELD_TABLE: dict[str, _Mapped] = {
     "abstract": _Mapped("abstract", "classic"),
     "address": _Mapped("publisher-place", "classic"),
@@ -147,7 +111,7 @@ FIELD_TABLE: dict[str, _Mapped] = {
     "volume": _Mapped("volume", "classic"),
 }
 
-#: BibTeX identifier field -> top-level CSL identifier key (FR-011).
+#: BibTeX identifier field -> top-level CSL identifier key.
 IDENTIFIER_FIELD_TABLE: dict[str, _Mapped] = {
     "doi": _Mapped("DOI", "classic"),
     "isbn": _Mapped("ISBN", "classic"),
@@ -155,36 +119,35 @@ IDENTIFIER_FIELD_TABLE: dict[str, _Mapped] = {
     "url": _Mapped("URL", "classic"),
 }
 
-#: BibTeX name-list field -> CSL name-variable role (FR-008).
+#: BibTeX name-list field -> CSL name-variable role.
 NAME_FIELD_TABLE: dict[str, _Mapped] = {
     "author": _Mapped("author", "classic"),
     "editor": _Mapped("editor", "classic"),
 }
 
-#: Month names, both the three-letter abbreviation ``common_strings`` already
-#: supplies and the full spelling real exports write bare (``month = July``).
-#: Crossref's own classic BibTeX export is the case this table exists for:
-#: ``common_strings`` defines ``jul`` but not ``july``, so a bare ``July``
-#: macro reference is otherwise undefined and aborts the whole file's parse.
-#: This is macro *resolution* (FR-013's territory, the same thing
-#: ``common_strings`` already does for abbreviations), not a value cleanup —
-#: no field's already-parsed content is altered.
+#: Full month names as ``@string`` macros. ``common_strings`` defines ``jul`` but
+#: not ``july``, so Crossref's bare ``month = July`` would otherwise be an
+#: undefined macro and abort the whole file's parse.
 _MONTH_MACROS: dict[str, str] = {
     calendar.month_name[i].lower(): calendar.month_name[i] for i in range(1, 13)
 }
 
-#: Month name or abbreviation (case-insensitive) -> its 1-based number, for
-#: building date-parts (FR-010). Covers both the abbreviation
-#: ``common_strings`` expands to and the full name ``_MONTH_MACROS`` expands
-#: to, plus the abbreviation itself for a value written in braces or quotes,
-#: which never goes through macro expansion at all.
+#: Month name or abbreviation (case-insensitive) -> its 1-based number, covering
+#: both macro expansions and an abbreviation written in braces or quotes.
 _MONTH_NUMBERS: dict[str, int] = {
     calendar.month_abbr[i].lower(): i for i in range(1, 13)
 } | {calendar.month_name[i].lower(): i for i in range(1, 13)}
 
 
 def _month_number(raw: str) -> int | None:
-    """The 1-based month number a source's ``month`` value states, if any."""
+    """Return the 1-based month number a ``month`` value states.
+
+    Args:
+        raw: The field's value, a number or a month name.
+
+    Returns:
+        The month number, or ``None`` if the value names no month.
+    """
     text = raw.strip()
     if text.isdigit():
         value = int(text)
@@ -192,22 +155,9 @@ def _month_number(raw: str) -> int | None:
     return _MONTH_NUMBERS.get(text.lower())
 
 
-# ---------------------------------------------------------------------------
-# Cleaning (FR-017, FR-018, FR-019, FR-029) — recovery before rejection
-# (spec 004, D1). A value in a form the catalogue would reject is normalized
-# where its meaning is recoverable; nothing here evaluates its input, since a
-# ``.bib`` file is untrusted content (Article V).
-# ---------------------------------------------------------------------------
-
-
-#: The five entities XML predefines, plus a decimal or hexadecimal character
-#: reference. Deliberately not :func:`html.unescape`, which also resolves the
-#: ~2000 HTML5 named references and does so without requiring the closing
-#: semicolon: that would rewrite ordinary bibliographic prose, turning a
-#: title containing ``&not`` or ``&sect`` into ``¬`` or ``§``. What real
-#: exports actually emit is XML escaping — Crossref's own BibTeX export
-#: writes ``Knowledge Discovery &amp; Data Mining`` — so this recognises
-#: exactly that and leaves every other ampersand alone.
+#: The five XML predefined entities and numeric character references. Not
+#: :func:`html.unescape`, which also resolves HTML5 named references without a
+#: closing semicolon and would turn a title's ``&sect`` into ``§``.
 _ENTITY_RE = re.compile(
     r"&(?:(amp|lt|gt|quot|apos)|#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6}));"
 )
@@ -218,8 +168,14 @@ _NAMED_ENTITIES = {"amp": "&", "lt": "<", "gt": ">", "quot": '"', "apos": "'"}
 def _unescape_entities(value: str) -> str:
     """Resolve XML character escaping a source wrote into a field's text.
 
-    Applied after the LaTeX decode, so a value written ``\\&amp;`` — escaped
-    once for LaTeX and once for XML — resolves through both layers.
+    Runs after the LaTeX decode, so a value escaped for both LaTeX and XML
+    resolves through both layers.
+
+    Args:
+        value: The LaTeX-decoded field text.
+
+    Returns:
+        The text with entities and character references resolved.
     """
 
     def replace(match: re.Match[str]) -> str:
@@ -233,26 +189,24 @@ def _unescape_entities(value: str) -> str:
 
 
 def _clean_text(value: str) -> str:
-    """Decode LaTeX escapes to the characters they represent (FR-018).
+    """Decode LaTeX escapes to the characters they represent.
 
-    ``bibtexparser.latexenc.latex_to_unicode`` also strips braces once it has
-    finished decoding, which is what removes capitalization-protecting braces
-    (``{DNA}`` -> ``DNA``) without a separate step. A construct it does not
-    recognise is left in the string rather than raising or dropping anything
-    — pure string substitution, so it never evaluates its input.
+    ``latex_to_unicode`` also strips capitalization-protecting braces
+    (``{DNA}`` becomes ``DNA``) and leaves a construct it does not recognise in
+    place. It is pure string substitution, so it never evaluates its input.
+    XML escaping is resolved afterwards (:func:`_unescape_entities`): a ``.bib``
+    file is not XML, but real exports carry escaping from upstream pipelines.
 
-    XML character escaping is resolved afterwards (:func:`_unescape_entities`).
-    A ``.bib`` file is not XML, but real exports carry escaping from the
-    pipeline upstream of them, and a title reading ``Knowledge Discovery
-    &amp; Data Mining`` in the catalogue is the same shape of defect as an
-    undecoded ``Kr{\\"u}ger``: recoverable, so recovered (D1).
+    Args:
+        value: The raw field text.
+
+    Returns:
+        The decoded text.
     """
     return _unescape_entities(str(latex_to_unicode(value)))
 
 
-#: Field-specific normalization beyond the generic LaTeX decode (T023). ``normalize_doi`` and
-#: ``normalize_isbn`` moved to ``IdentifierNormalizer`` (spec 005 T005): they are format-neutral
-#: and RIS needs them too, unlike the LaTeX-decoding helpers around them, which stay here.
+#: Field-specific normalization applied after the LaTeX decode.
 _IDENTIFIER_NORMALIZERS: dict[str, Any] = {
     "doi": IdentifierNormalizer.normalize_doi,
     "isbn": IdentifierNormalizer.normalize_isbn,
@@ -260,7 +214,15 @@ _IDENTIFIER_NORMALIZERS: dict[str, Any] = {
 
 
 def _clean_identifier(bib_key: str, value: str) -> str:
-    """Normalize one identifier field's value ahead of validation."""
+    """Normalize one identifier field's value ahead of validation.
+
+    Args:
+        bib_key: The BibTeX field name, such as ``doi``.
+        value: The raw field text.
+
+    Returns:
+        The decoded and normalized value.
+    """
     cleaned = _clean_text(value).strip()
     normalizer = _IDENTIFIER_NORMALIZERS.get(bib_key)
     if normalizer is not None:
@@ -268,19 +230,19 @@ def _clean_identifier(bib_key: str, value: str) -> str:
     return cleaned
 
 
-# ---------------------------------------------------------------------------
-# Names (FR-008, FR-009)
-# ---------------------------------------------------------------------------
-
-
 def _is_wrapped_literal(name: str) -> bool:
-    """Whether ``name`` is a single name string entirely wrapped in one brace pair.
+    """Return whether ``name`` is wrapped entirely in one brace pair.
 
-    ``author = {{World Wide Web Consortium}}`` leaves one brace level on the
-    field value once the outer pair (the field's own value delimiter) is
-    stripped by the parser — ``{World Wide Web Consortium}``. That remaining
-    pair is BibTeX's convention for "do not split this name", used for
-    institutions and other unparsed names (FR-009, acceptance scenario 5).
+    ``author = {{World Wide Web Consortium}}`` reaches here as
+    ``{World Wide Web Consortium}`` once the parser strips the field's own
+    delimiter. The remaining pair is BibTeX's convention for "do not split this
+    name", used for institutions.
+
+    Args:
+        name: One name from a name list.
+
+    Returns:
+        ``True`` if one brace pair encloses the whole name.
     """
     if not (name.startswith("{") and name.endswith("}")):
         return False
@@ -296,13 +258,16 @@ def _is_wrapped_literal(name: str) -> bool:
 
 
 def _split_name_list(raw: str) -> list[str]:
-    """Split a BibTeX name list on ``and``, ignoring one braced inside a name.
+    """Split a BibTeX name list on ``and``, ignoring one inside braces.
 
-    BibTeX separates a name list with the literal word ``and``. A name may
-    itself contain braced text, so the split has to track brace depth rather
-    than being a plain ``str.split`` — otherwise a literal name that happened
-    to contain the word would be cut in two. None of this story's names do,
-    but the corpus is not the full space of real exports.
+    The split tracks brace depth, so a braced literal name containing the word
+    ``and`` stays whole.
+
+    Args:
+        raw: The name-list field's value.
+
+    Returns:
+        The non-empty names, in order.
     """
     names: list[str] = []
     current: list[str] = []
@@ -320,29 +285,27 @@ def _split_name_list(raw: str) -> list[str]:
 
 
 def _name_to_csl(name: str) -> dict[str, Any]:
-    """One name string to a CSL name-variable object.
+    """Convert one BibTeX name to a CSL name-variable object.
 
-    A brace-wrapped literal goes to ``literal`` unsplit (FR-009), decoded but
-    not split. Otherwise the whole name is LaTeX-decoded (FR-018) before
-    ``splitname`` breaks it into First/von/Last/Jr, which map directly onto
-    CSL's ``given``, ``non-dropping-particle``, ``family`` and ``suffix``
-    (FR-008). Non-strict mode: a name this story cannot parse cleanly should
-    not abort the entry over a name, which is the contract's own per-entry
-    robustness (base.py), not a cleaning transform on the name's content.
+    A brace-wrapped name becomes an unsplit ``literal``. Any other name is
+    decoded, then split by ``splitname`` into First/von/Last/Jr, which map onto
+    CSL's ``given``, ``non-dropping-particle``, ``family`` and ``suffix``.
+    Non-strict mode, so a name that cannot be parsed cleanly does not fail the
+    entry. Decoding runs after the brace check, because :func:`_clean_text`
+    would remove the brace pair the check looks for.
 
-    Decoding runs after :func:`_is_wrapped_literal`'s check, not before —
-    that check looks for one surviving brace pair once the parser has
-    stripped the field's own outer delimiter, and ``_clean_text`` would
-    already have removed it, along with every other brace in the name.
+    Args:
+        name: One name from a name list.
+
+    Returns:
+        The CSL name object, or an empty dict when the name names nobody.
     """
     stripped = name.strip()
     if not stripped:
         return {}
     if _is_wrapped_literal(stripped):
-        # A pair of braces with nothing in them names nobody. Returning it as
-        # a literal would put a contributor row carrying no name on the record
-        # (D22); returning nothing leaves the source field unconsumed, so it
-        # is preserved instead (FR-025).
+        # Empty braces name nobody. Returning nothing leaves the field
+        # unconsumed, so it is preserved rather than stored as a nameless row.
         literal = _clean_text(stripped[1:-1]).strip()
         return {"literal": literal} if literal else {}
 
@@ -364,7 +327,14 @@ def _name_to_csl(name: str) -> dict[str, Any]:
 
 
 def _names_to_csl(raw: str) -> list[dict[str, Any]]:
-    """A whole BibTeX name-list field to a CSL name-variable array, in order."""
+    """Convert a whole BibTeX name-list field to CSL name objects.
+
+    Args:
+        raw: The name-list field's value.
+
+    Returns:
+        One CSL name object per name, in source order.
+    """
     return [
         parsed
         for parsed in (_name_to_csl(one) for one in _split_name_list(raw))
@@ -372,28 +342,22 @@ def _names_to_csl(raw: str) -> list[dict[str, Any]]:
     ]
 
 
-# ---------------------------------------------------------------------------
-# Dates (FR-010)
-# ---------------------------------------------------------------------------
-
-#: BibLaTeX's single ``date`` field: a year, a year and month, or a full
-#: date, each truncated ISO 8601 (US3 acceptance scenario 2). BibLaTeX also
-#: allows an open or closed range (``1970/``, ``1970/1975``) and a season
-#: qualifier; neither is a precision this table's three CSL shapes cover, so
-#: a value in one of those forms does not match and falls to the ``literal``
-#: fallback below, the same as any other date the source states that this
-#: importer cannot resolve to a structured one (FR-020).
+#: BibLaTeX's ``date``: a year, year-month or full date in truncated ISO 8601.
+#: Ranges and season qualifiers do not match and fall to the ``literal`` slot.
 _BIBLATEX_DATE_RE = re.compile(
     r"^(?P<year>\d{4})(-(?P<month>\d{2})(-(?P<day>\d{2}))?)?$"
 )
 
 
 def _parse_biblatex_date(value: str) -> dict[str, Any] | None:
-    """The CSL date-parts a BibLaTeX ``date`` value states, at its own precision.
+    """Return the CSL date a BibLaTeX ``date`` value states, at its own precision.
 
-    ``None`` for a value that is not one of the three shapes ``date`` is
-    documented to carry — the caller's job, not this function's, to decide
-    what happens to a date it cannot parse.
+    Args:
+        value: The field's value.
+
+    Returns:
+        A CSL ``date-parts`` object, or ``None`` when the value is not a real
+        date in one of the three shapes. The caller decides what happens then.
     """
     match = _BIBLATEX_DATE_RE.match(value.strip())
     if not match:
@@ -403,10 +367,8 @@ def _parse_biblatex_date(value: str) -> dict[str, Any] | None:
         parts.append(int(match["month"]))
         if match["day"]:
             parts.append(int(match["day"]))
-    # Shape is not validity. ``2024-13-45`` matches the pattern and names no
-    # day of any year, and the catalogue rejects it — which, without this
-    # check, fails the whole entry rather than falling to the ``literal``
-    # slot every other unresolvable date uses (FR-020, D1, D26).
+    # Shape is not validity: ``2024-13-45`` matches but names no real day, and
+    # would fail the whole entry instead of falling to the ``literal`` slot.
     year, month, day = [*parts, 1, 1][:3]
     try:
         datetime.date(year, month, day)
@@ -416,32 +378,22 @@ def _parse_biblatex_date(value: str) -> dict[str, Any] | None:
 
 
 def _issued_date(fields: dict[str, str]) -> tuple[dict[str, Any] | None, set[str]]:
-    """The entry's ``issued`` date, at the precision the source states.
+    """Return the entry's ``issued`` date, at the precision the source states.
 
-    BibLaTeX's ``date`` is checked first and, when present, decides the
-    result on its own — including when a classic ``year``/``month`` pair is
-    also present and disagrees, which is the precedence FR-024 requires and
-    D17 documents. A ``date`` that will not parse still wins, going to CSL's
-    ``literal`` fallback rather than falling through to ``year``: the source
-    stated a date, and preservation over discarding, not preferring a
-    different field, is the answer to a value this importer cannot resolve
-    (FR-020).
+    A BibLaTeX ``date`` wins outright, even over a disagreeing ``year`` and
+    ``month``, and one that will not parse goes to CSL's ``literal`` slot
+    rather than falling through to ``year``. Without ``date``, ``year`` gives
+    year precision and ``year`` with a recognised ``month`` gives month
+    precision, with nothing padded in. A ``year`` that is not a number
+    (``in press``) also goes to ``literal``.
 
-    Without a ``date`` field, a classic ``year`` alone gives year precision;
-    ``year`` with a recognised ``month`` gives month precision. Neither pads
-    a component the source did not state (FR-010) — there is no day field in
-    classic BibTeX to make a full date from. A ``year`` that cannot be
-    resolved to a structured date at all (``in press``, a prose range) is not
-    discarded either — it goes to the same ``literal`` fallback, which is
-    ``ItemDate.literal`` on the far side of ``from_csl_json`` (D13:
-    unparseable dates are not the general preservation US4 owns, since
-    ``ItemDate`` already has a slot for them).
+    Args:
+        fields: The entry's raw fields.
 
-    Returns the date and the source fields it was built from. The second
-    half matters because the two are not the same set every time: a ``month``
-    the source states but this importer cannot resolve contributes nothing
-    to the date, so reporting it as used would drop it, where reporting it
-    as unused preserves it (D26).
+    Returns:
+        The CSL date, or ``None`` when the entry states none, and the source
+        fields it was built from. An unresolvable ``month`` is left out of that
+        set so it is preserved rather than dropped.
     """
     date = fields.get("date", "").strip()
     if date:
@@ -463,11 +415,9 @@ def _issued_date(fields: dict[str, str]) -> tuple[dict[str, Any] | None, set[str
     return {"date-parts": [parts]}, used
 
 
-#: The language names ``babel`` and ``polyglossia`` define, which is what a
-#: BibLaTeX ``langid`` states, mapped to the BCP 47 tag CSL's ``language``
-#: variable expects. Only the unambiguous ones: ``langid = {english}`` says
-#: nothing about which English, so it is ``en`` rather than a guess between
-#: ``en-GB`` and ``en-US``, while ``british`` and ``american`` do say.
+#: ``babel``/``polyglossia`` language names, as a BibLaTeX ``langid`` states
+#: them, -> BCP 47 tag. ``english`` says nothing about which English, so it is
+#: ``en`` rather than a guess between ``en-GB`` and ``en-US``.
 _LANGUAGE_TAGS: dict[str, str] = {
     "american": "en-US",
     "australian": "en-AU",
@@ -501,12 +451,17 @@ _LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 
 
 def _language_tag(value: str) -> str | None:
-    """The BCP 47 tag ``value`` states, or ``None`` if it states none.
+    """Return the BCP 47 tag ``value`` states.
 
-    ``None`` rather than the raw string, because the catalogue's ``language``
-    holds a tag and nothing longer than one. A name this table does not carry
-    is not truncated to fit and does not fail the entry: it goes unconsumed,
-    which sends it to preservation with everything else (D1, FR-025).
+    The catalogue's ``language`` holds a tag and nothing longer, so a name this
+    table does not carry is neither truncated nor fails the entry. It goes
+    unconsumed and is preserved with the other unmapped fields.
+
+    Args:
+        value: A language name or tag.
+
+    Returns:
+        The tag, or ``None`` if the value states none.
     """
     text = value.strip()
     tag = _LANGUAGE_TAGS.get(text.casefold())
@@ -515,44 +470,28 @@ def _language_tag(value: str) -> str | None:
     return text if _LANGUAGE_TAG_RE.match(text) and len(text) <= 10 else None
 
 
-# ---------------------------------------------------------------------------
-# Preservation (FR-025, FR-026, D3, D20) — a field this importer maps to no
-# CSL variable is not discarded, and preserving it must not open a second
-# reporting channel: per-entry reporting stays exactly what the import
-# contract already defines (D3, spec 004 US4).
-# ---------------------------------------------------------------------------
-
-#: The two keys ``bibtexparser`` adds to every entry structurally — already
-#: surfaced as ``type`` and ``citation-key`` — rather than fields the source
-#: file itself wrote.
+#: Keys ``bibtexparser`` adds to every entry, already surfaced as ``type`` and
+#: ``citation-key``.
 _STRUCTURAL_KEYS = frozenset({"ENTRYTYPE", "ID"})
 
 
 def _unmapped_fields(raw: dict[str, Any], consumed: set[str]) -> dict[str, str]:
-    """Every field ``raw`` carries that conversion did not put anywhere.
+    """Return every field ``raw`` carries that conversion did not use.
 
-    ``consumed`` is what :meth:`BibTeXFormat.to_csl_json` actually used, not
-    what the mapping tables promise it might. The difference matters: a field
-    a table recognises can still land nowhere — a ``language`` this importer
-    cannot resolve to a language tag, an ``author`` list that parses to no
-    names, a ``month`` with no ``year`` to date. Deciding preservation from
-    the tables would call all three mapped and drop them; deciding it from
-    what happened preserves them, which is what FR-025 asks for.
+    Decided from what conversion consumed, not from the mapping tables: a
+    recognised field can still land nowhere, such as an unresolvable
+    ``language`` or an ``author`` that parses to no names. A key is kept unless
+    it was consumed, is a structural key, or starts with an underscore, which
+    marks the parser's own bookkeeping such as ``_FROM_CROSSREF``. ``crossref``
+    is kept like any other field. Empty values are dropped, since ``{}`` is
+    what a reference manager writes for a field it holds no value for.
 
-    So a key survives here unless conversion consumed it, it is one of the
-    two structural keys the parser itself adds (already surfaced as ``type``
-    and ``citation-key``), or the parser prefixes it with an underscore as
-    its own bookkeeping. That last is why ``_FROM_CROSSREF`` — its record of
-    which fields it copied, not something the source file wrote — does not
-    leak into the preserved bookkeeping.
+    Args:
+        raw: The parsed entry.
+        consumed: The fields conversion used.
 
-    ``crossref`` is preserved by the ordinary rule. Inheritance copies the
-    parent's fields onto the child (FR-015), but the ``crossref`` key itself
-    names no CSL variable whether or not it resolved, so nothing consumes it
-    either way and there is no branch for the unresolvable case (acceptance
-    scenario 3). An empty value is not preserved: there is no content to
-    keep, and ``{}`` is what a reference manager writes for a field it holds
-    no value for.
+    Returns:
+        The unused, non-empty fields.
     """
     return {
         key: value
@@ -564,27 +503,20 @@ def _unmapped_fields(raw: dict[str, Any], consumed: set[str]) -> dict[str, str]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Published mapping (FR-007) — the documentation of what maps to what is
-# rendered from the tables above rather than written alongside them, so the
-# two cannot disagree. ``docs/bibtex-mapping.md`` is ``_mapping_document``'s output
-# and a test asserts it still is.
-# ---------------------------------------------------------------------------
-
-
 def _mapping_document() -> str:
-    """The field and entry-type mapping, as a Markdown document.
+    """Render the field and entry-type mapping as a Markdown document.
 
-    Private on purpose. The import contract's public surface is a curated,
-    two-way-asserted list (``literature.importers.__all__``), and a
-    documentation generator does not belong in it. Regenerate the published
-    page after changing any table above::
+    Private, because a documentation generator does not belong in the import
+    contract's public surface. Regenerate ``docs/bibtex-mapping.md`` after
+    changing any table above::
 
         uv run python -c "from literature.importers.bibtex import _mapping_document; \
             open('docs/bibtex-mapping.md','w').write(_mapping_document())"
 
-    A test asserts the file on disk still matches, so a table change that
-    skips this step fails rather than shipping a stale page.
+    A test asserts the file on disk still matches.
+
+    Returns:
+        The Markdown page.
     """
     lines = [
         "# BibTeX mapping",
@@ -638,8 +570,7 @@ def _mapping_document() -> str:
     return "\n".join(lines)
 
 
-#: Any BibTeX block at all — ``@article{``, ``@comment{``, ``@string(``.
-#: A file with content and none of these is not BibTeX (D26).
+#: Any BibTeX block at all: ``@article{``, ``@comment{``, ``@string(``.
 _BIBTEX_BLOCK_RE = re.compile(r"@\s*[A-Za-z]+\s*[{(]")
 
 
@@ -647,13 +578,15 @@ _BIBTEX_BLOCK_RE = re.compile(r"@\s*[A-Za-z]+\s*[{(]")
 class _NonRecord:
     """A ``@comment`` or ``@preamble`` block: recognised, but not an entry.
 
-    ``bibtexparser`` collects both kinds into their own lists, indistinguishable
-    once flattened to plain strings (see :meth:`BibTeXFormat.parse`). Naming the
-    kind here is what lets :meth:`BibTeXFormat.to_csl_json` say which one it
-    skipped (D18), rather than only that it skipped something.
+    ``bibtexparser`` collects both kinds as plain strings, so the kind is
+    recorded here for :meth:`BibTeXFormat.to_csl_json` to name what it skipped.
+
+    Attributes:
+        kind: ``"comment"`` or ``"preamble"``.
+        text: The block's content.
     """
 
-    kind: str  # "comment" | "preamble"
+    kind: str
     text: str
 
 
@@ -664,18 +597,16 @@ class BibTeXFormat(BibFormat):
     label = _("BibTeX")
 
     def _parser(self) -> BibTexParser:
-        """The configured parser.
+        """Return a parser configured for real-world exports.
 
-        ``interpolate_strings`` expands ``@string`` macros in the entries that
-        reference them (FR-013), ``common_strings`` supplies the month
-        abbreviations that real exports use bare, and
-        ``add_missing_from_crossref`` resolves ``crossref`` inheritance
-        (FR-015) — including the forward references classic BibTeX requires,
-        since it runs over the whole database once parsing is done.
+        ``interpolate_strings`` expands ``@string`` macros, ``common_strings``
+        supplies the month abbreviations exports use bare, and
+        ``add_missing_from_crossref`` resolves ``crossref`` inheritance,
+        forward references included. ``ignore_nonstandard_types`` is off, so an
+        unrecognised entry type maps to a generic document instead of vanishing.
 
-        ``ignore_nonstandard_types`` is off: an unrecognised entry type maps to
-        a generic document rather than vanishing (FR-006), and a dropped entry
-        would be a silent loss of exactly the kind this feature exists to stop.
+        Returns:
+            The parser.
         """
         parser = BibTexParser(
             interpolate_strings=True,
@@ -684,54 +615,30 @@ class BibTeXFormat(BibFormat):
             ignore_nonstandard_types=False,
             homogenize_fields=False,
         )
-        # See _MONTH_MACROS: without this, a bare full month name that is not
-        # also a three-letter abbreviation (``July``, unlike ``May``) is an
-        # undefined macro reference and aborts parsing the whole file.
+        # Full month names, which common_strings lacks (see _MONTH_MACROS).
         parser.bib_database.strings.update(_MONTH_MACROS)
         return parser
 
     def parse(self, file) -> Iterator[dict[str, Any] | _NonRecord]:
-        """Yield this file's entries, then its comments and preambles.
+        """Yield this file's entries in source order, then its preambles and comments.
 
-        ``@comment`` and ``@preamble`` blocks are not bibliographic records
-        (FR-014), and ``bibtexparser`` collects them into their own lists
-        rather than interleaving them with entries, so there is no source
-        position to recover them at. They are yielded wrapped in
-        :class:`_NonRecord`, which names which of the two a block was —
-        :meth:`to_csl_json` reads that to tell them apart from an entry
-        (always a plain ``dict``) and to say what it skipped (D18). Entries
-        themselves keep their source order, which is what FR-004 is asserted
-        against.
+        ``bibtexparser`` collects ``@comment`` and ``@preamble`` blocks into
+        separate lists, so their source position is lost. They are yielded
+        wrapped in :class:`_NonRecord`, and :meth:`to_csl_json` skips them.
 
-        A file holding no entries and no BibTeX syntax at all is reported as
-        unreadable rather than as a list of skipped comments (D26).
-        ``bibtexparser`` answers "is this BibTeX?" by falling through to its
-        comment rule, so a RIS file handed over under a ``.bib`` name parses
-        without complaint and imports nothing — and the person who chose the
-        wrong format is told only that one thing was skipped. Two cases are
-        deliberately not that: an empty file, which states nothing and
-        produces nothing, and a file whose blocks begin with ``@``, which is
-        BibTeX the parser declined to read as an entry rather than a file of
-        some other kind.
+        Accepts a binary or a text handle, since a browser upload is always
+        bytes. Bytes are decoded as ``utf-8-sig``, so a byte-order mark is
+        absorbed, as :class:`~literature.importers.ris.RISParser` does.
 
-        A field nesting braces a few hundred deep exhausts the parser's own
-        recursion before it yields anything. Nothing can be recovered from
-        the file at that point — the parser reads the whole file before
-        producing its first entry — so it is reported as one unreadable file
-        with a reason a person can act on, rather than as an interpreter
-        error and a traceback thousands of lines long (D26).
+        Raises :class:`~literature.importers.exceptions.ParseError` when the
+        bytes cannot be decoded, when braces nest deeper than the parser's
+        recursion allows, or when the file has content but no ``@`` block.
+        ``bibtexparser`` reads anything as comments, so without that last check
+        an RIS file given the wrong format would import nothing and report one
+        skip. An empty file yields nothing.
 
-        A field written twice inside one entry keeps its first occurrence
-        (FR-016). That is ``bibtexparser``'s own behaviour rather than a
-        choice made here, and it is written down because a rule nothing
-        states is a rule nobody can rely on.
-
-        Accepts a binary or a text handle (011 Phase 0 decisions.md D10): a
-        browser upload is always bytes, and this decodes them itself —
-        ``utf-8-sig``, so a byte-order mark is absorbed rather than leaking
-        into the first field, matching :class:`~literature.importers.ris.RISParser`
-        — raising the same shaped :class:`~literature.importers.exceptions.ParseError`
-        on undecodable bytes. A text read passes through unchanged.
+        A field repeated within one entry keeps its first occurrence. That is
+        ``bibtexparser``'s behaviour, stated here so it can be relied on.
         """
         raw = file.read()
         if isinstance(raw, bytes):
@@ -762,24 +669,24 @@ class BibTeXFormat(BibFormat):
     def to_csl_json(self, raw: dict[str, Any] | _NonRecord) -> dict[str, Any]:
         """Turn one parsed entry into CSL JSON.
 
-        A comment or a preamble arrives wrapped in :class:`_NonRecord` (see
-        :meth:`parse`) and is skipped outright (FR-014), naming which of the
-        two it was (D18). Everything else is a classic or
-        BibLaTeX entry dict, mapped in the fixed order plan.md lays out:
-        type, fields, names, dates, identifiers, preservation, each cleaned
-        ahead of mapping (FR-017, FR-018, D1). Where a dialect pair targets
-        the same CSL variable and disagree, the BibLaTeX value wins
-        (FR-024, D17).
+        An entry is mapped in a fixed order: type, fields, names, dates,
+        identifiers, then preservation, each value cleaned first. Where a
+        classic and a BibLaTeX field target the same CSL variable, the BibLaTeX
+        value wins.
 
-        Two things end up in ``custom``, and they are not the same
-        mechanism. An identifier cleaning could not rescue is written under
-        its own source field name, one field at a time, at the point its
-        own validation fails (FR-019, D13) — the narrow case. Every field
-        this importer maps nowhere at all is swept up afterwards, nested
-        under a single ``bibtex`` key rather than spilled flat, so it
-        cannot be mistaken for an identifier of the catalogue record itself
-        (FR-025, FR-026, D3, D20, :func:`_unmapped_fields`) — the general
-        case.
+        Two things end up in ``custom``. An identifier that cleaning could not
+        rescue is kept under its own field name. Every field mapped nowhere is
+        gathered under one ``bibtex`` key, so it cannot be mistaken for an
+        identifier of the record.
+
+        Args:
+            raw: A parsed entry dict, or a :class:`_NonRecord`.
+
+        Returns:
+            The entry as CSL JSON.
+
+        Raises:
+            SkipEntry: ``raw`` is a comment or a preamble.
         """
         if isinstance(raw, _NonRecord):
             if raw.kind == "preamble":
@@ -795,24 +702,13 @@ class BibTeXFormat(BibFormat):
             "citation-key": raw.get("ID", ""),
         }
 
-        # Classic fields first, then BibLaTeX: where a dialect pair targets
-        # the same CSL variable (``journal``/``journaltitle``) and an entry
-        # carries both, the second pass's assignment overwrites the first's,
-        # so the BibLaTeX value is what survives (FR-024, D17). Two passes
-        # over the table rather than one sorted by dialect, so the rule
-        # holds for every present and future pair FIELD_TABLE carries, not
-        # just the one case a single insertion-order trick would happen to
-        # get right.
+        # Classic first, then BibLaTeX, so a BibLaTeX value overwrites its
+        # classic counterpart for every pair the table carries.
         consumed: set[str] = set()
 
-        # Which source field supplied each CSL variable, so the one that did
-        # is consumed and any other field naming the same variable is not —
-        # it goes to preservation with its value intact rather than being
-        # silently overwritten (D26). Several classic fields legitimately
-        # name one variable: `booktitle` and `journal` are both a container
-        # title, and `institution`, `organization`, `publisher` and `school`
-        # are all a publisher. Within a dialect the first in table order
-        # wins, which is stated here because nothing else would state it.
+        # The field that supplied each CSL variable. Another field naming the
+        # same variable is preserved rather than overwritten, and within a
+        # dialect the first in table order wins.
         claimed: dict[str, str] = {}
 
         for dialect in ("classic", "biblatex"):
@@ -851,11 +747,8 @@ class BibTeXFormat(BibFormat):
             result["issued"] = issued
             consumed.update(date_fields)
 
-        # A ``urldate`` this importer cannot resolve takes the same
-        # ``literal`` slot an unresolvable ``issued`` takes, rather than
-        # falling to the generic preservation an unmapped field gets: the
-        # model has a date slot for exactly this and D13 already settled
-        # that unparseable dates belong in it (D26).
+        # An unresolvable urldate takes the literal slot, as an unresolvable
+        # issued date does, rather than generic preservation.
         urldate = raw.get("urldate", "").strip()
         if urldate:
             result["accessed"] = _parse_biblatex_date(urldate) or {"literal": urldate}
@@ -870,11 +763,7 @@ class BibTeXFormat(BibFormat):
             try:
                 validate_identifier(mapping.csl, cleaned)
             except ValidationError:
-                # Cleaning could not turn this into something the catalogue
-                # accepts. Preserved under its own source field name rather
-                # than failing the entry (FR-019, D13) — the narrow,
-                # one-field-at-a-time case; the general sweep over every
-                # unmapped field is US4.
+                # Kept under its own field name rather than failing the entry.
                 result.setdefault("custom", {})[bib_key] = cleaned
             else:
                 result[mapping.csl] = cleaned
@@ -886,10 +775,13 @@ class BibTeXFormat(BibFormat):
         return result
 
     def handle_for(self, raw: dict[str, Any] | _NonRecord) -> str | None:
-        """The cite key, which is what a reader will search for (FR-012).
+        """Return the cite key, which is what a reader will search for.
 
-        ``None`` for a comment or preamble (see :meth:`parse`), which has no
-        cite key to report.
+        Args:
+            raw: A parsed entry dict, or a :class:`_NonRecord`.
+
+        Returns:
+            The cite key, or ``None`` for a comment or preamble.
         """
         if not isinstance(raw, dict):
             return None

@@ -283,7 +283,7 @@ name would store a journal abbreviation as a person.
 
 
 **Ambiguity**: T041 asks the fix to be tested "on the generator directly" — take 20,000 values,
-assert all distinct. `literature/converters.py`'s natural mirror under Article XIV is
+assert all distinct. `literature/converters.py`'s natural mirror under the testing standard (§4) is
 `tests/test_converters.py`, but this story's own prohibition keeps that file green **and
 byte-for-byte unmodified**, since it is the evidence T005 was a move and not a rewrite.
 
@@ -291,7 +291,7 @@ byte-for-byte unmodified**, since it is the evidence T005 was a move and not a r
 class testing `_generate_dedup_suffix` directly. `forge verify`'s conformance step rejected it
 mechanically: `forgekit/conformance.py`'s mirror rule is keyed on the test file's **path** against
 the package tree, with no exemption for "the one module you are forbidden to edit" — a second
-file for one source module fails exactly as Article XIV says it should, regardless of why.
+file for one source module fails exactly as the testing standard (§4) says it should, regardless of why.
 
 **Chosen**: the regression lives as `TestGenerateDedupSuffix` inside `tests/test_ris.py`, which
 already mirrors `literature/importers/ris.py`, a file this story owns outright. Its docstring

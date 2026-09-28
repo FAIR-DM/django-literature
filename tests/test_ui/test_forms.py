@@ -1,10 +1,4 @@
-"""Tests for ``literature/ui/forms.py`` — the one write form every flow shares (plan.md D-3, D-4).
-
-``ItemForm`` declares every scalar field so scoping stays visibility-only:
-the template hides groups a type does not use, but nothing the form
-declares is ever narrowed by type, and a hidden field still posts the value
-it already held (D-3).
-"""
+"""Tests for ``literature/ui/forms.py``."""
 
 import pytest
 from django import forms
@@ -53,7 +47,7 @@ class TestItemFormValidation:
         assert "citation_key" in form.errors
 
     def test_a_citation_key_duplicating_a_stored_items_key_is_valid(self):
-        # FR-007 — citation_key is indexed but not globally unique; a
+        # citation_key is indexed but not globally unique; a
         # colliding key is a fact the store holds, never a validation error.
         existing = ItemFactory(citation_key="Doe2024")
         form = ItemForm(
@@ -74,10 +68,8 @@ class TestItemFormValidation:
 
 
 class TestImportForm:
-    """``ImportForm`` — choose a format and a file to import (US-1, FR-005, FR-006, FR-010)."""
-
     def test_offers_exactly_the_configured_formats(self):
-        # FR-005 — not a hard-coded pair: whatever LITERATURE["BIB_FORMATS"]
+        # Not a hard-coded pair: whatever LITERATURE["BIB_FORMATS"]
         # resolves to, and nothing else.
         choices = dict(ImportForm().fields["format"].choices)
         expected = {
@@ -87,7 +79,7 @@ class TestImportForm:
         assert choices == expected
 
     def test_the_choices_are_built_when_the_form_is_instantiated(self):
-        # FR-005 — a format configured after import time still appears: the
+        # A format configured after import time still appears: the
         # choices must be read from available_formats() in __init__, not
         # frozen on the class at import time.
         with override_settings(
@@ -107,12 +99,11 @@ class TestImportForm:
         assert "file" in form.errors
 
     def test_the_form_is_multipart(self):
-        # The file control cannot post without it (T111's own guard reads
-        # this off the rendered page).
+        # The file control cannot post without it.
         assert ImportForm().is_multipart()
 
     def test_carries_a_skip_preview_control_unticked_by_default_and_not_required(self):
-        # FR-040 — previewing is the default path; ticking this is the only
+        # Previewing is the default path; ticking this is the only
         # way to skip it, and a blank form is not itself invalid for lacking
         # a tick (a checkbox left unticked, not one left unanswered).
         field = ImportForm().fields["skip_preview"]
@@ -121,19 +112,8 @@ class TestImportForm:
 
 
 class TestConfirmImportForm:
-    """Carries out a previewed import — US-4 (FR-042).
-
-    Nothing on this page may name the staged file. The token and the format
-    it was staged as both live in the reader's own session (decisions.md
-    D16), and a field carrying either would be exactly the design this
-    feature declines to copy — a request that confirms whatever it was
-    handed the name of.
-
-    It does carry which preview the page was showing (decisions.md D28).
-    That is a different thing: it names nothing on disk, and the view
-    imports only where it matches the confirming session's own value, so on
-    its own it reaches nothing at all.
-    """
+    # Nothing on the page may name the staged file: its token and format live in the
+    # reader's session, and the preview id reaches nothing unless it matches.
 
     def test_carries_no_file_field(self):
         assert "file" not in ConfirmImportForm().fields
@@ -162,16 +142,9 @@ class TestConfirmImportForm:
 
 @pytest.mark.django_db
 class TestNameForm:
-    """``NameForm`` — the contributor row form over ``ItemName`` (plan.md D-3,
-    T006). Family and given are the row's own columns; the particles, the
-    suffix and the unparsed organizational form are reachable rather than
-    laid out (FR-009, FR-008). The three citation-processor flags are never
-    declared, so ``ModelForm`` cannot write them (FR-010).
-    """
-
     def test_declares_neither_the_name_fk_nor_order(self):
         # ``name`` is written in save(), not posted; ``order`` is
-        # ``editable=False`` and excluded from any generated form (D-4).
+        # ``editable=False`` and excluded from any generated form.
         fields = NameForm().fields
         assert "name" not in fields
         assert "order" not in fields
@@ -209,8 +182,7 @@ class TestNameForm:
         assert not Name.objects.exists()
 
     def test_the_rejection_names_no_specific_field_but_carries_a_message(self):
-        # FR-011 — "returns the form saying so" rather than storing anything;
-        # neither family nor literal is individually required at the field
+        # Neither family nor literal is individually required at the field
         # level, so the message belongs to the form as a whole.
         form = NameForm(data={"role": NameRole.AUTHOR})
         assert not form.is_valid()
@@ -235,12 +207,6 @@ class TestNameForm:
 
 
 class TestItemDateFormFields:
-    """``ItemDateForm`` — the date-slot row form over ``ItemDate`` (plan.md
-    D-6, T013). Declares ``date_type``, ``begin`` and ``end`` and nothing
-    else, so everything else ``ItemDate`` carries is never written by a
-    save through this form (FR-017).
-    """
-
     def test_declares_exactly_date_type_begin_and_end(self):
         assert set(ItemDateForm().fields) == {"date_type", "begin", "end"}
 
@@ -252,14 +218,6 @@ class TestItemDateFormFields:
 
 @pytest.mark.django_db
 class TestItemDateFormRejectsAnUndeclaredSlot:
-    """T013 — declaring ``date_type`` is what makes ``ModelForm._post_clean``
-    include it in ``full_clean``. Without it, a row cloned from the set's
-    ``__prefix__`` template with no slot chosen would save an empty
-    ``date_type`` the model's own choices check would otherwise refuse.
-    This is asserted directly: a row posted with no slot is rejected by the
-    form rather than stored.
-    """
-
     def test_a_row_posted_with_no_slot_is_rejected_rather_than_stored(self):
         form = ItemDateForm(data={"date_type": "", "begin": "2020", "end": ""})
         assert not form.is_valid()
@@ -269,12 +227,6 @@ class TestItemDateFormRejectsAnUndeclaredSlot:
 
 @pytest.mark.django_db
 class TestItemDateFormPrecision:
-    """FR-014 — a plain text input over ``PartialDateField`` already accepts
-    a year, a year and month, or a full date with no precision declared
-    beforehand (research R5); this asserts that behaviour through the form
-    rather than building it.
-    """
-
     @pytest.mark.parametrize("value", ["2019", "2019-03", "2019-03-14"])
     def test_each_precision_round_trips(self, value, item):
         form = ItemDateForm(
@@ -286,17 +238,12 @@ class TestItemDateFormPrecision:
         instance.save()
         instance.refresh_from_db()
         # The stored value renders back as the string that re-parses to it
-        # at the same precision (research R5).
+        # at the same precision.
         assert str(instance.begin) == value
 
 
 @pytest.mark.django_db
 class TestItemDateFormSpan:
-    """FR-015, FR-016 — a span is two ends, each keeping its own precision,
-    and the rejections T002 built onto ``ItemDate.clean()`` surface here as
-    form errors rather than exceptions.
-    """
-
     def test_a_year_to_year_span_is_valid(self):
         form = ItemDateForm(
             data={"date_type": DateType.EVENT_DATE, "begin": "2019", "end": "2021"}
@@ -330,13 +277,6 @@ class TestItemDateFormSpan:
 
 @pytest.mark.django_db
 class TestItemDateFormSettledSlot:
-    """T015a — the slot field on an added row offers the six CSL slots less
-    ``occupied_slots``; on a row whose slot is already settled — a stored
-    instance, or a pre-filled extra row — it is disabled rather than
-    offered as a choice (see ``ItemDateForm``'s own docstring for why
-    disabling stands in for a hidden input here).
-    """
-
     def test_an_unsettled_row_offers_every_slot_by_default(self):
         # A required ChoiceField with no model default still carries
         # Django's own blank placeholder choice alongside the six named
@@ -375,11 +315,6 @@ class TestItemDateFormSettledSlot:
 
 @pytest.mark.django_db
 class TestItemDateFormUnparsedRepair:
-    """T016, FR-018 — a stored date whose only content is unparsed (an
-    import the catalogue could not read) is shown, so it can be repaired
-    instead of being invisible.
-    """
-
     def test_a_date_with_only_a_literal_value_shows_it(self, item):
         instance = ItemDateFactory(
             item=item, date_type=DateType.ISSUED, literal="circa 1922"
@@ -417,16 +352,11 @@ class TestItemDateFormUnparsedRepair:
 
 
 class TestItemIdentifierFormFields:
-    """``ItemIdentifierForm`` — the identifier row form over ``ItemIdentifier`` (plan.md D-9,
-    T022). Declares ``type`` and ``value``, the model's only two fields besides the ``item``
-    foreign key the identifier set itself supplies (FR-021).
-    """
-
     def test_declares_exactly_type_and_value(self):
         assert set(ItemIdentifierForm().fields) == {"type", "value"}
 
     def test_the_type_field_offers_the_six_known_kinds_as_completions(self):
-        # FR-023 — offered without restricting to them (D-9): the six known
+        # Offered without restricting to them: the six known
         # kinds render as <option>s of a <datalist> the type input
         # references through list=, so another kind stays typeable.
         rendered = str(ItemIdentifierForm()["type"])
@@ -437,12 +367,6 @@ class TestItemIdentifierFormFields:
 
 @pytest.mark.django_db
 class TestItemIdentifierFormNormalization:
-    """T022, D-9, FR-025 — a typed kind matching one of the six known kinds other than by
-    casing is cleaned to its canonical acronym before it reaches the model, so it is checked as
-    that kind. A kind matching none of the six passes through exactly as typed and unchecked
-    (FR-024, FR-029).
-    """
-
     def test_isbn_typed_lowercase_is_normalized_and_checked_as_isbn(self):
         form = ItemIdentifierForm(data={"type": "isbn", "value": "978-0-306-40615-7"})
         assert form.is_valid(), form.errors
@@ -451,7 +375,7 @@ class TestItemIdentifierFormNormalization:
     def test_isbn_typed_lowercase_with_a_malformed_value_is_rejected(self):
         # ItemIdentifier.clean() (literature/models.py) raises a plain
         # ValidationError, the same shape ItemDateForm's span rejections
-        # take (T014) — _post_clean surfaces it as a non-field error rather
+        # take — _post_clean surfaces it as a non-field error rather
         # than attaching it to "value".
         form = ItemIdentifierForm(data={"type": "isbn", "value": "not-an-isbn"})
         assert not form.is_valid()

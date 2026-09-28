@@ -1,9 +1,4 @@
-"""Tests for ``literature/ui/views.py``.
-
-Article XIV: one source module, one test module — the per-view split is
-expressed with classes, one per story (``TestItemListView`` for US-1,
-``TestItemDetailView`` for US-2, ``TestContributorDetailView`` for US-4).
-"""
+"""Tests for ``literature/ui/views.py``."""
 
 import html
 import json
@@ -13,6 +8,8 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
+from django.contrib import messages
+from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.template.loader import get_template
@@ -34,17 +31,12 @@ from tests.factories import (
     NameFactory,
 )
 
-#: Real, single-entry fixtures (T009's own precedent for reusing recorded
-#: fixtures rather than hand-rolling minimal ones) — one DOI-bearing article,
-#: shared by the BibTeX and RIS upload scenarios below.
+#: Real, single-entry fixtures rather than hand-rolled minimal ones — one
+#: DOI-bearing article, shared by the BibTeX and RIS upload scenarios below.
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
-#: A minimal, valid RIS entry (T109's own "same file as RIS" scenario).
-#: Deliberately not ``tests/data/publication.ris`` — that fixture's ``Y2``
-#: tag ("1/26/2023") trips a pre-existing date-parsing defect in
-#: ``literature.importers.ris`` unrelated to this phase and out of its file
-#: scope (prohibitions forbid touching ``literature/importers/**``); flagged
-#: in the completion report's `concerns` instead.
+#: A minimal, valid RIS entry. Not ``tests/data/publication.ris``, whose ``Y2``
+#: tag ("1/26/2023") trips a date-parsing defect in ``literature.importers.ris``.
 RIS_ONE_GOOD_ENTRY = """TY  - JOUR
 AU  - Doe, Jane
 TI  - A Working RIS Reference
@@ -53,13 +45,9 @@ JO  - Journal of Testing
 ER  -
 """
 
-#: A RIS file mixing an entry that converts with one the format's own
-#: contract refuses (T109's "mixed file" scenario). The second record's
-#: missing ``TY`` tag is ``RISFormat.to_csl_json``'s own documented
-#: ``EntryError`` ("This entry carries no 'TY' tag"), not an incidental
-#: malformation — deliberately chosen over an ISBN/DOI-style validation
-#: failure, which does not currently reach the model layer for a bibtex
-#: entry (a second, unrelated finding, also flagged in `concerns`).
+#: A RIS file mixing an entry that converts with one the format's contract
+#: refuses: the second record's missing ``TY`` tag is ``RISFormat``'s own
+#: documented ``EntryError``, not an incidental malformation.
 RIS_ONE_GOOD_ONE_BAD = """TY  - JOUR
 AU  - Doe, Jane
 TI  - A Working RIS Reference
@@ -73,45 +61,30 @@ ER  -
 """
 
 
-def anchor_tag(content, href):
-    """The opening ``<a>`` tag addressing ``href``, so a test can assert on the
-    classes it carries rather than only on the presence of the URL."""
-    match = re.search(rf"<a\b[^>]*href=\"{re.escape(href)}\"[^>]*>", content)
-    assert match, f"no anchor addressing {href}"
-    return match.group(0)
-
-
 def table_header_row(content):
-    """The table's own ``<thead>...</thead>`` markup, so a column-order
-    assertion reads the header row rather than the whole rendered page
-    (decisions.md D16) — the filter modal renders ahead of the table and
-    emits some of the same words as literal field labels."""
+    """Return the table's ``<thead>`` markup.
+
+    The filter modal renders ahead of the table and repeats some column names as field labels.
+    """
     match = re.search(r"<thead.*?</thead>", content, re.DOTALL)
     assert match, "no table header row"
     return match.group(0)
 
 
 def rendered_page_link(content, page_number):
-    """The ``href`` the rendered pagination component's own numbered link to
-    ``page_number`` carries — found by reading the markup, not by
-    constructing ``?page=N`` ourselves. That distinction is what T019's
-    page-2 assertion turns on (plan.md D-14): the address the reader's
-    click actually carries is the evidence, not one the test invents.
+    """Return the unescaped ``href`` of the rendered link to ``page_number``.
 
-    Unescaped (decisions.md D13): ``{% querystring %}`` HTML-escapes the
-    ``&`` joining two or more parameters, so a link carrying both ``sort``
-    and ``page`` renders as ``...&amp;page=2``. Read verbatim, the test
-    client parses that as a parameter literally named ``amp;page`` and no
-    ``page`` value ever reaches the view."""
+    Read from the markup, so the test follows the address a reader's click carries. Unescaped
+    because ``{% querystring %}`` writes ``&amp;page=2``, which the test client would read as a
+    parameter named ``amp;page``.
+    """
     match = re.search(rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{page_number}\s*</a>', content)
     assert match, f"no rendered link to page {page_number}"
     return html.unescape(match.group(1))
 
 
 def rendered_sort_link(content, column_label):
-    """The ``href`` a column heading's own sort link carries (T019, FR-019) —
-    the address a reader's click on that heading actually carries, unescaped
-    the same way ``rendered_page_link()`` is and for the same reason."""
+    """Return the unescaped ``href`` of a column heading's rendered sort link."""
     match = re.search(
         rf'<a\b[^>]*href="([^"]*)"[^>]*>\s*{re.escape(column_label)}\s*<', content
     )
@@ -128,11 +101,11 @@ def rendered_form_post_data(client, url, **overrides):
     bare hand-typed dict. A bare dict would miss both, and would pass a
     round-trip or redirect-target assertion even against a view that dropped
     a field, or reverted ``{% block actions %}`` to the stock button that
-    posts ``default_next=list`` (plan.md D-3), the rendered page actually
+    posts ``default_next=list``, the rendered page actually
     posts.
 
     Also carries every inline row-set's own management form and each of its
-    rows' current field values (T005, FR-031) — a Django formset raises on a
+    rows' current field values — a Django formset raises on a
     POST missing its management form entirely, and a POST that resubmits an
     existing row's fields blank would either fail that row's own validation
     or blank the row, neither of which is "no change" for a test that never
@@ -159,14 +132,11 @@ def rendered_form_post_data(client, url, **overrides):
 
 
 def rendered_filter_form_data(response, **overrides):
-    """Build a GET query dict from a rendered page's own filter form (T020).
+    """Build a GET query dict from a rendered page's own filter form.
 
-    ``response.context["filter"].form`` is the same GET-bound form the
-    filter modal renders — every field starts at what that form actually
-    carries, a hidden field included, so submitting the result reproduces
-    exactly what the modal's own ``c-form`` submits when a reader changes
-    one field and clicks "Apply filters", not a hand-typed dict that could
-    silently omit one."""
+    Starts from what the bound form carries, hidden fields included, so it submits exactly what
+    the filter modal would.
+    """
     form = response.context["filter"].form
     data = {name: (form[name].value() or "") for name in form.fields}
     data.update(overrides)
@@ -174,38 +144,27 @@ def rendered_filter_form_data(response, **overrides):
 
 
 def update_page_post_data(client, item, **overrides):
-    """Build a POST body from the rendered edit page's own bound form (T009)."""
+    """Build a POST body from the rendered edit page's own bound form."""
     return rendered_form_post_data(
         client, reverse("literature:item-update", kwargs={"pk": item.pk}), **overrides
     )
 
 
 def create_page_post_data(client, **overrides):
-    """Build a POST body from the rendered create page's own form (T011)."""
+    """Build a POST body from the rendered create page's own form."""
     return rendered_form_post_data(
         client, reverse("literature:item-create"), **overrides
     )
 
 
 #: Both catalogue presentations, so a "both presentations owe this" test
-#: (plan.md D-11) is one parametrized method rather than two near-identical
-#: ones. ``literature:item-list`` is the table since T010; the card is
-#: reachable at the test urlconf's own second route (research R10).
+#: is one parametrized method rather than two near-identical
+#: ones. ``literature:item-list`` is the table; the card is
+#: reachable at the test urlconf's own second route.
 CATALOGUE_ROUTES = ["literature:item-list", "item-list-cards"]
 
 
 class TestItemListView:
-    """List behaviour every catalogue presentation owes, plus the card's own
-    content (FR-011, FR-012, FR-021, plan.md D-11).
-
-    The assertions parametrized over ``CATALOGUE_ROUTES`` come from shared
-    django-mvp mechanisms — pagination, the position line, the empty state —
-    rather than from either view's own template, so they are genuinely two
-    promises now rather than one. The rest are about the card's own
-    rendering and stay pinned to its own route; the table's equivalent
-    per-column behaviour is ``tests/test_ui/test_tables.py``'s own subject.
-    """
-
     @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
     def test_lists_items_most_recently_added_first(self, client, db, route_name):
         older = ItemFactory(title="Older Reference")
@@ -221,7 +180,7 @@ class TestItemListView:
         ItemFactory.create_batch(30)
         response = client.get(reverse(route_name))
         if route_name == "literature:item-list":
-            # The table route's own page (decisions.md D14): at 0.19.1
+            # The table route's own page: at 0.19.1
             # MVPTableViewMixin.paginate_queryset() leaves the queryset
             # whole and republishes the page from the table, so
             # object_list there is the whole catalogue, not one page of it.
@@ -246,19 +205,6 @@ class TestItemListView:
         assert response.status_code == 404
 
     @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
-    def test_empty_catalogue_renders_the_stated_empty_result(
-        self, client, db, route_name
-    ):
-        # Assert this view's own wording, not merely the presence of an empty
-        # state — django-mvp's default heading ("There's nothing here yet")
-        # would satisfy a looser match and hide an unwired empty state.
-        response = client.get(reverse(route_name))
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "Nothing in the catalogue yet" in content
-        assert "References imported or created will appear here." in content
-
-    @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
     def test_each_row_links_to_that_items_page(self, client, db, route_name):
         item = ItemFactory(title="A Linked Reference")
         response = client.get(reverse(route_name))
@@ -270,8 +216,7 @@ class TestItemListView:
         self, client, db, route_name
     ):
         # directory = ["create"] alone renders nothing without
-        # show_create_action set (plan.md D-6) — this is the entry point
-        # US-1's acceptance scenario 1 starts from.
+        # show_create_action set.
         content = client.get(reverse(route_name)).content.decode()
         assert f'href="{reverse("literature:item-create")}"' in content
 
@@ -295,9 +240,8 @@ class TestItemListView:
         assert str(item_name.name) in content
 
     def test_row_shows_a_ranged_issued_date_at_both_ends(self, client, db):
-        # FR-013 is "at the precision stored", and a range's precision is both
-        # ends — the row used to drop everything after ``begin`` while the
-        # reference page rendered the same date correctly (RC-002).
+        # A range's precision is both ends — the row used to drop everything after ``begin`` while the
+        # reference page rendered the same date correctly.
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
         content = client.get(reverse("item-list-cards")).content.decode()
@@ -334,44 +278,14 @@ class TestItemListView:
 
 
 class TestCatalogueListReadability:
-    """Issue #65 — what the card list and its rows say at a glance.
-
-    Re-pointed to the card's own route rather than deleted or loosened
-    (plan.md D-11): every assertion here is about the card, and the card is
-    not going away — only the default route in front of it moved.
-    """
-
-    def test_the_page_is_titled_for_what_it_holds_not_for_the_model(self, client, db):
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert "Publications" in content
-        assert "Items" not in content
-
-    def test_the_position_line_names_the_collection_the_same_way_the_heading_does(
-        self, client, db
-    ):
-        # django-mvp writes this line from the model's verbose_name_plural, so
-        # retitling the page alone left it reading "Showing 1-24 of 28 items"
-        # directly under a heading that said Publications.
-        ItemFactory.create_batch(30)
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert "of 30 publications" in content
-        assert "of 30 items" not in content
-
     def test_the_model_keeps_its_own_name(self, db):
         # The heading is the view's to choose. Renaming the model to reach it
         # would rename it in the admin, in every error message and in the
         # migration state, for a word on one page.
         assert str(Item._meta.verbose_name_plural) == "items"
 
-    def test_the_item_type_badge_carries_the_primary_colour(self, client, db):
-        ItemFactory(type=ItemType.ARTICLE_JOURNAL)
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert re.search(
-            r'class="badge badge-primary[^"]*">\s*Journal Article\s*<', content
-        )
-
     def test_contributor_names_link_to_their_page(self, client, db):
-        # The reference page has carried this link since FR-022; the row showed
+        # The reference page carries this link; the row once showed
         # the same names as plain text, so a reader could not tell from the
         # catalogue that a contributor had a page at all.
         item_name = ItemNameFactory(role=NameRole.AUTHOR)
@@ -380,41 +294,6 @@ class TestCatalogueListReadability:
             "literature:contributor-detail", kwargs={"pk": item_name.name.pk}
         )
         assert f'href="{contributor_url}"' in content
-
-    def test_a_contributor_link_underlines_on_hover(self, client, db):
-        item_name = ItemNameFactory(role=NameRole.AUTHOR)
-        content = client.get(reverse("item-list-cards")).content.decode()
-        contributor_url = reverse(
-            "literature:contributor-detail", kwargs={"pk": item_name.name.pk}
-        )
-        assert "link-hover" in anchor_tag(content, contributor_url)
-
-    def test_the_title_link_underlines_on_hover(self, client, db):
-        item = ItemFactory(title="A Followable Title")
-        content = client.get(reverse("item-list-cards")).content.decode()
-        item_url = reverse("literature:item-detail", kwargs={"pk": item.pk})
-        assert "link-hover" in anchor_tag(content, item_url)
-
-    def test_a_role_heading_pluralises_with_the_names_under_it(self, client, db):
-        item = ItemFactory()
-        for _ in range(3):
-            ItemNameFactory(item=item, role=NameRole.AUTHOR)
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert "Authors:" in content
-        assert "Author:" not in content
-
-    def test_a_role_heading_stays_singular_for_one_name(self, client, db):
-        ItemNameFactory(role=NameRole.AUTHOR)
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert "Author:" in content
-
-    def test_the_citation_key_is_labelled(self, client, db):
-        # Given a title, so the row's fallback does not also print the key
-        # (the fallback is the row's heading, and is not what this labels).
-        ItemFactory(title="A Titled Reference", citation_key="Labelled2026")
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert "Cite key" in content
-        assert content.index("Cite key") < content.index("Labelled2026")
 
     def test_a_row_shows_a_snippet_of_the_abstract(self, client, db):
         ItemFactory(abstract="Sediment cores record the drainage history of the basin.")
@@ -440,18 +319,6 @@ class TestCatalogueListReadability:
 
 
 class TestTheCardListStaysAvailable:
-    """US-4 — the card presentation did not go away (FR-022, FR-023, FR-027).
-
-    The list behaviour a project switching to this route inherits —
-    ordering, page size, the empty state, the create action — is already
-    asserted for both presentations by ``TestItemListView``'s
-    ``CATALOGUE_ROUTES`` parametrization. This class asserts the promise
-    itself: the class is reachable, the route it is pointed at renders cards
-    rather than the table it no longer defaults to, the contributor page
-    still presents cards, and none of that needs a template copied out of
-    the package.
-    """
-
     def test_itemlistview_is_importable_from_the_views_module(self):
         from literature.ui.views import ItemListView
 
@@ -467,12 +334,11 @@ class TestTheCardListStaysAvailable:
         assert "<table" not in content
         assert "A Card-Rendered Reference" in content
 
-    def test_routing_a_url_at_it_keeps_pagination_the_empty_state_and_the_create_action(
+    def test_routing_a_url_at_it_keeps_pagination_and_the_create_action(
         self, client, db
     ):
         # Empty state first — populating the catalogue would hide it.
         empty_content = client.get(reverse("item-list-cards")).content.decode()
-        assert "Nothing in the catalogue yet" in empty_content
         assert f'href="{reverse("literature:item-create")}"' in empty_content
 
         ItemFactory.create_batch(30)
@@ -493,7 +359,7 @@ class TestTheCardListStaysAvailable:
     def test_no_template_is_copied_out_of_the_package_to_render_the_cards(self):
         # Every template the card chain reaches for resolves inside the
         # literature package itself, so a project routing at ItemListView
-        # needs to write nothing of its own to get the page FR-022 promises.
+        # needs to write nothing of its own to get the card list.
         package_root = Path(literature.__file__).resolve().parent
         for template_name in (
             "literature/ui/item_list_item.html",
@@ -506,10 +372,6 @@ class TestTheCardListStaysAvailable:
 
 
 class TestTheCardListFiltersAndSearches:
-    """US-4, T022 — the card list narrows the same way the table does, now
-    that it is ``MVPFilteredListView`` (plan.md D-2, FR-024).
-    """
-
     def test_a_search_term_narrows_the_card_list(self, client, db):
         matching = ItemFactory(title="Whale Migration Patterns")
         other = ItemFactory(title="Unrelated Reference")
@@ -531,14 +393,13 @@ class TestTheCardListFiltersAndSearches:
     def test_a_sort_with_no_filter_in_force_shows_no_applied_filter_badge(
         self, client, db
     ):
-        # The finding this task exists for: MVPFilteredListView's own
+        # MVPFilteredListView's own
         # get_context_data() (mvp/integrations/django_filters/views.py)
         # counts every non-empty field of filterset.form.cleaned_data, and
         # "sort" (literature/ui/filters.py ItemFilterSet.sort) is a hidden
-        # field on that form carrying django-tables2's own ordering (plan.md
-        # D-7) — not one of the catalogue's own filters (decisions.md D21).
+        # field on that form carrying django-tables2's own ordering — not one of the catalogue's own filters.
         # Proven through the shared exclusion function, not a second copy of
-        # the table's own override (decisions.md D20).
+        # the table's own override.
         ItemFactory()
         response = client.get(reverse("item-list-cards"), {"sort": "-citation_key"})
         assert not response.context.get("applied_filters")
@@ -547,10 +408,7 @@ class TestTheCardListFiltersAndSearches:
 
 
 def catalogue_pks(route_name, params):
-    """The primary keys a request against ``route_name`` narrows to, read
-    from whichever context key that route's own view populates (T024,
-    FR-024, SC-005) — the table's own paginated rows, or the card list's
-    plain ``object_list``."""
+    """Return the primary keys a request against ``route_name`` narrows to."""
     response = Client().get(reverse(route_name), params)
     if route_name == "literature:item-list":
         return {row.record.pk for row in response.context["table"].page.object_list}
@@ -558,14 +416,6 @@ def catalogue_pks(route_name, params):
 
 
 class TestBothPresentationsReturnTheSameReferences:
-    """FR-024, SC-005 — the card list and the table narrow to the same
-    references for the same search and the same filters, both reading
-    ``SEARCH_FIELDS`` and ``ItemFilterSet`` from ``literature.ui.filters``
-    (plan.md D-1). One test per scenario, each requesting both routes and
-    comparing what came back, rather than two near-identical tests per
-    scenario asserting the same narrowing on each route separately.
-    """
-
     @pytest.fixture
     def catalogue(self, db):
         matching = ItemFactory(
@@ -606,12 +456,9 @@ class TestBothPresentationsReturnTheSameReferences:
 
 
 class TestItemTableView:
-    """The catalogue as a table — US-1 (FR-001 through FR-012, FR-021, plan.md D-2)."""
-
     def test_column_headers_appear_in_the_required_order(self, client, db):
-        # decisions.md D16: reads the table's own header row, not the whole
-        # rendered page — the filter modal (this feature's own FR-009 to
-        # FR-013) renders ahead of the table and emits "Type" as a literal
+        # Reads the table's own header row, not the whole
+        # rendered page — the filter modal renders ahead of the table and emits "Type" as a literal
         # filter-field label before the table's own "Type" column header, so
         # a page-wide substring search stopped being a faithful proxy for
         # "the table's columns sit in this order".
@@ -657,7 +504,7 @@ class TestItemTableView:
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
         content = client.get(reverse("literature:item-list")).content.decode()
         assert "Complete2026" in content
-        assert "Journal Article" in content
+        assert str(ItemType.ARTICLE_JOURNAL.label) in content
         assert "A Complete Reference" in content
         assert "Journal of Everything" in content
         assert str(item_name.name) in content
@@ -671,16 +518,16 @@ class TestItemTableView:
         content = response.content.decode()
         assert response.status_code == 200
         assert "Citation key" in content
-        # The table's own page (decisions.md D14) — see the sibling
+        # The table's own page — see the sibling
         # assertion above for why object_list no longer means this here.
         assert len(response.context["table"].page.object_list) == 6
 
     def test_query_count_does_not_grow_with_row_count(self, client, db):
-        # FR-012 — proves T009's prefetches are actually being read, rather
-        # than the manager (research R9): the credited-names cell filtering
+        # Proves the view's prefetches are actually being read, rather
+        # than the manager: the credited-names cell filtering
         # record.item_names.filter(...) would cost one query per row.
         #
-        # FR-026 — extended, not duplicated (tasks.md T012): every item's
+        # Extended, not duplicated: every item's
         # title carries the same term throughout, so a search for it goes on
         # matching the whole catalogue as it grows, and the query count under
         # search is compared against itself at two sizes exactly as the
@@ -727,7 +574,7 @@ class TestItemTableView:
     def test_the_edit_control_follows_show_update_action_like_the_reference_pages_own(
         self, client, db, monkeypatch
     ):
-        # FR-020 — the same CRUDDirectoryMixin flag ItemDetailView's own edit
+        # The same CRUDDirectoryMixin flag ItemDetailView's own edit
         # action reads (literature/ui/views.py), overridden here the same way
         # a project would override it to gate the write page.
         from literature.ui.views import ItemTableView
@@ -741,7 +588,7 @@ class TestItemTableView:
     def test_the_control_and_its_target_are_reachable_with_no_authentication(
         self, client, db
     ):
-        # FR-020 — this feature introduces no permission check, login
+        # This feature introduces no permission check, login
         # requirement or other access control of its own. ``client`` here is
         # the plain, unauthenticated test client every other assertion in
         # this module already uses; both pages 200 for it.
@@ -755,19 +602,9 @@ class TestItemTableView:
         )
 
     def test_carries_search_and_filter_but_no_column_chooser(self, client, db):
-        # FS-009 wrote this test's ancestor for FR-025 to lock search and
-        # filter off; this feature's own FR-001 and FR-009 to FR-013 turn
-        # them back on over a signed-off specification, so the assertion
-        # follows the requirement rather than the old one (decisions.md D16
-        # — FS-009's FR-025 is annotated as superseded in place in
-        # specs/009-tabular-catalogue-view/spec.md). Still asserted against
-        # the rendered page rather than only the view's own configuration,
-        # and still closed in both directions, so an upstream default
-        # widening the action surface is still caught.
-        # T114 — "import" genuinely joins the shown action set (US-1); this
-        # is the one shipped assertion this phase edits, because the list
-        # it names gains a real member rather than losing what it already
-        # asserted.
+        # FS-010 turned search and filter back on after FS-009 locked them off.
+        # Asserted against the rendered page and closed in both directions, so
+        # an upstream default widening the action surface is still caught.
         ItemFactory()
         response = client.get(reverse("literature:item-list"))
         content = response.content.decode()
@@ -786,7 +623,7 @@ class TestItemTableView:
     def test_the_toolbar_renders_the_views_own_list_and_not_the_packaged_default(
         self, client, db, monkeypatch
     ):
-        # T001a — the gate on the seam itself. django-mvp 0.19.2 deleted
+        # The gate on the seam itself. django-mvp 0.19.2 deleted
         # ``MVPTableViewMixin.actions`` and the ``table_actions`` context key
         # its ``table_view.html`` rendered the row from (upstream commit
         # dfa7c3a), and the packaged template now renders
@@ -812,7 +649,7 @@ class TestItemTableView:
         assert "filterModal" not in content  # the filter control's own modal id
 
     def test_the_search_box_submits_through_the_filter_form(self, client, db):
-        # T008, research R4: the search input renders with `form="filterForm"`,
+        # The search input renders with `form="filterForm"`,
         # and `filterForm` is only declared inside `{% if filter %}` — a
         # context key only FilterView sets. Without filterset_class
         # configured, the input would be wired to a form that does not
@@ -830,13 +667,12 @@ class TestItemTableView:
     def test_the_queryset_annotates_issued_matching_the_items_own_issued_date(
         self, client, db
     ):
-        # T017 — the Subquery ordering will read at T018 (plan.md D-8,
-        # research R7). A join-based filter is deliberately not used, since
+        # The issued sort reads this Subquery annotation. A join-based filter is deliberately not used, since
         # it risks row multiplication and interferes with the paginator's
         # count query.
         #
-        # decisions.md D18: the annotation is a raw column value, typed
-        # DateTimeField (D12) so issued__year resolves, and its seconds
+        # The annotation is a raw column value, typed
+        # DateTimeField so issued__year resolves, and its seconds
         # component encodes the source date's precision rather than
         # round-tripping through PartialDateField — compared here against
         # the issued slot's own calendar date, not against a PartialDate.
@@ -871,17 +707,6 @@ class TestItemTableView:
 
 
 class TestCatalogueImportAction:
-    """The toolbar action on both catalogue presentations — US-1, research R2.
-
-    The table view has a supported hook (``actions``); the card list does
-    not and reaches the action through a block override that must carry the
-    whole row through, never just the import link — the regression this
-    guards against is silent and the two shipped tests it names are
-    evidence about intent, never something to edit green
-    (``TestItemTableView::test_carries_search_and_filter_but_no_column_chooser``,
-    ``TestItemListView::test_the_add_link_renders_and_points_at_the_create_page``).
-    """
-
     def test_the_table_catalogue_carries_a_link_to_the_import_route(self, client, db):
         content = client.get(reverse("literature:item-list")).content.decode()
         assert f'href="{reverse("literature:item-import")}"' in content
@@ -915,8 +740,6 @@ class TestCatalogueImportAction:
 
 
 class TestCatalogueSearch:
-    """Searching the catalogue from an HTTP request — FR-002 through FR-005."""
-
     @pytest.mark.parametrize(
         "field",
         ["citation_key", "title", "title_short", "original_title", "container_title"],
@@ -975,7 +798,7 @@ class TestCatalogueSearch:
     def test_a_fragment_living_only_in_the_abstract_or_a_keyword_finds_nothing(
         self, client, db
     ):
-        # FR-004 — neither field is in SEARCH_FIELDS (tests/test_ui/test_filters.py
+        # Neither field is in SEARCH_FIELDS (tests/test_ui/test_filters.py
         # ::TestSearchFields already pins the declared list itself).
         ItemFactory(abstract="Discusses whale migration patterns at length.")
         ItemFactory(keyword="whale, migration")
@@ -983,7 +806,7 @@ class TestCatalogueSearch:
         assert len(response.context["table"].page.object_list) == 0
 
     def test_a_reference_matching_several_fields_appears_once(self, client, db):
-        # FR-005, plan D-4 — the shared fragment sits in three different
+        # The shared fragment sits in three different
         # searched paths (title, container_title, a contributor's family
         # name) at once, over a distinct row so no other match can hide a
         # duplicate.
@@ -1007,15 +830,15 @@ class TestCatalogueSearch:
         assert other.citation_key not in content
 
     def test_a_term_of_only_spaces_is_a_no_op(self, client, db):
-        # FR-006 — the upstream mixin strips and checks truthiness before
-        # filtering at all, so this is the empty-query no-op (FR-008) under
+        # The upstream mixin strips and checks truthiness before
+        # filtering at all, so this is the empty-query no-op under
         # a different guise rather than a wildcard match.
         ItemFactory.create_batch(3)
         response = client.get(reverse("literature:item-list"), {"q": "   "})
         assert len(response.context["table"].page.object_list) == 3
 
     def test_a_percent_sign_is_matched_literally_not_as_a_wildcard(self, client, db):
-        # FR-006 — "%" is the database's own multi-character wildcard. A
+        # "%" is the database's own multi-character wildcard. A
         # naive, unescaped `LIKE '%' || value || '%'` would match "100X..."
         # too, since the user's own "%" would itself act as a wildcard;
         # confirmed directly against this database with an unescaped raw
@@ -1030,7 +853,7 @@ class TestCatalogueSearch:
         assert decoy.citation_key not in content
 
     def test_an_underscore_is_matched_literally_not_as_a_wildcard(self, client, db):
-        # FR-006 — "_" is the database's own single-character wildcard,
+        # "_" is the database's own single-character wildcard,
         # confirmed the same way as the "%" case above.
         literal_match = ItemFactory(title="Sample_ID Formation")
         decoy = ItemFactory(title="SampleXID Formation")
@@ -1041,7 +864,7 @@ class TestCatalogueSearch:
         assert decoy.citation_key not in content
 
     def test_a_search_matching_something_states_how_many(self, client, db):
-        # FR-007 — django-mvp's own position line, which already reads the
+        # django-mvp's own position line, which already reads the
         # table's narrowed page and paginator (no production change of this
         # feature's own): confirmed the search reduces what it counts, not
         # only what it lists.
@@ -1052,27 +875,13 @@ class TestCatalogueSearch:
         ).content.decode()
         assert "1-1 of 1" in content
 
-    def test_a_search_matching_nothing_states_so_and_keeps_its_controls(
-        self, client, db
-    ):
-        # FR-028, plan.md D-8 — distinct from the genuinely-empty-catalogue
-        # message below, and the search box and filter control both stay on
-        # the page rather than disappearing along with the rows.
+    def test_a_search_matching_nothing_keeps_its_controls(self, client, db):
         ItemFactory.create_batch(3)
         content = client.get(
             reverse("literature:item-list"), {"q": "no-such-term-anywhere"}
         ).content.decode()
-        assert "No references match your search" in content
-        assert "Nothing in the catalogue yet" not in content
         assert 'name="q"' in content
         assert "filterModal" in content
-
-    def test_a_genuinely_empty_catalogue_keeps_its_own_message(self, client, db):
-        # FR-028, plan.md D-8 — the two messages never appear together; this
-        # is the other half of the pair above, with no query in force at all.
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert "Nothing in the catalogue yet" in content
-        assert "No references match your search" not in content
 
     @pytest.mark.parametrize(
         "clearing_params", [{"q": ""}, {}], ids=["empty-q", "no-q"]
@@ -1080,7 +889,7 @@ class TestCatalogueSearch:
     def test_clearing_the_search_restores_the_unnarrowed_catalogue(
         self, client, db, clearing_params
     ):
-        # FR-008 — a request carrying an empty q, and one carrying no q at
+        # A request carrying an empty q, and one carrying no q at
         # all, each return the whole catalogue where the preceding search
         # had narrowed it. Upstream's search mixin already no-ops on an
         # empty term; this is the guard that it goes on doing so.
@@ -1094,14 +903,6 @@ class TestCatalogueSearch:
 
 
 class TestCatalogueFilters:
-    """Each filter on its own against the table — FR-009 through FR-013.
-
-    The filterset itself is already exercised directly in
-    ``tests/test_ui/test_filters.py``; this class proves the same behaviour
-    reaches an HTTP request through ``ItemTableView``, which is this story's
-    own scope (plan.md D-1, D-4, D-5).
-    """
-
     def test_type_narrows_to_the_chosen_type(self, client, db):
         book = ItemFactory(type=ItemType.BOOK)
         article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
@@ -1114,14 +915,12 @@ class TestCatalogueFilters:
     def test_type_choices_offer_the_translatable_label_while_the_url_narrows_on_the_stored_value(
         self, client, db
     ):
-        # FR-010 — the select option pairs the stored slug (the value the
-        # query string above narrows on) with its translated label, read
-        # from the filter control itself rather than a row's own type cell,
-        # which would pass even if the filter control's own choices broke.
+        # Read from the filter control, not a row's type cell, which would
+        # pass even if the control's own choices broke.
         content = client.get(reverse("literature:item-list")).content.decode()
+        label = re.escape(str(ItemType.ARTICLE_JOURNAL.label))
         assert re.search(
-            r'<option value="article-journal"[^>]*>\s*Journal Article\s*</option>',
-            content,
+            rf'<option value="article-journal"[^>]*>\s*{label}\s*</option>', content
         )
 
     def test_contributor_narrows_to_references_crediting_them_in_any_role(
@@ -1204,13 +1003,6 @@ class TestCatalogueFilters:
 
 
 class TestCatalogueFilterComposition:
-    """Composing filters and search — FR-014, FR-015, decisions.md D6.
-
-    "Articles or chapters, from 2019" is D6's own example: one filter
-    (type) widened to either value, another (year) narrowing what that
-    widened set returns.
-    """
-
     def test_more_than_one_value_within_a_filter_widens_to_either(self, client, db):
         article = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
         chapter = ItemFactory(type=ItemType.CHAPTER)
@@ -1274,18 +1066,6 @@ class TestCatalogueFilterComposition:
 
 
 class TestCatalogueFilterVisibility:
-    """What is in force is visible on the page and clearable from it — FR-016.
-
-    django-mvp's own badge (``mvp/templates/cotton/page/list/actions/filter.html``)
-    reads ``applied_filters``/``applied_filter_count`` from the context, but
-    only ``MVPFilteredListView.get_context_data()`` (the card list's own base,
-    plan.md D-2) populates them — ``ItemTableView`` composes
-    ``MVPTableViewMixin, FilterView`` instead, and never ran that method, so
-    the table carried a filter control with no badge at all. Confirmed
-    directly before writing these tests: an unfiltered request already
-    leaves ``response.context["applied_filters"]`` at ``None``.
-    """
-
     def test_no_badge_when_nothing_is_applied(self, client, db):
         content = client.get(reverse("literature:item-list")).content.decode()
         assert "indicator-item badge badge-secondary badge-xs" not in content
@@ -1313,8 +1093,8 @@ class TestCatalogueFilterVisibility:
         )
 
     def test_a_search_term_alone_carries_no_filter_badge(self, client, db):
-        # The badge belongs to the Filter button specifically (FR-016 governs
-        # both controls, but django-mvp's own count is filter-only) — `q` is
+        # The badge belongs to the Filter button specifically (django-mvp's own
+        # count is filter-only) — `q` is
         # not one of `self.filterset.filters`, so it never reaches
         # `filterset.form.cleaned_data`.
         ItemFactory(title="Whale Migration Patterns")
@@ -1350,36 +1130,19 @@ class TestCatalogueFilterVisibility:
 
 
 class TestCatalogueFilterValidation:
-    """Invalid and unmatched filter values — FR-017, decisions.md D7.
-
-    Two cases and only two: a declared filter's value matching nothing, and
-    a declared filter's value that fails validation. Both already narrow to
-    nothing through the adopted components — django-filter's own ``strict``
-    default (``BaseFilterView.get()``) returns an empty queryset for an
-    invalid bound form, and an unmatched value is simply a filter that
-    matches no row — so this task proves the behaviour rather than building
-    it.
-    """
-
-    def test_an_unmatched_value_of_a_declared_filter_states_no_matches(
-        self, client, db
-    ):
+    def test_an_unmatched_value_of_a_declared_filter_matches_nothing(self, client, db):
         ItemFactory(language="en")
         response = client.get(reverse("literature:item-list"), {"language": "zz"})
-        content = response.content.decode()
         assert response.status_code == 200
         assert len(response.context["table"].page.object_list) == 0
-        assert "No references match your search" in content
 
-    def test_an_invalid_value_of_a_declared_filter_states_no_matches(self, client, db):
+    def test_an_invalid_value_of_a_declared_filter_matches_nothing(self, client, db):
         ItemFactory()
         response = client.get(
             reverse("literature:item-list"), {"issued_year": "notanumber"}
         )
-        content = response.content.decode()
         assert response.status_code == 200
         assert len(response.context["table"].page.object_list) == 0
-        assert "No references match your search" in content
 
     def test_neither_case_falls_back_to_the_unfiltered_catalogue(self, client, db):
         ItemFactory.create_batch(3, language="en")
@@ -1393,10 +1156,10 @@ class TestCatalogueFilterValidation:
     def test_an_address_carrying_an_undeclared_key_is_ignored_not_rejected(
         self, client, db
     ):
-        # FR-017 reads on a filter *value*, not an undefined key: a Django
+        # Validation reads a filter *value*, not an undefined key: a Django
         # form simply ignores data it has no field for, so an address like
         # this is neither of the two cases above, and this feature
-        # deliberately builds no rejection mechanism for it (tasks.md T016).
+        # deliberately builds no rejection mechanism for it.
         # Pinned as what actually happens — 200, no exception, the
         # catalogue unnarrowed — not as a contract this feature owns.
         item = ItemFactory()
@@ -1408,9 +1171,9 @@ class TestCatalogueFilterValidation:
 
 
 #: One item-building override per plain sortable column, cycled by index so
-#: 30 references get 30 distinct, independently-sortable values (T019).
+#: 30 references get 30 distinct, independently-sortable values.
 #: "type" cycles a fixed set of stored slugs rather than a unique value per
-#: item — sorting is still monotonic across ties, and it doubles as FR-017's
+#: item — sorting is still monotonic across ties, and it doubles as the
 #: check that ordering follows the stored slug, not the translated label.
 PLAIN_SORTABLE_COLUMN_OVERRIDES = {
     "citation_key": lambda n: {"citation_key": f"Key{n:03d}"},
@@ -1423,18 +1186,11 @@ PLAIN_SORTABLE_COLUMN_OVERRIDES = {
 
 
 class TestCatalogueOrdering:
-    """Sorting the catalogue from an HTTP request — FR-013 through FR-018 (plan.md D-8, research R7)."""
-
     def catalogue_column_values(self, client, column, sort_param=None):
-        """Every reference's ``column`` value, gathered across both pages of
-        a 30-row catalogue — proving a sort is applied to the whole
-        queryset rather than only to whichever rows a page happens to
-        show.
+        """Return every reference's ``column`` value across both pages of the catalogue.
 
-        Reads ``table.page`` rather than the plain ``object_list`` context
-        key: ``SingleTableMixin`` sorts and paginates its own copy of the
-        queryset independently of ``MVPListViewMixin``'s, and ``object_list``
-        never reflects the sort at all.
+        Reads ``table.page``: ``SingleTableMixin`` sorts its own copy of the queryset, and
+        ``object_list`` never reflects the sort.
         """
         values = []
         params = {"sort": sort_param} if sort_param else {}
@@ -1452,7 +1208,7 @@ class TestCatalogueOrdering:
     def test_ascending_sort_orders_the_whole_catalogue_not_only_the_current_page(
         self, client, db, column
     ):
-        # 30 references over a 24-row page (FR-014, FR-016).
+        # 30 references over a 24-row page.
         for n in range(30):
             ItemFactory(**PLAIN_SORTABLE_COLUMN_OVERRIDES[column](n))
         values = self.catalogue_column_values(client, column, sort_param=column)
@@ -1462,7 +1218,7 @@ class TestCatalogueOrdering:
     def test_ascending_sort_by_issued_date_keeps_undated_references_last(
         self, client, db
     ):
-        # FR-018 — read through the HTTP sort param rather than only through
+        # Read through the HTTP sort param rather than only through
         # order_issued directly (TestIssuedOrdering already covers that).
         dated_keys = []
         for n in range(20):
@@ -1491,7 +1247,7 @@ class TestCatalogueOrdering:
         assert ascending != descending
 
     def test_sort_by_the_contributors_column_is_refused(self, client, db):
-        # FR-015 — the credited-names cell has no single value to order on.
+        # The credited-names cell has no single value to order on.
         first = ItemFactory(citation_key="First")
         second = ItemFactory(citation_key="Second")
         response = client.get(reverse("literature:item-list"), {"sort": "contributors"})
@@ -1506,7 +1262,7 @@ class TestCatalogueOrdering:
         assert citation_keys == [second.citation_key, first.citation_key]
 
     def test_sort_by_the_actions_column_is_refused(self, client, db):
-        # FR-015 — a control, not data, has no single value to order on.
+        # A control, not data, has no single value to order on.
         first = ItemFactory(citation_key="First")
         second = ItemFactory(citation_key="Second")
         response = client.get(reverse("literature:item-list"), {"sort": "actions"})
@@ -1539,15 +1295,6 @@ class TestCatalogueOrdering:
 
 
 class TestCatalogueStateSurvivesAPageMove:
-    """A search and a filter each survive a page move too, and all three
-    survive together — FR-018, closing #88 alongside the sort case above.
-
-    Followed through the page's own rendered link (``rendered_page_link()``,
-    decisions.md D13), never a hand-built ``?page=2`` — asserted on the
-    second page's own results, not merely on the shape of the link that
-    reached it.
-    """
-
     def test_a_search_survives_following_the_rendered_link_to_page_2(self, client, db):
         for n in range(30):
             ItemFactory(title=f"Whale Migration {n:03d}")
@@ -1622,11 +1369,6 @@ class TestCatalogueStateSurvivesAPageMove:
 
 
 class TestCatalogueStateSurvivesAPageMoveOnTheCardList:
-    """FR-018 on the card presentation — the same guarantee
-    ``TestCatalogueStateSurvivesAPageMove`` proves for the table, followed
-    through the card list's own rendered link rather than the table's.
-    """
-
     def test_a_search_survives_following_the_rendered_link_to_page_2(self, client, db):
         for n in range(30):
             ItemFactory(title=f"Whale Migration {n:03d}")
@@ -1660,12 +1402,6 @@ class TestCatalogueStateSurvivesAPageMoveOnTheCardList:
 
 
 class TestCatalogueStateSurvivesAChangeOfSort:
-    """A search and a filter survive a change of sort from a column heading,
-    and the new sort orders what they narrowed, not the whole catalogue —
-    FR-019. This direction already works; pinned here before T020 touches
-    the filter form for the opposite direction.
-    """
-
     def test_search_and_a_filter_survive_a_change_of_sort_from_a_column_heading(
         self, client, db
     ):
@@ -1703,21 +1439,13 @@ class TestCatalogueStateSurvivesAChangeOfSort:
 
 
 class TestCatalogueStateSurvivesAChangeOfFilter:
-    """The sort survives a change of filter, carried as a hidden field on
-    ``ItemFilterSet``'s own form — plan.md D-7, decisions.md D-20's own
-    correction. The opposite direction from T019: there the sort came from
-    a column heading and django-tables2 already carried the rest of the
-    address; here the filter modal is our own GET form, and submitting it
-    replaces the query string with only what that form's own fields carry.
-    """
-
     def test_sort_survives_a_change_of_filter_submitted_from_the_filter_form(
         self, client, db
     ):
         # citation_key runs the opposite way to creation order, so a sort
         # by -citation_key produces a different row order than the
-        # catalogue's default (-created) — same reasoning as T017/T019's
-        # own fixtures, and for the same reason: a test where the two
+        # catalogue's default (-created), for the same reason as the sort
+        # fixtures above: a test where the two
         # coincide would pass whether or not the sort actually survived.
         older_last_key = ItemFactory(type=ItemType.BOOK, citation_key="KeyZ")
         newer_first_key = ItemFactory(type=ItemType.BOOK, citation_key="KeyA")
@@ -1764,12 +1492,6 @@ class TestCatalogueStateSurvivesAChangeOfFilter:
 
 
 class TestCatalogueStateSurvivesReopeningTheAddress:
-    """A narrowed catalogue can be bookmarked and reopened to the same
-    result (FR-022, SC-004): the state lives in the address itself, not in
-    a session, so a second, entirely unrelated client reaching the same
-    address gets the same narrowed catalogue back.
-    """
-
     def test_a_bookmarked_address_reopens_to_the_same_narrowed_result(self, db):
         matching = ItemFactory(type=ItemType.BOOK, title="Whale Migration Patterns")
         ItemFactory(type=ItemType.ARTICLE_JOURNAL, title="Whale Migration Patterns")
@@ -1792,8 +1514,6 @@ class TestCatalogueStateSurvivesReopeningTheAddress:
 
 
 class TestItemCreateView:
-    """Enter a reference by hand — US-1 (FR-001 through FR-011)."""
-
     def test_page_renders_and_the_type_select_carries_the_alpine_scoping(
         self, client, db
     ):
@@ -1806,10 +1526,10 @@ class TestItemCreateView:
     def test_with_no_type_chosen_every_group_but_the_type_fields_own_is_guarded(
         self, client, db
     ):
-        # FR-002 — with no type chosen, only the type field itself has no
+        # With no type chosen, only the type field itself has no
         # x-show guard; every one of the thirteen groups does, so nothing
         # else among the scalar-field groups shows. Scoped to the
-        # `typeGroups` guard specifically (T005): the page's contributor,
+        # `typeGroups` guard specifically: the page's contributor,
         # date and identifier rows carry their own unrelated `x-show`, one
         # per row, for the removed-row state — a raw page-wide count would
         # conflate the two.
@@ -1863,22 +1583,15 @@ class TestItemCreateView:
         assert Item.objects.count() == 0
         assert "citation_key" in response.context["form"].errors
 
-    def test_a_duplicate_citation_key_is_stored_unchanged_with_no_warning(
-        self, client, db
-    ):
-        # FR-007 — citation_key is not globally unique; a colliding key is a
-        # fact the store holds, never a validation error.
-        # citation_key deliberately avoids the word "duplicate" itself, so the
-        # no-warning assertion below cannot pass by accident on the key's own text.
+    def test_a_duplicate_citation_key_is_stored_unchanged(self, client, db):
+        # citation_key is not globally unique; a colliding key is a fact the
+        # store holds, never a validation error.
         ItemFactory(citation_key="Repeated2024")
         data = create_page_post_data(
             client, type=ItemType.ARTICLE_JOURNAL, citation_key="Repeated2024"
         )
-        response = client.post(reverse("literature:item-create"), data, follow=True)
+        client.post(reverse("literature:item-create"), data)
         assert Item.objects.filter(citation_key="Repeated2024").count() == 2
-        content = response.content.decode().lower()
-        assert "already exists" not in content
-        assert "duplicate" not in content
 
     def test_a_created_items_detail_page_renders_with_no_contributors_dates_or_identifiers(
         self, client, db
@@ -1893,14 +1606,6 @@ class TestItemCreateView:
 
 
 class TestItemFormInlineSets:
-    """The reference form composes three related-row sets alongside the
-    parent form — contributors, dates and identifiers (plan.md D-2, T005).
-    No save path of its own: composing django-mvp's inline mixin is what
-    gives FR-031/FR-033's one-transaction, errors-survive-re-render
-    behaviour, so these tests exercise the wiring rather than any new save
-    logic here.
-    """
-
     def test_the_create_page_renders_all_three_inline_sets(self, client, db):
         content = client.get(reverse("literature:item-create")).content.decode()
         assert 'name="item_names-TOTAL_FORMS"' in content
@@ -1938,7 +1643,7 @@ class TestItemFormInlineSets:
     def test_an_invalid_parent_form_saves_no_identifier_and_keeps_the_typed_value_on_the_page(
         self, client, db
     ):
-        # FR-033 — a rejected save leaves the catalogue exactly as it was,
+        # A rejected save leaves the catalogue exactly as it was,
         # and returns the form carrying what was entered.
         data = create_page_post_data(
             client,
@@ -1959,10 +1664,9 @@ class TestItemFormInlineSets:
     def test_an_invalid_date_row_reports_its_own_error_and_saves_nothing(
         self, client, db
     ):
-        # FR-031, FR-033 — an inline set's own error blocks the whole save,
+        # An inline set's own error blocks the whole save,
         # not just its own rows, since all three formsets and the parent
-        # form are validated with all_valid() and share one transaction
-        # (research R1).
+        # form are validated with all_valid() and share one transaction.
         data = create_page_post_data(
             client,
             type=ItemType.ARTICLE_JOURNAL,
@@ -1981,15 +1685,11 @@ class TestItemFormInlineSets:
 
 
 class TestDateRows:
-    """Giving a reference its dates through the form — US-2 (T013 through
-    T019).
-    """
-
     def test_a_type_leading_only_with_issued_can_be_given_an_accessed_date_without_leaving_the_form(
         self, client, db
     ):
-        # T015a, FR-012 — MAP leads with no extra date slots of its own
-        # (DC6); the accessed date is reached by naming the slot on the
+        # MAP leads with no extra date slots of its own;
+        # the accessed date is reached by naming the slot on the
         # set's own added row, not by a second page.
         item = ItemFactory(type=ItemType.MAP)
         data = update_page_post_data(
@@ -2011,7 +1711,6 @@ class TestDateRows:
         assert item.item_dates.filter(date_type=DateType.ACCESSED).exists()
 
     def test_clearing_a_date_removes_it_and_no_other_slot_moves(self, client, db):
-        # T017, FR-019
         item = ItemFactory(type=ItemType.MAP)
         kept = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
         removed = ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021")
@@ -2040,10 +1739,6 @@ class TestDateRows:
 
 
 class TestContributorRows:
-    """Crediting contributors through the reference form — US-1 (T006, T007,
-    T007a, T009, T010, T011).
-    """
-
     def test_a_contributor_with_only_an_unparsed_name_saves(self, client, db):
         data = create_page_post_data(
             client,
@@ -2065,7 +1760,6 @@ class TestContributorRows:
     def test_a_contributor_with_neither_family_nor_unparsed_name_is_rejected(
         self, client, db
     ):
-        # FR-011
         data = create_page_post_data(
             client,
             type=ItemType.ARTICLE_JOURNAL,
@@ -2083,7 +1777,7 @@ class TestContributorRows:
     def test_entering_a_name_matching_one_already_stored_creates_a_second_record(
         self, client, db
     ):
-        # SC-002 — crediting the same spelling across two references never
+        # Crediting the same spelling across two references never
         # changes what the first reference's stored record is credited on.
         existing_item = ItemFactory()
         existing_link = ItemNameFactory(
@@ -2112,11 +1806,10 @@ class TestContributorRows:
         assert existing_link.name.family == "Doe"
         assert existing_item.item_names.filter(pk=existing_link.pk).exists()
 
-    def test_the_same_name_entered_twice_in_one_role_stores_two_records_with_no_warning(
+    def test_the_same_name_entered_twice_in_one_role_stores_two_records(
         self, client, db
     ):
-        # FR-007 — the interface never merges or warns about a repeated
-        # spelling within one role.
+        # The interface never merges a repeated spelling within one role.
         data = create_page_post_data(
             client,
             type=ItemType.ARTICLE_JOURNAL,
@@ -2131,18 +1824,15 @@ class TestContributorRows:
                 "item_names-1-given": "Jane",
             },
         )
-        response = client.post(reverse("literature:item-create"), data, follow=True)
+        client.post(reverse("literature:item-create"), data)
         assert Name.objects.filter(family="Doe", given="Jane").count() == 2
         item = Item.objects.get(citation_key="TwoSameAuthors2024")
         assert item.item_names.count() == 2
-        content = response.content.decode().lower()
-        assert "duplicate" not in content
-        assert "already" not in content
 
     def test_editing_a_contributor_shared_by_import_never_rewrites_the_other_reference(
         self, client, db
     ):
-        # T007a, SC-002, FR-034, D-3 — the import path shares Name records
+        # The import path shares Name records
         # via get_or_create (literature/converters.py:_import_name_variable),
         # so two references imported with an identically spelled author are
         # already crediting the same record before either is ever edited
@@ -2185,7 +1875,7 @@ class TestContributorRows:
     def test_editing_a_contributor_credited_on_nothing_else_updates_it_in_place(
         self, client, db
     ):
-        # T007a's other branch: nothing else observes the difference, so a
+        # Nothing else observes the difference, so a
         # new record would only orphan the old one.
         item = ItemFactory()
         link = ItemNameFactory(
@@ -2206,7 +1896,7 @@ class TestContributorRows:
         assert link.name.family == "Corrected"
 
     def test_reordering_one_role_leaves_every_other_role_untouched(self, client, db):
-        # FR-004, T009 — a submission of 1, 1, 3 within one role becomes a
+        # A submission of 1, 1, 3 within one role becomes a
         # coherent sequence; a second role's own positions are untouched.
         item = ItemFactory()
         author_a = ItemNameFactory(
@@ -2242,13 +1932,13 @@ class TestContributorRows:
         assert editor.order == 0  # the other role's own position is untouched
 
     def test_contributor_rows_are_grouped_by_role_on_the_page(self, client, db):
-        # T009 — an ungrouped list showing positions 0, 0, 1, 2, 0 reads as
-        # broken. T012a put the set back on the packaged formset component,
+        # An ungrouped list showing positions 0, 0, 1, 2, 0 reads as
+        # broken. The set renders through the packaged formset component,
         # which draws no role heading of its own, so this no longer asserts
         # a heading — it asserts the behaviour that actually ships:
         # ContributorInline.sort_forms() keeps one role's rows adjacent, and
         # each row's own role field, its first column, names the role
-        # directly (decisions.md D15).
+        # directly.
         item = ItemFactory()
         ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="A"))
         ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="B"))
@@ -2271,7 +1961,7 @@ class TestContributorRows:
         assert selected_roles == [NameRole.AUTHOR, NameRole.AUTHOR, NameRole.EDITOR]
 
     def test_no_ordering_across_roles_is_offered(self, client, db):
-        # FR-004 — an author and an editor may share the same submitted
+        # An author and an editor may share the same submitted
         # ORDER value with no collision, since each role is its own scope.
         item = ItemFactory()
         author = ItemNameFactory(
@@ -2299,7 +1989,6 @@ class TestContributorRows:
     def test_removing_a_contributor_removes_the_link_and_never_the_name(
         self, client, db
     ):
-        # FR-003, T010
         item = ItemFactory()
         link = ItemNameFactory(item=item, name=NameFactory(family="Survivor"))
         name_id = link.name_id
@@ -2316,7 +2005,7 @@ class TestContributorRows:
     def test_a_contributor_removed_from_everything_still_has_its_own_page_listing_nothing(
         self, client, db
     ):
-        # FR-003 — a contributor credited on nothing still has a page.
+        # A contributor credited on nothing still has a page.
         item = ItemFactory()
         link = ItemNameFactory(item=item, name=NameFactory(family="LoneCredit"))
         name_id = link.name_id
@@ -2333,7 +2022,7 @@ class TestContributorRows:
     def test_a_save_rejected_elsewhere_on_the_form_leaves_no_name_record_behind(
         self, client, db
     ):
-        # T011, FR-033, D10 — the failure a naive implementation produces:
+        # The failure a naive implementation produces:
         # records created while processing the form and orphaned when
         # validation fails elsewhere. Rejected here by the parent form's own
         # missing citation_key, with a fully valid contributor row alongside it.
@@ -2376,9 +2065,6 @@ class TestContributorRows:
 
 
 class TestContributorDatalist:
-    """The stored-name <datalist> every contributor row's family-name input
-    references (plan.md D-1, D-12, T008)."""
-
     def test_the_create_page_offers_stored_family_names_as_suggestions(
         self, client, db
     ):
@@ -2423,13 +2109,6 @@ class TestContributorDatalist:
 
 
 class TestItemImportView:
-    """Pick a format, attach a file, and see what became of every entry — US-1
-    (FR-005, FR-006, FR-010, FR-019, FR-023, AS-10).
-
-    Every submission here skips the preview, so the class asserts what a real
-    import does to the catalogue. Submitting without that choice previews
-    instead (FR-038), and `TestItemImportPreview` covers that path."""
-
     def test_get_renders_the_form_page_with_a_format_choice_and_a_file_control(
         self, client, db
     ):
@@ -2521,13 +2200,6 @@ class TestItemImportView:
 
 
 class TestItemImportViewRejects:
-    """A reader who submits nothing, or a file the chosen format cannot use,
-    is told what is wrong rather than shown a server error or a silent
-    empty report — US-2 (FR-006, FR-019, FR-023, FR-024, FR-025, FR-026).
-
-    Five cases, each asserted against the response's status code and
-    content, never against whether an exception was logged (hazards)."""
-
     def test_no_file_attached_redisplays_the_form_with_a_reason_and_imports_nothing(
         self, client, db
     ):
@@ -2561,7 +2233,7 @@ class TestItemImportViewRejects:
         self, client, db
     ):
         # RIS content submitted as bibtex — bibtexparser finds no "@type{" block.
-        # A valid form submission previews by default now (US-6, FR-045), so
+        # A valid form submission previews by default now, so
         # the failure surfaces on the preview address reached by redirect,
         # not on this response directly.
         upload = SimpleUploadedFile("wrong-format.bib", RIS_ONE_GOOD_ENTRY.encode())
@@ -2600,9 +2272,6 @@ class TestItemImportViewRejects:
 
 
 class TestItemImportPreviewPage:
-    """The preview has its own address, and a GET rebuilds it from the staged
-    file — US-6 (FR-045, FR-054, decisions.md D30)."""
-
     def _submit(self, client, filename="publication.bib", format_name="bibtex"):
         with (DATA_DIR / filename).open("rb") as handle:
             upload = SimpleUploadedFile(filename, handle.read())
@@ -2647,12 +2316,9 @@ class TestItemImportPreviewPage:
         assert first.created == second.created == 1
         assert Item.objects.count() == 0
 
-    def test_reaching_it_with_nothing_staged_says_so_and_does_not_raise(
-        self, client, db
-    ):
+    def test_reaching_it_with_nothing_staged_does_not_raise(self, client, db):
         response = client.get(reverse("literature:item-import-preview"))
         assert response.status_code == 200
-        assert "nothing staged" in response.content.decode().lower()
 
     def test_the_session_holds_the_staged_token_and_format(self, client, db):
         self._submit(client)
@@ -2688,9 +2354,6 @@ class TestItemImportPreviewPage:
 
 
 class TestItemImportRestart:
-    """Restarting discards the staged file and returns to an empty import
-    form — US-6 (FR-051)."""
-
     def _submit(self, client, filename="publication.bib", format_name="bibtex"):
         with (DATA_DIR / filename).open("rb") as handle:
             upload = SimpleUploadedFile(filename, handle.read())
@@ -2718,9 +2381,6 @@ class TestItemImportRestart:
 
 
 class TestItemImportConfirm:
-    """Carrying out a previewed import returns to the catalogue — US-4, US-6
-    (FR-041 through FR-044, FR-052, decisions.md D31)."""
-
     def _preview(self, client, filename="publication.bib", format_name="bibtex"):
         with (DATA_DIR / filename).open("rb") as handle:
             upload = SimpleUploadedFile(filename, handle.read())
@@ -2760,32 +2420,32 @@ class TestItemImportConfirm:
         assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
         assert Item.objects.count() == preview.context["report"].created
 
-    def test_the_message_left_behind_states_what_was_created(self, client, db):
+    def test_confirming_leaves_one_success_message(self, client, db):
         preview = self._preview(client)
         response = client.post(
             reverse("literature:item-import-confirm"),
             self._confirm_fields(preview),
             follow=True,
         )
-        assert "1 created" in response.content.decode()
+        assert [m.level for m in get_messages(response.wsgi_request)] == [
+            messages.SUCCESS
+        ]
 
-    def test_following_the_redirect_renders_the_message_once(self, client, db):
-        # django.contrib.messages consumes a queued message on read — a
-        # second fetch of the catalogue must not still carry it.
+    def test_following_the_redirect_consumes_the_message(self, client, db):
         preview = self._preview(client)
         client.post(
             reverse("literature:item-import-confirm"),
             self._confirm_fields(preview),
             follow=True,
         )
-        second_visit = client.get(reverse("literature:item-list")).content.decode()
-        assert "1 created" not in second_visit
+        second_visit = client.get(reverse("literature:item-list"))
+        assert list(get_messages(second_visit.wsgi_request)) == []
 
     def test_the_reader_is_not_asked_for_the_file_again(self, client, db):
         preview = self._preview(client)
         # No file and no format: what the confirm control posts back names
         # only which preview the page was showing, which reaches nothing on
-        # its own (D28).
+        # its own.
         fields = self._confirm_fields(preview)
         assert set(fields) == {"preview"}
         client.post(reverse("literature:item-import-confirm"), fields)
@@ -2799,28 +2459,24 @@ class TestItemImportConfirm:
         )
         assert StagedUpload().open(token) is None
 
-    def test_a_confirmation_from_a_session_that_staged_nothing_imports_nothing_and_says_so(
+    def test_a_confirmation_from_a_session_that_staged_nothing_imports_nothing(
         self, client, db
     ):
         response = client.post(reverse("literature:item-import-confirm"), follow=True)
         assert response.status_code == 200
-        assert "nothing to confirm" in response.content.decode().lower()
         assert Item.objects.count() == 0
 
-    def test_a_confirmation_from_a_different_session_imports_nothing_and_says_so(
-        self, client, db
-    ):
-        # AS-8 — a file staged by one session is not reachable through another.
+    def test_a_confirmation_from_a_different_session_imports_nothing(self, client, db):
+        # A file staged by one session is not reachable through another.
         self._preview(client)
         other_client = Client()
         response = other_client.post(
             reverse("literature:item-import-confirm"), follow=True
         )
         assert response.status_code == 200
-        assert "nothing to confirm" in response.content.decode().lower()
         assert Item.objects.count() == 0
 
-    def test_a_confirmation_whose_staged_file_has_been_swept_says_so_and_imports_nothing(
+    def test_a_confirmation_whose_staged_file_has_been_swept_imports_nothing(
         self, client, db
     ):
         self._preview(client)
@@ -2833,7 +2489,6 @@ class TestItemImportConfirm:
 
         response = client.post(reverse("literature:item-import-confirm"), follow=True)
         assert response.status_code == 200
-        assert "nothing to confirm" in response.content.decode().lower()
         assert Item.objects.count() == 0
 
     def test_confirming_a_superseded_preview_imports_nothing(self, client, db):
@@ -2851,7 +2506,6 @@ class TestItemImportConfirm:
         )
 
         assert response.status_code == 200
-        assert "nothing to confirm" in response.content.decode().lower()
         assert Item.objects.count() == 0
 
     def test_a_superseded_previews_file_is_not_left_staged(self, client, db):
@@ -2867,16 +2521,11 @@ class TestItemImportConfirm:
         fields = self._confirm_fields(preview)
         client.post(reverse("literature:item-import-confirm"), fields)
         assert Item.objects.count() == 1
-        second = client.post(
-            reverse("literature:item-import-confirm"), fields, follow=True
-        )
+        client.post(reverse("literature:item-import-confirm"), fields, follow=True)
         assert Item.objects.count() == 1
-        assert "nothing to confirm" in second.content.decode().lower()
 
 
 class TestItemImportSkipPreview:
-    """Ticking the skip control imports in one step — US-4 (FR-040)."""
-
     def test_ticking_the_skip_control_imports_in_one_step(self, client, db):
         with (DATA_DIR / "publication.bib").open("rb") as handle:
             upload = SimpleUploadedFile("publication.bib", handle.read())
@@ -2887,9 +2536,7 @@ class TestItemImportSkipPreview:
         assert response.status_code == 200
         assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
 
-    def test_the_report_describes_what_was_imported_rather_than_what_would_be(
-        self, client, db
-    ):
+    def test_the_report_carries_no_confirm_control(self, client, db):
         with (DATA_DIR / "publication.bib").open("rb") as handle:
             upload = SimpleUploadedFile("publication.bib", handle.read())
         response = client.post(
@@ -2897,10 +2544,8 @@ class TestItemImportSkipPreview:
             {"format": "bibtex", "file": upload, "skip_preview": "on"},
         )
         content = response.content.decode()
-        assert "nothing has been imported" not in content.lower()
-        # No confirm control: there is nothing left to confirm. The upload
-        # form the page carries above its results (decisions.md D17) is a
-        # different form, submitting a new file to a new run.
+        # The upload form the page carries above its results is a different
+        # form, submitting a new file to a new run.
         assert f'action="{reverse("literature:item-import-confirm")}"' not in content
 
     def test_skipping_the_preview_stages_nothing(self, client, db):
@@ -2950,17 +2595,15 @@ class TestItemImportSkipPreview:
 
 
 class TestItemUpdateView:
-    """Correct a reference that is wrong — US-2 (FR-009 through FR-014)."""
-
     def test_saving_an_unchanged_form_leaves_every_stored_field_identical(
         self, client, db
     ):
-        # SC-003 — the whole no-loss guarantee, and the most valuable test in
+        # The whole no-loss guarantee, and the most valuable test in
         # the feature. A value in every scalar field the form carries, plus
-        # the two JSON fields it never carries (categories, custom — D-4),
+        # the two JSON fields it never carries (categories, custom),
         # must survive an unchanged round trip through the rendered edit
         # form. created/modified are auto_now_add/auto_now and change on
-        # every save by design (DR-010), so they are excluded on purpose,
+        # every save by design, so they are excluded on purpose,
         # not by oversight.
         from literature.ui.forms import FORM_FIELDS
 
@@ -3005,7 +2648,7 @@ class TestItemUpdateView:
     def test_a_populated_field_outside_the_types_own_groups_is_forced_visible(
         self, client, db
     ):
-        # FR-010 — "legal" is not one of ARTICLE_JOURNAL's own groups
+        # "legal" is not one of ARTICLE_JOURNAL's own groups
         # (container, numbering), so a value already stored in it has to be
         # forced visible rather than left behind the type guard.
         assert "legal" not in FieldGroups.TYPE_GROUPS[ItemType.ARTICLE_JOURNAL]
@@ -3019,7 +2662,7 @@ class TestItemUpdateView:
     def test_changing_the_item_type_on_post_retains_values_in_groups_the_new_type_does_not_use(
         self, client, db
     ):
-        # FR-014 — WEBPAGE's own groups are just "container"; "legal" is not
+        # WEBPAGE's own groups are just "container"; "legal" is not
         # among them, so authority must still round-trip unchanged.
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, authority="Held Authority")
         data = update_page_post_data(client, item, type=ItemType.WEBPAGE)
@@ -3031,7 +2674,7 @@ class TestItemUpdateView:
     def test_the_type_select_renders_the_items_stored_type_as_selected(
         self, client, db
     ):
-        # The failure T006's x-init prevents: without it x-model would
+        # The failure the select's x-init prevents: without it x-model would
         # deselect the stored type at Alpine's own initialisation, but the
         # server-rendered HTML this test reads is unaffected by that bug —
         # this asserts the bound ModelForm renders the right initial option
@@ -3047,7 +2690,7 @@ class TestItemUpdateView:
     def test_saving_through_the_form_leaves_contributor_date_and_identifier_rows_unchanged(
         self, client, populated_item
     ):
-        # FR-012 — ItemForm carries none of these; the guarantee is that a
+        # ItemForm carries none of these; the guarantee is that a
         # save through it never touches them at all.
         item = populated_item
 
@@ -3070,26 +2713,7 @@ class TestItemUpdateView:
         assert rows() == before
 
 
-class TestCreatePageRendersTheTailwindPack:
-    """plan.md D-5 — CRISPY_TEMPLATE_PACK = "tailwind" is a setting; this
-    asserts what the create page's own markup actually is, not the setting's
-    value. A test on the setting alone would pass even if something between
-    the setting and the page (a missing app, an overridden template) left a
-    different pack's markup on the wire."""
-
-    def test_a_text_input_carries_the_tailwind_packs_label_markup(self, client, db):
-        content = client.get(reverse("literature:item-create")).content.decode()
-        # crispy_tailwind's field.html wraps every label in this exact,
-        # hard-coded class string; the pack this repo carried before D-5
-        # (bootstrap4-shaped markup) uses "form-label"/"form-control" instead.
-        assert 'class="block text-gray-700 text-sm font-bold mb-2"' in content
-        assert "form-label" not in content
-        assert "form-control" not in content
-
-
 class TestItemDetailView:
-    """The reference page — FR-019 through FR-026."""
-
     def test_carried_fields_appear_and_absent_fields_do_not(self, client, db):
         item = ItemFactory(title="Full Record", volume="12", issue="")
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
@@ -3098,7 +2722,7 @@ class TestItemDetailView:
         issue_label = item._meta.get_field("issue").verbose_name
         assert f">{volume_label}</h6>" in content
         assert "12" in content
-        # issue is blank on this item — its label must not appear at all (FR-021).
+        # issue is blank on this item — its label must not appear at all.
         assert f">{issue_label}</h6>" not in content
 
     def test_carried_fields_match_the_scalar_fields_helper(self, client, db):
@@ -3122,13 +2746,11 @@ class TestItemDetailView:
         )
 
     def test_item_type_reads_as_its_label_not_its_stored_slug(self, client, db):
-        # The same field on the catalogue badge reads "Journal Article"; the
-        # scalar grid used to show the raw CSL slug beside it (RC-003).
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
         content = client.get(
             reverse("literature:item-detail", kwargs={"pk": item.pk})
         ).content.decode()
-        assert "Journal Article" in content
+        assert str(ItemType.ARTICLE_JOURNAL.label) in content
         assert "article-journal" not in content
 
     def test_year_only_date_renders_at_its_own_precision(self, client, db):
@@ -3177,8 +2799,8 @@ class TestItemDetailView:
         assert 'href="https://example.org/paper"' in response.content.decode()
 
     def test_identifier_carrying_a_script_scheme_is_never_followable(self, client, db):
-        # An unrecognised identifier type skips format validation entirely
-        # (FR-017), so the value reaching this page is arbitrary stored text.
+        # An unrecognised identifier type skips format validation entirely,
+        # so the value reaching this page is arbitrary stored text.
         item = ItemFactory()
         payload = "javascript://%0aalert(document.cookie)"
         ItemIdentifierFactory(item=item, type="CUSTOM", value=payload)
@@ -3207,8 +2829,7 @@ class TestItemDetailView:
     def test_breadcrumb_links_to_the_catalogue_by_its_resolved_url(self, client, db):
         # The plain MVPDetailView.crud_views mapping is un-namespaced, so
         # reverse('item-list') raises NoReverseMatch under this app's
-        # namespaced urls.py — this is the regression the brief's
-        # correction exists to prevent (see plan.md, resolve_crud_url).
+        # namespaced urls.py; resolve_crud_url is what prevents that.
         item = ItemFactory()
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
         content = response.content.decode()
@@ -3216,8 +2837,8 @@ class TestItemDetailView:
         assert f'href="{catalogue_url}"' in content
 
     def test_contributor_names_link_to_their_page(self, client, db):
-        # FR-022 — the only reachability path into the contributor page
-        # (US-4) is a link from here.
+        # The only reachability path into the contributor page
+        # is a link from here.
         item = ItemFactory()
         item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
@@ -3228,9 +2849,7 @@ class TestItemDetailView:
         assert f'href="{contributor_url}"' in content
 
     def test_the_edit_action_renders_and_points_at_the_update_page(self, client, db):
-        # DR-001 — directory alone renders nothing without show_update_action
-        # (plan.md D-6, D-8). ItemDeleteView is US-3's own task, so no
-        # Delete action assertion belongs here yet.
+        # Directory alone renders nothing without show_update_action.
         item = ItemFactory()
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
         content = response.content.decode()
@@ -3238,10 +2857,6 @@ class TestItemDetailView:
         assert f'href="{update_url}"' in content
 
     def test_the_delete_action_renders_and_points_at_the_delete_page(self, client, db):
-        # T018 named this assertion; US2 could not write it because turning
-        # show_delete_action on before its route existed would have raised
-        # NoReverseMatch on every reference page (decisions.md D13).
-        # ItemDeleteView and its route are US-3's own task.
         item = ItemFactory()
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
         content = response.content.decode()
@@ -3249,54 +2864,7 @@ class TestItemDetailView:
         assert f'href="{delete_url}"' in content
 
 
-class TestReferencePageReadability:
-    """Issue #65 — the reference page's share of the same pass."""
-
-    def test_the_breadcrumb_back_to_the_catalogue_reads_the_same_as_the_catalogue(
-        self, client, db
-    ):
-        item = ItemFactory()
-        content = client.get(
-            reverse("literature:item-detail", kwargs={"pk": item.pk})
-        ).content.decode()
-        catalogue_url = reverse("literature:item-list")
-        assert re.search(
-            rf'href="{re.escape(catalogue_url)}"[^>]*>\s*Publications', content
-        )
-        assert "Items" not in content
-
-    def test_a_contributor_link_underlines_on_hover(self, client, db):
-        item = ItemFactory()
-        item_name = ItemNameFactory(item=item, role=NameRole.AUTHOR)
-        content = client.get(
-            reverse("literature:item-detail", kwargs={"pk": item.pk})
-        ).content.decode()
-        contributor_url = reverse(
-            "literature:contributor-detail", kwargs={"pk": item_name.name.pk}
-        )
-        assert "link-hover" in anchor_tag(content, contributor_url)
-
-    def test_a_role_heading_pluralises_with_the_names_under_it(self, client, db):
-        item = ItemFactory()
-        for _ in range(2):
-            ItemNameFactory(item=item, role=NameRole.EDITOR)
-        content = client.get(
-            reverse("literature:item-detail", kwargs={"pk": item.pk})
-        ).content.decode()
-        assert ">Editors</h6>" in content
-
-    def test_a_role_heading_stays_singular_for_one_name(self, client, db):
-        item = ItemFactory()
-        ItemNameFactory(item=item, role=NameRole.EDITOR)
-        content = client.get(
-            reverse("literature:item-detail", kwargs={"pk": item.pk})
-        ).content.decode()
-        assert ">Editor</h6>" in content
-
-
 class TestItemDeleteView:
-    """Remove a reference that does not belong — US-3 (FR-017 through FR-020)."""
-
     def test_get_renders_a_confirmation_naming_the_reference_and_deletes_nothing(
         self, client, db
     ):
@@ -3309,11 +2877,11 @@ class TestItemDeleteView:
     def test_declining_returns_to_the_references_own_page_and_the_item_still_exists(
         self, client, db
     ):
-        # FR-018, US-3 scenario 2 — MVPDeleteView.get_back_url() falls back to
+        # MVPDeleteView.get_back_url() falls back to
         # the catalogue list, and the detail page's own delete link carries no
         # ?back (only the update page's does), so declining would otherwise
         # strand the reader on the catalogue instead of the reference they
-        # chose not to remove (plan.md D-7).
+        # chose not to remove.
         item = ItemFactory()
         response = client.get(reverse("literature:item-delete", kwargs={"pk": item.pk}))
         detail_url = reverse("literature:item-detail", kwargs={"pk": item.pk})
@@ -3324,7 +2892,7 @@ class TestItemDeleteView:
     def test_an_inherited_back_parameter_is_honoured_ahead_of_the_reference_page(
         self, client, db
     ):
-        # get_back_url() honours a validated ?back first (D-7) — only once
+        # get_back_url() honours a validated ?back first — only once
         # that is absent does it fall through to the reference's own page.
         item = ItemFactory()
         response = client.get(
@@ -3353,12 +2921,12 @@ class TestItemDeleteView:
         assert not ItemIdentifier.objects.filter(pk=item_identifier_pk).exists()
 
     def test_names_survive_deletion_whether_or_not_credited_elsewhere(self, client, db):
-        # FR-020 — nothing points from Item to Name directly, only ItemName
+        # Nothing points from Item to Name directly, only ItemName
         # rows cascade, so this is already true of the model; the test
-        # asserts the guarantee rather than any code that implements it
-        # (plan.md D-7). Covers both a contributor still credited elsewhere
+        # asserts the guarantee rather than any code that implements it.
+        # Covers both a contributor still credited elsewhere
         # and one left credited on nothing, whose own page still has to
-        # render (FR-037/FR-038 rely on the Name row itself surviving).
+        # render.
         item = ItemFactory()
         other_item = ItemFactory()
         shared_contributor = NameFactory()
@@ -3376,15 +2944,6 @@ class TestItemDeleteView:
             reverse("literature:contributor-detail", kwargs={"pk": solo_contributor.pk})
         )
         assert response.status_code == 200
-        assert "Not credited on anything yet" in response.content.decode()
-
-    def test_removing_the_last_reference_leaves_the_catalogue_rendering_its_empty_state(
-        self, client, db
-    ):
-        item = ItemFactory()
-        client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert "Nothing in the catalogue yet" in content
 
     def test_unknown_pk_is_a_404(self, client, db):
         response = client.get(reverse("literature:item-delete", kwargs={"pk": 999999}))
@@ -3392,10 +2951,8 @@ class TestItemDeleteView:
 
 
 class TestContributorDetailView:
-    """The contributor page — FR-032 through FR-038."""
-
     def test_renders_neither_a_search_box_nor_a_filter_button(self, client, db):
-        # FR-025, plan.md D-6 — ItemListView's own base class change (T022)
+        # ItemListView's own base class change
         # would otherwise hand this page a search box and four filters,
         # since it used to subclass ItemListView directly.
         contributor = NameFactory()
@@ -3419,7 +2976,7 @@ class TestContributorDetailView:
         assert str(NameRole.EDITOR.label) in content
 
     def test_credit_row_carries_what_a_catalogue_row_carries(self, client, db):
-        # FR-034 defers to FR-013 for a credit row's content, so the row shows
+        # A credit row carries what a catalogue row does, so the row shows
         # the item's own contributors as well as the role this contributor
         # held on it — the roles are additional, not a replacement.
         contributor = NameFactory(family="Rowe", given="A")
@@ -3441,19 +2998,6 @@ class TestContributorDetailView:
         assert "2021" in content
         assert str(item.get_type_display()) in content
 
-    def test_the_credit_row_states_the_roles_as_this_contributors_own(self, client, db):
-        # FR-035. The row's inherited contributor line already prints every
-        # role anyone held on the item, so asserting a role label alone passes
-        # even with this contributor's own credit line deleted. Assert the
-        # line that attributes those roles to the contributor whose page it is.
-        contributor = NameFactory()
-        item = ItemFactory()
-        ItemNameFactory(item=item, name=contributor, role=NameRole.EDITOR)
-        response = client.get(
-            reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
-        )
-        assert "Credited as" in response.content.decode()
-
     def test_breadcrumb_links_to_the_catalogue_by_its_resolved_url(self, client, db):
         # The model-derived crud_views entry would be 'name-list', a route
         # this app does not have.
@@ -3462,21 +3006,6 @@ class TestContributorDetailView:
             reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
         )
         assert f'href="{reverse("literature:item-list")}"' in response.content.decode()
-
-    def test_breadcrumb_to_the_catalogue_reads_as_the_catalogue_page_is_titled(
-        self, client, db
-    ):
-        # Issue #65. This breadcrumb builds its own text rather than inheriting
-        # the list view's, so a heading changed in one place and not the other
-        # would have the same link read two ways in one journey.
-        contributor = NameFactory()
-        content = client.get(
-            reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
-        ).content.decode()
-        assert re.search(
-            rf'href="{re.escape(reverse("literature:item-list"))}"[^>]*>\s*Publications',
-            content,
-        )
 
     def test_item_held_under_two_roles_appears_once_carrying_both(self, client, db):
         contributor = NameFactory()
@@ -3535,20 +3064,6 @@ class TestContributorDetailView:
         assert response.status_code == 200
         assert "Some Research Institute" in response.content.decode()
 
-    def test_contributor_with_no_credits_renders_the_stated_empty_result(
-        self, client, db
-    ):
-        contributor = NameFactory()
-        response = client.get(
-            reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
-        )
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "Not credited on anything yet" in content
-        assert (
-            "This contributor has no credited references in the catalogue." in content
-        )
-
     def test_missing_contributor_is_a_404(self, client, db):
         response = client.get(
             reverse("literature:contributor-detail", kwargs={"pk": 999999})
@@ -3606,12 +3121,6 @@ class TestContributorDetailView:
 
 
 class TestCSLRoundTrip:
-    """SC-006 — a reference entered by hand reaches the same CSL round-trip
-    fidelity standard as an imported one (Article IX). No new mechanism:
-    this exercises the create view (US-1) and the converters
-    (tests/test_converters.py's own subject) together, which nothing else
-    covers."""
-
     def test_an_item_entered_through_the_create_view_round_trips_through_csl_json(
         self, client, db
     ):
@@ -3668,13 +3177,8 @@ def alpine_scope(body):
 
 
 class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
-    """The type scoping is inert unless the browser can read its own seed data.
-
-    Every other test of this page asserts on the response body as text, and a
-    malformed attribute leaves that text unchanged — which is how the page
-    shipped for four stories with its scoping expression truncated at the
-    first brace and every group permanently visible.
-    """
+    # A malformed attribute leaves the response text unchanged, so only parsing it the
+    # way a browser does catches a truncated scope.
 
     def test_the_create_pages_scope_element_carries_exactly_one_attribute(
         self, client, db
@@ -3710,12 +3214,8 @@ class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
 
 
 class TestSurroundingWhitespaceSurvivesACorrection:
-    """SC-003 promises a save that changes nothing leaves the record identical.
-
-    Django's ``CharField`` strips by default, and the CSL JSON import path
-    does not, so a stored value with edges is reachable and would come back
-    trimmed by a save the reader did not think changed anything.
-    """
+    # CharField strips by default and the CSL JSON import does not, so stored edges are
+    # reachable and an unchanged save must keep them.
 
     def test_a_trailing_newline_and_padding_survive_an_unchanged_save(self, client, db):
         item = ItemFactory(

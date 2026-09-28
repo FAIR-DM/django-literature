@@ -1,10 +1,7 @@
-"""Tests for ``literature/ui/fieldgroups.py`` — the type-to-field mapping.
+"""Tests for ``literature/ui/fieldgroups.py``: the type-to-field mapping.
 
-Structural guarantees only (plan.md D-1, D-2): the partition of ``Item``'s form
-fields into groups, and the per-type assignment's shape. What each of the 45
-types is actually assigned is reviewed by reading the module itself, one
-comment per type naming the criterion that decided it — a test can check the
-shape of the mapping, not whether a particular editorial call was right.
+Structural guarantees only. Each type's assignment is an editorial call reviewed in the module
+itself, not something a test can judge.
 """
 
 import pytest
@@ -16,8 +13,6 @@ from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
 
 class TestFieldPartition:
-    """Every field of ``Item`` bar the four excluded ones belongs to exactly one group."""
-
     def test_every_form_field_is_assigned_to_a_group(self):
         assigned = {name for fields in FieldGroups.GROUPS.values() for name in fields}
         assert assigned == scalar_field_names() - EXCLUDED_FROM_FORM
@@ -32,8 +27,6 @@ class TestFieldPartition:
 
 
 class TestTypeCoverage:
-    """Every one of the 45 ``ItemType`` values resolves to a set of groups."""
-
     def test_every_item_type_has_an_entry(self):
         assert set(FieldGroups.TYPE_GROUPS.keys()) == set(ItemType.values)
 
@@ -55,26 +48,17 @@ class TestTypeCoverage:
 
 
 class TestAssignmentCeiling:
-    """A degenerate mapping — every group offered to every type — has nothing to fail it
-    without an explicit ceiling (SC-002, DR-013)."""
-
     def test_article_journal_uses_fewer_than_half_the_forms_fields(self):
         groups = FieldGroups.groups_for(ItemType.ARTICLE_JOURNAL)
         assigned_field_count = sum(len(FieldGroups.GROUPS[group]) for group in groups)
         total_field_count = sum(len(fields) for fields in FieldGroups.GROUPS.values())
-        # research.md §1's band tops out at 35 of a possible ~60; half is a
+        # The broadest real type uses about 35 of ~60 fields; half is a
         # ceiling wide enough for a legitimately broad type while still
         # failing a mapping that assigns everything to everything.
         assert assigned_field_count < total_field_count / 2
 
 
 class TestCorrectedC2Criterion:
-    """C2a (plan.md D-1): a type that sits inside a container takes ``container``,
-    not ``numbering`` alone. The first pass at this mapping read C2 as though the
-    four clusters named in its parenthetical were the whole of it, so it read
-    ``numbering`` off the "paginated inside a host" reasoning and never reached
-    ``container`` for these types."""
-
     @pytest.mark.parametrize(
         "item_type",
         [
@@ -104,20 +88,17 @@ class TestCorrectedC2Criterion:
         assert "publication" in FieldGroups.groups_for(ItemType.SOFTWARE)
 
     def test_song_is_offered_numbering_for_its_chapter_number_field(self):
-        # plan.md D-1 point 2: "`chapter-number` names chapter and song" — the
-        # same itemized C2 evidence the original pass skipped for `container`
-        # was skipped here too, since `song` is not one of the four named
-        # clusters (legal/review/event/physical).
+        # `chapter-number` names chapter and song; `song` is not one of the four
+        # named clusters, so a cluster-only reading misses it.
         assert "numbering" in FieldGroups.groups_for(ItemType.SONG)
 
     def test_book_is_offered_numbering_for_its_number_of_volumes_field(self):
-        # plan.md D-1 point 2: "`number-of-volumes` and `ISBN` name the
-        # book-like types."
+        # `number-of-volumes` and `ISBN` name the book-like types.
         assert "numbering" in FieldGroups.groups_for(ItemType.BOOK)
 
     def test_patent_is_offered_legal_for_its_authority_and_jurisdiction_fields(self):
-        # plan.md D-1 point 2: "`authority`, `jurisdiction` and `division`
-        # name patent and the legal types" — patent is not itself one of the
+        # `authority`, `jurisdiction` and `division` name patent and the legal
+        # types — patent is not itself one of the
         # named "legal types" cluster (legal_case, legislation, bill,
         # hearing, regulation, treaty), so this needed the itemized reading.
         assert "legal" in FieldGroups.groups_for(ItemType.PATENT)
@@ -129,14 +110,6 @@ class TestFieldsFor:
 
 
 class TestDateSlotCoverage:
-    """``TYPE_DATE_SLOTS`` is a sibling of ``TYPE_GROUPS`` (plan.md D-5, research.md
-    R6), never folded into ``GROUPS`` — a date slot is a row on ``ItemDate``, not
-    an ``Item`` column, and folding it in would raise ``FieldError`` at
-    class-definition time (FR-013). What each of the 45 types is actually
-    assigned is reviewed by reading the module itself, the same as
-    ``TYPE_GROUPS`` — this only checks the mapping's shape.
-    """
-
     def test_every_item_type_has_an_entry(self):
         assert set(FieldGroups.TYPE_DATE_SLOTS.keys()) == set(ItemType.values)
 
@@ -151,21 +124,15 @@ class TestDateSlotCoverage:
             assert DateType.ISSUED not in slots
 
     def test_the_existing_field_partition_is_untouched(self):
-        # FR-013: extending the mapping to date slots must not disturb the
+        # Extending the mapping to date slots must not disturb the
         # scalar-field partition this test class already guards.
         assigned = {name for fields in FieldGroups.GROUPS.values() for name in fields}
         assert assigned == scalar_field_names() - EXCLUDED_FROM_FORM
 
 
 class TestDateSlotAssignment:
-    """The four criteria that name a slot beyond `issued`, each evidenced by
-    CSL's own appendices (ADR-0020) — reviewed here as a sanity check on the
-    handful of types the plan itself names as worked examples (D-5), not as
-    an exhaustive re-derivation of all 45.
-    """
-
     def test_webpage_leads_with_accessed(self):
-        # D-5's own example, and Appendix III's own text: "Intended for
+        # CSL Appendix III: "Intended for
         # sources which are intrinsically online."
         assert DateType.ACCESSED in FieldGroups.TYPE_DATE_SLOTS[ItemType.WEBPAGE]
 
@@ -182,7 +149,7 @@ class TestDateSlotAssignment:
         )
 
     def test_paper_conference_leads_with_event_date(self):
-        # D-5's own example, and the type already carries `event` in TYPE_GROUPS.
+        # The type already carries `event` in TYPE_GROUPS.
         assert (
             DateType.EVENT_DATE
             in FieldGroups.TYPE_DATE_SLOTS[ItemType.PAPER_CONFERENCE]
@@ -193,8 +160,7 @@ class TestDateSlotAssignment:
             assert DateType.EVENT_DATE in FieldGroups.TYPE_DATE_SLOTS[item_type]
 
     def test_book_leads_with_original_date(self):
-        # D-5's own example ("a translated or reissued work"), and the type
-        # already carries `original` in TYPE_GROUPS.
+        # "A translated or reissued work"; the type already carries `original` in TYPE_GROUPS.
         assert DateType.ORIGINAL_DATE in FieldGroups.TYPE_DATE_SLOTS[ItemType.BOOK]
 
     def test_classic_leads_with_original_date(self):
@@ -226,9 +192,6 @@ class TestDateSlotAssignment:
 
 @pytest.mark.django_db
 class TestGroupsHoldingValues:
-    """The forced-visible set FR-010 and FR-014 need — a group with a populated
-    field stays on the page even when the current type does not use it."""
-
     def test_a_populated_fields_group_is_reported(self):
         item = ItemFactory(volume="12")
         assert "numbering" in FieldGroups.groups_holding_values(item)

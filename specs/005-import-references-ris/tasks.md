@@ -28,11 +28,11 @@ shared state.
 - **T004 [P]** Add negative fixtures under `tests/data/ris/negative/`: a BibTeX file and Web of
   Science's native tagged format, both named `.ris` (research R10).
 - **T005** Extract `normalizers.py`. **Narrowed at S3R to `_normalize_doi` and `_normalize_isbn`
-  only**, as an `IdentifierNormalizer` class per Article XV. `_clean_text`, `_unescape_entities` and
+  only**, as an `IdentifierNormalizer` class per Article XIV. `_clean_text`, `_unescape_entities` and
   `_clean_identifier` stay in `bibtex.py` — they are a LaTeX layer, and running that decoder over RIS
   values would silently rewrite genuine content. Re-point `bibtex.py`'s imports. Add
   `tests/test_importers/test_normalizers.py`. **The whole existing BibTeX suite must stay green and
-  unmodified** — that is what proves this is a move and not a rewrite. **Article XV**
+  unmodified** — that is what proves this is a move and not a rewrite. **Article XIV**
 - **T041** *(issue #41)* Fix the citation-key de-duplication ceiling in `converters.py`.
   `_generate_dedup_suffix` emits 701 distinct suffixes and then repeats forever, while
   `_resolve_citation_key` consumes it in a loop that only exits on a free key, so past 701 items

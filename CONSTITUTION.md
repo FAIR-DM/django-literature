@@ -1,5 +1,14 @@
 <!--
 Sync Impact Report
+- Version change: 4.0.0 → 5.0.0 (MAJOR: an article removed). Article I now points at
+  docs/contributing/standards/testing.md, which carries the test-first cycle, what gets a test,
+  test structure and fixtures, and the coverage floors. Article XIV (Test structure & fixtures)
+  moved into that document and is removed here; Cohesion is renumbered from XV to XIV. Article VI
+  points at docs/contributing/standards/code-documentation.md. The coverage wording in the stack
+  constraints and quality bar follows the standard's floors. Non-negotiables hold merge rules only;
+  the rules for automated contributors are in AGENTS.md.
+- References to Articles XIV and XV in specs/, tests/ and the package are updated.
+
 - Version change: 3.2.0 → 4.0.0 (MAJOR: a governance restriction removed). The stack constraints
   had named django-mvp as the one adopted UI layer and required a constitutional amendment before
   any further front-end package could be adopted. That bar was heavier than the decision it
@@ -42,13 +51,9 @@ Sync Impact Report
 
 <!-- Shared engineering-standards defaults. Kept in full unless explicitly struck. -->
 
-### Article I — Test-First
-Every behavior change follows the traffic-light cycle: **Red** — write a test and watch it fail;
-**Green** — write the least code that makes it pass; **Refactor** — clean up with the tests staying
-green. No implementation before a failing test exists for the behavior. All new or changed Python
-behavior has pytest coverage; Django integration behavior has pytest-django coverage. Pre-existing
-tests are never modified or deleted without a recorded, approved decision. Docs-only changes with
-no runtime impact are the only exception.
+### Article I — Testing
+Every change follows [`docs/contributing/standards/testing.md`](docs/contributing/standards/testing.md): what gets a test
+and what does not, the test-first cycle, test structure and fixtures, and the coverage floors.
 
 ### Article II — Simplicity
 Start with the simplest design that satisfies the spec. Each new dependency, abstraction, or piece
@@ -74,7 +79,8 @@ in the package and kept current, and destructive schema changes carry a data-mig
 
 ### Article VI — Documentation
 Public API changes ship their docs in the same PR: README + CHANGELOG updated, docstrings on public
-surfaces, and the built docs stay clean. Every public model field, setting key, template tag, and
+surfaces, and the built docs stay clean. Docstrings, component annotations and code comments
+follow [`docs/contributing/standards/code-documentation.md`](docs/contributing/standards/code-documentation.md). Every public model field, setting key, template tag, and
 public API is documented with at least one working usage example. Breaking changes ship a migration
 guide. As a package, the README follows the shared documentation standard, including a mandatory
 `## Scope & philosophy` section.
@@ -111,59 +117,7 @@ the PR is submitted (branch-local and unapplied, so safe at any release stage); 
 (`RunPython`/`RunSQL`) are exempt from auto-regeneration — keep them via `squashmigrations` or
 standalone.
 
-
-### Article XIV — Test structure & fixtures (Django)
-Tests are organized for fast, targeted discovery. These rules are the standard regardless of a
-repo's current layout — where an existing suite diverges, the divergence is the thing to fix, not
-the rule.
-
-- **Mirror the source tree.** Every test module mirrors the path of the module it exercises:
-  `pkg/models.py` → `tests/test_models.py`; `pkg/views/form_views.py` →
-  `tests/test_views/test_form_views.py`. Test subpackages carry `__init__.py` to match. When one
-  source module defines several units (e.g. multiple models in a single `models.py`), it stays
-  **one** `tests/test_models.py` — the per-unit split is expressed with classes (below), not with
-  extra files (`test_concept.py` + `test_scheme.py` alongside a single `models.py` is
-  non-compliant).
-
-  **Exceptions — a test whose subject is not a Python module has nothing to mirror:**
-  - *Test-only artifacts inside the tests package.* `tests/factories.py` is tested by a sibling
-    `tests/test_factories.py` at the tests root, not mirrored to a package path.
-  - *Package-level checks.* `tests/test_smoke.py` asserts that the package imports and its
-    settings are valid. Its subject is the package as a whole.
-  - *Non-Python subjects, declared by the repo.* A suite testing templates, static assets or
-    another non-module artifact is exempt when the repo declares it:
-
-    ```toml
-    [tool.forge.conformance]
-    non-mirror-paths = ["tests/test_components/"]
-    ```
-
-    A trailing slash marks a directory prefix. This is a **declaration, not a waiver**: it states
-    that no source module exists to mirror, which is why it lives in the repo rather than in a
-    conformance baseline (a baseline means "drift not fixed yet"). Declaring a path whose subject
-    *is* a Python module is a review failure. The rule is deliberately not inferred — silencing
-    every test directory that lacks a matching source package would also silence a misspelt one.
-- **Group related tests into classes.** Within a module, tests are grouped into `Test<Subject>`
-  classes — `class TestConceptModel:`, `class TestConceptSchemeModel:`, `class TestConceptManager:`
-  — so one area can be targeted when debugging (`pytest tests/test_models.py::TestConceptModel`).
-- **One factory per model.** Each model has exactly one `factory_boy` `DjangoModelFactory` in
-  `tests/factories.py`, using `factory.Sequence` for uniqueness-guarded fields and
-  `factory.SubFactory` for relations. Variants are **never** new factory subclasses
-  (`ConceptWithoutSchemeFactory` is prohibited); they are expressed by overriding fields at the
-  call site.
-- **Fixtures wrap the factory; shared setup lives in conftest.** Reusable object fixtures are thin
-  wrappers over the model's factory in `conftest.py` — `def concept(): return ConceptFactory()`,
-  `def concept_without_scheme(): return ConceptFactory(scheme=None)`. A one-off variation needs no
-  fixture: call the factory inline in the test (e.g. assert `ConceptFactory(scheme=None)` raises
-  `ValidationError`). General setup and reusable fixtures live in `conftest.py`; test modules hold
-  assertions, not construction boilerplate.
-- **Use the pytest-django toolchain.** DB access via the `db` / `transactional_db` fixtures or
-  `@pytest.mark.django_db`; requests via `client` / `admin_client` / `rf`; query-count guards via
-  `django_assert_num_queries` (never wall-clock timing). `factory_boy` and `pytest-django` ship
-  pinned in the `mvp-shared[test]` bundle — no per-repo pinning.
-
-
-### Article XV — Cohesion (Python)
+### Article XIV — Cohesion (Python)
 Related behaviour is grouped in a class, not scattered across module-level functions.
 
 **The test:** two or more module-level functions that share a *subject* belong on a class. They
@@ -265,30 +219,25 @@ The bundled demo/reference project is executable documentation and a regression 
   way of doing something django-mvp already does.
 - **Testing & tooling:** pytest and pytest-django are canonical; test modules mirror the
   `literature/` tree with `test_` prefixes. Static analysis via Ruff and mypy as configured in
-  `pyproject.toml`. Coverage is a guide to find gaps, not a merge gate.
+  `pyproject.toml`. Coverage floors are set in the testing standard (Article I).
 
 ## Quality bar
 
 Read at planning and review; applies to every change.
 
-- Coverage may not decrease.
+- Test coverage meets the floors in `docs/contributing/standards/testing.md` (`codecov.yml`).
 - Every public API change updates README + CHANGELOG in the same PR.
 - Lint (Ruff), type-check (mypy), and `deptry` pass.
 - **Package:** builds with valid metadata; the README renders on the package index (absolute
   URLs); the public API honors the deprecation policy.
 - **CSL JSON:** round-trip fidelity holds — importing then exporting yields equivalent CSL JSON.
-- **i18n:** `makemessages` runs clean over the package source (Article XI).
+- **i18n:** `makemessages` runs clean over the package source (Article VIII).
 - **Demo app:** migrates cleanly and its core pages render without import errors (Article XII).
 
 ## Non-negotiables
 
-- One PR per feature; Sam merges; automation never merges.
-- Automation commits under a bot identity, not a human PAT. This repo's account has a bot App
-  (`fairdm-bot[bot]`): the org's PRs are authored by it and the default branch requires one
-  approval — Sam is the distinct approver, then merges. Identity is scoped per GitHub account and
-  never shared across accounts.
-- Machine verification (tests/build/lint) gates every stage exit; no judgment call overrides a red
-  gate.
+- Tests, build and lint pass before a change merges. Nobody overrides a red check.
+- The default branch requires one approval, and the author of a change never approves it.
 
 ## Governance
 
@@ -308,4 +257,4 @@ This constitution supersedes ad-hoc practice when they conflict. It covers the c
 - Final authority currently rests with the original author, leaving room for a broader governance
   model as more maintainers join.
 
-**Version**: 4.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-08-19
+**Version**: 5.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-09-28

@@ -1,12 +1,11 @@
-"""Hold an uploaded file on disk between a preview and its confirmation (US-4,
-decisions.md D16).
+"""Hold an uploaded file on disk between a preview and its confirmation.
 
-New module rather than an addition to ``views.py`` (Article XV): saving,
+New module rather than an addition to ``views.py`` (Article XIV): saving,
 reading, discarding and sweeping a staged file share one subject — the file
 itself — and none of it is a view or a form. What is deliberately *not*
-here is any notion of which reader staged which file: that scoping is
-FR-042's, and it is the session's job, held by the view that calls this
-class, never carried into the token itself (see ``views.py``).
+here is any notion of which reader staged which file: that scoping is the
+session's job, held by the view that calls this class, never carried into
+the token itself (see ``views.py``, FS-011, #103).
 """
 
 from datetime import timedelta
@@ -16,12 +15,12 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 #: How long a staged file survives an import that never confirmed it,
-#: before ``sweep()`` removes it. No requirement names a figure — FR-043
-#: only requires that abandoned staging eventually go away — so this is a
-#: judgement call, recorded as decisions.md D19: long enough that a reader
-#: who previews a file and is called away mid-read can still come back the
-#: same working day, short enough that an unauthenticated, unbounded upload
-#: endpoint (D12) does not accumulate disk use indefinitely.
+#: before ``sweep()`` removes it. No requirement names a figure, only that
+#: abandoned staging eventually go away, so this is a judgement call: long
+#: enough that a reader who previews a file and is called away mid-read can
+#: still come back the same working day, short enough that an
+#: unauthenticated, unbounded upload endpoint does not accumulate disk use
+#: indefinitely.
 RETENTION_WINDOW = timedelta(hours=24)
 
 
@@ -32,8 +31,8 @@ class StagedUpload:
     by default) rather than a hand-built path, so a project already
     configuring remote storage gets staging on it for free. Every staged
     file lives under :attr:`directory`, named by a random token that carries
-    no relationship to the file's own name or contents (FR-042's other
-    half: the token is only ever useful to whoever was handed it).
+    no relationship to the file's own name or contents — the token is only
+    ever useful to whoever was handed it (FS-011, #103).
     """
 
     #: The storage sub-path staged files are kept under. Never the storage
@@ -73,7 +72,7 @@ class StagedUpload:
 
         A token nobody issued, or one whose file has already been discarded
         or swept, is indistinguishable here — either way there is nothing
-        to confirm (FR-044).
+        to confirm.
         """
         name = self._name(token)
         if not self.storage.exists(name):
@@ -84,15 +83,15 @@ class StagedUpload:
         """Remove the staged file for ``token``, if it is still there.
 
         Never raises for a token already gone — carrying out a confirm and
-        then discarding is the ordinary path (FR-043), and a caller should
-        not have to check first.
+        then discarding is the ordinary path, and a caller should not have
+        to check first.
         """
         name = self._name(token)
         if self.storage.exists(name):
             self.storage.delete(name)
 
     def sweep(self) -> None:
-        """Remove every staged file older than :data:`RETENTION_WINDOW` (FR-043).
+        """Remove every staged file older than :data:`RETENTION_WINDOW`.
 
         Quietly does nothing if :attr:`directory` does not exist yet — the
         common case, since it is created lazily by the first :meth:`save`.

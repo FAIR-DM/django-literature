@@ -63,8 +63,8 @@ FR-024 and FR-025. RIS does its own whitespace cleaning, because RIS has no esca
 | X — Embeddable package | Public names importable from `literature` (FR-033); the format is in `DEFAULTS` so no configuration is required (FR-003). | Pass |
 | XI — Data integrity | Entry atomicity is the contract's, inherited unchanged. No half-built items. | Pass |
 | **XIII — Data-model conventions** *(new in v3.1.0)* | **No model fields are added and no migration is generated.** Preservation uses the mechanism the BibTeX format already writes to. | Not engaged — asserted by a test |
-| **XIV — Test structure** *(new in v3.1.0)* | `tests/test_importers/test_ris.py` mirrors `literature/importers/ris.py`; `test_normalizers.py` mirrors the extracted module. Tests grouped in `Test<Subject>` classes. Shared fixtures in `conftest.py`, corpus files under `tests/data/ris/`. No new model, so no new factory. | Pass |
-| **XV — Cohesion** *(new in v3.1.0)* | **The constraining one.** `bibtex.py` is 15 module-level functions sharing subjects, which this article now rules out. RIS is written to the article: `RISParser`, `RISMapping` and `IdentifierNormalizer` are classes and `RISFormat` composes them. `bibtex.py`'s existing shape is pre-existing drift, out of scope under the spec's own assumption — noted, not fixed here. | Pass for new code |
+| **Testing standard §4 — Test structure** | `tests/test_importers/test_ris.py` mirrors `literature/importers/ris.py`; `test_normalizers.py` mirrors the extracted module. Tests grouped in `Test<Subject>` classes. Shared fixtures in `conftest.py`, corpus files under `tests/data/ris/`. No new model, so no new factory. | Pass |
+| **XIV — Cohesion** | **The constraining one.** `bibtex.py` is 15 module-level functions sharing subjects, which this article now rules out. RIS is written to the article: `RISParser`, `RISMapping` and `IdentifierNormalizer` are classes and `RISFormat` composes them. `bibtex.py`'s existing shape is pre-existing drift, out of scope under the spec's own assumption — noted, not fixed here. | Pass for new code |
 
 **No constitution violation requires justification.** The Complexity Tracking table is empty.
 
@@ -240,5 +240,5 @@ No constitutional violation is claimed, so this table is empty.
 - **Two fixture corpora have unconfirmed licences.** The Web of Science and Scopus chapter files come
   from repositories whose licences must be checked before vendoring. Where a licence cannot be
   confirmed, the case is reproduced as a constructed fixture and the corpus section says so.
-- **`bibtex.py` is now non-conformant with Article XV.** Pre-existing drift, out of scope here, and
+- **`bibtex.py` is now non-conformant with Article XIV.** Pre-existing drift, out of scope here, and
   the standards-alignment pass is its proper home rather than this feature.

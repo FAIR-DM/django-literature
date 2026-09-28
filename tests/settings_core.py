@@ -1,10 +1,10 @@
 """Minimal Django settings for the literature test suite — the core-only base.
 
 This is the base ``tests/settings.py`` imports from and appends the opt-in
-front end to, not a copy of it (plan.md D-4). Its own ``ROOT_URLCONF`` points
-at an empty urlconf, and it stays free of ``literature.ui`` and every UI
-dependency — it is what the core-only boot test (T016) boots against to
-prove the core still starts with nothing UI installed.
+front end to, not a copy of it (FS-006). Its own ``ROOT_URLCONF`` points at an
+empty urlconf, and it stays free of ``literature.ui`` and every UI dependency —
+it is what the core-only boot test boots against to prove the core still
+starts with nothing UI installed.
 """
 
 SECRET_KEY = "django-insecure-test-secret-key-for-tests-only"

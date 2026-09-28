@@ -1,8 +1,8 @@
-"""Deciding whether a stored value may be rendered as a link — RS-001.
+"""Decide whether a stored value may be rendered as a link.
 
 ``ItemIdentifier.type`` carries no ``choices`` by design: an unknown type
-skips format validation entirely so nothing is lost on import (FR-017,
-``validators.validate_identifier``). An identifier value is therefore
+skips format validation entirely so nothing is lost on import
+(``validators.validate_identifier``). An identifier value is therefore
 arbitrary stored text, and the reference page must not put arbitrary text
 into an ``href``. Autoescaping does not help here — it escapes the
 characters in a URI, not the scheme it names, so ``javascript:`` survives

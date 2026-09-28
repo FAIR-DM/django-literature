@@ -34,7 +34,6 @@ class Item(models.Model):
     Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
     """
 
-    # --- Identity & type ---
     citation_key = models.CharField(
         max_length=255,
         db_index=True,
@@ -49,7 +48,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: type"),
     )
 
-    # --- Titles ---
     title = models.CharField(
         max_length=1000,
         blank=True,
@@ -119,7 +117,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: reviewed-genre"),
     )
 
-    # --- Long-text fields ---
     abstract = models.TextField(
         blank=True,
         verbose_name=_("abstract"),
@@ -136,7 +133,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: annote"),
     )
 
-    # --- Publisher ---
     publisher = models.CharField(
         max_length=255,
         blank=True,
@@ -163,7 +159,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: original-publisher-place"),
     )
 
-    # --- Event ---
     event_title = models.CharField(
         max_length=500,
         blank=True,
@@ -177,7 +172,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: event-place"),
     )
 
-    # --- Volume/issue/page/number ---
     volume = models.CharField(
         max_length=50,
         blank=True,
@@ -269,7 +263,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: printing (string-or-number stored as string)"),
     )
 
-    # --- Status / metadata ---
     status = models.CharField(
         max_length=50,
         blank=True,
@@ -295,7 +288,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: language (BCP 47 tag, e.g. 'en')"),
     )
 
-    # --- Archive ---
     archive = models.CharField(
         max_length=255,
         blank=True,
@@ -368,7 +360,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: references"),
     )
 
-    # --- Citation metadata (processor-generated or round-trip) ---
     journal_abbreviation = models.CharField(
         max_length=100,
         blank=True,
@@ -410,14 +401,12 @@ class Item(models.Model):
         help_text=_("CSL JSON: year-suffix"),
     )
 
-    # --- Keywords and free-form ---
     keyword = models.TextField(
         blank=True,
         verbose_name=_("keyword"),
         help_text=_("CSL JSON: keyword (single comma-separated string)"),
     )
 
-    # --- JSON fields ---
     categories = models.JSONField(
         null=True,
         blank=True,
@@ -431,7 +420,6 @@ class Item(models.Model):
         help_text=_("CSL JSON: custom (arbitrary key-value pairs)"),
     )
 
-    # --- Auto timestamps (not in CSL JSON) ---
     created = models.DateTimeField(auto_now_add=True, verbose_name=_("created"))
     modified = models.DateTimeField(auto_now=True, verbose_name=_("modified"))
 
@@ -706,33 +694,10 @@ class ItemDate(models.Model):
         return self.date_type
 
     def clean(self) -> None:
-        """Enforce the span rule the ``end`` field's help text has always claimed (FR-016).
-
-        An ``end`` must not be set without a ``begin``, and a ``begin`` must not
-        fall after its ``end``. ``PartialDate``'s ordering operators are not a
-        total order across precisions (research R5), so the comparison uses the
-        underlying ``datetime.date`` values directly rather than ``>``/``<``.
-
-        ``begin``/``end`` are normalized to ``PartialDate`` or ``None`` before
-        the check, for two reasons this model's own field already tolerates:
-
-        - A ``ModelForm`` over a blank, optional field leaves the instance
-          attribute as ``""`` rather than ``None`` — ``Model.clean_fields()``
-          skips ``to_python()`` for a blank field whose raw value is already
-          empty, so a submitted-but-blank ``end`` never becomes ``None`` on
-          its own.
-        - ``PartialDateField.to_python()`` accepts a raw ``YYYY``/``YYYY-MM``/
-          ``YYYY-MM-DD`` string directly, with no ``ModelForm`` or
-          ``full_clean()`` in between, and every ``ItemDateFactory`` call
-          across the suite passes ``begin``/``end`` that way. ``clean()``
-          alone — unlike ``full_clean()`` — never runs ``clean_fields()``, so
-          a raw string reaches it exactly as given.
-
-        Comparing either an unconverted ``""`` or an unconverted date string
-        against ``.date`` raises ``AttributeError`` rather than validating
-        anything, so both are normalized here the same way the field itself
-        already accepts them.
-        """
+        """Enforce that ``end``, if set, does not precede ``begin`` and requires a ``begin`` (FS-012)."""
+        # begin/end may still be a raw "" or YYYY[-MM[-DD]] string here (a
+        # blank ModelForm field, or a caller that skipped full_clean()), so
+        # normalize both before comparing .date below.
         begin = (
             PartialDate(self.begin)
             if isinstance(self.begin, str) and self.begin
@@ -755,12 +720,7 @@ class ItemDate(models.Model):
         super().clean()
 
     def save(self, *args, **kwargs):
-        """Validate the span rule before writing (FR-016).
-
-        ``clean()`` alone only runs when a caller invokes ``full_clean()``, so a
-        direct ``objects.create()`` or instance ``save()`` would otherwise store
-        an end-without-begin, following the ``ItemIdentifier`` precedent.
-        """
+        """Validate the span rule before writing, so a direct ``save()`` cannot skip it."""
         self.clean()
         return super().save(*args, **kwargs)
 
@@ -772,9 +732,9 @@ class ItemIdentifier(models.Model):
     type as a (type, value) pair linked to an Item.
 
     The type field intentionally does NOT use choices= validation — this
-    allows unknown identifier type strings to be stored without rejection,
-    satisfying FR-017. The IdentifierType enum provides known values for
-    lookup and documentation only.
+    allows unknown identifier type strings to be stored without rejection.
+    The IdentifierType enum provides known values for lookup and
+    documentation only.
 
     Design note: the (item, type) uniqueness constraint means each item
     stores at most one identifier per type. Multiple ISBNs (ISBN-10 +
@@ -826,21 +786,11 @@ class ItemIdentifier(models.Model):
         return f"{self.type}: {self.value}"
 
     def clean(self) -> None:
-        """Validate identifier value format for known identifier types (FR-020).
-
-        Unknown identifier types skip validation.
-        """
+        """Validate the identifier's value format for known identifier types."""
         validate_identifier(self.type, self.value)
         super().clean()
 
     def save(self, *args, **kwargs):
-        """Validate the identifier format before writing (FR-020).
-
-        ``clean()`` alone only runs when a caller invokes ``full_clean()``, so a
-        direct ``objects.create()`` or instance ``save()`` would otherwise store
-        a malformed value. Validating here means every write path that goes
-        through ``save()`` applies the same rules. ``bulk_create()`` skips
-        ``save()`` and remains unchecked, as it does for any Django model.
-        """
+        """Validate the identifier format before writing, so a direct ``save()`` cannot skip it."""
         validate_identifier(self.type, self.value)
         return super().save(*args, **kwargs)

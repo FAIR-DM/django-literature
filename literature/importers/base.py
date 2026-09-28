@@ -1,15 +1,10 @@
-"""The format contract: what a bibliographic file syntax plugs in as, and the
-workflow it gets for free.
+"""The base class every bibliographic file format plugs in as.
 
-See contracts/importers.md for the full contract. A format supplies only the
-file-to-entries and entry-to-CSL-JSON stages (FR-003); everything else —
-looping over entries, storing one, and building the report — is provided by
-this class as ordinary, overridable methods. A format that implements only
-the two required stages gets correct behaviour; a format with an unusual
-need is free to replace any of the others. Nothing here tries to prevent
-that: the maintainer's ruling was that this base class only has to get the
-job done when its instructions are followed, not police what a subclass
-chooses to do with them.
+A format supplies only the file-to-entries and entry-to-CSL-JSON stages. Looping
+over entries, storing each one and building the report are ordinary, overridable
+methods here, so a format with an unusual need may replace any of them. The base
+class does not police what a subclass does with them. The full contract is
+``specs/003-import-contract/contracts/importers.md``.
 """
 
 import abc
@@ -31,18 +26,22 @@ logger = logging.getLogger(__name__)
 
 
 def _reason_for(exc: Exception) -> str:
-    """The message to put in front of whoever has to fix the source file.
+    """Return the message to show whoever has to fix the source file.
 
-    Three things go wrong if this is left as ``str(exc)``:
+    Plain ``str(exc)`` goes wrong in three ways:
 
-    - ``str(ValidationError)`` is the ``repr`` of its internal list or dict, so
-      a reader gets ``["Unknown CSL JSON item type: 'thesis'"]`` — brackets,
-      quotes and all — rather than the sentence inside it.
-    - An exception raised with no message at all gives the empty string, and an
-      entry reported as failed with nothing to act on is the silent drop this
-      contract exists to remove.
-    - An exception that is not part of the contract's vocabulary says nothing
-      about itself unless its type is named.
+    - ``str(ValidationError)`` is the ``repr`` of its internal list or dict,
+      brackets and quotes included, rather than the sentence inside it.
+    - An exception raised with no message gives the empty string, and a failed
+      entry with nothing to act on is the silent drop the contract rules out.
+    - An exception outside the contract's vocabulary says nothing about itself
+      unless its type is named.
+
+    Args:
+        exc: The exception an entry or the file failed with.
+
+    Returns:
+        A non-empty, human-readable reason.
     """
     from literature.importers.exceptions import EntryError, ParseError
 
@@ -51,20 +50,23 @@ def _reason_for(exc: Exception) -> str:
     if text and isinstance(exc, EntryError | ParseError | ValidationError):
         return text
     if text:
-        # Not part of the contract's vocabulary: a format's own bug, or a
-        # shape of CSL JSON the conversion could not handle. Name the type,
-        # since that is the only lead whoever reads the report has.
+        # Outside the contract's vocabulary, the type name is the only lead the
+        # reader of the report has.
         return _("{error}: {message}").format(error=type(exc).__name__, message=text)
     return _("{error} (no further detail)").format(error=type(exc).__name__)
 
 
 def _skip_reason(exc: SkipEntry) -> str | None:
-    """What a format said it skipped, if it said anything (D18).
+    """Return what a format said it skipped, if it said anything.
 
-    Unlike :func:`_reason_for`, a message-less ``SkipEntry`` stays ``None``
-    rather than being padded with the exception's type: skipping is not a
-    failure that needs explaining, and a format remains free to skip without
-    naming why.
+    Unlike :func:`_reason_for`, a message-less ``SkipEntry`` stays ``None``:
+    skipping is not a failure that needs explaining.
+
+    Args:
+        exc: The ``SkipEntry`` the format raised.
+
+    Returns:
+        The stripped message, or ``None`` when there is none.
     """
     text = str(exc).strip()
     return text or None
@@ -76,30 +78,26 @@ class BibFormat(abc.ABC):
     Named under :attr:`name` and reachable through
     :func:`~literature.importers.config.get_format` once listed in the
     ``LITERATURE`` setting. A subclass supplies :meth:`parse` and
-    :meth:`to_csl_json`, and optionally :meth:`handle_for`; every other
-    method here drives the workflow those two stages plug into, and is free
-    to be overridden by a format with an unusual need (FR-003).
+    :meth:`to_csl_json`, and optionally :meth:`handle_for`. Every other method
+    drives the workflow those stages plug into and may be overridden.
     """
 
     #: The name a caller runs an import under, and the key the ``LITERATURE``
     #: setting resolves. Machine-facing, so never translated.
     name: ClassVar[str]
 
-    #: The human-readable label. Widened to accept a lazy string 2026-08-04,
-    #: when the first concrete format (#22) tried to translate its own label
-    #: and mypy refused: ``ClassVar[str]`` forbade exactly the
-    #: ``gettext_lazy`` that Article VIII makes non-negotiable, and that
-    #: ``Outcome`` already uses for its own labels. A type widening only —
-    #: nothing about the contract's behaviour changes.
+    #: The human-readable label, which may be a lazy translation.
     label: ClassVar[str | Promise]
 
     @abc.abstractmethod
     def parse(self, file) -> Iterator[Any]:
-        """Yield this file's raw entries one at a time.
+        """Yield the raw entries in ``file``, one at a time, in source order.
 
-        An iterator, not a list — FR-024 depends on it, and returning a
-        list would quietly make one-at-a-time consumption unmeetable from
-        outside the format.
+        ``file`` is the handle passed to :meth:`import_file`. An iterator, not a
+        list, so a caller can consume entries without the whole file being
+        converted first. Each entry is in whatever shape :meth:`to_csl_json`
+        accepts. Raise :class:`~literature.importers.exceptions.ParseError` for
+        a file that cannot be read at all.
         """
         raise NotImplementedError
 
@@ -107,71 +105,68 @@ class BibFormat(abc.ABC):
     def to_csl_json(self, raw: Any) -> dict[str, Any]:
         """Turn one raw entry into a CSL JSON dict.
 
-        Raise :class:`~literature.importers.exceptions.SkipEntry` for an
-        element the format recognises but that is not a bibliographic
-        record, or :class:`~literature.importers.exceptions.EntryError` for
-        one that is bad. A :class:`~django.core.exceptions.ValidationError`
-        may also be left to escape, whether raised directly or by way of
-        ``from_csl_json`` once :meth:`import_entry` calls it with the
-        returned dict.
+        An implementation raises
+        :class:`~literature.importers.exceptions.SkipEntry` for an element that
+        is recognised but is not a bibliographic record, and
+        :class:`~literature.importers.exceptions.EntryError` for an entry that
+        is bad. A :class:`~django.core.exceptions.ValidationError` may also
+        escape, whether raised here or by ``from_csl_json`` once
+        :meth:`import_entry` stores the returned dict.
+
+        Args:
+            raw: One entry :meth:`parse` yielded.
+
+        Returns:
+            The entry as CSL JSON.
+
+        Raises:
+            NotImplementedError: The format does not implement this stage.
         """
         raise NotImplementedError
 
     def handle_for(self, raw: Any) -> str | None:
-        """The source's own name for this entry, where the syntax has one.
+        """Return the source's own name for this entry, where the syntax has one.
 
-        A BibTeX cite key, an RIS record number. ``None`` by default,
-        since not every syntax has one and requiring it would push formats
-        into inventing identifiers.
+        A BibTeX cite key, an RIS record number. Not every syntax has one, and
+        requiring it would push formats into inventing identifiers.
+
+        Args:
+            raw: One entry :meth:`parse` yielded.
+
+        Returns:
+            The handle, or ``None`` by default.
         """
         return None
 
-    def import_file(self, file, *, dry_run: bool = False) -> ImportResult:
+    def import_file(self, file: Any, *, dry_run: bool = False) -> ImportResult:
         """Import every entry this format finds in ``file`` into the catalogue.
 
-        The one documented way to run an import (FR-001), identical for
-        every format unless a subclass chooses to override a step. Opens
-        the outer dry-run transaction and drives the rest of the workflow
-        through :meth:`import_entries` and :meth:`get_result`.
+        The one documented way to run an import, identical for every format
+        unless a subclass overrides a step. Never raises for bad file content: a
+        file that cannot be parsed at all comes back as a result whose single
+        entry failed, with the parser's reason.
 
         Args:
-            file: An open file object in text or binary mode, or anything
-                else with a ``read()`` that returns ``str`` or ``bytes`` — a
-                shipped format accepts either and decodes bytes itself (011
-                Phase 0 decisions.md D10). Never opened as a path, and never
-                decoded here: passed straight through to :meth:`parse`
-                unchanged, since decoding is the format's own job, never a
-                caller's (ADR-0012, FR-023).
-            dry_run: Run every stage and report every outcome, then leave
-                the catalogue exactly as it was (FR-015). Same code path as
-                a real run, wrapped in one outer ``transaction.atomic()``
-                that is rolled back at the end (research.md R2).
+            file: An open file object in text or binary mode, or anything with a
+                ``read()`` returning ``str`` or ``bytes``. Never opened as a path
+                and never decoded here, since decoding is the format's job
+                (ADR-0012).
+            dry_run: Run every stage and report every outcome, then roll the
+                catalogue back to exactly how it was.
 
         Returns:
-            One :class:`~literature.importers.results.EntryResult` per
-            entry this format found, in source order (FR-007).
-
-        Never raises for bad file content: a file that cannot be parsed at
-        all comes back as an
-        :class:`~literature.importers.results.ImportResult` whose single
-        entry failed, with the parser's reason (FR-014).
+            The run's report, with one entry result per entry this format
+            found, in source order.
         """
         from literature.models import Item
 
-        # Every transaction below names the alias the models are actually
-        # written on. This package is a reusable app, so a project's
-        # ``DATABASE_ROUTERS`` may send ``Item`` somewhere other than
-        # ``default`` — and an unqualified ``transaction.atomic()`` would
-        # then open a transaction on an idle connection while the writes
-        # committed on another, which makes a dry run store rows and report
-        # that it stored nothing.
+        # A project's DATABASE_ROUTERS may send Item away from ``default``; an
+        # unqualified atomic() would then roll back an idle connection while the
+        # writes committed elsewhere, so a dry run would store rows.
         using = router.db_for_write(Item)
 
-        # The outer transaction exists only for a dry run (contracts/importers.md
-        # step 2). Everything below it is the same code that runs in earnest —
-        # nothing branches on ``dry_run`` except this wrapper and what
-        # ``entry_created`` hands back (data-model.md: a dry run's rows do not
-        # survive the rollback, so returning one would look saved and not be).
+        # The outer transaction exists only for a dry run. Nothing else branches
+        # on ``dry_run``, so a dry run exercises exactly the real code path.
         outer_transaction = (
             transaction.atomic(using=using) if dry_run else contextlib.nullcontext()
         )
@@ -184,31 +179,33 @@ class BibFormat(abc.ABC):
         return self.get_result(entries, dry_run=dry_run)
 
     def _parsed(self, file) -> Iterator[Any]:
-        """Hand ``parse`` its file from inside the loop that protects it.
+        """Defer calling ``parse`` until the loop that reports its failures.
 
-        ``parse`` is documented as returning an iterator, and a generator
-        function does not run a line of its body until it is first iterated —
-        so a generator implementation raises inside ``import_entries``'s
-        ``try`` and is reported. But most third-party bibliography parsers
-        read the whole file up front, and a ``parse`` written around one
-        raises the moment it is *called*. Called directly from
-        ``import_file`` that lands outside every ``try`` in this class and
-        escapes to the caller, against FR-014. Yielding through this
-        generator defers the call to the first ``next()``, so both shapes of
-        ``parse`` report an unreadable file the same way.
+        A ``parse`` built on a third-party parser that reads the whole file up
+        front raises the moment it is called, not when first iterated. Called
+        directly from :meth:`import_file`, that would escape to the caller.
+        Yielding through this generator moves the call inside
+        :meth:`import_entries`'s ``try``, so an unreadable file is reported the
+        same way whichever shape ``parse`` has.
         """
         yield from self.parse(file)
 
     def import_entries(
         self, entries: Iterator[Any], *, dry_run: bool
     ) -> list[EntryResult]:
-        """Import each raw entry ``parse`` produced, consuming it one at a time.
+        """Import each raw entry, consuming the iterator one entry at a time.
 
-        Assigns each entry its zero-based index (FR-009) and delegates the
-        rest to :meth:`import_entry`. A failure raised by the iterator
-        itself — rather than by anything done to one entry — ends the
+        Assigns each entry its zero-based index and delegates the rest to
+        :meth:`import_entry`. A failure raised by the iterator itself ends the
         file: the entries already recovered are kept, and the failure is
-        recorded against the index the generator stopped at (FR-014).
+        recorded against the index the iterator stopped at.
+
+        Args:
+            entries: The raw entries, as :meth:`parse` yields them.
+            dry_run: Whether this is a dry run.
+
+        Returns:
+            One result per entry, in source order.
         """
         results: list[EntryResult] = []
         index = 0
@@ -218,22 +215,12 @@ class BibFormat(abc.ABC):
                 index += 1
                 results.append(self.import_entry(raw, entry_index, dry_run=dry_run))
         except SkipEntry as exc:
-            # Out of contract — ``SkipEntry`` belongs to ``to_csl_json`` — but
-            # a format recognising a trailing non-record while reading is
-            # asking for the same thing, and the alternative is filing a
-            # deliberate signal as a failure. A message given here is carried
-            # exactly as ``import_entry`` carries one (D18): whoever reads the
-            # report should not be able to tell which stage recognised the
-            # element, only what was skipped and why.
+            # Out of contract, since SkipEntry belongs to to_csl_json, but a format
+            # recognising a trailing non-record while reading means the same thing.
             results.append(
                 self.entry_skipped(index=index, handle=None, reason=_skip_reason(exc))
             )
         except Exception as exc:
-            # A format may report the file as unreadable (``ParseError``),
-            # report that the *next* entry is bad before converting it
-            # (``EntryError``), or simply have a bug. Either way the
-            # generator is finished, so the failure is filed at the index
-            # it stopped at.
             logger.warning("Parsing failed at entry %s", index, exc_info=True)
             results.append(
                 self.entry_failed(index=index, handle=None, reason=_reason_for(exc))
@@ -241,20 +228,24 @@ class BibFormat(abc.ABC):
         return results
 
     def import_entry(self, raw: Any, index: int, *, dry_run: bool) -> EntryResult:
-        """Import one raw entry: its handle, its conversion, and its own savepoint.
+        """Import one raw entry inside its own savepoint.
 
-        Never raises. Anything ``handle_for``, :meth:`to_csl_json`, or the
-        stage that stores the entry raises becomes this entry's outcome —
-        never a whole-file failure, and never an exception the caller has
-        to catch (FR-012, FR-013, FR-023).
+        Never raises. Anything :meth:`handle_for`, :meth:`to_csl_json` or the
+        storing stage raises becomes this entry's outcome, never a whole-file
+        failure and never an exception the caller has to catch.
+
+        Args:
+            raw: One entry :meth:`parse` yielded.
+            index: The entry's zero-based position in the file.
+            dry_run: Whether this is a dry run.
+
+        Returns:
+            The entry's result.
         """
         from literature.models import Item
 
-        # ``handle_for`` reads the same untrusted content as ``to_csl_json``
-        # (FR-023), but it is only how an entry is *named*. Its own block, so
-        # an entry whose handle cannot be read is still converted and stored
-        # — reported without a handle rather than turned into a failure, or
-        # worse, into whatever outcome the exception it raised happens to mean.
+        # The handle only names the entry, so an unreadable one is reported as
+        # missing rather than failing an entry that would otherwise store.
         try:
             handle = self.handle_for(raw)
         except Exception:
@@ -268,14 +259,9 @@ class BibFormat(abc.ABC):
                 index=index, handle=handle, reason=_skip_reason(exc)
             )
         except Exception as exc:
-            # Deliberately every exception, not the contract's three. A
-            # format is third-party code reading untrusted content, and
-            # ``from_csl_json`` below is not defensive about the *shape* of
-            # the CSL JSON it is handed. Narrowing this to the documented
-            # types means a malformed entry escapes the workflow entirely,
-            # taking the report for every entry with it and leaving the ones
-            # already stored committed — the one failure FR-013, FR-014 and
-            # FR-023 exist to rule out.
+            # Every exception, not just the contract's: a format is third-party
+            # code reading untrusted content, and one escape would lose the report
+            # for the whole file while leaving earlier entries committed.
             logger.warning("Entry %s could not be converted", index, exc_info=True)
             return self.entry_failed(
                 index=index, handle=handle, reason=_reason_for(exc)
@@ -283,11 +269,8 @@ class BibFormat(abc.ABC):
 
         using = router.db_for_write(Item)
         try:
-            # A savepoint per entry (research.md R2): the exception is
-            # caught outside this block, which is what lets the run
-            # continue after a database-level failure rather than
-            # poisoning the whole transaction. Nested inside the outer
-            # dry-run transaction, this savepoint behaves the same way.
+            # A savepoint per entry lets the run continue after a database error
+            # instead of poisoning the whole transaction.
             with transaction.atomic(using=using):
                 item = from_csl_json(csl_json)
         except Exception as exc:
@@ -303,9 +286,15 @@ class BibFormat(abc.ABC):
     def get_result(self, entries: list[EntryResult], *, dry_run: bool) -> ImportResult:
         """Build the :class:`~literature.importers.results.ImportResult` for a run.
 
-        The single place a subclass can reshape what a run reports —
-        filtering, reordering, or annotating ``entries`` — without touching
-        how any individual entry was imported.
+        The one place a subclass can filter, reorder or annotate ``entries``
+        without touching how any single entry was imported.
+
+        Args:
+            entries: Every entry's result, in source order.
+            dry_run: Whether this is a dry run.
+
+        Returns:
+            The run's report.
         """
         return ImportResult(entries=entries, dry_run=dry_run, format_name=self.name)
 
@@ -314,9 +303,15 @@ class BibFormat(abc.ABC):
     ) -> EntryResult:
         """Report one entry as stored.
 
-        ``item`` is dropped on a dry run: its rows live inside a transaction
-        that is about to be rolled back, so handing it back would look saved
-        and not be (data-model.md).
+        Args:
+            index: The entry's zero-based position in the file.
+            handle: The entry's handle, if it has one.
+            item: The stored ``Item``. Dropped from the report on a dry run,
+                since its rows are about to be rolled back.
+            dry_run: Whether this is a dry run.
+
+        Returns:
+            A ``CREATED`` result.
         """
         return EntryResult(
             outcome=Outcome.CREATED,
@@ -330,8 +325,14 @@ class BibFormat(abc.ABC):
     ) -> EntryResult:
         """Report one entry as recognised but not a bibliographic record.
 
-        ``reason`` is optional (D18): a format that knows what it skipped
-        passes it along, and one that does not is not required to invent one.
+        Args:
+            index: The entry's zero-based position in the file.
+            handle: The entry's handle, if it has one.
+            reason: What was skipped, when the format knows. Optional, so a
+                format is never required to invent one.
+
+        Returns:
+            A ``SKIPPED`` result.
         """
         return EntryResult(
             outcome=Outcome.SKIPPED, index=index, handle=handle, reason=reason
@@ -340,7 +341,16 @@ class BibFormat(abc.ABC):
     def entry_failed(
         self, *, index: int, handle: str | None, reason: str
     ) -> EntryResult:
-        """Report one entry as unable to be stored, with the reason why."""
+        """Report one entry as unable to be stored, with the reason why.
+
+        Args:
+            index: The entry's zero-based position in the file.
+            handle: The entry's handle, if it has one.
+            reason: Why the entry failed, for whoever fixes the source file.
+
+        Returns:
+            A ``FAILED`` result.
+        """
         return EntryResult(
             outcome=Outcome.FAILED, index=index, handle=handle, reason=reason
         )

@@ -1,15 +1,7 @@
-"""Tests for the demo's seed catalogue — research.md R8, spec.md FR-010 through FR-015.
+"""Tests for the demo's seed catalogue, read from ``demo/seed/catalogue.json`` as plain JSON.
 
-Reads ``demo/seed/catalogue.json`` as plain JSON: no Django app registry beyond what
-pytest-django has already set up for the suite, no database, no subprocess (plan.md D-10).
-The one exception is ``paginate_by``, which ``ItemListView`` declares explicitly rather
-than inheriting a default from django-mvp, so it is read from the view's own attribute
-rather than hard-coded here — a later change to that attribute would otherwise make this
-test assert the wrong number silently (T011-paginate).
-
-The role, date-slot and identifier-type vocabularies are imported from
-``literature.choices`` rather than retyped by hand, for the same reason: retyping them is
-a second copy that can drift from the source of truth without either copy failing.
+``paginate_by`` and the choice vocabularies are read from the code rather than retyped, so a
+change there cannot leave this file asserting a stale copy.
 """
 
 import json
@@ -72,12 +64,6 @@ def paginate_by():
 
 @pytest.fixture(scope="module")
 def snippet_words():
-    """The word count a row truncates an abstract to, read from the row template.
-
-    Hard-coded here it would be a second copy of a number that lives in the
-    template, free to drift the moment the template changes — the same reason
-    ``paginate_by`` is read from the view rather than typed out.
-    """
     source = (UI_TEMPLATES / "item_list_item.html").read_text(encoding="utf-8")
     match = re.search(r"abstract\|truncatewords:(\d+)", source)
     assert match, (
@@ -87,8 +73,6 @@ def snippet_words():
 
 
 class TestSeedCatalogue:
-    """The curated catalogue exercises every shape research.md R8 names."""
-
     def test_covers_at_least_ten_distinct_item_types(self, catalogue):
         types = {entry["type"] for entry in catalogue}
         assert len(types) >= 10
@@ -192,9 +176,9 @@ class TestSeedCatalogue:
         assert any(not entry.get("abstract") for entry in catalogue)
 
     def test_has_language_values_across_several_distinct_languages(self, catalogue):
-        # FR-013: the language filter renders a chooser built from whatever
+        # The language filter renders a chooser built from whatever
         # distinct values the catalogue holds. A seed with no language values
-        # at all leaves that chooser empty (D-11) — this pins several values
+        # at all leaves that chooser empty — this pins several values
         # present so the empty control cannot come back silently.
         languages = {entry["language"] for entry in catalogue if entry.get("language")}
         assert len(languages) >= 4
@@ -202,10 +186,10 @@ class TestSeedCatalogue:
     def test_filtering_to_the_dominant_language_still_leaves_more_than_one_page(
         self, catalogue, paginate_by
     ):
-        # decisions.md D22: the guard reaches a second page of a narrowed
+        # The guard reaches a second page of a narrowed
         # result by filtering on the dominant language. Read from the view's
         # own paginate_by rather than typed out, so a later shrink of the
-        # seed fails here rather than in the guard (plan.md D-11).
+        # seed fails here rather than in the guard.
         counts = Counter(
             entry["language"] for entry in catalogue if entry.get("language")
         )

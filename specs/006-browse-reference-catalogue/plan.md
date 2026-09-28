@@ -53,8 +53,8 @@ Read against `memory/constitution.md` v3.0.0.
 | XI (data integrity) | Read-only; no migration, no schema change | Pass, vacuously |
 | XII (living demo) | The article requires the demo to stay current with the package. This feature adds pages the demo does not serve — issue #46 is the feature that wires them up, and it depends on this one | **Watch item**, see Risks |
 | XIII (indexing) | No new field and no new query pattern that an existing index does not already serve — the contributor page reads `ItemName` by `name`, which is indexed today (D-3) | Pass |
-| XIV (test structure) | `tests/test_ui/` mirrors `literature/ui/` module for module, carries `__init__.py`, and expresses the per-view split with classes inside `test_views.py` rather than extra files. The three tests whose subject is not a Python module (`test_architecture.py`, `test_packaging.py`, `test_templates.py`) are declared under `[tool.forge.conformance] non-mirror-paths` | Pass, tracked as tasks |
-| XV (cohesion) | The feature adds nothing to the core: its one helper lives in `literature/ui/fields.py` beside its only caller (D-6) | Pass |
+| Testing standard §4 (structure) | `tests/test_ui/` mirrors `literature/ui/` module for module, carries `__init__.py`, and expresses the per-view split with classes inside `test_views.py` rather than extra files. The three tests whose subject is not a Python module (`test_architecture.py`, `test_packaging.py`, `test_templates.py`) are declared under `[tool.forge.conformance] non-mirror-paths` | Pass, tracked as tasks |
+| XIV (cohesion) | The feature adds nothing to the core: its one helper lives in `literature/ui/fields.py` beside its only caller (D-6) | Pass |
 | Architecture: "server-rendered Django templates by default. No third-party form/table/filter/JS packages are prescribed yet; adopting one is a constitutional amendment" | django-mvp is a third-party UI package. Adopting it here is not a quiet choice: GOALS.md G4 names it, the README's scope section names it, and roadmap R6 names it | Pass — but the constitution's architecture section is stale and must be updated in this PR to record django-mvp as the adopted UI layer, or the next reader finds the article contradicting the shipped code |
 
 **Consequence**: one constitution amendment lands in this PR, recorded as a task. It documents what
@@ -104,7 +104,7 @@ tests/
 ├── urls.py                       # EDITED — mounts literature.ui.urls
 └── test_ui/                      # NEW — mirrors literature/ui/
     ├── __init__.py
-    ├── conftest.py               # shared client and item fixtures (Article XIV)
+    ├── conftest.py               # shared client and item fixtures (testing standard §4)
     ├── test_urls.py
     ├── test_views.py             # TestItemListView / TestItemDetailView / TestContributorDetailView
     ├── test_fields.py
@@ -113,7 +113,7 @@ tests/
     └── test_templates.py         # utility-class allowlist + i18n ┘
 ```
 
-Article XIV puts the three views in **one** `test_views.py` with a class each, because they are one
+The testing standard (§4) puts the three views in **one** `test_views.py` with a class each, because they are one
 source module. The three files whose subject is not a Python module take the article's declared
 exception and are named under `[tool.forge.conformance] non-mirror-paths`.
 

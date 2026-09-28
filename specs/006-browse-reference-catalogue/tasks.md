@@ -55,9 +55,9 @@ shared state.
   `<c-pagination>` / `<c-data-field>` chain this app uses, and cotton resolves components lazily at
   render time. Every app dropped here is one the host does not have to install.
 
-  Also add `tests/test_ui/__init__.py` (Article XIV) and `tests/test_ui/conftest.py` holding the
+  Also add `tests/test_ui/__init__.py` (testing standard §4) and `tests/test_ui/conftest.py` holding the
   client and item fixtures T009, T013 and T020 share, so no story owns them. **Research R1, R7,
-  Article XIV**
+  testing standard §4**
 - **T005** Make CI install the extra. The reusable test workflow installs main, dev and docs groups
   only, so without this every UI test is silently skipped in CI and the suite shrinks to the core.
   Set the install argument on the `tests.yml` workflow call so the `ui` extra is installed, and
@@ -85,7 +85,7 @@ shared state.
   contributors in stored role and order, the issued date at its stored precision, and the citation
   key — with the title linking to the reference page. **FR-013, FR-016, FR-017, FR-018**
 - **T009** Tests for the catalogue list — class `TestItemListView` in `tests/test_ui/test_views.py`
-  (Article XIV: one source module, one test module, the split expressed with classes). Assert against rendered
+  (testing standard §4: one source module, one test module, the split expressed with classes). Assert against rendered
   output, not just a status code: items appear most recently added first; a page holds no more than
   `paginate_by` items whatever the catalogue size; the control states position and offers navigation;
   a page number past the end is a 404; an empty catalogue renders the stated empty result rather than
@@ -206,12 +206,12 @@ shared state.
   non-mirror-paths = ["tests/test_ui/test_architecture.py", "tests/test_ui/test_boot.py", "tests/test_ui/test_packaging.py", "tests/test_ui/test_templates.py"]
   ```
 
-  Article XIV exempts a test whose subject is not a Python module only when the repo declares it, and
+  The testing standard (§4) exempts a test whose subject is not a Python module only when the repo declares it, and
   these four take the package boundary, the core's boot under `tests.settings_core`, `pyproject.toml`
   and the shipped templates as their subject. `test_boot.py` is US-3's own addition: T016's task text
   names a core-only boot test without a filename, and its subject — the core package booting with the
   UI app absent — mirrors no module either.
-  **Article XIV**
+  **testing standard §4**
 - **T024** `memory/constitution.md`: the architecture section currently says no third-party UI
   package is prescribed and that adopting one is an amendment. GOALS.md G4, the README's scope
   section and roadmap R6 all already commit to django-mvp, so this records what was decided

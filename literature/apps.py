@@ -1,3 +1,5 @@
+"""Django app configuration for the literature app."""
+
 from django.apps import AppConfig
 
 

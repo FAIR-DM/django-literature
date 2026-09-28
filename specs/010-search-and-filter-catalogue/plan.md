@@ -29,7 +29,7 @@ runtime dependencies are untouched.
 (`decisions.md` D1).
 
 **Testing**: pytest + pytest-django, `tests.settings`. New module `tests/test_ui/test_filters.py`
-mirrors `literature/ui/filters.py` per Article XIV; view behaviour extends
+mirrors `literature/ui/filters.py` per the testing standard (§4); view behaviour extends
 `tests/test_ui/test_views.py`; packaging assertions move in `tests/test_ui/test_packaging.py`.
 
 **Target Platform**: server-rendered Django, SQLite and PostgreSQL both supported.
@@ -61,7 +61,7 @@ Checked against `memory/constitution.md` v4.0.0.
 | XI Data integrity | No model change, no migration | Pass by construction |
 | XII Living demo | Seed data gains language values, and the guard walks a search, a filter and a page move (research R8) | Applies, US-5 |
 | XIII Data-model conventions | No field added. Indexing was considered and deliberately rejected — `decisions.md` D1 records why, so the absence is a decision on the record rather than an omission | Pass |
-| XIV Test structure | `literature/ui/filters.py` → `tests/test_ui/test_filters.py` | Applies, tasked |
+| Testing standard §4 (structure) | `literature/ui/filters.py` → `tests/test_ui/test_filters.py` | Applies, tasked |
 | Stack constraints | django-filter is admitted under Article VII and reached through django-mvp's own integration, which is the condition the constraint states | Pass |
 
 No entry in Complexity Tracking.

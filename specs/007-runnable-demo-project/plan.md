@@ -62,8 +62,8 @@ that), four pages walked by the guard, one new workflow.
 | XI — Data integrity | No migration, no model change. | Pass |
 | XII — Living Demo & Reference App | **Partial, deliberately.** The article's end state is a demo covering installation, item types, import/export, citation rendering, and CRUD/admin. This feature delivers the browse slice and the CI guarantee the article's third clause names verbatim. CRUD arrives with #47 and #48, import through the interface with #50, citation rendering with R7. Each of those extends the demo as part of its own work, which `spec.md` states as an assumption. | Partial — tracked, not a violation |
 | XIII — Data-model conventions | No model. | N/A |
-| XIV — Test structure & fixtures | New test modules mirror their subject or are declared under `[tool.forge.conformance]`. D-9 covers the two that cannot mirror. | Pass |
-| XV — Cohesion | Two small commands, each with one job. | Pass |
+| Testing standard §4 — Test structure & fixtures | New test modules mirror their subject or are declared under `[tool.forge.conformance]`. D-9 covers the two that cannot mirror. | Pass |
+| XIV — Cohesion | Two small commands, each with one job. | Pass |
 | Quality bar — demo app | "Migrates cleanly and its core pages render without import errors" is exactly what this feature makes machine-checked for the first time. | Pass |
 
 No entries for Complexity Tracking: nothing here needs justifying against a simpler alternative
@@ -199,7 +199,7 @@ existing entries set.
 The reason stated is the true one: its subject is the demo project, which lives outside the
 `literature/` tree the mirror rule is defined against. Declaring the two files separately on the
 usual ground — that no source module exists to mirror — would be false for `test_commands.py`,
-whose subject *is* two Python modules this feature creates, and constitution Article XIV makes that
+whose subject *is* two Python modules this feature creates, and the testing standard (§4) makes that
 declaration a review failure in its own right.
 
 ### D-10 — How the demo's own tests run, given that pytest is bound to the suite's settings

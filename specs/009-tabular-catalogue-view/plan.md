@@ -28,7 +28,7 @@ untouched.
 **Storage**: unchanged. Every column reads what the store already holds.
 
 **Testing**: pytest + pytest-django, `tests.settings`. New module `tests/test_ui/test_tables.py`
-mirrors `literature/ui/tables.py`, as Article XIV requires; view behaviour extends
+mirrors `literature/ui/tables.py`, as the testing standard (§4) requires; view behaviour extends
 `tests/test_ui/test_views.py`.
 
 **Target Platform**: server-rendered Django, SQLite and PostgreSQL both supported — which is why
@@ -63,7 +63,7 @@ Checked against `memory/constitution.md` v4.0.0 (this branch amends it — see D
 | XI Data integrity | No model change, no migration | Pass by construction |
 | XII Living demo | Demo settings, and the guard extended to the table's row link and edit control | Applies, US-5 |
 | XIII Data-model conventions | No field added, so no indexing decision to record. The ordering added leans on `itemdate_begin_idx` and `itemdate_item_date_type_idx`, which already exist | Pass |
-| XIV Test structure | `literature/ui/tables.py` → `tests/test_ui/test_tables.py`, one module, split by class. Not a `non-mirror-paths` entry — its subject is a Python module | Applies, tasked |
+| Testing standard §4 (structure) | `literature/ui/tables.py` → `tests/test_ui/test_tables.py`, one module, split by class. Not a `non-mirror-paths` entry — its subject is a Python module | Applies, tasked |
 | Stack constraints | Amended on this branch: the clause requiring a constitutional amendment before adopting a further front-end package is removed, and django-tables2 is admitted under Article VII | See D-13 |
 
 No entry in Complexity Tracking: nothing here is a deviation.

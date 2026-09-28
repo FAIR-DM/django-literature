@@ -63,8 +63,8 @@ VIII) · pages open, no auth (FR-024)
 | XI Data integrity | No migration. The no-loss guarantee is D-3, tested by SC-003's round trip | Pass |
 | XII Living demo | US-4 extends the demo and its guard in this PR | Pass |
 | XIII Data-model conventions | No model field added or changed, so no indexing decision arises | N/A |
-| XIV Test structure | One test module per source module, classes per story, factories reused | Pass |
-| XV Cohesion | The mapping's helpers share a subject and go on a class rather than loose module functions | Pass |
+| Testing standard §4 (structure) | One test module per source module, classes per story, factories reused | Pass |
+| XIV Cohesion | The mapping's helpers share a subject and go on a class rather than loose module functions | Pass |
 
 No entry in Complexity Tracking: nothing here needs a deviation.
 
@@ -144,7 +144,7 @@ it very likely graduates.
 
 `literature/ui/fieldgroups.py` holds the group definitions and the per-type assignments as plain
 data, plus one class carrying the lookups (`groups_for(item_type)`, `fields_for(group)`,
-`groups_holding_values(item)`). Article XV puts those on a class because they share a subject;
+`groups_holding_values(item)`). Article XIV puts those on a class because they share a subject;
 Article III forbids making it a registry, a plugin point or a settings-overridable table. It is a
 constant and a few functions.
 

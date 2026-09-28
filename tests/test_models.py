@@ -1,14 +1,4 @@
-"""Tests for the literature models (US1 — Store and Retrieve Bibliographic Entries).
-
-Tests cover:
-- Item CRUD across all 45 CSL item types
-- Name model field persistence including literal-only records
-- ItemName through-model role and ordering
-- ItemDate storage for all date forms (year-only, year-month, full, range)
-- ItemIdentifier storage for all 6 known types and unknown types
-- Model __str__ methods returning non-empty strings
-- UniqueConstraint enforcement
-"""
+"""Tests for ``literature/models.py``."""
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -27,11 +17,8 @@ from tests.factories import (
 
 @pytest.mark.django_db
 class TestItemModel:
-    """Item CRUD, optional-field persistence, and __str__ behaviour."""
-
     @pytest.mark.parametrize("item_type", ItemType.values)
     def test_crud_all_types(self, item_type):
-        """Item can be created and retrieved for every CSL item type."""
         citation_key = f"TestKey2024_{item_type}"
         item = ItemFactory(citation_key=citation_key, type=item_type)
         retrieved = Item.objects.get(pk=item.pk)
@@ -39,12 +26,10 @@ class TestItemModel:
         assert retrieved.type == item_type
 
     def test_required_fields_only(self):
-        """Item can be created with only citation_key and type."""
         item = ItemFactory(citation_key="Minimal2024", type=ItemType.ARTICLE_JOURNAL)
         assert item.pk is not None
 
     def test_optional_fields_persist(self):
-        """Item optional fields are stored and retrieved correctly."""
         item = ItemFactory(
             citation_key="Full2024",
             type=ItemType.BOOK,
@@ -76,25 +61,21 @@ class TestItemModel:
         assert retrieved.custom == {"extra": "value"}
 
     def test_str_returns_citation_key(self):
-        """Item.__str__ returns the citation key when no title is set."""
         item = ItemFactory(citation_key="CiteKey2024", type=ItemType.ARTICLE)
         assert str(item) == "CiteKey2024"
         assert len(str(item)) > 0
 
     def test_str_returns_title_when_set(self):
-        """Item.__str__ returns the title when it is set (T006)."""
         item = ItemFactory(
             citation_key="CiteKey2024", type=ItemType.ARTICLE, title="A Short Title"
         )
         assert str(item) == "A Short Title"
 
     def test_str_fallback_to_citation_key(self):
-        """Item.__str__ falls back to citation_key when title is empty (T006)."""
         item = ItemFactory(citation_key="FallbackKey", type=ItemType.BOOK, title="")
         assert str(item) == "FallbackKey"
 
     def test_str_truncates_long_title(self):
-        """Item.__str__ truncates titles over 80 characters with an ellipsis (T006)."""
         long_title = "A" * 81
         item = ItemFactory(
             citation_key="LongTitle2024", type=ItemType.BOOK, title=long_title
@@ -104,7 +85,6 @@ class TestItemModel:
         assert len(result) == 81  # 80 chars + 1 ellipsis char
 
     def test_auto_timestamps_set_on_creation(self):
-        """Item auto-timestamps are set on creation."""
         item = ItemFactory(citation_key="Auto2024", type=ItemType.REPORT)
         assert item.created is not None
         assert item.modified is not None
@@ -112,10 +92,7 @@ class TestItemModel:
 
 @pytest.mark.django_db
 class TestNameModel:
-    """Name field persistence and __str__ fallbacks."""
-
     def test_all_parts_persist(self):
-        """Name model stores all name parts correctly."""
         name = NameFactory(
             family="Smith",
             given="John A.",
@@ -138,7 +115,6 @@ class TestNameModel:
         assert retrieved.parse_names is True
 
     def test_literal_only(self):
-        """Name can be created with only the literal field (institutional name)."""
         name = NameFactory(family="", given="", literal="World Health Organization")
         retrieved = Name.objects.get(pk=name.pk)
         assert retrieved.literal == "World Health Organization"
@@ -146,34 +122,28 @@ class TestNameModel:
         assert retrieved.given == ""
 
     def test_str_family_given(self):
-        """Name.__str__ returns 'family, given' when both are set."""
         name = NameFactory(family="Smith", given="John")
         result = str(name)
         assert len(result) > 0
         assert "Smith" in result
 
     def test_str_family_given_format(self):
-        """Name.__str__ returns 'Family, Given' format when family name is present (T006b)."""
         name = NameFactory(family="Smith", given="John")
         assert str(name) == "Smith, John"
 
     def test_str_family_only(self):
-        """Name.__str__ returns family name alone when given is absent (T006b)."""
         name = NameFactory(family="Smith", given="")
         assert str(name) == "Smith"
 
     def test_str_literal_fallback(self):
-        """Name.__str__ returns literal when family and given are absent (T006b)."""
         name = NameFactory(family="", given="", literal="Harvard University")
         assert str(name) == "Harvard University"
 
     def test_str_pk_fallback(self):
-        """Name.__str__ returns 'Name #<pk>' as last fallback (T006b)."""
         name = NameFactory(family="", given="", literal="")
         assert str(name) == f"Name #{name.pk}"
 
     def test_str_literal_only(self):
-        """Name.__str__ returns the literal when family/given are empty."""
         name = NameFactory(family="", given="", literal="World Health Organization")
         result = str(name)
         assert len(result) > 0
@@ -182,27 +152,21 @@ class TestNameModel:
 
 @pytest.mark.django_db
 class TestItemNameModel:
-    """ItemName through-model role, uniqueness, and ordering."""
-
     def test_records_role(self, item, name):
-        """ItemName records the role correctly."""
         item_name = ItemNameFactory(item=item, name=name, role=NameRole.AUTHOR)
         assert item_name.role == NameRole.AUTHOR
 
     def test_unique_constraint(self, item, name):
-        """ItemName enforces uniqueness of (item, role, name)."""
         ItemNameFactory(item=item, name=name, role=NameRole.AUTHOR)
         with pytest.raises(Exception):  # IntegrityError on duplicate
             ItemNameFactory(item=item, name=name, role=NameRole.AUTHOR)
 
     def test_multiple_roles_same_name(self, item, name):
-        """Same name can have different roles on the same item."""
         ItemNameFactory(item=item, name=name, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, name=name, role=NameRole.EDITOR)
         assert ItemName.objects.filter(item=item, name=name).count() == 2
 
     def test_ordering_preserved(self, item):
-        """ItemName preserves insertion order within a single role."""
         n1 = NameFactory(family="First", given="A")
         n2 = NameFactory(family="Second", given="B")
         n3 = NameFactory(family="Third", given="C")
@@ -215,12 +179,6 @@ class TestItemNameModel:
         assert [in_.name.family for in_ in ordered] == ["First", "Second", "Third"]
 
     def test_ordering_scoped_per_role(self, item):
-        """order is numbered independently within each (item, role) group.
-
-        An author, then an editor, then a second author are added. The two
-        authors must form their own 0-based sequence, unperturbed by the
-        interleaved editor, and the editor must start its own sequence at 0.
-        """
         a1 = ItemNameFactory(
             item=item, name=NameFactory(family="Auth1"), role=NameRole.AUTHOR
         )
@@ -237,17 +195,13 @@ class TestItemNameModel:
         assert e1.order == 0
 
     def test_str_non_empty(self, item, name):
-        """ItemName.__str__ returns a non-empty string."""
         item_name = ItemNameFactory(item=item, name=name, role=NameRole.AUTHOR)
         assert len(str(item_name)) > 0
 
 
 @pytest.mark.django_db
 class TestItemDateModel:
-    """ItemDate partial-date storage, uniqueness, and auxiliary fields."""
-
     def test_year_only(self, item):
-        """ItemDate stores a year-only partial date via begin field."""
         item_date = ItemDateFactory(
             item=item, date_type=DateType.ISSUED, begin=PartialDate("2019")
         )
@@ -255,7 +209,6 @@ class TestItemDateModel:
         assert str(retrieved.begin) == "2019"
 
     def test_year_month(self, item):
-        """ItemDate stores a year+month partial date."""
         item_date = ItemDateFactory(
             item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
         )
@@ -263,7 +216,6 @@ class TestItemDateModel:
         assert str(retrieved.begin).startswith("2019-08")
 
     def test_full_date(self, item):
-        """ItemDate stores a full date."""
         item_date = ItemDateFactory(
             item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
         )
@@ -271,7 +223,6 @@ class TestItemDateModel:
         assert str(retrieved.begin).startswith("2019-08-16")
 
     def test_range(self, item):
-        """ItemDate stores a date range via begin and end fields."""
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
@@ -283,7 +234,6 @@ class TestItemDateModel:
         assert str(retrieved.end).startswith("2019-08-16")
 
     def test_unique_constraint(self, item):
-        """ItemDate enforces uniqueness of (item, date_type)."""
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
         with pytest.raises(Exception):  # IntegrityError on duplicate
             ItemDateFactory(
@@ -291,14 +241,12 @@ class TestItemDateModel:
             )
 
     def test_str_non_empty(self, item):
-        """ItemDate.__str__ returns a non-empty string."""
         item_date = ItemDateFactory(
             item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
         )
         assert len(str(item_date)) > 0
 
     def test_all_fields(self, item):
-        """ItemDate stores all auxiliary fields: season, circa, literal, raw, raw_date_parts."""
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.SUBMITTED,
@@ -318,13 +266,7 @@ class TestItemDateModel:
 
 @pytest.mark.django_db
 class TestItemDateSpanRule:
-    """ItemDate enforces its own span rule (FR-016): an end needs a begin, and
-    a begin must not fall after its end. The help text on ``end`` has always
-    claimed this; nothing enforced it until now.
-    """
-
     def test_end_without_begin_is_rejected(self, item):
-        """An end with no begin is refused rather than stored."""
         with pytest.raises(ValidationError):
             ItemDateFactory(
                 item=item,
@@ -337,7 +279,6 @@ class TestItemDateSpanRule:
         ).exists()
 
     def test_end_before_begin_is_rejected(self, item):
-        """An end earlier than its begin is refused rather than stored."""
         with pytest.raises(ValidationError):
             ItemDateFactory(
                 item=item,
@@ -350,7 +291,6 @@ class TestItemDateSpanRule:
         ).exists()
 
     def test_end_equal_to_begin_is_accepted(self, item):
-        """A single-day span — begin and end the same date — is not a rejection."""
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
@@ -362,7 +302,6 @@ class TestItemDateSpanRule:
         assert str(retrieved.end).startswith("2019-08-16")
 
     def test_end_after_begin_is_accepted(self, item):
-        """An ordinary span — end after begin — saves as before."""
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
@@ -374,10 +313,6 @@ class TestItemDateSpanRule:
         assert str(retrieved.end).startswith("2019-08-16")
 
     def test_mixed_precision_span_is_accepted(self, item):
-        """A begin at day precision and an end at year precision, where the
-        year is later, is a valid span — precisions differ but the
-        underlying dates still order correctly.
-        """
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
@@ -389,7 +324,6 @@ class TestItemDateSpanRule:
         assert str(retrieved.end) == "2020"
 
     def test_direct_create_rejects_the_defect(self, item):
-        """``objects.create()`` refuses an end-without-begin, not only ``full_clean()``."""
         with pytest.raises(ValidationError):
             ItemDate.objects.create(
                 item=item,
@@ -399,7 +333,6 @@ class TestItemDateSpanRule:
             )
 
     def test_instance_save_rejects_the_defect(self, item):
-        """A bare instance ``.save()`` refuses an end-without-begin."""
         with pytest.raises(ValidationError):
             ItemDate(
                 item=item,
@@ -409,16 +342,8 @@ class TestItemDateSpanRule:
             ).save()
 
     def test_an_empty_string_end_is_treated_as_no_end(self, item):
-        """A ``ModelForm`` over a blank, optional ``end`` leaves the instance
-        attribute as ``""``, never ``None``: ``clean_fields()`` skips
-        ``to_python()`` entirely for a blank field whose raw value is already
-        in ``django.core.validators.EMPTY_VALUES`` (which includes ``""``),
-        so an unconverted empty string reaches ``clean()`` exactly as a
-        submitted-but-blank ``end`` field does on the reference form. A
-        ``begin``-only ``ItemDate`` built this way must save as cleanly as
-        one built with ``end=None`` — not raise ``AttributeError`` from
-        comparing a string against ``begin.date``.
-        """
+        # A ModelForm leaves a blank optional end as "", never None, and clean() sees it
+        # unconverted.
         item_date = ItemDate(
             item=item,
             date_type=DateType.EVENT_DATE,
@@ -431,15 +356,7 @@ class TestItemDateSpanRule:
         assert not retrieved.end
 
     def test_raw_date_strings_are_compared_correctly(self, item):
-        """``PartialDateField.to_python()`` accepts a raw ``YYYY``/``YYYY-MM``/
-        ``YYYY-MM-DD`` string directly, with no ``ModelForm`` or
-        ``full_clean()`` in between — every existing ``ItemDateFactory`` call
-        across the suite passes ``begin``/``end`` as plain strings this way.
-        ``clean()`` alone (unlike ``full_clean()``) never runs
-        ``clean_fields()``, so a raw string reaches it exactly as given, and
-        the span check must convert it before comparing rather than assuming
-        ``.date`` is already there.
-        """
+        # clean() alone never runs clean_fields(), so a raw date string reaches it unconverted.
         item_date = ItemDate(
             item=item,
             date_type=DateType.EVENT_DATE,
@@ -463,8 +380,6 @@ class TestItemDateSpanRule:
 
 @pytest.mark.django_db
 class TestItemIdentifierModel:
-    """ItemIdentifier storage for known and unknown identifier types."""
-
     @pytest.mark.parametrize(
         "identifier_type,value",
         [
@@ -477,21 +392,18 @@ class TestItemIdentifierModel:
         ],
     )
     def test_known_types(self, item, identifier_type, value):
-        """ItemIdentifier stores all 6 known identifier types correctly."""
         ident = ItemIdentifierFactory(item=item, type=identifier_type, value=value)
         retrieved = ItemIdentifier.objects.get(pk=ident.pk)
         assert retrieved.type == identifier_type
         assert retrieved.value == value
 
     def test_unknown_type(self, item):
-        """ItemIdentifier accepts unknown identifier type strings (FR-017)."""
         ident = ItemIdentifierFactory(item=item, type="arXiv", value="2103.12345")
         retrieved = ItemIdentifier.objects.get(pk=ident.pk)
         assert retrieved.type == "arXiv"
         assert retrieved.value == "2103.12345"
 
     def test_unique_constraint(self, item):
-        """ItemIdentifier enforces uniqueness of (item, type)."""
         ItemIdentifierFactory(item=item, type=IdentifierType.DOI, value="10.1234/first")
         with pytest.raises(Exception):  # IntegrityError on duplicate
             ItemIdentifierFactory(
@@ -499,7 +411,6 @@ class TestItemIdentifierModel:
             )
 
     def test_str_non_empty(self, item):
-        """ItemIdentifier.__str__ returns a non-empty string."""
         ident = ItemIdentifierFactory(
             item=item, type=IdentifierType.DOI, value="10.1234/test"
         )
@@ -508,8 +419,6 @@ class TestItemIdentifierModel:
 
 @pytest.mark.django_db
 class TestItemIdentifierWritePathValidation:
-    """Known-type format validation holds on every write path, not only full_clean()."""
-
     @pytest.mark.parametrize(
         "identifier_type,value",
         [
@@ -524,7 +433,6 @@ class TestItemIdentifierWritePathValidation:
     def test_direct_create_rejects_invalid_known_type(
         self, item, identifier_type, value
     ):
-        """objects.create() refuses a malformed value for a known identifier type."""
         with pytest.raises(ValidationError):
             ItemIdentifier.objects.create(item=item, type=identifier_type, value=value)
         assert not ItemIdentifier.objects.filter(
@@ -532,14 +440,12 @@ class TestItemIdentifierWritePathValidation:
         ).exists()
 
     def test_instance_save_rejects_invalid_known_type(self, item):
-        """A bare instance .save() refuses a malformed value."""
         with pytest.raises(ValidationError):
             ItemIdentifier(
                 item=item, type=IdentifierType.DOI, value="10.1/too-few-digits"
             ).save()
 
     def test_update_to_invalid_value_is_rejected(self, item):
-        """Re-saving a stored identifier with a malformed value is refused."""
         ident = ItemIdentifierFactory(
             item=item, type=IdentifierType.DOI, value="10.1234/valid"
         )
@@ -549,22 +455,47 @@ class TestItemIdentifierWritePathValidation:
         assert ItemIdentifier.objects.get(pk=ident.pk).value == "10.1234/valid"
 
     def test_direct_create_accepts_unknown_type(self, item):
-        """Unknown identifier types carry no format constraint (FR-017)."""
         ident = ItemIdentifier.objects.create(
             item=item, type="arXiv", value="anything at all"
         )
         assert ItemIdentifier.objects.get(pk=ident.pk).value == "anything at all"
 
     def test_bulk_create_bypasses_validation(self, item):
-        """bulk_create() skips save(), so it stores unchecked values by design.
-
-        This is Django's documented behaviour for every model, not a gap specific
-        to this package. The test pins it so the limitation stays visible.
-        """
         ItemIdentifier.objects.bulk_create(
             [ItemIdentifier(item=item, type=IdentifierType.DOI, value="not-a-doi")]
         )
         assert (
             ItemIdentifier.objects.get(item=item, type=IdentifierType.DOI).value
             == "not-a-doi"
+        )
+
+
+#: Item fields with no CSL JSON key: Django bookkeeping and reverse relations.
+NON_CSL_FIELDS = frozenset(
+    {
+        "id",
+        "created",
+        "modified",
+        "item_names",
+        "itemname_set",
+        "itemdate_set",
+        "itemidentifier_set",
+        "item_dates",
+        "item_identifiers",
+    }
+)
+
+ITEM_CSL_FIELD_NAMES = [
+    field.name
+    for field in Item._meta.get_fields()
+    if field.name not in NON_CSL_FIELDS and hasattr(field, "help_text")
+]
+
+
+class TestHelpTextCoverage:
+    @pytest.mark.parametrize("field_name", ITEM_CSL_FIELD_NAMES)
+    def test_item_field_has_help_text(self, field_name):
+        field = Item._meta.get_field(field_name)
+        assert field.help_text, (
+            f"Item.{field_name} is missing help_text describing its CSL JSON mapping"
         )

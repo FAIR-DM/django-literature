@@ -25,12 +25,8 @@ from literature.utils.date import parse_date_parts
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Field name mappings
-# ---------------------------------------------------------------------------
-
-# Django field name → CSL JSON key
-# Most fields follow a snake_case → hyphen-case pattern; exceptions listed here.
+# Django field name → CSL JSON key, for fields that don't follow the default
+# snake_case → hyphen-case pattern.
 _DJANGO_TO_CSL: dict[str, str] = {
     "citation_key": "citation-key",  # exported as both "citation-key" and "id"
     "title_short": "title-short",
@@ -65,9 +61,7 @@ _DJANGO_TO_CSL: dict[str, str] = {
     "year_suffix": "year-suffix",
 }
 
-# CSL JSON key → Django field name (for import)
 _CSL_TO_DJANGO: dict[str, str] = {v: k for k, v in _DJANGO_TO_CSL.items()}
-# Additional mappings for deprecated / alternate CSL keys
 _CSL_TO_DJANGO.update(
     {
         "id": "citation_key",
@@ -76,7 +70,6 @@ _CSL_TO_DJANGO.update(
     }
 )
 
-# Fields that are NOT scalar CSL JSON fields (handled separately)
 _SKIP_FIELDS = frozenset(
     {
         "id",
@@ -86,50 +79,56 @@ _SKIP_FIELDS = frozenset(
         "custom",
         "created",
         "modified",
-        # These are handled via related models
         *[r.value for r in NameRole],
         *[d.value for d in DateType],
         *[i.value for i in IdentifierType],
     }
 )
 
-# Known CSL identifier top-level keys
 _KNOWN_IDENTIFIER_TYPES = frozenset(i.value for i in IdentifierType)
-
-# CSL name-variable keys that map to NameRole values
 _NAME_VARIABLE_KEYS = frozenset(r.value for r in NameRole)
-
-# CSL date-variable keys that map to DateType values
 _DATE_VARIABLE_KEYS = frozenset(d.value for d in DateType)
 
 
 def _csl_key_to_django_field(csl_key: str) -> str | None:
     """Convert a CSL JSON field name to the corresponding Django model field name.
 
-    Returns None if the key should not be mapped to a scalar Item field.
+    Args:
+        csl_key: The CSL JSON field name to convert.
+
+    Returns:
+        str | None: The Django field name, or None if the key should not be
+        mapped to a scalar Item field.
     """
-    # Direct mapping table lookup
     if csl_key in _CSL_TO_DJANGO:
         return _CSL_TO_DJANGO[csl_key]
-    # Most CSL hyphenated keys → snake_case by replacing hyphens
-    # e.g. "publisher-place" → "publisher_place"
     candidate = csl_key.replace("-", "_")
     return candidate
 
 
 def _django_field_to_csl_key(field_name: str) -> str:
-    """Convert a Django model field name to its CSL JSON key."""
+    """Convert a Django model field name to its CSL JSON key.
+
+    Args:
+        field_name: The Django model field name to convert.
+
+    Returns:
+        str: The corresponding CSL JSON key.
+    """
     if field_name in _DJANGO_TO_CSL:
         return _DJANGO_TO_CSL[field_name]
-    # Default: replace underscores with hyphens
     return field_name.replace("_", "-")
 
 
 def _partial_date_to_parts(pd: Any) -> list[int]:
     """Convert a PartialDate to a CSL JSON date-parts single array.
 
-    Returns a list of 1-3 integers based on the PartialDate's precision.
-    PartialDate.YEAR=0, MONTH=1, DAY=2.
+    Args:
+        pd: The PartialDate (or object exposing ``.date``/``.precision``) to convert.
+
+    Returns:
+        list[int]: 1-3 integers based on the PartialDate's precision —
+        ``[year]``, ``[year, month]``, or ``[year, month, day]``.
     """
     from partial_date import PartialDate
 
@@ -145,7 +144,14 @@ def _partial_date_to_parts(pd: Any) -> list[int]:
 
 
 def _name_to_dict(name: Any) -> dict[str, Any]:
-    """Convert a Name instance to a CSL JSON name object (omitting empty fields)."""
+    """Convert a Name instance to a CSL JSON name object (omitting empty fields).
+
+    Args:
+        name: The Name instance to convert.
+
+    Returns:
+        dict[str, Any]: The CSL JSON name object.
+    """
     result: dict[str, Any] = {}
     if name.family:
         result["family"] = name.family
@@ -168,11 +174,6 @@ def _name_to_dict(name: Any) -> dict[str, Any]:
     return result
 
 
-# ---------------------------------------------------------------------------
-# to_csl_json
-# ---------------------------------------------------------------------------
-
-
 def to_csl_json(item: Any) -> dict[str, Any]:
     """Serialize a saved Item instance to a CSL JSON 1.0.2 compatible dict.
 
@@ -180,17 +181,13 @@ def to_csl_json(item: Any) -> dict[str, Any]:
         item: A saved ``Item`` model instance (must have a primary key).
 
     Returns:
-        A Python dict conforming to the CSL JSON 1.0.2 schema.
-
-    Guarantees:
-        - Always contains ``"id"`` (= ``item.citation_key``) and ``"type"``.
-        - Omits blank/null optional fields.
-        - Name arrays are ordered by ``ItemName.order`` within each role.
-        - Known identifier types (DOI, ISBN, ISSN, PMID, PMCID, URL) are
-          top-level keys; unknown types are placed in ``custom``.
-        - String-or-number CSL fields are always exported as strings.
-
-    CSL JSON mapping: top-level item object
+        dict[str, Any]: A dict conforming to the CSL JSON 1.0.2 schema.
+        Always contains ``"id"`` (= ``item.citation_key``) and ``"type"``,
+        omits blank/null optional fields, orders name arrays by
+        ``ItemName.order`` within each role, places known identifier types
+        (DOI, ISBN, ISSN, PMID, PMCID, URL) as top-level keys and unknown
+        types under ``custom``, and exports string-or-number CSL fields
+        always as strings.
     """
     from literature.models import ItemName
 
@@ -199,8 +196,6 @@ def to_csl_json(item: Any) -> dict[str, Any]:
         "type": item.type,
     }
 
-    # --- Scalar fields ---
-    # Iterate over the Item model's fields and export non-empty values
     scalar_skip = {
         "id",
         "pk",
@@ -213,7 +208,7 @@ def to_csl_json(item: Any) -> dict[str, Any]:
     }
     for field in item._meta.get_fields():
         if not hasattr(field, "attname"):
-            continue  # Skip relation fields
+            continue
         fname = field.name
         if fname in scalar_skip:
             continue
@@ -223,16 +218,13 @@ def to_csl_json(item: Any) -> dict[str, Any]:
         csl_key = _django_field_to_csl_key(fname)
         result[csl_key] = value
 
-    # --- JSONFields (categories, custom) ---
     if item.categories:
         result["categories"] = item.categories
 
-    # We'll merge custom identifiers with existing custom below
     _custom: dict[str, Any] = {}
     if item.custom:
         _custom.update(item.custom)
 
-    # --- Identifiers ---
     for ident in item.item_identifiers.all():
         if ident.type in _KNOWN_IDENTIFIER_TYPES:
             result[ident.type] = ident.value
@@ -242,19 +234,17 @@ def to_csl_json(item: Any) -> dict[str, Any]:
     if _custom:
         result["custom"] = _custom
 
-    # --- Names ---
     from literature.models import ItemName  # noqa: F811
 
     roles_present: dict[str, list[dict]] = {}
     for item_name in ItemName.objects.filter(item=item).order_by("role", "order"):
         role = item_name.role
         name_dict = _name_to_dict(item_name.name)
-        if name_dict:  # skip entirely empty name objects
+        if name_dict:
             roles_present.setdefault(role, []).append(name_dict)
 
     result.update(roles_present)
 
-    # --- Dates ---
     for item_date in item.item_dates.all():
         date_obj: dict[str, Any] = {}
 
@@ -279,16 +269,19 @@ def to_csl_json(item: Any) -> dict[str, Any]:
     return result
 
 
-# ---------------------------------------------------------------------------
-# from_csl_json
-# ---------------------------------------------------------------------------
-
-
 def _citation_key(data: dict) -> str:
     """The citation key a CSL JSON dict carries: ``citation-key``, falling back to ``id``.
 
-    Stored exactly as given, whether or not the store already holds it (ADR 0023). Raises
-    ValidationError if both are absent or empty.
+    Stored exactly as given, whether or not the store already holds it (ADR 0023).
+
+    Args:
+        data: The CSL JSON item dict to read a citation key from.
+
+    Returns:
+        str: The citation key.
+
+    Raises:
+        ValidationError: Both ``citation-key`` and ``id`` are absent or empty.
     """
     raw_key = data.get("citation-key") or str(data.get("id", ""))
     if not raw_key:
@@ -299,10 +292,16 @@ def _citation_key(data: dict) -> str:
 
 
 def _import_name_variable(data: dict, item: Any, role: str, order: int) -> None:
-    """Create or get a Name and link it to item with the given role and order."""
+    """Create or get a Name and link it to item with the given role and order.
+
+    Args:
+        data: A CSL JSON name object, or a plain string stored as ``literal``.
+        item: The Item to link the name to.
+        role: The CSL name-variable role (e.g. ``author``, ``editor``).
+        order: The name's position within its role.
+    """
     from literature.models import ItemName, Name
 
-    # Handle string names (stored as literal)
     name_data = {"literal": data} if isinstance(data, str) else data
 
     family = name_data.get("family", "")
@@ -312,7 +311,6 @@ def _import_name_variable(data: dict, item: Any, role: str, order: int) -> None:
     non_dropping_particle = name_data.get("non-dropping-particle", "")
     suffix = name_data.get("suffix", "")
 
-    # Find-or-create Name using composite lookup key
     name, _ = Name.objects.get_or_create(
         family=family,
         given=given,
@@ -334,7 +332,13 @@ def _import_name_variable(data: dict, item: Any, role: str, order: int) -> None:
 
 
 def _import_date_variable(data: dict, item: Any, date_type: str) -> None:
-    """Create an ItemDate record from a CSL JSON date-variable object."""
+    """Create an ItemDate record from a CSL JSON date-variable object.
+
+    Args:
+        data: A CSL JSON date-variable object (e.g. the value of ``issued``).
+        item: The Item to attach the date to.
+        date_type: The CSL date-variable slot (e.g. ``issued``, ``accessed``).
+    """
     from literature.models import ItemDate
 
     date_parts = data.get("date-parts", [])
@@ -371,32 +375,25 @@ def _import_date_variable(data: dict, item: Any, date_type: str) -> None:
 def from_csl_json(data: dict) -> Any:
     """Deserialize a CSL JSON dict into a new saved Item with all related records.
 
+    Validates ``type``, reads the citation key (``citation-key`` falling back
+    to ``id``, stored exactly as given — a key the store already holds is not
+    rewritten, per ADR 0023), maps scalar fields, and creates the related
+    Name/ItemName, ItemDate and ItemIdentifier records. Every model instance
+    is validated with ``full_clean()`` before saving.
+
     Args:
         data: A Python dict containing CSL JSON data for a single bibliographic item.
 
     Returns:
-        A saved ``Item`` instance with all related ``ItemName``, ``ItemDate``,
-        and ``ItemIdentifier`` records created.
+        Any: A saved ``Item`` instance with all related ``ItemName``,
+        ``ItemDate``, and ``ItemIdentifier`` records created.
 
     Raises:
-        ValidationError: If ``data["type"]`` is missing or not a recognized CSL type.
-        ValidationError: If both ``data["citation-key"]`` and ``data["id"]`` are absent.
-
-    Behavior:
-        1. Validates ``type`` (required, must be in ItemType choices).
-        2. Reads ``citation_key`` from ``citation-key`` → ``id`` fallback, and stores it as
-           given — a key the store already holds is not rewritten (ADR 0023).
-        3. Maps all CSL JSON scalar fields to Django model fields.
-        4. Creates Name/ItemName records (find-or-create by composite key).
-        5. Creates ItemDate records (parse date-parts → PartialDate; fallback to raw_date_parts).
-        6. Creates ItemIdentifier records (known types top-level; unknown from custom with warning).
-        7. Calls full_clean() on every model instance before saving.
-
-    CSL JSON mapping: top-level item object → Item + related records
+        ValidationError: ``data["type"]`` is missing or not a recognized CSL
+            type, or both ``data["citation-key"]`` and ``data["id"]`` are absent.
     """
     from literature.models import Item, ItemIdentifier
 
-    # --- Validate type ---
     csl_type = data.get("type")
     if not csl_type:
         raise ValidationError(_("CSL JSON item missing required 'type' field"))
@@ -405,16 +402,13 @@ def from_csl_json(data: dict) -> Any:
             _("Unknown CSL JSON item type: '{type}'").format(type=csl_type)
         )
 
-    # --- Read the citation key ---
     citation_key = _citation_key(data)
 
-    # --- Build scalar field dict ---
     item_fields: dict[str, Any] = {
         "citation_key": citation_key,
         "type": csl_type,
     }
 
-    # Fields that are NOT scalar Item fields
     non_scalar = (
         _NAME_VARIABLE_KEYS
         | _DATE_VARIABLE_KEYS
@@ -422,7 +416,6 @@ def from_csl_json(data: dict) -> Any:
         | {"type", "citation-key", "id", "shortTitle", "event"}
     )
 
-    # Collect all Item field names for validation
     from literature.models import Item  # noqa: F811
 
     valid_item_fields = {
@@ -438,7 +431,6 @@ def from_csl_json(data: dict) -> Any:
 
         django_field = _csl_key_to_django_field(csl_key)
         if django_field and django_field in valid_item_fields:
-            # Convert numbers to strings for string-or-number fields
             if isinstance(value, (int, float)) and django_field not in (
                 "categories",
                 "custom",
@@ -446,31 +438,25 @@ def from_csl_json(data: dict) -> Any:
                 value = str(value)
             item_fields[django_field] = value
 
-    # Handle deprecated aliases
     if "shortTitle" in data and "title_short" not in item_fields:
         item_fields["title_short"] = data["shortTitle"]
     if "event" in data and "event_title" not in item_fields:
         item_fields["event_title"] = data["event"]
 
-    # --- Create Item ---
     item = Item(**item_fields)
     item.full_clean()
     item.save()
 
-    # --- Names ---
     for role_key in _NAME_VARIABLE_KEYS:
         names_data = data.get(role_key, [])
         for order, name_data in enumerate(names_data):
             _import_name_variable(name_data, item, role_key, order)
 
-    # --- Dates ---
     for date_key in _DATE_VARIABLE_KEYS:
         date_data = data.get(date_key)
         if date_data is not None:
             _import_date_variable(date_data, item, date_key)
 
-    # --- Identifiers ---
-    # Known types from top-level keys
     for id_type in _KNOWN_IDENTIFIER_TYPES:
         value = data.get(id_type)
         if value:
@@ -478,7 +464,6 @@ def from_csl_json(data: dict) -> Any:
             ident.full_clean()
             ident.save()
 
-    # Unknown identifiers from custom dict
     custom_data = data.get("custom") or {}
     if isinstance(custom_data, dict):
         for key, value in custom_data.items():
@@ -493,26 +478,19 @@ def from_csl_json(data: dict) -> Any:
     return item
 
 
-# ---------------------------------------------------------------------------
-# from_csl_json_list
-# ---------------------------------------------------------------------------
-
-
 def from_csl_json_list(data: list[dict]) -> list[Any]:
     """Import a list of CSL JSON dicts, skipping invalid items with warnings.
+
+    Calls :func:`from_csl_json` for each item in the list. Items that fail
+    validation are skipped and their errors are logged via
+    ``logger.warning()`` rather than raised.
 
     Args:
         data: A Python list of CSL JSON dicts (one per bibliographic item).
 
     Returns:
-        A list of saved ``Item`` instances for all successfully imported items.
-        Invalid items (raising ``ValidationError``) are skipped and logged
-        via ``logger.warning()``.
-
-    Behavior:
-        Calls ``from_csl_json()`` for each item in the list. Items that fail
-        validation are skipped and their errors are emitted as warnings.
-        Successfully imported items are returned in input order.
+        list[Any]: The saved ``Item`` instances for all successfully
+        imported items, in input order.
     """
     results = []
     for item_data in data:

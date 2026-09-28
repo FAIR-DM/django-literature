@@ -15,12 +15,10 @@ from django.utils.translation import gettext_lazy as _
 class Outcome(models.TextChoices):
     """What became of one entry.
 
-    Three values, every one of them reachable. Deliberately absent is anything
-    meaning "updated": deciding that an entry matches a record already stored is
-    a separate problem, and a vocabulary value nothing can produce is the
-    speculation Article III rules out. When a later feature can make that
-    judgement it reports its decisions as ``SKIPPED``, which needs no change
-    here.
+    There is deliberately no "updated": matching an entry to a record already
+    stored is a separate problem, and a value nothing can produce is
+    speculation. A later feature that makes that judgement reports it as
+    ``SKIPPED``.
     """
 
     CREATED = "created", _("Created")
@@ -32,7 +30,7 @@ class Outcome(models.TextChoices):
 class EntryResult:
     """The fate of a single entry.
 
-    Args:
+    Attributes:
         outcome: What became of the entry.
         index: Zero-based position among the entries the format found. Always
             present, and assigned by the runner rather than the format.
@@ -43,7 +41,7 @@ class EntryResult:
             rows do not survive the transaction that made them.
         reason: Why the entry failed, or what was recognised but not stored
             for a skipped entry. Required for ``FAILED``, optional for
-            ``SKIPPED`` (D18), and refused for ``CREATED``.
+            ``SKIPPED``, and refused for ``CREATED``.
 
     Raises:
         ValueError: If a failure carries no reason, or a created entry carries one.
@@ -56,23 +54,15 @@ class EntryResult:
     reason: str | None = None
 
     def __post_init__(self):
-        # A failure without a reason is exactly the silent drop this contract
-        # exists to remove, so it is refused at construction rather than caught
-        # later by whoever reads the report. Emptiness counts: an exception
-        # raised with no message gives ``str(exc) == ""``, which is not None
-        # and prints as a blank line — the same silent drop, one indirection
-        # further along.
+        """Refuse a reason that does not fit the outcome, and resolve lazy text."""
+        # A blank reason counts as missing: an exception raised with no message
+        # gives ``str(exc) == ""``, the same silent drop one step further along.
         if self.outcome == Outcome.FAILED and not (self.reason or "").strip():
             raise ValueError("a failed entry result must carry a reason")
-        # A skipped entry may carry a reason too (D18) — the format may know
-        # exactly what it recognised but did not store. A created entry may
-        # not: it is not something the reader did not ask for, so the two
-        # remain telling different things apart.
         if self.outcome == Outcome.CREATED and self.reason is not None:
             raise ValueError("only a failed or skipped entry result may carry a reason")
         if self.reason is not None:
-            # Reasons are built from lazy translations. Resolve now so the
-            # result stays readable once the active language has moved on.
+            # Resolve lazy translations now, while the active language is right.
             object.__setattr__(self, "reason", str(self.reason))
 
 
@@ -80,7 +70,7 @@ class EntryResult:
 class ImportResult:
     """The report from one import run.
 
-    Args:
+    Attributes:
         entries: One result per entry the format found, in the order they occur
             in the source file, each appearing exactly once.
         dry_run: Whether this run was a rehearsal that wrote nothing.
@@ -92,9 +82,11 @@ class ImportResult:
     format_name: str | None = None
 
     def __iter__(self):
+        """Iterate over the entry results in source order."""
         return iter(self.entries)
 
     def __len__(self):
+        """Return the number of entries the format found."""
         return len(self.entries)
 
     def _with_outcome(self, outcome):

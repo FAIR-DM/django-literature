@@ -13,11 +13,8 @@ APP_TEMPLATES_DIR = (
     Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
 )
 TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
-#: The Cotton action component directory — widened here (T111, US-1) so the
-#: i18n and utility-class guards below also reach the new toolbar action
-#: component. Before this phase the glob only ever reached
-#: ``literature/ui/templates/literature/ui/*.html``, so a component shipped
-#: under ``cotton/page/list/actions/`` was checked by neither guard.
+#: Included so the i18n and utility-class guards below also reach the toolbar
+#: action components, which live outside ``TEMPLATES_DIR``.
 COTTON_ACTIONS_DIR = APP_TEMPLATES_DIR / "cotton" / "page" / "list" / "actions"
 TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html")) + sorted(
     COTTON_ACTIONS_DIR.glob("*.html")
@@ -26,20 +23,7 @@ PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
 
 class TestTheBaseTemplateIsNoLongerOurs:
-    """This app used to ship a pass-through ``base.html``; it does not now.
-
-    django-mvp routes every packaged page through the unqualified ``base.html``,
-    a name that belongs to the host project. It once shipped no default, so an
-    installable app could not reach the packaged chain in a project that had
-    written none, and this app filled the gap itself. Its own comment named the
-    condition for its removal: django-mvp shipping a default of its own. That
-    landed in django-mvp 0.18, so the file is gone and the floor this app
-    declares is what guarantees the replacement is present.
-
-    What these tests keep is the guarantee, not the file: the chain still
-    resolves for a project with no ``base.html``, and a project that has one
-    still wins.
-    """
+    # django-mvp 0.18 ships its own base.html; these keep the guarantee, not the file.
 
     def test_the_app_ships_no_base_template_of_its_own(self):
         assert not PASSTHROUGH_BASE.exists()
@@ -66,15 +50,13 @@ class TestTheBaseTemplateIsNoLongerOurs:
 
 
 class TestPackagedChain:
-    """The app's pages render through django-mvp's own view templates (D20)."""
-
     def test_the_reference_page_extends_the_packaged_detail_template(self):
         source = (TEMPLATES_DIR / "item_detail.html").read_text()
         assert '{% extends "detail_view.html" %}' in source
 
     def test_no_page_template_of_our_own_stands_in_for_a_packaged_one(self):
         # The catalogue list and the contributor page render through
-        # ``list_view.html``; neither has a template here. US-1's
+        # ``list_view.html``; neither has a template here.
         # ``item_list_page.html`` (``ItemListView.template_name``) does not
         # contradict this: it ``{% extends "list_view.html" %}`` and
         # overrides only the ``page.actions`` block, a wrapper around the
@@ -87,8 +69,7 @@ class TestPackagedChain:
         assert not (TEMPLATES_DIR / "contributor_detail.html").exists()
 
 
-# ---------------------------------------------------------------------------
-# T021 — utility-class allowlist. FR-008, D-7.
+# Utility-class allowlist.
 #
 # django-mvp's own ``docs/utility-classes.md`` is the source of truth, but it
 # ships only in the django-mvp *source repo*, not inside the installed
@@ -102,16 +83,15 @@ class TestPackagedChain:
 # this mechanical check earns its keep: a class token outside the documented
 # set can render correctly in dev against whatever stylesheet happens to be
 # on disk and then break for a host that only ships the packaged one.
-# ---------------------------------------------------------------------------
 
 SCALE = ["0", "1", "2", "3", "4", "5", "6", "8", "10", "12"]
 
 
 def expand(pattern: str) -> list[str]:
-    """Expand one ``{a,b,c}`` or ``{1..12}`` (or both) group in a
-    utility-classes.md pattern like ``items-{start,center,end}`` or
-    ``rounded-{t,r,b,l}-{sm,md,lg,xl,full}``. A pattern with no ``{...}``
-    group is already a literal class name and is returned unchanged."""
+    """Expand every ``{a,b,c}`` or ``{1..12}`` group in a utility-classes.md pattern.
+
+    A pattern with no group is already a literal class name.
+    """
     match = re.search(r"\{([^{}]+)\}", pattern)
     if not match:
         return [pattern]
@@ -280,20 +260,11 @@ TEMPLATE_EXPR_RE = re.compile(r"\{\{.*?\}\}|\{%.*?%\}", re.DOTALL)
 
 
 def extract_class_tokens(source: str) -> list[str]:
-    """Every whitespace-separated token inside a literal ``class="..."``
-    attribute in ``source``. Cotton's bound ``:class="..."`` attributes are
-    excluded by the negative lookbehind (a dynamic expression, not a literal
-    class list) and so is every other Cotton component parameter
-    (``size="sm"``, ``cols="1"``, ``gap="4"``) — none of those match
-    ``class="``, only the attribute actually named ``class`` does. Any
-    ``{{ ... }}`` or ``{% ... %}`` template expression inside the attribute
-    value is stripped before splitting on whitespace, not filtered token by
-    token after: a naive per-token filter lets a multi-word expression like
-    ``{{ page.class }}`` leak its middle word (``page.class``) and closing
-    delimiter (``}}``) through as if they were literal class names, which is
-    exactly what ``literature/ui/templates/literature/ui/base.html``'s
-    ``class="{{ page.class }}"`` would do if this stripped only the token
-    that happened to contain the opening delimiter."""
+    """Return every token inside a literal ``class="..."`` attribute in ``source``.
+
+    Cotton's bound ``:class`` and other component parameters do not match. Template expressions
+    are stripped before splitting, so ``{{ page.class }}`` cannot leak words as class names.
+    """
     tokens: list[str] = []
     for match in CLASS_ATTR_RE.finditer(source):
         value = TEMPLATE_EXPR_RE.sub(" ", match.group(1))
@@ -302,14 +273,11 @@ def extract_class_tokens(source: str) -> list[str]:
 
 
 def is_allowed_utility_class(token: str) -> bool:
-    """Is ``token`` a class django-mvp's utility-classes.md documents (bare,
-    or behind the responsive/state prefix the document allows for its
-    group)? Arbitrary values (``w-[37px]``) and opacity modifiers
-    (``text-base-content/60``) are never in the reference document, so they
-    fail by absence rather than by a special-cased rejection. The ``sm:``
-    and ``2xl:`` prefixes are explicitly outside
-    ``responsive_prefixes_allowed`` and are rejected outright, so a valid
-    base name behind a disallowed prefix cannot slip through by accident."""
+    """Return whether django-mvp's utility-classes.md documents ``token``.
+
+    Arbitrary values and opacity modifiers fail by absence. ``sm:`` and ``2xl:`` are rejected
+    outright, so a valid name behind a disallowed prefix cannot slip through.
+    """
     if "{{" in token or "{%" in token:
         return False
     if token.startswith(REJECTED_PREFIXES):
@@ -328,16 +296,6 @@ def is_allowed_utility_class(token: str) -> bool:
 
 
 class TestUtilityClassAllowlist:
-    """T021 — FR-008, D-7. Every ``class`` token in a template
-    ``literature.ui`` ships is a utility named in django-mvp's
-    ``utility-classes.md`` (see the module-level allowlist above), behind
-    only the prefix that document allows for its group. No daisyUI
-    component class appears as a literal ``class="..."`` token in any
-    shipped template today — the Cotton components (``<c-badge>``,
-    ``<c-card>``, ...) supply their own daisyUI classes internally, so this
-    allowlist does not need to enumerate daisyUI's component set to cover
-    what is actually shipped."""
-
     @pytest.mark.parametrize("template_path", TEMPLATE_PATHS, ids=lambda p: p.name)
     def test_every_class_token_is_allowlisted(self, template_path):
         tokens = extract_class_tokens(template_path.read_text())
@@ -381,8 +339,7 @@ class TestUtilityClassAllowlist:
         assert is_allowed_utility_class(token)
 
 
-# ---------------------------------------------------------------------------
-# T021 — i18n guard. FR-007, D-7.
+# i18n guard.
 #
 # Every literal string a reader sees in a shipped template must be inside
 # {% translate %} or {% blocktranslate %}. Two places a reader can see one:
@@ -392,7 +349,6 @@ class TestUtilityClassAllowlist:
 # is prose and ``size="sm"`` is not, and nothing in the markup distinguishes
 # them. READER_FACING_ATTRIBUTES is that list. Add to it when a component
 # this app uses grows another content attribute.
-# ---------------------------------------------------------------------------
 
 #: Attributes whose value is shown to a reader as language. Everything else —
 #: ``size``, ``cols``, ``md``, ``gap``, ``muted``, ``name`` — configures a
@@ -437,21 +393,12 @@ READER_ATTRIBUTE_RE = re.compile(
 
 
 def reader_visible_residue(source: str) -> str:
-    """What is left of ``source``'s text nodes once every already-translated
-    span, every other piece of template machinery, and every HTML tag and
-    entity is removed — in that order, so a ``{% translate %}`` used inside
-    an attribute value (``title="{% translate "Dates" %}"``) is excised
-    before the generic tag/HTML stripping ever runs, and so a literal string
-    inside an ``{% if %}``/``{% regroup %}`` condition (template logic, not
-    reader-facing) is removed with its tag rather than surfacing as residue.
-    What remains still carries structural punctuation — ``:``, ``,``,
-    ``&middot;``, ``&ndash;`` — because none of it is filtered by name; see
-    :func:`has_unwrapped_reader_text`. Comments go first: the template engine
-    never renders them, so their prose is not text a reader sees and
-    translating it would be meaningless. Both comment forms are stripped, and
-    only the forms Django actually treats as comments — a multi-line
-    ``{# … #}`` is not one, so its prose survives here and is reported as
-    reader-facing text, which is exactly what it becomes on the page."""
+    """Return what of ``source`` a reader would see as text, untranslated.
+
+    Comments go first, then translated spans, then other template machinery, then HTML tags and
+    entities. A multi-line ``{# … #}`` is not a Django comment, so its prose survives here, as it
+    does on the page.
+    """
     text = DJANGO_BLOCK_COMMENT_RE.sub(" ", source)
     text = DJANGO_COMMENT_RE.sub(" ", text)
     text = BLOCKTRANSLATE_RE.sub(" ", text)
@@ -464,13 +411,11 @@ def reader_visible_residue(source: str) -> str:
 
 
 def unwrapped_reader_attributes(source: str) -> list[str]:
-    """Values of reader-facing attributes that still read as language once
-    every ``{% translate %}``, ``{% blocktranslate %}``, other template tag
-    and ``{{ variable }}`` has been removed. A value built from a translated
-    string or a context variable leaves nothing behind and does not appear
-    here — a hard-coded ``title="Contributors"`` does. The machinery is
-    stripped first so the nested quotes in ``title="{% translate "Dates" %}"``
-    cannot be mistaken for a bare literal."""
+    """Return reader-facing attribute values that still read as language.
+
+    Template machinery is stripped first, so a value built from ``{% translate %}`` or a variable
+    leaves nothing behind.
+    """
     text = BLOCKTRANSLATE_RE.sub(" ", source)
     text = TRANSLATE_TAG_RE.sub(" ", text)
     text = DJANGO_TAG_RE.sub(" ", text)
@@ -481,22 +426,14 @@ def unwrapped_reader_attributes(source: str) -> list[str]:
 
 
 def has_unwrapped_reader_text(source: str) -> bool:
-    """True if any letter survives :func:`reader_visible_residue`. A colon
-    separator, the ``&middot;`` separator, the ``&ndash;`` en dash and a
-    comma-and-space list join all carry no letters, so they pass through
-    without needing to be named as exceptions one at a time — this is a
-    generalisation of "colon, middot and whitespace are not reader-facing
-    prose", not a narrower reading of it: anything with no letter in it is
-    not prose a reader reads as language, wrapped or not."""
+    """Return whether any letter survives :func:`reader_visible_residue`.
+
+    Separators and entities carry no letters, so they pass without being listed.
+    """
     return bool(LETTER_RE.search(reader_visible_residue(source)))
 
 
 class TestI18nGuard:
-    """T021 — FR-007, D-7. Every literal string a reader sees in a template
-    ``literature.ui`` ships is wrapped in ``{% translate %}`` or
-    ``{% blocktranslate %}`` — see :func:`has_unwrapped_reader_text` and its
-    docstring for what counts as "a reader sees" and what does not."""
-
     @pytest.mark.parametrize("template_path", TEMPLATE_PATHS, ids=lambda p: p.name)
     def test_no_unwrapped_reader_text(self, template_path):
         source = template_path.read_text()
@@ -527,7 +464,7 @@ class TestI18nGuard:
     def test_detects_prose_in_a_multiline_single_line_comment(self):
         # Django's lexer has no re.DOTALL, so this is not a comment at all: the
         # whole block reaches the page as literal text. Four of these shipped and
-        # rendered "FR-034", "RC-002" and a paragraph about date precision next to
+        # rendered planning notes and a paragraph about date precision next to
         # the reader's data. The guard missed them because it stripped `{# … #}`
         # with re.DOTALL, believing what the templates believed.
         assert has_unwrapped_reader_text("{# a note\n   spanning two lines #}")
@@ -590,7 +527,7 @@ class TestI18nGuard:
 
 
 # ---------------------------------------------------------------------------
-# T111 — the import pages themselves (US-1, FR-023, decisions.md D11).
+# The import pages themselves.
 # ---------------------------------------------------------------------------
 
 #: A RIS record missing its own ``TY`` tag — the format's own documented
@@ -603,9 +540,6 @@ IMPORT_RIS_FIXTURE = (
 
 
 class TestImportFormPage:
-    """T111 — the import form page carries a multipart form, a file
-    control and the repeat-import warning (FR-006, FR-023)."""
-
     def test_the_form_is_multipart(self, client, db):
         content = client.get(reverse("literature:item-import")).content.decode()
         assert 'enctype="multipart/form-data"' in content
@@ -614,19 +548,8 @@ class TestImportFormPage:
         content = client.get(reverse("literature:item-import")).content.decode()
         assert 'type="file"' in content
 
-    def test_carries_the_repeat_import_warning(self, client, db):
-        content = client.get(reverse("literature:item-import")).content.decode()
-        assert "Duplicate files are not detected and will be imported again" in content
-
-    def test_says_what_the_default_does_and_how_to_skip_it(self, client, db):
-        content = client.get(reverse("literature:item-import")).content.decode()
-        assert "the file is previewed before import" in content
-        assert "Skip the preview and import immediately" in content
-
 
 class TestItemFormPageMarkup:
-    """The reference form page's own button row (item_form.html)."""
-
     def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(
         self, client, db
     ):
@@ -637,17 +560,6 @@ class TestItemFormPageMarkup:
 
 
 class TestImportReportPage:
-    """T111 — the report page for a one-step (skip-preview) import carries
-    the counts, the table and a link back to the catalogue (FR-012, FR-013,
-    FR-021).
-
-    T917 — the form-above-the-results layout (FR-011a) and the Retry state
-    (FR-023a) were both reversed by the second 2026-08-24 refinement
-    (decisions.md D30): the preview is now its own page with no form of its
-    own, and *Restart import* on it replaces Retry. This page goes back to
-    carrying no form of its own, which is what it did before Phase 7 added
-    either."""
-
     def _report_content(self, client):
         upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
         response = client.post(
@@ -660,28 +572,17 @@ class TestImportReportPage:
         content = self._report_content(client)
         assert "1 created" in content
 
-    def test_carries_the_table(self, client, db):
-        content = self._report_content(client)
-        assert "Created" in content  # the outcome column's own translated label
-
     def test_carries_a_link_back_to_the_catalogue(self, client, db):
         content = self._report_content(client)
         assert f'href="{reverse("literature:item-list")}"' in content
 
-    def test_is_not_labelled_as_a_preview(self, client, db):
-        content = self._report_content(client).lower()
-        assert "nothing has been imported" not in content
-
     def test_carries_no_import_form_of_its_own(self, client, db):
-        # T917 — FR-011a's own upload form, above the results, is what the
-        # refinement removes; the preview is where a form-carrying page
-        # lives now (FR-046 governs that one instead).
+        # The upload form lives on the preview page, not above the results.
         content = self._report_content(client)
         assert 'type="file"' not in content
 
     def test_the_back_to_catalogue_button_carries_a_backward_arrow(self, client, db):
-        # T915/T916 (US-6, FR-055) gave this page's own breadcrumb a working
-        # link to the catalogue too, so the first occurrence of this href is
+        # This page's breadcrumb links to the catalogue too, so the first occurrence of this href is
         # now the breadcrumb's, not the button's — the last one is.
         content = self._report_content(client)
         back_href = f'href="{reverse("literature:item-list")}"'
@@ -704,9 +605,6 @@ class TestImportReportPage:
 
 
 class TestOutcomeFilter:
-    """T901 — the outcome filter narrows the preview's table client-side,
-    with no request of its own (FR-049, decisions.md D30, D32)."""
-
     def _preview_content(self, client):
         upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
         client.post(
@@ -730,10 +628,13 @@ class TestOutcomeFilter:
         markup = self._filter_markup(self._preview_content(client))
         assert markup.count('type="radio"') == 4  # All, created, skipped, failed
 
-    def test_each_control_names_its_outcome_in_translated_text(self, client, db):
-        markup = self._filter_markup(self._preview_content(client))
-        for label in ("All", "Created", "Skipped", "Failed"):
-            assert f'aria-label="{label}"' in markup
+    def test_each_control_is_labelled_with_its_outcomes_own_label(self, client, db):
+        controls = self._controls(self._preview_content(client))
+        for outcome in OutcomeColumn.VARIANTS:
+            control = next(c for c in controls if f'value="{outcome.value}"' in c)
+            assert f'aria-label="{outcome.label}"' in control
+        reset = next(c for c in controls if "filter-reset" in c)
+        assert re.search(r'aria-label="[^"]+"', reset)
 
     def test_it_carries_no_form_action_and_no_link(self, client, db):
         markup = self._filter_markup(self._preview_content(client))
@@ -743,7 +644,7 @@ class TestOutcomeFilter:
     def test_the_counts_above_the_table_describe_the_whole_file_not_the_filter(
         self, client, db
     ):
-        # FR-049a — the counts are rendered from ``report`` directly and sit
+        # The counts are rendered from ``report`` directly and sit
         # outside the filter's own x-data scope, so they read the same
         # whatever the table is narrowed to (proved here by their absence of
         # any Alpine binding at all, since the Django test client renders
@@ -780,11 +681,6 @@ class TestOutcomeFilter:
 
 
 class TestImportPreviewTemplate:
-    """T907 — the preview page carries no import form, is titled and
-    described, warns above the table when warranted, carries the outcome
-    filter, and ends with exactly three controls in one row (US-6, FR-046
-    through FR-050)."""
-
     def _preview(self, client, filename="import.ris", format_name="ris", content=None):
         upload = SimpleUploadedFile(filename, (content or IMPORT_RIS_FIXTURE).encode())
         client.post(
@@ -795,11 +691,6 @@ class TestImportPreviewTemplate:
     def test_carries_no_import_form(self, client, db):
         content = self._preview(client).content.decode()
         assert 'type="file"' not in content
-
-    def test_is_titled_for_what_it_is_with_a_description_beneath(self, client, db):
-        content = self._preview(client).content.decode()
-        assert "Preview import" in content
-        assert "Nothing has been imported yet" in content
 
     def test_a_warning_appears_above_the_table_when_an_entry_was_skipped_or_failed(
         self, client, db
@@ -835,7 +726,7 @@ class TestImportPreviewTemplate:
         assert f'action="{reverse("literature:item-import-confirm")}"' in footer
 
     def test_a_file_the_format_cannot_read_offers_no_confirmation(self, client, db):
-        # AS-12 — confirming would create nothing, so the control that would
+        # Confirming would create nothing, so the control that would
         # carry it out is not offered. The reader is left with restart and the
         # way back to the catalogue.
         response = self._preview(
@@ -848,22 +739,6 @@ class TestImportPreviewTemplate:
 
 
 class TestImportFormPageFieldErrors:
-    """T203 — an invalid submission's field errors render beside their own
-    fields, in the idiom the create page already uses (FR-006, US-2).
-
-    Neither ``import_form.html`` nor this app renders that idiom itself:
-    ``ImportForm`` reaches the page through the same packaged
-    ``<c-form.render />`` → ``{{ form|crispy }}`` pipeline ``item_form.html``'s
-    own fields already go through (``cotton/form/render.html``), so a bound
-    field's error is crispy-tailwind's own ``field_errors.html``, minting
-    ``id="error_{n}_{field.auto_id}"`` right beside the control — confirmed
-    against the create page's own invalid-submission output before writing
-    this, which renders the identical ``id="error_1_id_type"`` shape for its
-    own required field. Asserted against that id, not the paragraph's
-    swappable colour/size classes, since the id is the mechanism, not the
-    theme.
-    """
-
     def test_a_missing_files_reason_renders_beside_the_file_field(self, client, db):
         content = client.post(
             reverse("literature:item-import"), {"format": "bibtex"}

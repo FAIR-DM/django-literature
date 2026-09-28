@@ -1,10 +1,6 @@
-"""Tests for ``literature/ui/catalogue.py`` — which view the catalogue route serves.
+"""Tests for ``literature/ui/catalogue.py``: which view the catalogue route serves.
 
-US-4 (FR-022, FR-027). ``TestTheCardListStaysAvailable`` in
-``test_views.py`` asserts that the card view still works when a URL is
-pointed straight at it. This module asserts the mechanism a project
-actually uses to choose it: the ``LITERATURE["CATALOGUE_VIEW"]`` setting,
-read on the one route whose view is a project's to pick.
+This asserts the ``LITERATURE["CATALOGUE_VIEW"]`` setting a project uses to choose the view.
 """
 
 import pytest
@@ -19,15 +15,12 @@ CARD_VIEW = "literature.ui.views.ItemListView"
 
 
 class ItemTableViewSubclass(ItemTableView):
-    """A project's own subclass, to prove the setting takes any view and not
-    only the two paths this package ships."""
+    """A project's own subclass, proving the setting takes any view."""
 
     paginate_by = 5
 
 
 class TestTheDefault:
-    """The table is what a project gets with nothing configured (FR-021)."""
-
     def test_no_setting_at_all_resolves_to_the_table(self):
         assert catalogue_view_class() is ItemTableView
 
@@ -45,8 +38,6 @@ class TestTheDefault:
 
 
 class TestChoosingTheCardList:
-    """The documented way to prefer cards (FR-022)."""
-
     def test_the_setting_resolves_to_the_card_view(self, settings):
         settings.LITERATURE = {"CATALOGUE_VIEW": CARD_VIEW}
 
@@ -102,9 +93,6 @@ class TestChoosingTheCardList:
 
 
 class TestAMisconfiguredSetting:
-    """Named at the setting, not left to surface as a raw error from inside
-    URL resolution — the same grounds as ``literature.importers.config``."""
-
     def test_a_literature_setting_that_is_not_a_dict_is_reported(self, settings):
         settings.LITERATURE = [CARD_VIEW]
 

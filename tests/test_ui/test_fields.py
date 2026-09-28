@@ -1,4 +1,4 @@
-"""Tests for ``literature/ui/fields.py`` — D-6."""
+"""Tests for ``literature/ui/fields.py``."""
 
 import pytest
 
@@ -10,8 +10,6 @@ from tests.factories import ItemFactory
 
 @pytest.mark.django_db
 class TestScalarFields:
-    """FR-020, FR-021: every non-empty scalar field the item carries, and nothing else."""
-
     def test_yields_non_empty_concrete_fields_under_their_verbose_name(self):
         item = ItemFactory(title="A Title", volume="12")
         pairs = {str(label): value for label, value in scalar_fields(item)}
@@ -28,7 +26,8 @@ class TestScalarFields:
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
         pairs = {str(label): value for label, value in scalar_fields(item)}
         assert (
-            pairs[str(item._meta.get_field("type").verbose_name)] == "Journal Article"
+            pairs[str(item._meta.get_field("type").verbose_name)]
+            == ItemType.ARTICLE_JOURNAL.label
         )
 
     def test_a_stored_value_matching_no_label_is_yielded_unchanged(self):

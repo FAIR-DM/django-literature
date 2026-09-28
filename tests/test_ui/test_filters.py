@@ -1,4 +1,4 @@
-"""Tests for ``literature/ui/filters.py`` — plan D-1, D-3, D-4, D-5."""
+"""Tests for ``literature/ui/filters.py``."""
 
 import pytest
 
@@ -9,8 +9,6 @@ from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameF
 
 
 class TestSearchFields:
-    """FR-002: the eight ORM paths a search matches against, and nothing else."""
-
     def test_is_exactly_the_eight_declared_paths(self):
         assert SEARCH_FIELDS == [
             "citation_key",
@@ -34,8 +32,6 @@ class TestSearchFields:
 
 @pytest.mark.django_db
 class TestItemFilterSetType:
-    """FR-010: item type offers translatable labels and narrows on the stored value."""
-
     def test_narrows_to_the_chosen_type(self):
         book = ItemFactory(type=ItemType.BOOK)
         ItemFactory(type=ItemType.ARTICLE_JOURNAL)
@@ -52,8 +48,6 @@ class TestItemFilterSetType:
 
 @pytest.mark.django_db
 class TestItemFilterSetContributor:
-    """FR-011: matches family, given or literal in any role."""
-
     def test_matches_a_family_name_fragment(self):
         item = ItemFactory()
         ItemNameFactory(item=item, name=NameFactory(family="Darwin"))
@@ -96,8 +90,6 @@ class TestItemFilterSetContributor:
 
 @pytest.mark.django_db
 class TestItemFilterSetDistinct:
-    """FR-005, FR-011, plan D-4: a filter match returns each reference once."""
-
     def test_a_contributor_credited_in_two_roles_is_returned_once(self):
         item = ItemFactory()
         darwin = NameFactory(family="Darwin")
@@ -126,15 +118,6 @@ class TestItemFilterSetDistinct:
 
 @pytest.mark.django_db
 class TestItemFilterSetLanguage:
-    """FR-013: the distinct language values the catalogue holds, as stored.
-
-    Asserted against ``extra["choices"]`` — the list ``LanguageFilter.field``
-    computes itself — rather than the built form field's own ``.choices``:
-    the field additionally prepends its own "any" option (also keyed ``""``,
-    a UI affordance and not a language), which would confound a check on the
-    empty string specifically.
-    """
-
     @staticmethod
     def _computed_choices(filterset):
         language_filter = filterset.filters["language"]
@@ -172,8 +155,6 @@ class TestItemFilterSetLanguage:
 
 @pytest.mark.django_db
 class TestItemFilterSetIssuedYear:
-    """FR-012, plan D-5: the year filter, on the shared ``issued`` annotation."""
-
     def test_a_year_only_stored_date_qualifies(self):
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
@@ -218,7 +199,7 @@ class TestItemFilterSetIssuedYear:
         assert list(filterset.qs) == []
 
     def test_unfiltered_the_annotation_is_still_present_for_ordering(self):
-        # T007's own contract, not just the year filter's: the annotation is
+        # The annotation is
         # applied unconditionally in filter_queryset(), so a view relying on
         # it for sort (ItemTable.order_issued) gets it whether or not a year
         # was requested.

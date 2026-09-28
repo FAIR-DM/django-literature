@@ -1,4 +1,4 @@
-"""``python manage.py seed_demo`` — plan.md D-2."""
+"""``python manage.py seed_demo`` — reload the demo catalogue from its seed file (FS-007)."""
 
 import json
 import os
@@ -21,21 +21,27 @@ def key_of(entry):
 
 
 class Command(BaseCommand):
+    """Delete every ``Item`` and ``Name``, then reload the demo catalogue from the seed file.
+
+    Destructive: anything entered through the admin is lost.
+    """
+
     help = (
         "Delete every Item and every Name, then reload the demo catalogue from "
         "demo/seed/catalogue.json. Destructive: anything entered through the admin is lost."
     )
 
     def handle(self, *args, **options):
+        """Run the delete-and-reload as one operation."""
         # The delete and the load are one operation. The converter skips an invalid
         # entry rather than raising, so the count check below is the only thing that
         # notices a partial load — and by then the previous catalogue is already
         # deleted. Without this, the failure the command exists to report would leave
-        # the database at neither the old state nor the new one (RC-002).
+        # the database at neither the old state nor the new one.
         with transaction.atomic():
             # Name is shared between items and is not reachable from Item's cascade, and
             # the converter reuses rows with get_or_create — deleting Item alone would
-            # leave every contributor ever loaded behind (plan.md D-2).
+            # leave every contributor ever loaded behind (FS-007).
             Item.objects.all().delete()
             Name.objects.all().delete()
 
@@ -54,7 +60,7 @@ class Command(BaseCommand):
 
             if len(loaded) != len(entries):
                 # from_csl_json_list skips an invalid entry with a warning rather than
-                # raising, so a half-loaded catalogue must be caught here (FR-020).
+                # raising, so a half-loaded catalogue must be caught here (FS-007).
                 loaded_keys = {item.citation_key for item in loaded}
                 missing = [
                     key_of(entry) or "<unidentified entry>"

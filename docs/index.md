@@ -29,6 +29,14 @@ api/index
 adr/index
 ```
 
+```{toctree}
+:maxdepth: 2
+:caption: Contributing
+
+contributing/standards/testing
+contributing/standards/code-documentation
+```
+
 ---
 
 ## Overview

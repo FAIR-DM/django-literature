@@ -1,8 +1,6 @@
-"""Smoke tests proving ``tests.settings_core`` and ``tests.settings`` boot as
-plan.md D-4 requires. The subject is the test settings modules themselves,
-not a source module, so ``test_smoke.py`` is one of the org's standing
-non-mirror exceptions (Article X) — no ``[tool.forge.conformance]``
-declaration is needed here.
+"""Smoke tests proving ``tests.settings_core`` and ``tests.settings`` boot.
+
+The subject is the test settings modules themselves, so there is no source module to mirror.
 """
 
 import subprocess
@@ -34,8 +32,6 @@ assert urlconf.urlpatterns == []
 
 
 class TestSettingsCore:
-    """``tests/settings_core.py`` stays free of the UI stack — plan.md D-4."""
-
     def test_boots_with_no_ui_app_and_an_empty_urlconf(self):
         result = subprocess.run(  # noqa: S603 — fixed interpreter, literal script, no user input
             [sys.executable, "-c", CORE_BOOT_SCRIPT],
@@ -51,8 +47,6 @@ class TestSettingsCore:
 
 
 class TestSettings:
-    """``tests/settings.py`` — the UI stack wired on top of the core-only base."""
-
     def test_installed_apps_carries_the_ui_stack(self):
         for app in [
             "django.contrib.sites",
@@ -87,11 +81,10 @@ class TestSettings:
         # first app to declare a template path wins.
         apps = settings.INSTALLED_APPS
         assert apps.index("mvp") < apps.index("crispy_tailwind")
-        # Both crispy settings are now set (plan.md D-5). This module used to
+        # Both crispy settings are now set. This module used to
         # assert each was absent, which was right while the package rendered no
         # form and wrong the moment one rendered: CRISPY_TEMPLATE_PACK has no
         # default and raises, and CRISPY_ALLOWED_TEMPLATE_PACKS is validated
         # against at template-compile time, so leaving it unset stops every
         # template carrying {% crispy %} from compiling at all. Both assertions
-        # are deliberately dropped rather than flipped — the Article I decision
-        # is plan.md D-5, and T013 already asserts the tailwind pack renders.
+        # are deliberately dropped rather than flipped.

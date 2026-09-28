@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # runs (django.core.management.ManagementUtility.execute() calls it ahead of
 # fetch_command()), so a missing 'ui' extra dependency has to be caught here, at
 # settings-module load, or it surfaces as a raw traceback from deep inside
-# whichever of mvp/django_cotton/etc. is missing (decisions.md D8).
+# whichever of mvp/django_cotton/etc. is missing (FS-007).
 try:
     import mvp  # noqa: F401
 except ImportError:
@@ -28,7 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # DEMO_DB_PATH lets a test run point the destructive seed_demo command at a
-# scratch file instead of the developer's real demo database (plan.md D-3).
+# scratch file instead of the developer's real demo database (FS-007).
 # With no variable set, the documented start path is unchanged.
 DATABASES = {
     "default": {
@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "demo",
-    # The front end, wired exactly as README.md documents at lines 93-245 (plan.md D-3).
+    # The front end, wired exactly as README.md documents at lines 93-245 (FS-007).
     "literature",
     "django.contrib.sites",
     "django.contrib.staticfiles",
@@ -69,15 +69,13 @@ INSTALLED_APPS = [
 
 # crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
 # with no default, so leaving this unset is an AttributeError on the first form
-# render rather than a fallback to another pack (plan.md D-5).
+# render rather than a fallback to another pack (FS-008). Shared with tests/settings.py.
 CRISPY_TEMPLATE_PACK = "tailwind"
 
-# And the allowlist has to name it too. The {% crispy %} tag validates the pack
-# at TEMPLATE-COMPILE time against CRISPY_ALLOWED_TEMPLATE_PACKS, whose default
-# is ("uni_form", "bootstrap3", "bootstrap4") — so every template carrying the
-# tag fails to compile, whether or not the tag is given an explicit pack and
-# whether or not that branch is the one taken at runtime. django-mvp's own demo
-# sets both settings together for the same reason (plan.md D-5).
+# The allowlist has to name the pack too: the {% crispy %} tag validates it at
+# template-compile time against CRISPY_ALLOWED_TEMPLATE_PACKS, whose default is
+# ("uni_form", "bootstrap3", "bootstrap4"), so every template carrying the tag
+# would fail to compile without this (FS-008).
 CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 
 MIDDLEWARE = [
@@ -116,12 +114,9 @@ ROOT_URLCONF = "demo.urls"
 # (README.md, tests/settings.py).
 STATIC_URL = "static/"
 
-# Where a preview's staged upload lives between the two requests (US-4,
-# literature/ui/staging.py). Django's own default falls back to the
-# process's working directory, which left a literature-imports/ directory
-# behind at the repository root the first time this was run by hand — named
-# explicitly here instead, under demo/, which .gitignore already excludes
-# via its media/ entry.
+# Where a preview's staged upload lives (FS-011, literature/ui/staging.py).
+# Django's default falls back to the working directory, which left a stray
+# literature-imports/ directory at the repository root the first time this ran by hand.
 MEDIA_ROOT = BASE_DIR / "demo" / "media"
 
 # Every icon the shell renders resolves through django-easy-icons; without a

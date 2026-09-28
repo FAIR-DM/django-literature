@@ -1,19 +1,9 @@
 {% extends "page_view.html" %}
 {% load i18n %}
 {% comment %}
-The preview's own page (US-6, FR-045 through FR-051, decisions.md D30). No
-import form here (FR-046) — the title and the subtitle above (page_title,
-page_subtitle on ItemImportPreviewView) carry what FR-047 and FR-039 both
-ask for, so nothing is restated in page.content.
-
-The counts (FR-012) sit above the filter and are rendered from ``report``
-directly, never from anything the filter touches — FR-049a requires them to
-keep describing the whole file while the table beneath them is narrowed to
-one outcome. The filter and the table share one Alpine scope (FR-049): the
-filter component writes ``outcome`` and every row reads it through the
-``x-show`` ``ItemImportPreviewView`` attaches per row (``row_attrs``), the
-same JavaScript idiom item_form.html already uses for its own client-side
-show/hide.
+  The preview's own page (FS-011): no import form here, since the title and subtitle above
+  already carry what a reader needs. The counts stay bound to the whole file while the table
+  narrows to one outcome — both read the same Alpine ``outcome`` scope the filter writes.
 {% endcomment %}
 {% block page.content %}
   {% if nothing_staged %}
@@ -47,8 +37,7 @@ show/hide.
         <c-button text="{% trans 'Restart import' %}" type="submit" />
       </form>
       {% if report.created %}
-        {# AS-12 — nothing would be created by confirming, so there is nothing #}
-        {# to confirm and the control is not offered. #}
+        {# Nothing would be created by confirming, so the control is not offered. #}
         <form method="post" action="{% url 'literature:item-import-confirm' %}">
           {% csrf_token %}
           {{ confirm_form.preview }}

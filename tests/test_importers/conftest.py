@@ -1,17 +1,8 @@
-"""The test-only format used to exercise the import contract (US1).
+"""The test-only format used to exercise the import contract.
 
-Real bibliographic syntaxes arrive with BibTeX (#22) and RIS (#23). Until
-then, this module stands in for one: a small ``BibFormat`` whose entries are
-built from raw dicts tagged by ``kind``, so a test can ask for exactly the
-mix of good, unreadable, skippable, and part-way-failing entries a scenario
-needs (spec.md "Independent Test") without any real file syntax getting in
-the way.
-
-Each factory below returns a *class*, not an instance — the same shape
-:func:`~literature.importers.config.get_format` returns (US3) — so a test
-calls ``some_format().import_file(...)``, building a fresh instance with the
-entries and any observer closed over. That keeps every test's format
-independent of every other's.
+Entries are raw dicts tagged by ``kind``, so a test can ask for exactly the mix of good,
+unreadable, skippable and part-way-failing entries it needs. Each factory returns a class, as
+:func:`~literature.importers.config.get_format` does.
 """
 
 import pytest
@@ -34,15 +25,15 @@ def make_echo_format(entries, *, on_yield=None, format_name="echo"):
     recognised CSL type, or a ``custom`` block built to collide with
     itself) is passed through unchanged, so ``from_csl_json`` is what
     rejects it — exercising "lets a ValidationError out"
-    (contracts/importers.md).
+    (``specs/003-import-contract/contracts/importers.md``).
 
     ``on_yield``, when given, is called with each raw entry immediately
     before it is yielded — a hook for observing how the runner consumes
-    the iterator (FR-024, T012), since a generator only advances past a
+    the iterator, since a generator only advances past a
     ``yield`` when its consumer asks for the next value.
 
     ``handle_for`` reads the raw dict's own ``"handle"`` key, so a test
-    can mix entries that carry one with entries that do not (FR-009).
+    can mix entries that carry one with entries that do not.
     """
 
     class _EchoFormat(BibFormat):
@@ -77,9 +68,9 @@ def make_failing_parse_format(entries, reason="bad entry", format_name="failing-
     """Build a ``BibFormat`` that yields ``entries`` and then raises ``EntryError``.
 
     ``parse`` may raise ``EntryError`` as well as ``ParseError``
-    (exceptions.py, contracts/importers.md) — a syntax can recognise that
+    (``literature/importers/exceptions.py``) — a syntax can recognise that
     an entry is bad before anything tries to convert it. The runner has to
-    report that as a failure rather than let it escape (FR-014).
+    report that as a failure rather than let it escape.
     """
 
     class _FailingParseFormat(BibFormat):
@@ -106,7 +97,7 @@ def make_bad_handle_format(
     """Build a ``BibFormat`` whose ``handle_for`` raises on untrusted content.
 
     ``handle_for`` reads the same raw entry as ``to_csl_json``, so a
-    malformed entry can break it too (FR-023). The entry is still reported,
+    malformed entry can break it too. The entry is still reported,
     without a handle.
     """
 
@@ -161,7 +152,7 @@ class DuplicateCustomIdentifier(dict):
     A real CSL JSON dict cannot carry a duplicate key — Python's own
     ``dict`` forbids it, so no format could ever build one from real file
     content. This is a test-only stand-in for the database race
-    research.md R2 verified directly: two writes for the same
+    two writes for the same
     ``(item, type)`` reaching ``ItemIdentifier.save()`` before either's
     uniqueness check has seen the other, which is what turns a per-entry
     failure into a genuine ``IntegrityError`` rather than the
@@ -184,14 +175,7 @@ class DuplicateCustomIdentifier(dict):
 
 @pytest.fixture
 def bypass_identifier_validation(monkeypatch):
-    """Disable ``ItemIdentifier.full_clean`` for one test.
-
-    Lets a :class:`DuplicateCustomIdentifier` reach the database as a real
-    ``IntegrityError`` instead of being refused earlier as a
-    ``ValidationError`` (research.md R2). Scoped to the test via
-    ``monkeypatch``, so no production code changes and nothing leaks
-    beyond the test that asks for it.
-    """
+    # Lets a duplicate custom identifier reach the database as a real IntegrityError.
     from literature.models import ItemIdentifier
 
     monkeypatch.setattr(

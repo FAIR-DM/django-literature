@@ -1,8 +1,7 @@
 # django-literature — Domain Model
 
-<!-- Ubiquitous language for this repo. Drafted at onboarding from the source code (the
-     authoritative reference), cross-checked against the README. This pins the vocabulary that
-     specs, plans, and reviews must use. -->
+<!-- Ubiquitous language for this repo, drawn from the source code and cross-checked against
+     the README. Pins the vocabulary that specs, plans, and reviews must use. -->
 
 The package is a relational representation of the [CSL JSON 1.0.2](https://citeproc-js.readthedocs.io/en/latest/csl-json/markup.html)
 bibliographic interchange format. One rule drives the design: when CSL JSON names a concept, this

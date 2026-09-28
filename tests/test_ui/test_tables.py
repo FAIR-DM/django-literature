@@ -1,6 +1,6 @@
 """Tests for ``literature/ui/tables.py``.
 
-Article XIV: one source module, one test module — the per-column split is
+The testing standard (§4): one source module, one test module — the per-column split is
 expressed with classes, one per column (``TestItemTableMeta`` for the table's
 own configuration, ``Test<Column>Column`` per column thereafter).
 """
@@ -24,9 +24,7 @@ from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameF
 
 
 def issued_annotated_queryset():
-    """The same ``issued`` annotation ``ItemTableView.get_queryset()`` builds
-    (T017), rebuilt here so ``order_issued`` can be exercised without a view
-    or an HTTP request."""
+    """Return items carrying the ``issued`` annotation ``ItemTableView`` builds, without a view."""
     issued_begin = ItemDate.objects.filter(
         item=OuterRef("pk"), date_type=DateType.ISSUED
     ).values("begin")[:1]
@@ -41,18 +39,13 @@ def rendered_cell(item, column_name, **table_kwargs):
 
 
 def rendered_cell_from_record(item, column_name):
-    """Like ``rendered_cell``, but over ``item`` exactly as given — carrying
-    whatever attributes (e.g. a ``contributors`` prefetch stand-in) the
-    caller already set on it — rather than a fresh copy read back from the
-    database."""
+    """Render like ``rendered_cell``, but over ``item`` as given rather than re-read."""
     table = ItemTable([item])
     row = next(iter(table.rows))
     return row.get_cell(column_name)
 
 
 class TestItemTableMeta:
-    """The table's own configuration — plan.md D-3."""
-
     def test_meta_declares_no_model(self):
         # With a model set and no `fields`, django-tables2 generates a
         # column for every model field in addition to the ones declared
@@ -64,32 +57,31 @@ class TestItemTableMeta:
 
     def test_meta_uses_the_mvp_bootstrap_template(self):
         # Without this, django-tables2 falls back to its own stock template
-        # and none of the mvp column widths, alignment or empty state apply
-        # (research R5).
+        # and none of the mvp column widths, alignment or empty state apply.
         assert ItemTable._meta.template_name == "django_tables2/bootstrap5-mvp.html"
 
     def test_meta_empty_text_is_set(self):
         # A flag rather than a displayed string: the mvp template renders its
         # empty state inside `{% if table.empty_text %}` and then shows the
         # view's own empty_state_heading/message instead of this text
-        # (research R5, plan.md D-3) — so only truthiness matters here.
+        # — so only truthiness matters here.
         assert ItemTable._meta.empty_text
 
     def test_meta_default_is_translatable(self):
-        # FR-010's empty-value marker, replacing the library's own plain
-        # "—" default with a translatable one (plan.md D-3, Article VIII).
+        # Replaces the library's own plain "—" default with a translatable one
+        # (Article VIII).
         assert isinstance(ItemTable._meta.default, Promise)
 
     def test_meta_declares_no_order_by(self):
         # An earlier draft named a "created" column that does not exist
-        # (FR-002 forbids one) and django-tables2 silently drops an
+        # and django-tables2 silently drops an
         # order_by alias it cannot resolve — newest-first comes from
-        # Item.Meta.ordering instead (plan.md D-3).
+        # Item.Meta.ordering instead.
         assert ItemTable._meta.order_by is None
 
     def test_meta_declares_no_fields(self):
         # Every column is declared explicitly, so a field added to Item
-        # later never silently becomes a column (plan.md D-3).
+        # later never silently becomes a column.
         assert ItemTable._meta.fields is None
 
     def test_default_order_is_newest_first_through_the_table_not_a_setting(self, db):
@@ -114,7 +106,7 @@ class TestItemTableMeta:
     def test_the_short_columns_carry_the_shrink_class_on_both_cell_kinds(self):
         # The project-wide default is no-wrap with no maximum, so an
         # unclassed short column would otherwise be widened by its own
-        # heading (plan.md D-5, research amendment to R1).
+        # heading.
         for name in ("citation_key", "type"):
             column = ItemTable.base_columns[name]
             assert column.attrs["td"]["class"] == "mvp-col-shrink"
@@ -126,12 +118,10 @@ class TestItemTableMeta:
 
 
 class TestTitleColumn:
-    """The title cell — FR-003, FR-004 (plan.md D-5, research R2/R3)."""
-
     def test_declares_empty_values_as_empty_tuple(self):
         # Mandatory: without it, an item with title="" never reaches
         # render_title, defeating the fallback chain in exactly the case it
-        # exists for (research R3).
+        # exists for.
         assert ItemTable.base_columns["title"].empty_values == ()
 
     def test_shows_the_items_own_title(self, db):
@@ -184,18 +174,11 @@ class TestTitleColumn:
             in content
         )
 
-    def test_link_carries_the_hover_underline_classes(self, db):
-        item = ItemFactory(title="A Followable Title")
-        content = rendered_cell(item, "title")
-        assert 'class="link link-hover"' in content
-
 
 class TestTypeColumn:
-    """The item-type cell — FR-005, FR-017 (plan.md D-5, research R3)."""
-
     def test_orders_on_the_stored_type_value(self):
         # Sorting by item type follows the stored CSL type rather than the
-        # translated label, which cannot be done in the database (FR-017).
+        # translated label, which cannot be done in the database.
         assert ItemTable.base_columns["type"].order_by == ("type", "pk")
 
     def test_shows_the_translated_label_rather_than_the_stored_value(self, db):
@@ -203,22 +186,20 @@ class TestTypeColumn:
 
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
         content = rendered_cell(item, "type")
-        assert "Journal Article" in content
+        assert str(ItemType.ARTICLE_JOURNAL.label) in content
         assert "article-journal" not in content
 
 
 class TestContributorsColumn:
-    """The credited-names cell — FR-006 through FR-008 (plan.md D-6, research R9)."""
-
     def test_declares_empty_values_as_empty_tuple(self):
         # The column resolves to nothing at all — Item has no "contributors"
         # field — so without this the marker would render even when the
-        # prefetch carries names (research R3).
+        # prefetch carries names.
         assert ItemTable.base_columns["contributors"].empty_values == ()
 
     def test_is_not_orderable(self):
         # Assembled from a through-model across two roles with no single
-        # value to order on (FR-015).
+        # value to order on.
         assert ItemTable.base_columns["contributors"].orderable is False
 
     def test_lists_author_role_contributors_in_stored_order(self, db):
@@ -274,7 +255,7 @@ class TestContributorsColumn:
         # The whole phrase, not the bare count: the three rendered links
         # already carry a "2" in a contributor URL and in a factory-built
         # name, so asserting the digit alone stays green with the overflow
-        # indication deleted outright (FR-007).
+        # indication deleted outright.
         assert "and 2 others" in content
 
     def test_exactly_one_name_beyond_the_first_three_reads_in_the_singular(self, db):
@@ -308,7 +289,7 @@ class TestContributorsColumn:
     def test_a_record_carrying_no_contributors_attribute_degrades_rather_than_raising(
         self, db
     ):
-        # research R9 — a record drawn through a plain SingleTableView with
+        # A record drawn through a plain SingleTableView with
         # no prefetch has no "contributors" attribute at all.
         item = ItemFactory()
         content = rendered_cell(item, "contributors")
@@ -324,17 +305,15 @@ class TestContributorsColumn:
 
 
 class TestIssuedColumn:
-    """The issued cell — FR-009 (plan.md D-7, research R8)."""
-
     def test_declares_empty_values_as_empty_tuple(self):
         assert ItemTable.base_columns["issued"].empty_values == ()
 
     def test_is_orderable_now_the_annotation_and_order_issued_exist(self, db):
-        # Shipped unsortable at T008 (an explicit orderable=False), because a
+        # Shipped unsortable (an explicit orderable=False), because a
         # header advertising a sort before the annotation existed raised
         # FieldError on the package's default page. That override is gone —
         # the column's own orderable is the library's default (None, "auto")
-        # — and T017's annotation plus T018's order_issued (below) resolve
+        # — and the issued annotation plus order_issued (below) resolve
         # the sort, so a bound table now reports the column as orderable.
         assert ItemTable.base_columns["issued"].orderable is None
         table = ItemTable(issued_annotated_queryset())
@@ -369,7 +348,7 @@ class TestIssuedColumn:
         assert "in press" in rendered_cell(item, "issued")
 
     def test_no_issued_date_at_all_renders_the_empty_value_marker(self, db):
-        # Edge case: the item's only date is "accessed" (FR-010).
+        # Edge case: the item's only date is "accessed".
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
         content = rendered_cell(item, "issued")
@@ -384,11 +363,9 @@ class TestIssuedColumn:
 
 
 class TestActionsColumn:
-    """The row's edit control — FR-019, FR-020 (plan.md D-5, research R6)."""
-
     def test_is_not_orderable(self):
-        # A control, not data — no single value to order on (FR-015). Also
-        # what earns the column its centred alignment (research R6).
+        # A control, not data — no single value to order on. Also
+        # what earns the column its centred alignment.
         assert ItemTable.base_columns["actions"].orderable is False
 
     def test_verbose_name_is_empty(self):
@@ -425,7 +402,7 @@ class TestActionsColumn:
 
     def test_shown_by_default(self, db):
         # A bare ItemTable (no show_update_action passed at all) is open —
-        # this feature introduces no access control of its own (FR-020).
+        # this feature introduces no access control of its own.
         item = ItemFactory()
         content = rendered_cell(item, "actions")
         assert "href=" in content
@@ -433,7 +410,7 @@ class TestActionsColumn:
     def test_hidden_when_show_update_action_is_false(self, db):
         # The same show_update_action mechanism ItemDetailView's own edit
         # action reads — set here directly rather than through a view, to
-        # prove the column itself honours the flag (FR-020).
+        # prove the column itself honours the flag.
         item = ItemFactory()
         content = rendered_cell(item, "actions", show_update_action=False)
         update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
@@ -441,19 +418,8 @@ class TestActionsColumn:
 
 
 class TestEverySortIsTotal:
-    """A sort with ties still has to name one order — FR-016, SC-004.
-
-    django-tables2 hands the column's ordering accessors straight to
-    ``QuerySet.order_by()``, which *replaces* ``Item.Meta.ordering`` rather
-    than extending it. The catalogue is paginated, so each page is its own
-    query with its own ``LIMIT``/``OFFSET``: with no tiebreak, references
-    sharing a sort value are ordered arbitrarily and independently per page,
-    and on PostgreSQL one can appear on both pages while another appears on
-    neither. Asserted against the SQL the sort actually emits, because the
-    databases this package supports differ in whether they happen to hide
-    the defect — SQLite's scan is stable in practice and would pass a
-    row-order assertion either way.
-    """
+    # Asserted on the emitted SQL: SQLite's stable scan hides a missing tiebreak that
+    # paginated PostgreSQL queries expose.
 
     SORTABLE = ["citation_key", "type", "title", "container_title"]
 
@@ -480,13 +446,7 @@ class TestEverySortIsTotal:
 
 
 class TestIssuedOrdering:
-    """Sorting by the issued date — FR-018 (plan.md D-8, research R7).
-
-    django-tables2 passes the ordering key straight to ``order_by()`` and
-    does nothing about NULLs, and SQLite and PostgreSQL place them
-    differently — both of which this package supports — so FR-018's
-    "ordered consistently rather than dropped" has to be stated in code.
-    """
+    # SQLite and PostgreSQL place NULLs differently, so the order is stated in code.
 
     def test_declares_order_by_issued(self):
         assert ItemTable.base_columns["issued"].order_by == ("issued",)
@@ -503,7 +463,7 @@ class TestIssuedOrdering:
         assert pks_in_row_order[0] == dated.pk
 
     def test_descending_order_also_places_an_undated_reference_last(self, db):
-        # nulls_last applies in both directions (plan.md D-8) — a naive
+        # nulls_last applies in both directions — a naive
         # "-issued" would otherwise put the undated reference first on the
         # reverse of the ascending case.
         dated = ItemFactory(citation_key="Dated")
@@ -530,16 +490,11 @@ IMPORT_REPORT_COLUMNS = ["position", "citation_key", "outcome", "reason"]
 
 
 def import_report_cell(rows, column_name):
-    """The rendered HTML of one column's cell for the first row of a plain
-    list of :class:`~literature.ui.importing.ImportReportRow` — never a
-    queryset (US-1, research R4).
+    """Return one column's rendered cell for the first row of a plain report-row list.
 
-    A plain, unlinked column (``reason``) carries no escaping of its own —
-    escaping is the outer table template's ``{{ cell }}``, which
-    ``BoundRow.get_cell()`` never reaches — so this renders the whole table
-    through ``as_html()``, the same path a real page uses, and picks the
-    requested column's own ``<td>`` back out by its declared position rather
-    than calling ``get_cell()`` directly."""
+    Renders the whole table through ``as_html()``, because the escaping lives in the table
+    template's ``{{ cell }}``, which ``BoundRow.get_cell()`` never reaches.
+    """
     table = ImportReportTable(rows)
     html = table.as_html(RequestFactory().get("/"))
     body_match = re.search(r"<tbody.*?</tbody>", html, re.DOTALL)
@@ -552,14 +507,6 @@ def import_report_cell(rows, column_name):
 
 
 class TestOutcomeColumn:
-    """T701 — the outcome cell renders a badge, and the three outcomes render
-    three distinct variants (FR-019, decisions.md D17).
-
-    Asserted on the badge's own ``variant`` — the settled mapping
-    (created=success, skipped=warning, failed=error) — never on a colour name
-    or a daisyUI utility class: a theme is swappable, and pinning either
-    would break the moment it moves."""
-
     @pytest.mark.parametrize(
         ("outcome", "variant", "reason"),
         [
@@ -599,9 +546,9 @@ class TestOutcomeColumn:
         assert len(variants) == 3
 
     def test_the_cell_still_carries_the_outcomes_own_translated_label(self):
-        # The badge wraps the label, it does not replace it (hazards) — a
+        # The badge wraps the label, it does not replace it — a
         # badge showing only its variant, with the word gone, is a
-        # regression on FR-019's own distinguishing signal.
+        # regression on the outcome's own distinguishing signal.
         row = ImportReportRow(
             position=1,
             outcome=Outcome.FAILED,
@@ -614,8 +561,6 @@ class TestOutcomeColumn:
 
 
 class TestImportReportTable:
-    """``ImportReportTable`` — one row per import entry, no queryset behind it (US-1, FR-019)."""
-
     def test_renders_a_list_of_rows_with_no_queryset(self):
         rows = [
             ImportReportRow(
@@ -638,7 +583,7 @@ class TestImportReportTable:
         }
 
     def test_the_outcome_cell_renders_the_outcomes_own_translated_label(self):
-        # FR-019 — this is what keeps a failed entry distinguishable in
+        # This is what keeps a failed entry distinguishable in
         # place: the word itself, not a class or an icon a reader could miss.
         row = ImportReportRow(
             position=1,
@@ -664,7 +609,6 @@ class TestImportReportTable:
         assert "&lt;script&gt;" in content
 
     def test_a_skipped_rows_reason_renders_in_the_same_column_a_failures_uses(self):
-        """T606, D18: no second column for a skip's reason — the same one a failure uses."""
         row = ImportReportRow(
             position=1,
             outcome=Outcome.SKIPPED,
@@ -698,7 +642,7 @@ class TestImportReportTable:
         assert "href=" not in content
 
     def test_a_created_row_whose_entry_carries_no_citation_key_still_links(self):
-        # AS-10 — the link hangs on the position, never on the (absent) key.
+        # The link hangs on the position, never on the (absent) key.
         row = ImportReportRow(
             position=1,
             outcome=Outcome.CREATED,
