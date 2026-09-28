@@ -7,7 +7,7 @@ A Django app for storing, managing, and converting bibliographic references usin
 [![PyPI](https://img.shields.io/pypi/v/django-literature.svg)](https://pypi.org/project/django-literature/)
 [![Python](https://img.shields.io/pypi/pyversions/django-literature.svg)](https://pypi.org/project/django-literature/)
 [![Django](https://img.shields.io/pypi/djversions/django-literature.svg)](https://pypi.org/project/django-literature/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/FAIR-DM/django-literature/blob/main/LICENSE)
 
 ---
 
@@ -366,8 +366,8 @@ actions on those pages are live too, so you can enter, correct, remove and impor
 same way a host project's own users would. The Add and Edit forms carry the reference's
 contributors, dates and identifiers as part of the same page, so crediting a contributor, dating a
 reference and identifying it are all things you can try there too — see
-[Crediting contributors](docs/crediting-contributors.md), [Dating a reference](docs/dating-a-reference.md)
-and [Identifying a reference](docs/identifying-a-reference.md) for what each of those does.
+[Crediting contributors](https://github.com/FAIR-DM/django-literature/blob/main/docs/crediting-contributors.md), [Dating a reference](https://github.com/FAIR-DM/django-literature/blob/main/docs/dating-a-reference.md)
+and [Identifying a reference](https://github.com/FAIR-DM/django-literature/blob/main/docs/identifying-a-reference.md) for what each of those does.
 `demo/seed/import-sample.bib` is there to import: it holds entries that convert and one that does
 not, so the report has something to show.
 
@@ -582,13 +582,13 @@ Item ──< ItemName >── Name
 | `ItemDate` | Structured date per CSL date-variable slot | Date-variable object |
 | `ItemIdentifier` | Typed identifier (DOI, ISBN, etc.) | Top-level string fields |
 
-See the [data model documentation](docs/data-model.md) for the full field reference.
+See the [data model documentation](https://github.com/FAIR-DM/django-literature/blob/main/docs/data-model.md) for the full field reference.
 
 ---
 
 ## Documentation
 
-Full documentation is available in [docs/](docs/).
+Full documentation is available in [docs/](https://github.com/FAIR-DM/django-literature/tree/main/docs).
 
 To build locally:
 
@@ -612,4 +612,4 @@ uv run pytest
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/FAIR-DM/django-literature/blob/main/LICENSE).
