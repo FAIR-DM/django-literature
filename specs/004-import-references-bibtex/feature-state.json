@@ -2,7 +2,7 @@
   "feature": "004-import-references-bibtex",
   "branch": "004-import-references-bibtex",
   "repo": "FAIR-DM/django-literature",
-  "state": "GATE_MERGE",
+  "state": "MERGED",
   "state_history": [
     {
       "state": "GATE_SPEC",
@@ -37,6 +37,11 @@
       "state": "GATE_MERGE",
       "at": "2026-08-04T21:45:00Z",
       "note": "PR #34 marked ready; awaiting Sam's merge"
+    },
+    {
+      "state": "MERGED",
+      "at": "2026-08-04T16:43:50Z",
+      "note": "PR #34 merged; approved by SamuelJennings"
     }
   ],
   "gates": {
@@ -58,8 +63,8 @@
       ]
     },
     "merge": {
-      "approved_by": null,
-      "at": null
+      "approved_by": "SamuelJennings",
+      "at": "2026-08-04T16:43:38Z"
     }
   },
   "stories": [
