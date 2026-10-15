@@ -1,13 +1,18 @@
 # django-literature
 
-A Django app for storing, managing, and converting bibliographic references using the [CSL JSON 1.0.2](https://citeproc-js.readthedocs.io/en/latest/csl-json/markup.html) standard.
+[![Tests](https://github.com/FAIR-DM/django-literature/actions/workflows/tests.yml/badge.svg)](https://github.com/FAIR-DM/django-literature/actions/workflows/tests.yml)
+[![Build](https://github.com/FAIR-DM/django-literature/actions/workflows/build.yml/badge.svg)](https://github.com/FAIR-DM/django-literature/actions/workflows/build.yml)
+[![Docs](https://github.com/FAIR-DM/django-literature/actions/workflows/docs.yml/badge.svg)](https://github.com/FAIR-DM/django-literature/actions/workflows/docs.yml)
+[![Publish](https://github.com/FAIR-DM/django-literature/actions/workflows/publish.yml/badge.svg)](https://github.com/FAIR-DM/django-literature/actions/workflows/publish.yml)
+[![Coverage](https://codecov.io/gh/FAIR-DM/django-literature/branch/main/graph/badge.svg)](https://codecov.io/gh/FAIR-DM/django-literature)
+[![PyPI](https://img.shields.io/pypi/v/django-literature)](https://pypi.org/project/django-literature/)
+[![Development status](https://img.shields.io/pypi/status/django-literature)](https://pypi.org/project/django-literature/)
+[![Python](https://img.shields.io/pypi/pyversions/django-literature)](https://pypi.org/project/django-literature/)
+[![Django](https://img.shields.io/pypi/djversions/django-literature)](https://pypi.org/project/django-literature/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Licence](https://img.shields.io/github/license/FAIR-DM/django-literature)](https://github.com/FAIR-DM/django-literature/blob/main/LICENSE)
 
-[![Tests](https://github.com/FAIR-DM/django-literature/actions/workflows/tests.yml/badge.svg)](https://github.com/FAIR-DM/django-literature/actions)
-[![codecov](https://codecov.io/gh/FAIR-DM/django-literature/branch/main/graph/badge.svg)](https://codecov.io/gh/FAIR-DM/django-literature)
-[![PyPI](https://img.shields.io/pypi/v/django-literature.svg)](https://pypi.org/project/django-literature/)
-[![Python](https://img.shields.io/pypi/pyversions/django-literature.svg)](https://pypi.org/project/django-literature/)
-[![Django](https://img.shields.io/pypi/djversions/django-literature.svg)](https://pypi.org/project/django-literature/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/FAIR-DM/django-literature/blob/main/LICENSE)
+A Django app for storing, managing, and converting bibliographic references using the [CSL JSON 1.0.2](https://citeproc-js.readthedocs.io/en/latest/csl-json/markup.html) standard.
 
 ---
 
@@ -609,6 +614,10 @@ uv run pytest
 ```
 
 ---
+
+## Changelog
+
+See [CHANGELOG.md](https://github.com/FAIR-DM/django-literature/blob/main/CHANGELOG.md).
 
 ## License
 
