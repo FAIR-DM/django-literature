@@ -119,7 +119,7 @@ DEP003 = ["literature"]
 
 [project]
 name = "django-literature"
-description = "A scientific literature management tool for Django"
+description = "A Django app for storing, managing, and converting bibliographic references using the CSL JSON 1.0.2 standard"
 license = "MIT"
 version = "0.1.9"
 readme = "README.md"
