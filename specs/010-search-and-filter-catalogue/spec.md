@@ -86,7 +86,7 @@ Someone wants the chapters, or everything from 2019, or everything by one contri
 9. **Given** an item type and an issued year are both chosen, **When** the results are shown, **Then** every result satisfies both.
 10. **Given** a filter and a search term are both in force, **When** the results are shown, **Then** every result satisfies both, and the page states how many matched.
 11. **Given** filters are in force, **When** the page is read, **Then** what is in force is visible on the page and can be cleared from it.
-12. **Given** a filter value that matches no reference, or a value that is not valid at all, **When** it is applied, **Then** the page reports that nothing matched and does not show the unfiltered catalogue or raise an error.
+12. **Given** a filter value that matches no reference, **When** it is applied, **Then** the page reports that nothing matched and does not raise an error. **Given** a value a filter cannot accept at all, such as a year that is not a number, **When** the address carries it, **Then** that filter is ignored, every other filter and the search still apply, and the page does not raise an error.
 
 ---
 
@@ -180,7 +180,7 @@ The demo project serves a catalogue big enough and varied enough to search and f
 - **FR-014**: Choosing more than one value within a filter MUST widen the result to references matching any of them.
 - **FR-015**: Filters MUST combine with each other and with the search so that a result satisfies all of them.
 - **FR-016**: What is currently in force MUST be visible on the page and clearable from it.
-- **FR-017**: A filter value matching nothing, or one that is not valid, MUST produce a stated no-results page rather than an error or the unfiltered catalogue.
+- **FR-017**: A filter value matching nothing MUST produce a stated no-results page rather than an error. A filter value the filter cannot accept MUST be ignored for that filter alone, with the search and the other filters still applied, rather than raising an error.
 
 **Composing with what is already there**
 

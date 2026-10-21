@@ -8,10 +8,37 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **The front end needs django-mvp 0.30.1 or later.** The `ui` extra now asks for
+  `django-mvp (>=0.30.1,<1.0)`. The catalogue's search and filters share one definition, the
+  filters sit in a panel beside the results with the search box in the toolbar, and applying a
+  filter or moving to another page updates the list without reloading it. Forms render through
+  django-mvp-forms in place of crispy-tailwind. A filter value that cannot be read, such as a year
+  that is not a number, is now ignored for that filter alone, where it used to empty the list.
+
+  **To upgrade a project that installs `django-literature[ui]`:**
+
+  - Remove `crispy_tailwind` from `INSTALLED_APPS` and add `mvp_forms` after `crispy_forms`.
+  - Add `daisy_cotton` directly after `mvp`.
+  - Set `CRISPY_TEMPLATE_PACK = "daisyui"` and `CRISPY_ALLOWED_TEMPLATE_PACKS = ["daisyui"]`.
+  - Run `pip install --upgrade "django-literature[ui]"`. `django-mvp-forms` and `daisy-cotton`
+    arrive with django-mvp.
+  - A project that subclasses `ItemListView` or `ItemTableView` sets `filterset_class` to its own
+    filterset, since `search_fields` is gone. `literature.ui.filters.get_active_filters` is gone
+    too: the views report the filters in force themselves.
+
+  The README lists the full set of settings.
+
 - The package is built with hatchling instead of poetry-core, and developed with uv instead of
   Poetry. The wheel contains the same files as before. The source distribution does too, plus the
   repository's `.gitignore`, which hatchling includes so that a build from it leaves out the same
   files.
+
+### Fixed
+
+- `import literature.ui` no longer raises `ImportError` on a fresh install of
+  `django-literature[ui]`. The extra's floor allowed django-mvp releases that no longer export
+  `MVPInlineCreateView`, so a new install resolved one of them (#133). The floor is now 0.30.1 and
+  the reference form uses django-mvp's own create and update views.
 
 ### Added
 

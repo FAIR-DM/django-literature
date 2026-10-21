@@ -123,24 +123,25 @@ INSTALLED_APPS = [
     "django_tables2",
     "django_filters",
     "mvp",
+    "daisy_cotton",
     "crispy_forms",
-    "crispy_tailwind",
+    "mvp_forms",
     "literature.ui",
 ]
 ```
 
-`mvp` comes before `crispy_tailwind` because django-mvp overrides one of crispy-tailwind's
-templates and the first app to declare a template path wins. Both crispy apps arrive with django-mvp
-as hard dependencies, so listing them installs nothing extra.
+`daisy_cotton` comes directly after `mvp`, because both ship an `icon` component and the first app
+listed wins. `crispy_forms`, `mvp_forms` and `daisy_cotton` arrive with django-mvp as hard
+dependencies, so listing them installs nothing extra.
 
-The add, edit and delete pages render through crispy-forms, which needs a template pack chosen
-before anything renders. With neither setting below in place, the first form page raises an error
-rather than falling back to a default:
+The add, edit and delete pages render through crispy-forms with the `daisyui` template pack from
+django-mvp-forms. crispy-forms needs the pack chosen before anything renders. With neither setting
+below in place, the first form page raises an error rather than falling back to a default:
 
 ```python
 # settings.py
-CRISPY_TEMPLATE_PACK = "tailwind"
-CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
+CRISPY_TEMPLATE_PACK = "daisyui"
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["daisyui"]
 ```
 
 ### The page shell
@@ -287,7 +288,10 @@ order behind it does not change with it.
 ### Searching and filtering the catalogue
 
 Both presentations carry a search box and four filters, reading from one shared definition, so a
-narrowed catalogue looks the same whichever route serves it.
+narrowed catalogue looks the same whichever route serves it. The search box sits in the toolbar, and
+the four filters sit in a panel beside the results that opens from a Filters button on a narrow
+screen. Applying a filter, removing one or moving to another page updates the list without
+reloading the page.
 
 The search box matches a fragment, case-insensitively, against a reference's citation key, its
 title, short title and original title, the container it appeared in, and every credited
@@ -307,8 +311,9 @@ The four filters narrow on:
 
 Choosing more than one value within a single filter widens what it accepts — an article or a book.
 A search term and a filter, or two different filters, narrow further — an article, published in
-2019. An invalid or unmatched filter value returns no results rather than falling back to the whole
-catalogue or raising an error.
+2019. A filter value that matches no reference returns no results. A value a filter cannot accept, such as
+a year that is not a number, is ignored for that filter alone, and the search and the other filters
+still apply.
 
 A search, every filter, the chosen sort and the current page all live in the address, so moving to
 another page, changing the sort, or bookmarking the address and reopening it later keeps every one
