@@ -118,14 +118,15 @@ class ScalarOrListSelectMultiple(forms.SelectMultiple):
 
 
 class ItemFilterSet(django_filters.FilterSet):
-    """The catalogue's filters (FS-010, #96): item type, contributor, language and issued year."""
+    """The catalogue's search and filters (FS-010, #96): item type, contributor, language and issued year."""
+
+    q = SearchFilter(fields=SEARCH_FIELDS)
 
     # MultipleChoiceFilter, not ChoiceFilter: this filter's own worked
     # example — "articles or chapters, from 2019" — widens type to either
     # value while year narrows what that widened set returns.
     # MultipleChoiceFilter.filter() ORs the chosen values by default
     # (``conjoined=False``), which is exactly that widening.
-    q = SearchFilter(fields=SEARCH_FIELDS)
     type = django_filters.MultipleChoiceFilter(
         choices=ItemType.choices, label=_("Type"), widget=ScalarOrListSelectMultiple
     )
@@ -194,9 +195,6 @@ class ItemTableFilterSet(ItemFilterSet):
         widget=forms.HiddenInput(),
         required=False,
     )
-
-    class Meta(ItemFilterSet.Meta):
-        pass
 
     def filter_sort(self, queryset, name, value):
         """No-op: ``sort`` only round-trips django-tables2's own ordering through this form."""

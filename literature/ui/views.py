@@ -180,22 +180,8 @@ class CatalogueListMixin:
         return context
 
 
-class ImportActionMixin:
-    """Resolve the catalogue's import link for the views whose page carries it."""
-
-    def get_url_kwargs(self, action):
-        """Resolve "import" as collection-level, like the "list"/"create" default."""
-        # Without this, a list view's always-empty self.kwargs makes
-        # directory.import_url never resolve.
-        if action == "import":
-            return {}
-        return super().get_url_kwargs(action)
-
-
-class ItemListView(ImportActionMixin, CatalogueListMixin, MVPListView):
+class ItemListView(CatalogueListMixin, MVPListView):
     """The catalogue list (FS-006, #55)."""
-
-    paginate_by = 24
 
     filterset_class = ItemFilterSet
     toolbar_filters = ["q"]
@@ -208,8 +194,17 @@ class ItemListView(ImportActionMixin, CatalogueListMixin, MVPListView):
     directory: list[str] = ["create", "import"]
     show_import_action = True
 
+    def get_url_kwargs(self, action):
+        """Resolve "import" as collection-level, like the "list"/"create" default."""
+        # Without this, a list view's always-empty self.kwargs makes
+        # directory.import_url never resolve. ItemTableView carries the
+        # same override; edit the two together.
+        if action == "import":
+            return {}
+        return super().get_url_kwargs(action)
 
-class ItemTableView(ImportActionMixin, MVPTableView):
+
+class ItemTableView(MVPTableView):
     """The catalogue as a table (FS-009, #87).
 
     ``ItemListView`` keeps its name, its card template and its behaviour
@@ -245,6 +240,13 @@ class ItemTableView(ImportActionMixin, MVPTableView):
 
     # No order_by: MVPTableViewMixin raises ImproperlyConfigured at
     # instantiation if it finds one — ordering lives on the table class.
+
+    def get_url_kwargs(self, action):
+        """Resolve "import" as collection-level, like the "list"/"create" default."""
+        # Same reasoning as ItemListView.get_url_kwargs(); edit the two together.
+        if action == "import":
+            return {}
+        return super().get_url_kwargs(action)
 
     empty_state_heading = _("Nothing in the catalogue yet")
     empty_state_message = _("References imported or created will appear here.")
