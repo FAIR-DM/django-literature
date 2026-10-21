@@ -615,13 +615,13 @@ class TestItemTableView:
         content = response.content.decode()
         assert [field["name"] for field in response.context["toolbar_fields"]] == [
             "q",
-            "sort",
         ]
         assert [field.name for field in response.context["panel_fields"]] == [
             "type",
             "contributor",
             "language",
             "issued_year",
+            "sort",
         ]
         assert 'name="q"' in content  # the search box's own input name
         assert 'id="filters"' in content  # the filter panel's own id

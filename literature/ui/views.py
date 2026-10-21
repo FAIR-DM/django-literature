@@ -226,7 +226,7 @@ class ItemTableView(MVPTableView):
 
     # A wrapper template adds the import button to the toolbar's action row.
     template_name = "literature/ui/item_table_page.html"
-    toolbar_filters = ["q", "sort"]
+    toolbar_filters = ["q"]
     directory: list[str] = ["create", "import"]
     show_create_action = True
     show_import_action = True
