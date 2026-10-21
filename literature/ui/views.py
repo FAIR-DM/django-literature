@@ -12,16 +12,14 @@ from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from django_filters.views import FilterView
-from mvp.integrations.django_filters.views import MVPFilteredListView
-from mvp.integrations.django_tables.views import MVPTableViewMixin
+from mvp.integrations.django_tables.views import MVPTableView
 from mvp.views import (
+    MVPCreateView,
     MVPDeleteView,
     MVPDetailView,
     MVPFormView,
-    MVPInlineCreateView,
-    MVPInlineUpdateView,
     MVPListView,
+    MVPUpdateView,
 )
 
 from literature.choices import ItemType, NameRole
@@ -31,7 +29,7 @@ from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups, stored_contributor_names
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.fields import scalar_fields
-from literature.ui.filters import SEARCH_FIELDS, ItemFilterSet, get_active_filters
+from literature.ui.filters import ItemFilterSet, ItemTableFilterSet
 from literature.ui.forms import (
     CONTRIBUTOR_NAMES_DATALIST_ID,
     ConfirmImportForm,
@@ -142,19 +140,13 @@ class CatalogueListMixin:
     No base class of its own: each of the two concrete views exists today and
     each composes this with its own base, so this is not a speculative base
     class under Article III. Subclassing ``ItemListView`` directly would hand
-    the contributor page a search box and filters it must not have, and
-    overriding ``filterset_class`` back to unset does not disable filtering —
-    it 500s instead, since ``FilterMixin.get_filterset_class()`` falls
-    through to a filterset generated over every field of ``Item``, including
-    its two ``JSONField``s, which django-filter has no filter for.
+    the contributor page a search box and filters it must not have.
     """
 
     model = Item
     page_title = CATALOGUE_TITLE
     # No ``template_name``: the page renders through django-mvp's own
-    # ``list_view.html``, which reaches the shell through the default
-    # ``base.html`` django-mvp has shipped since 0.18 — this app carried a
-    # pass-through of its own until then. Only the card is ours.
+    # ``list_view.html``. Only the card is ours.
     #
     # ``ItemListView``'s own default — ``ContributorDetailView`` overrides
     # it back to its own template, the same as it does today.
@@ -188,56 +180,36 @@ class CatalogueListMixin:
         return context
 
 
-class ItemListView(CatalogueListMixin, MVPFilteredListView):
-    """The catalogue list (FS-006, #55)."""
-
-    # Mandatory, not inherited: MVPFilteredListView sets no paginate_by at
-    # all (unlike MVPListView, this view's own base until now), and without
-    # one pagination switches off entirely. 24 is this view's own
-    # already-established page size, kept so the change of base class does
-    # not also change how much is on a page — same reasoning as
-    # ItemTableView's own paginate_by below.
-    paginate_by = 24
-
-    search_fields = SEARCH_FIELDS
-    filterset_class = ItemFilterSet
-
-    empty_state_heading = _("Nothing in the catalogue yet")
-    empty_state_message = _("References imported or created will appear here.")
-
-    # A wrapper template carries the action row, overriding list_view.html's
-    # page.actions block. Set here, not on CatalogueListMixin — the
-    # contributor page composes that mixin too and must not gain either.
-    template_name = "literature/ui/item_list_page.html"
-    directory: list[str] = ["create", "import"]
-    show_import_action = True
-    list_actions: list[str] = ["search", "sort", "filter", "create", "import"]
+class ImportActionMixin:
+    """Resolve the catalogue's import link for the views whose page carries it."""
 
     def get_url_kwargs(self, action):
         """Resolve "import" as collection-level, like the "list"/"create" default."""
         # Without this, a list view's always-empty self.kwargs makes
-        # directory.import_url never resolve. ItemTableView carries the
-        # same override; edit the two together.
+        # directory.import_url never resolve.
         if action == "import":
             return {}
         return super().get_url_kwargs(action)
 
-    def get_context_data(self, **kwargs):
-        """Recompute applied-filter count excluding the hidden "sort" field."""
-        context = super().get_context_data(**kwargs)
-        # MVPFilteredListView's own count treats "sort" as an applied filter,
-        # which it is not. ItemTableView.get_context_data() below calls the
-        # same exclusion.
-        if context.get("filter"):
-            active = get_active_filters(self.filterset)
-            context["applied_filters"] = active
-            context["applied_filter_count"] = len(active)
 
-        context["list_actions"] = self.list_actions
-        return context
+class ItemListView(ImportActionMixin, CatalogueListMixin, MVPListView):
+    """The catalogue list (FS-006, #55)."""
+
+    paginate_by = 24
+
+    filterset_class = ItemFilterSet
+    toolbar_filters = ["q"]
+
+    empty_state_heading = _("Nothing in the catalogue yet")
+    empty_state_message = _("References imported or created will appear here.")
+
+    # A wrapper template adds the import button to the title row.
+    template_name = "literature/ui/item_list_page.html"
+    directory: list[str] = ["create", "import"]
+    show_import_action = True
 
 
-class ItemTableView(MVPTableViewMixin, FilterView):
+class ItemTableView(ImportActionMixin, MVPTableView):
     """The catalogue as a table (FS-009, #87).
 
     ``ItemListView`` keeps its name, its card template and its behaviour
@@ -251,86 +223,31 @@ class ItemTableView(MVPTableViewMixin, FilterView):
     model = Item
     table_class = ItemTable
 
-    # Mandatory, not inherited: MVPTableView sets no paginate_by at all, and
-    # without one the whole footer bar disappears (it renders under
-    # `{% if page_obj %}`). 24 matches the card list's own page size.
+    # Without a page size the table renders every row and no pager.
+    # 24 matches the card list's own page size.
     paginate_by = 24
 
     page_title = CATALOGUE_TITLE
 
-    # The table page has no actions hook of its own, so a wrapper template
-    # overrides table_view.html's own page.actions block (not
-    # list_view.html's, which renders no table).
-    #
-    # django-mvp 0.19.2 dropped its own MVPTableViewMixin.actions hook
-    # (upstream commit dfa7c3a), leaving <c-page.list.actions />'s c-vars
-    # default in force regardless of what a project declares. table_actions
-    # restores the hook under its own name.
-    #
-    # Not named "actions": a Cotton slot falls through to a context variable
-    # of the same name when unfilled, so a key called `actions` would print
-    # its repr into every toolbar's `actions` slot on the page.
+    # A wrapper template adds the import button to the toolbar's action row.
     template_name = "literature/ui/item_table_page.html"
-    table_actions: list[str] = ["search", "filter", "create", "import"]
+    toolbar_filters = ["q", "sort"]
     directory: list[str] = ["create", "import"]
     show_create_action = True
     show_import_action = True
     crud_views = CRUD_VIEWS
-    search_fields = SEARCH_FIELDS
-    filterset_class = ItemFilterSet
+    filterset_class = ItemTableFilterSet
 
     # Same flag name and semantics as ItemDetailView.show_update_action — a
     # project that overrides one to gate the write page overrides the other
     # the same way to gate this row control.
     show_update_action = True
 
-    def get_url_kwargs(self, action):
-        """Resolve "import" as collection-level, like the "list"/"create" default."""
-        # Same reasoning as ItemListView.get_url_kwargs(); edit the two together.
-        if action == "import":
-            return {}
-        return super().get_url_kwargs(action)
-
     # No order_by: MVPTableViewMixin raises ImproperlyConfigured at
     # instantiation if it finds one — ordering lives on the table class.
 
     empty_state_heading = _("Nothing in the catalogue yet")
     empty_state_message = _("References imported or created will appear here.")
-
-    # A search or filter matching nothing reads differently from a
-    # genuinely empty catalogue, and keeps its controls — django-mvp's own
-    # empty state otherwise renders the same "nothing here" copy either way.
-    no_matches_heading = _("No references match your search")
-    no_matches_message = _(
-        "Try a different search term, or clear the search and filters."
-    )
-
-    def get_empty_state_heading(self):
-        """Show the no-matches heading instead when the catalogue is narrowed."""
-        if self.catalogue_is_narrowed():
-            return self.no_matches_heading
-        return super().get_empty_state_heading()
-
-    def get_empty_state_message(self):
-        """Show the no-matches message instead when the catalogue is narrowed."""
-        if self.catalogue_is_narrowed():
-            return self.no_matches_message
-        return super().get_empty_state_message()
-
-    def catalogue_is_narrowed(self):
-        """Whether the current request carries a search term or a filter value.
-
-        Read from the raw request rather than from ``self.filterset.qs``
-        being empty — an empty catalogue with no query in force is a
-        different circumstance from a query that matched nothing, and both
-        can leave the same queryset empty. ``self.filterset`` is already
-        built and bound by the time a view method reaches here.
-        """
-        if self.request.GET.get("q", "").strip():
-            return True
-        return any(
-            self.request.GET.get(name, "").strip() for name in self.filterset.filters
-        )
 
     def get_queryset(self):
         """Prefetch what the credited-names and issued cells read."""
@@ -352,40 +269,18 @@ class ItemTableView(MVPTableViewMixin, FilterView):
             )
         )
 
-    def get_filterset_kwargs(self, filterset_class):
-        """Keep the filterset always bound, even on a bare, param-less request."""
-        # FilterMixin's default binds with `self.request.GET or None`, and an
-        # empty QueryDict is falsy, leaving the filterset unbound. A
-        # QueryDict is `is not None` even when empty, so this fixes it.
-        kwargs = super().get_filterset_kwargs(filterset_class)
-        kwargs["data"] = self.request.GET
-        return kwargs
-
-    def get_context_data(self, **kwargs):
-        """Add applied_filters/applied_filter_count, which no base here supplies."""
-        # This view composes MVPTableViewMixin, FilterView directly rather
-        # than through MVPFilteredListView, so its badge-count logic never
-        # runs here. Mirrored rather than reached through a third mixin:
-        # multiple inheritance from both bases would fight over
-        # get_queryset()/get_context_data() for no benefit.
-        context = super().get_context_data(**kwargs)
-        if context.get("filter") and hasattr(self.filterset.form, "cleaned_data"):
-            # get_active_filters() excludes "sort" — the table's own
-            # ordering, carried as a hidden filter field — from the count.
-            # ItemListView.get_context_data() calls the same function.
-            active = get_active_filters(self.filterset)
-            context["applied_filters"] = active
-            context["applied_filter_count"] = len(active)
-
-        context["table_actions"] = self.table_actions
-        return context
-
     def get_model_info(self):
         """Name the collection ``CATALOGUE_NAME_PLURAL``, not the model's own name."""
         return {
             **super().get_model_info(),
             "verbose_name_plural": CATALOGUE_NAME_PLURAL,
         }
+
+    def get_active_filters(self, filterset):
+        """Leave the hidden ``sort`` field, the table's own ordering, out of the count."""
+        active = super().get_active_filters(filterset)
+        active.pop("sort", None)
+        return active
 
     def get_table_kwargs(self):
         """Pass show_action("update") directly; get_directory() is empty here."""
@@ -395,12 +290,12 @@ class ItemTableView(MVPTableViewMixin, FilterView):
         }
 
 
-class ItemCreateView(MVPInlineCreateView):
+class ItemCreateView(MVPCreateView):
     """Enter a reference by hand (FS-008, #74).
 
-    Composes django-mvp's inline mixin so the reference's contributors,
-    dates and identifiers are created in the same transaction as the
-    reference itself — no save path of its own.
+    The reference's contributors, dates and identifiers are created in the
+    same transaction as the reference itself through ``inlines`` — no save
+    path of its own.
     """
 
     model = Item
@@ -670,12 +565,12 @@ class ItemImportConfirmView(View):
         return redirect("literature:item-list")
 
 
-class ItemUpdateView(MVPInlineUpdateView):
+class ItemUpdateView(MVPUpdateView):
     """Correct a reference that is wrong (FS-008, #74).
 
-    Composes django-mvp's inline mixin so the reference's contributors,
-    dates and identifiers are saved in the same transaction as the
-    reference itself — no save path of its own.
+    The reference's contributors, dates and identifiers are saved in the
+    same transaction as the reference itself through ``inlines`` — no save
+    path of its own.
     """
 
     model = Item
@@ -814,10 +709,8 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
     on, so it *is* a list view: it composes ``CatalogueListMixin`` rather
     than reproducing the card list's configuration. Pagination, the page
     size, the empty state, the grid configuration and the not-found on an
-    out-of-range page all arrive with ``MVPListView``. Plain, not
-    ``MVPFilteredListView``: this page carries no search box and no filter —
-    ``ItemListView`` is the only concrete view that composes the mixin with a
-    filtered base. The contributor is the page's subject, not the object it
+    out-of-range page all arrive with ``MVPListView``. It declares no
+    filterset, so this page carries no search box and no filter. The contributor is the page's subject, not the object it
     lists, which is the only thing here the base class does not already know.
     """
 

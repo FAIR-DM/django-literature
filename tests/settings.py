@@ -21,18 +21,18 @@ INSTALLED_APPS = [
     # django-filter, reached through django-mvp's own guarded integration
     # (FS-006).
     "django_filters",
-    # ``mvp`` before ``crispy_tailwind``: django-mvp ships an override of
-    # crispy-tailwind's help-text template, and the first app to declare a
-    # template path wins (django-mvp's getting-started guide).
+    # Your own apps go above ``mvp`` so their templates win; ``daisy_cotton``
+    # goes directly below it (django-mvp's getting-started guide).
     "mvp",
+    "daisy_cotton",
     "crispy_forms",
-    "crispy_tailwind",
+    "mvp_forms",
     "literature.ui",
 ]
 
 # Both required together; see demo/settings.py for why (FS-008).
-CRISPY_TEMPLATE_PACK = "tailwind"
-CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
+CRISPY_TEMPLATE_PACK = "daisyui"
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["daisyui"]
 
 TEMPLATES[0]["OPTIONS"]["context_processors"] = [  # noqa: F405
     *TEMPLATES[0]["OPTIONS"]["context_processors"],  # noqa: F405

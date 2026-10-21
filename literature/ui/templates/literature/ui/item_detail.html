@@ -1,49 +1,49 @@
 {% extends "detail_view.html" %}
 {% load i18n %}
 {% block page.content %}
-  <c-grid cols="1" md="2" gap="4">
-    {% for label, value in scalar_fields %}<c-data-field label="{{ label }}" value="{{ value }}" />{% endfor %}
-  </c-grid>
+  <c-mvp.grid cols="1" md="2" gap="4">
+    {% for label, value in scalar_fields %}<c-mvp.data-field label="{{ label }}" value="{{ value }}" />{% endfor %}
+  </c-mvp.grid>
 
   {# Built by the view so the role heading can pluralise — literature/ui/contributors.py. #}
   {% if contributor_groups %}
-    <c-section title="{% translate "Contributors" %}">
-      <c-grid cols="1" md="2" gap="4">
+    <c-mvp.section title="{% translate "Contributors" %}">
+      <c-mvp.grid cols="1" md="2" gap="4">
         {% for group in contributor_groups %}
-          <c-data-field label="{{ group.label }}">
+          <c-mvp.data-field label="{{ group.label }}">
             {% for name in group.names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}
-          </c-data-field>
+          </c-mvp.data-field>
         {% endfor %}
-      </c-grid>
-    </c-section>
+      </c-mvp.grid>
+    </c-mvp.section>
   {% endif %}
 
   {% if object.item_dates.all %}
-    <c-section title="{% translate "Dates" %}">
-      <c-grid cols="1" md="2" gap="4">
+    <c-mvp.section title="{% translate "Dates" %}">
+      <c-mvp.grid cols="1" md="2" gap="4">
         {% for item_date in object.item_dates.all %}
-          <c-data-field label="{{ item_date.get_date_type_display }}">
+          <c-mvp.data-field label="{{ item_date.get_date_type_display }}">
             {% include "literature/ui/date_value.html" %}
-          </c-data-field>
+          </c-mvp.data-field>
         {% endfor %}
-      </c-grid>
-    </c-section>
+      </c-mvp.grid>
+    </c-mvp.section>
   {% endif %}
 
   {% if identifiers %}
-    <c-section title="{% translate "Identifiers" %}">
-      <c-grid cols="1" md="2" gap="4">
+    <c-mvp.section title="{% translate "Identifiers" %}">
+      <c-mvp.grid cols="1" md="2" gap="4">
         {% for identifier in identifiers %}
-          <c-data-field label="{{ identifier.type }}">
+          <c-mvp.data-field label="{{ identifier.type }}">
             {# identifier.href is set by the view, and only for an allowlisted scheme (FS-006). #}
             {% if identifier.href %}
               <a href="{{ identifier.href }}">{{ identifier.value }}</a>
             {% else %}
               {{ identifier.value }}
             {% endif %}
-          </c-data-field>
+          </c-mvp.data-field>
         {% endfor %}
-      </c-grid>
-    </c-section>
+      </c-mvp.grid>
+    </c-mvp.section>
   {% endif %}
 {% endblock page.content %}

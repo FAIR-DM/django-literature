@@ -556,7 +556,7 @@ class TestItemFormPageMarkup:
         # The same defect this page carried since its own phase: see
         # TestImportReportPage's test of the same name.
         content = client.get(reverse("literature:item-create")).content.decode()
-        assert "breakpoint=" not in content
+        assert " breakpoint=" not in content
 
 
 class TestImportReportPage:
@@ -601,7 +601,7 @@ class TestImportReportPage:
         # through to the rendered <div>, where it is invalid HTML and lays
         # nothing out. Asserted on the rendered page rather than on the
         # template so the check reads what a browser would receive.
-        assert "breakpoint=" not in self._report_content(client)
+        assert " breakpoint=" not in self._report_content(client)
 
 
 class TestOutcomeFilter:
@@ -743,11 +743,11 @@ class TestImportFormPageFieldErrors:
         content = client.post(
             reverse("literature:item-import"), {"format": "bibtex"}
         ).content.decode()
-        assert 'id="error_1_id_file"' in content
+        assert 'id="id_file_error"' in content
 
     def test_a_missing_formats_reason_renders_beside_the_format_field(self, client, db):
         upload = SimpleUploadedFile("x.bib", b"@article{x, title={T}}")
         content = client.post(
             reverse("literature:item-import"), {"file": upload}
         ).content.decode()
-        assert 'id="error_1_id_format"' in content
+        assert 'id="id_format_error"' in content

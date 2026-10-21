@@ -68,13 +68,13 @@ class TestCoreImportsNothingFromTheUIStack:
 
 
 class TestSearchAndFilterAreDeclaredOnce:
-    def test_views_module_imports_search_fields_and_filterset_rather_than_declaring_them(
+    def test_views_module_imports_the_filtersets_rather_than_declaring_them(
         self,
     ):
         views_path = UI_ROOT / "views.py"
         imported = imported_names(views_path)
-        assert "literature.ui.filters.SEARCH_FIELDS" in imported
         assert "literature.ui.filters.ItemFilterSet" in imported
+        assert "literature.ui.filters.ItemTableFilterSet" in imported
 
         tree = ast.parse(views_path.read_text())
         top_level_assignments = {

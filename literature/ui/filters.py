@@ -14,14 +14,14 @@ import django_filters
 from django import forms
 from django.db.models import DateTimeField, OuterRef, Q, Subquery
 from django.utils.translation import gettext_lazy as _
+from mvp.filters import SearchFilter
 
 from literature.choices import DateType, ItemType
 from literature.models import Item, ItemDate
 
 #: The ORM paths a catalogue search matches against: the item's own
 #: identity and title fields, plus every contributor's name parts regardless
-#: of role. Declared once here and imported by both views' ``search_fields``
-#: rather than restated in each.
+#: of role. Declared once here and read by ``ItemFilterSet.q``.
 SEARCH_FIELDS = [
     "citation_key",
     "title",
@@ -117,27 +117,6 @@ class ScalarOrListSelectMultiple(forms.SelectMultiple):
         return [v for v in value if v] if value else value
 
 
-def get_active_filters(filterset):
-    """Filters actually in force, the hidden ``sort`` field excluded.
-
-    Mirrors ``MVPFilteredListView.get_active_filters()``
-    (``mvp/integrations/django_filters/views.py``) — dropping every empty,
-    null or default-like value from ``filterset.form.cleaned_data`` — plus
-    the one field neither presentation ever counts: ``sort`` is a hidden
-    field on this form only to round-trip django-tables2's own ordering
-    (``ItemFilterSet.sort`` below), not one of the catalogue's four
-    filters. One definition, called from both ``ItemListView`` and
-    ``ItemTableView``, so the exclusion is not restated twice.
-    """
-    if not hasattr(filterset.form, "cleaned_data"):
-        return {}
-    return {
-        name: value
-        for name, value in filterset.form.cleaned_data.items()
-        if name != "sort" and value not in (None, "", [], (), False)
-    }
-
-
 class ItemFilterSet(django_filters.FilterSet):
     """The catalogue's filters (FS-010, #96): item type, contributor, language and issued year."""
 
@@ -146,6 +125,7 @@ class ItemFilterSet(django_filters.FilterSet):
     # value while year narrows what that widened set returns.
     # MultipleChoiceFilter.filter() ORs the chosen values by default
     # (``conjoined=False``), which is exactly that widening.
+    q = SearchFilter(fields=SEARCH_FIELDS)
     type = django_filters.MultipleChoiceFilter(
         choices=ItemType.choices, label=_("Type"), widget=ScalarOrListSelectMultiple
     )
@@ -157,30 +137,9 @@ class ItemFilterSet(django_filters.FilterSet):
         method="filter_issued_year", label=_("Year")
     )
 
-    # Not one of the four catalogue filters: carries the table's own sort
-    # (django-tables2's `order_by_field`, "sort") across a change of
-    # filter. The filter form is our own GET form, rendered by the
-    # component from `filter.form` (mvp's own crispy-forms render, which
-    # emits a hidden field's <input> with no template change of ours
-    # needed), so a hidden field here round-trips through it where an
-    # upstream pagination-style link previously did not. `filter_sort()`
-    # is a deliberate no-op: ordering is django-tables2's own concern
-    # (`ItemTable.Meta.order_by`), not the filterset's — this field exists
-    # only to be present on the form and carried forward when it is
-    # resubmitted. `ItemTableView.get_context_data()` excludes this key
-    # from what it reports as an applied filter: a hidden field is still a
-    # form field, and django-mvp counts every non-empty one.
-    sort = django_filters.CharFilter(
-        method="filter_sort", widget=forms.HiddenInput(), required=False
-    )
-
     class Meta:
         model = Item
         fields: list[str] = []
-
-    def filter_sort(self, queryset, name, value):
-        """No-op: ``sort`` only round-trips django-tables2's own ordering through this form."""
-        return queryset
 
     def filter_contributor(self, queryset, name, value):
         """Match ``value`` against a contributor's family, given or literal name, in any role.
@@ -219,3 +178,26 @@ class ItemFilterSet(django_filters.FilterSet):
         """
         queryset = annotate_issued(queryset)
         return super().filter_queryset(queryset).distinct()
+
+
+class ItemTableFilterSet(ItemFilterSet):
+    """The catalogue's filters plus the table's own ordering, carried by the form.
+
+    The table sorts through django-tables2's ``sort`` query parameter. The
+    filter form is a plain GET form, so a hidden field here keeps the chosen
+    column order when the form is submitted again.
+    """
+
+    sort = django_filters.CharFilter(
+        method="filter_sort",
+        label=_("Sort"),
+        widget=forms.HiddenInput(),
+        required=False,
+    )
+
+    class Meta(ItemFilterSet.Meta):
+        pass
+
+    def filter_sort(self, queryset, name, value):
+        """No-op: ``sort`` only round-trips django-tables2's own ordering through this form."""
+        return queryset

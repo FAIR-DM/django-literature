@@ -3,9 +3,9 @@
 {# A credit row carries the catalogue row's content (FS-006), so it extends that template rather than restating it. #}
 {% block credited_roles %}
   {% if object.credited_roles %}
-    <c-text size="sm" muted>
+    <c-mvp.text size="sm" muted>
       {% translate "Credited as" %}:
       {% for role in object.credited_roles %}{{ role }}{% if not forloop.last %}, {% endif %}{% endfor %}
-    </c-text>
+    </c-mvp.text>
   {% endif %}
 {% endblock credited_roles %}
