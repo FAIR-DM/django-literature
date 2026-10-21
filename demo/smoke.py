@@ -36,11 +36,16 @@ CONTRIBUTOR_LINK_RE = re.compile(
     r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<'
 )
 
-# The `name="q"` input is rendered outside the filter modal's own <form>,
-# associated with it only by the HTML5 `form="filterForm"` attribute (mvp's
-# search.html), so it needs its own check rather than ``form_fields``, which
-# only walks a page's first physically-nested <form> (FS-010).
-SEARCH_INPUT_RE = re.compile(r'<input[^>]+name="q"[^>]+form="filterForm"')
+# The search box sits in the toolbar inside the filter <form>. The type and
+# language controls sit in the filter panel outside it, joined to it only by
+# the HTML5 `form="filterForm"` attribute, so ``form_fields`` cannot see them.
+SEARCH_INPUT_RE = re.compile(r'<input[^>]+type="search"[^>]+name="q"')
+
+
+def filter_control_re(name: str) -> re.Pattern[str]:
+    """Match the filter panel's control named ``name``, joined to the filter form."""
+    return re.compile(rf'<(?:select|input)[^>]+name="{name}"[^>]+form="filterForm"')
+
 
 # A rendered pagination link carrying another parameter joins it to `page=2`
 # with the HTML entity `&amp;`, not a bare `&` (`{% querystring %}`'s own
@@ -285,14 +290,15 @@ class DemoWalk:
         control with nothing chosen contributes no key to a real form
         submission, so filling in the rest from ``form_fields`` would
         submit a value no reader ever chose. Confirmed present first
-        (``SEARCH_INPUT_RE``, and ``form_fields`` already proves ``type``
-        and ``language`` are rendered controls), then asserted on the
+        (``SEARCH_INPUT_RE`` for the search box, ``filter_control_re`` for
+        the ``type`` and ``language`` controls), then asserted on the
         references present and absent in what comes back — never on a
         status code alone, so a search or filter that silently stopped
         narrowing would not be missed.
         """
-        fields = form_fields(list_body)
-        if "type" not in fields or "language" not in fields:
+        if not all(
+            filter_control_re(name).search(list_body) for name in ("type", "language")
+        ):
             self.fail(
                 list_url,
                 200,
