@@ -47,23 +47,19 @@ class TestItemFilterSetType:
 
 
 @pytest.mark.django_db
-class TestItemFilterSetContributor:
+class TestItemFilterSetSearchByContributor:
     def test_matches_a_family_name_fragment(self):
         item = ItemFactory()
         ItemNameFactory(item=item, name=NameFactory(family="Darwin"))
         other = ItemFactory()
         ItemNameFactory(item=other, name=NameFactory(family="Wallace"))
-        filterset = ItemFilterSet(
-            data={"contributor": "darwin"}, queryset=Item.objects.all()
-        )
+        filterset = ItemFilterSet(data={"q": "darwin"}, queryset=Item.objects.all())
         assert list(filterset.qs) == [item]
 
     def test_matches_a_given_name_fragment(self):
         item = ItemFactory()
         ItemNameFactory(item=item, name=NameFactory(given="Charles"))
-        filterset = ItemFilterSet(
-            data={"contributor": "charles"}, queryset=Item.objects.all()
-        )
+        filterset = ItemFilterSet(data={"q": "charles"}, queryset=Item.objects.all())
         assert item in filterset.qs
 
     def test_matches_a_literal_organizational_name(self):
@@ -73,7 +69,7 @@ class TestItemFilterSetContributor:
             name=NameFactory(family="", given="", literal="Smithsonian Institution"),
         )
         filterset = ItemFilterSet(
-            data={"contributor": "smithsonian"}, queryset=Item.objects.all()
+            data={"q": "smithsonian"}, queryset=Item.objects.all()
         )
         assert item in filterset.qs
 
@@ -82,9 +78,7 @@ class TestItemFilterSetContributor:
         ItemNameFactory(
             item=item, name=NameFactory(family="Darwin"), role=NameRole.EDITOR
         )
-        filterset = ItemFilterSet(
-            data={"contributor": "darwin"}, queryset=Item.objects.all()
-        )
+        filterset = ItemFilterSet(data={"q": "darwin"}, queryset=Item.objects.all())
         assert item in filterset.qs
 
 
@@ -95,12 +89,10 @@ class TestItemFilterSetDistinct:
         darwin = NameFactory(family="Darwin")
         ItemNameFactory(item=item, name=darwin, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, name=darwin, role=NameRole.EDITOR)
-        filterset = ItemFilterSet(
-            data={"contributor": "darwin"}, queryset=Item.objects.all()
-        )
+        filterset = ItemFilterSet(data={"q": "darwin"}, queryset=Item.objects.all())
         assert list(filterset.qs) == [item]
 
-    def test_two_related_rows_matching_the_same_filter_still_return_the_reference_once(
+    def test_two_related_rows_matching_the_same_search_still_return_the_reference_once(
         self,
     ):
         item = ItemFactory()
@@ -110,8 +102,17 @@ class TestItemFilterSetDistinct:
         ItemNameFactory(
             item=item, name=NameFactory(given="Darwiniana"), role=NameRole.EDITOR
         )
+        filterset = ItemFilterSet(data={"q": "darwin"}, queryset=Item.objects.all())
+        assert list(filterset.qs) == [item]
+
+    def test_a_search_and_a_year_together_return_the_reference_once(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        darwin = NameFactory(family="Darwin")
+        ItemNameFactory(item=item, name=darwin, role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, name=darwin, role=NameRole.EDITOR)
         filterset = ItemFilterSet(
-            data={"contributor": "darwin"}, queryset=Item.objects.all()
+            data={"q": "darwin", "issued_year": "2020"}, queryset=Item.objects.all()
         )
         assert list(filterset.qs) == [item]
 
@@ -210,3 +211,57 @@ class TestItemFilterSetIssuedYear:
         annotated = {row.pk: row.issued for row in filterset.qs}
         assert annotated[item.pk] is not None
         assert annotated[undated.pk] is None
+
+
+@pytest.mark.django_db
+class TestYearFilter:
+    @staticmethod
+    def _choices(filterset):
+        """The offered years, without the empty choice that clears the filter."""
+        choices = filterset.filters["issued_year"].field.choices
+        return [(value, label) for value, label in choices if value]
+
+    def test_choices_are_the_issued_years_held_newest_first(self):
+        for begin in ("2019", "2021", "2020"):
+            ItemDateFactory(item=ItemFactory(), date_type=DateType.ISSUED, begin=begin)
+        filterset = ItemFilterSet(data={}, queryset=Item.objects.all())
+        assert [value for value, _ in self._choices(filterset)] == [
+            "2021",
+            "2020",
+            "2019",
+        ]
+
+    def test_a_year_held_by_several_references_is_offered_once(self):
+        ItemDateFactory(item=ItemFactory(), date_type=DateType.ISSUED, begin="2020")
+        ItemDateFactory(
+            item=ItemFactory(), date_type=DateType.ISSUED, begin="2020-05-01"
+        )
+        filterset = ItemFilterSet(data={}, queryset=Item.objects.all())
+        assert [value for value, _ in self._choices(filterset)] == ["2020"]
+
+    def test_a_year_held_only_by_another_date_slot_is_not_offered(self):
+        ItemDateFactory(item=ItemFactory(), date_type=DateType.ACCESSED, begin="2018")
+        filterset = ItemFilterSet(data={}, queryset=Item.objects.all())
+        assert self._choices(filterset) == []
+
+    def test_a_year_no_reference_was_issued_in_narrows_to_nothing(self):
+        ItemDateFactory(item=ItemFactory(), date_type=DateType.ISSUED, begin="2020")
+        filterset = ItemFilterSet(
+            data={"issued_year": "1999"}, queryset=Item.objects.all()
+        )
+        assert list(filterset.qs) == []
+
+    def test_a_value_that_is_not_a_year_is_ignored(self):
+        item = ItemFactory()
+        filterset = ItemFilterSet(
+            data={"issued_year": "notanumber"}, queryset=Item.objects.all()
+        )
+        assert list(filterset.qs) == [item]
+
+    @pytest.mark.parametrize("year", ["0", "10000"])
+    def test_a_year_outside_the_calendar_is_ignored(self, year):
+        item = ItemFactory()
+        filterset = ItemFilterSet(
+            data={"issued_year": year}, queryset=Item.objects.all()
+        )
+        assert list(filterset.qs) == [item]

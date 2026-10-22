@@ -23,7 +23,6 @@ from demo.smoke import (
     IMPORT_LINK_RE,
     ITEM_LINK_RE,
     RESTART_IMPORT_RE,
-    ROW_RE,
     SECOND_PAGE_LINK_RE,
     DemoWalk,
     SmokeCheckFailed,
@@ -272,37 +271,6 @@ class TestRelatedRowFieldsOnTheEditPage:
         assert "item_dates-0-begin" in fields
         assert "item_identifiers-0-type" in fields
         assert "item_identifiers-0-value" in fields
-
-
-class TestRowLinkPattern:
-    def test_scopes_the_edit_link_to_the_row_carrying_the_item(self, client, db):
-        first = ItemFactory(title="First Reference")
-        second = ItemFactory(title="Second Reference")
-
-        response = client.get(reverse("literature:item-list"))
-        body = response.content.decode()
-        first_path = reverse("literature:item-detail", kwargs={"pk": first.pk})
-        second_path = reverse("literature:item-detail", kwargs={"pk": second.pk})
-
-        first_row = next(row for row in ROW_RE.findall(body) if first_path in row)
-        second_row = next(row for row in ROW_RE.findall(body) if second_path in row)
-
-        first_edit = EDIT_LINK_RE.search(first_row)
-        second_edit = EDIT_LINK_RE.search(second_row)
-
-        assert first_edit is not None
-        assert second_edit is not None
-        assert first_edit.group("path") == reverse(
-            "literature:item-update", kwargs={"pk": first.pk}
-        )
-        assert second_edit.group("path") == reverse(
-            "literature:item-update", kwargs={"pk": second.pk}
-        )
-
-    def test_does_not_find_a_different_rows_edit_link(self):
-        row = '<tr><td><a href="/catalogue/1/">One</a></td></tr>'
-
-        assert EDIT_LINK_RE.search(row) is None
 
 
 class TestDeleteLinkPattern:

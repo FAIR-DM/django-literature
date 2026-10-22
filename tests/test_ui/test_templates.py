@@ -55,15 +55,8 @@ class TestPackagedChain:
         assert '{% extends "detail_view.html" %}' in source
 
     def test_no_page_template_of_our_own_stands_in_for_a_packaged_one(self):
-        # The catalogue list and the contributor page render through
+        # The card list and the contributor page render through
         # ``list_view.html``; neither has a template here.
-        # ``item_list_page.html`` (``ItemListView.template_name``) does not
-        # contradict this: it ``{% extends "list_view.html" %}`` and
-        # overrides only the ``page.actions`` block, a wrapper around the
-        # packaged template rather than a replacement of it — the file this
-        # test guards against is named ``item_list.html`` (no ``_page``) and
-        # would stand in for ``list_view.html`` wholesale, which is a
-        # different thing.
         assert not (TEMPLATES_DIR / "base.html").exists()
         assert not (TEMPLATES_DIR / "item_list.html").exists()
         assert not (TEMPLATES_DIR / "contributor_detail.html").exists()
@@ -179,6 +172,11 @@ RESPONSIVE_ALLOWED = (
     | scaled(["p", "px", "py", "pt", "pr", "pb", "pl"], SCALE)
     | scaled(["m", "mx", "my", "mt", "mr", "mb", "ml"], SCALE)
     | {"m-auto", "mx-auto", "my-auto"}
+    # Not in utility-classes.md, but django-mvp's own table_view.html and
+    # list_view.html push their toolbar actions to the end of the row with it,
+    # so its prebuilt stylesheet carries both ms-auto and md:ms-auto.
+    # item_table_page.html redraws that row.
+    | {"ms-auto"}
 )
 
 # utility-classes.md's "base-only groups": never behind a responsive prefix.

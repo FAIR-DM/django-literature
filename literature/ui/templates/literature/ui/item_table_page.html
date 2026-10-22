@@ -1,11 +1,47 @@
 {% extends "table_view.html" %}
 {% load i18n %}
 {% comment %}
-  Table wrapper: adds the import link to the toolbar's action row, before the add button. The
-  table sorts by its own column headers, so the page has no sort control.
+  Adds Import to the end of the table toolbar's row, after the Filters button, and draws the
+  hidden sort field inside the form. django-mvp gives that row no actions block, so page.panel
+  is redrawn as table_view.html draws it, plus those two.
 {% endcomment %}
-{% block page.actions %}
-  {% if directory.import_url %}
-    <c-button text="{% translate 'Import' %}" size="sm" ghost href="{{ directory.import_url }}" />
+{% block page.panel %}
+  {% if filter %}
+    <form id="filterForm"
+          method="get"
+          action="."
+          class="flex flex-wrap items-center gap-x-3 gap-y-2"
+          hx-boost="true"
+          hx-target="#{{ list_region_id }}"
+          hx-select="#{{ list_region_id }}"
+          hx-select-oob="#{{ filter_panel_id }}"
+          hx-swap="outerHTML">
+      <button type="submit" hidden tabindex="-1" aria-hidden="true"></button>
+      {% for hidden in hidden_fields %}{{ hidden }}{% endfor %}
+      {% for field in toolbar_fields %}
+        <c-mvp.page.list.filters.field :field="field" />
+      {% endfor %}
+      <div class="flex items-center gap-2 md:ms-auto">
+        {% if panel_fields %}
+          <c-mvp.page.side.toggle :for="filter_panel_id"
+                                  text="{% trans "Filters" %}"
+                                  icon="filter"
+                                  :count="panel_applied_count" />
+        {% endif %}
+        {% if directory.import_url %}
+          <c-button text="{% translate 'Import' %}" icon="upload" href="{{ directory.import_url }}" />
+        {% endif %}
+      </div>
+    </form>
+    {% block page.refinements %}
+      <c-mvp.page.list.refinements :refinements="refinements"
+                                   :clear_refinements_url="clear_refinements_url"
+                                   hx-boost="true"
+                                   hx-target="#{{ list_region_id }}"
+                                   hx-select="#{{ list_region_id }}"
+                                   hx-select-oob="#{{ filter_panel_id }}"
+                                   hx-swap="outerHTML"
+                                   only />
+    {% endblock page.refinements %}
   {% endif %}
-{% endblock page.actions %}
+{% endblock page.panel %}

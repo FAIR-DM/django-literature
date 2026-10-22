@@ -12,8 +12,10 @@ Never lean on that default anywhere in this module.
 
 import django_filters
 from django import forms
-from django.db.models import DateTimeField, OuterRef, Q, Subquery
+from django.db.models import DateTimeField, OuterRef, Subquery
+from django.db.models.functions import ExtractYear
 from django.utils.translation import gettext_lazy as _
+from django_filters import fields as filter_fields
 from mvp.filters import SearchFilter
 
 from literature.choices import DateType, ItemType
@@ -117,8 +119,66 @@ class ScalarOrListSelectMultiple(forms.SelectMultiple):
         return [v for v in value if v] if value else value
 
 
+class TypeChoiceField(filter_fields.MultipleChoiceField):
+    """A multiple choice field whose own widget accepts a bare value.
+
+    Declared as the field's default widget, not passed per filter, so
+    django-mvp's toolbar recognises the filter as a plain multiple choice and
+    draws its own dropdown for it.
+    """
+
+    widget = ScalarOrListSelectMultiple
+
+
+class TypeFilter(django_filters.MultipleChoiceFilter):
+    """Item type, any of several, through ``TypeChoiceField``."""
+
+    field_class = TypeChoiceField
+
+
+class YearChoiceField(filter_fields.ChoiceField):
+    """A choice of the years held that still accepts any other year.
+
+    A year no reference was issued in, from an old bookmark, narrows the
+    catalogue to nothing rather than being dropped as an invalid choice and
+    showing every reference (FS-010). A value that is not a year, or a year
+    outside the 1 to 9999 a Python date can hold, is still invalid, so the
+    filter ignores it rather than failing on the date lookup.
+    """
+
+    def valid_value(self, value):
+        """Accept a listed year or any other year a date can hold."""
+        value = str(value)
+        return (value.isdigit() and 1 <= int(value) <= 9999) or super().valid_value(
+            value
+        )
+
+
+class YearFilter(django_filters.ChoiceFilter):
+    """The issued years the catalogue holds, newest first, through ``YearChoiceField``."""
+
+    field_class = YearChoiceField
+
+    @property
+    def field(self):
+        """The choice field, its choices refreshed from the stored issued years."""
+        years = (
+            annotate_issued(self.model._default_manager.all())
+            .exclude(issued=None)
+            .annotate(year=ExtractYear("issued"))
+            .order_by("-year")
+            .values_list("year", flat=True)
+            .distinct()
+        )
+        self.extra["choices"] = [(str(year), str(year)) for year in years]
+        return super().field
+
+
 class ItemFilterSet(django_filters.FilterSet):
-    """The catalogue's search and filters (FS-010, #96): item type, contributor, language and issued year."""
+    """The catalogue's search and filters (FS-010, #96): item type, issued year and language.
+
+    Search covers contributor names, so there is no separate contributor filter.
+    """
 
     q = SearchFilter(fields=SEARCH_FIELDS)
 
@@ -127,31 +187,13 @@ class ItemFilterSet(django_filters.FilterSet):
     # value while year narrows what that widened set returns.
     # MultipleChoiceFilter.filter() ORs the chosen values by default
     # (``conjoined=False``), which is exactly that widening.
-    type = django_filters.MultipleChoiceFilter(
-        choices=ItemType.choices, label=_("Type"), widget=ScalarOrListSelectMultiple
-    )
-    contributor = django_filters.CharFilter(
-        method="filter_contributor", label=_("Contributor")
-    )
+    type = TypeFilter(choices=ItemType.choices, label=_("Type"))
+    issued_year = YearFilter(method="filter_issued_year", label=_("Year"))
     language = LanguageFilter(label=_("Language"))
-    issued_year = django_filters.NumberFilter(
-        method="filter_issued_year", label=_("Year")
-    )
 
     class Meta:
         model = Item
         fields: list[str] = []
-
-    def filter_contributor(self, queryset, name, value):
-        """Match ``value`` against a contributor's family, given or literal name, in any role.
-
-        A fragment match, case-insensitive.
-        """
-        return queryset.filter(
-            Q(item_names__name__family__icontains=value)
-            | Q(item_names__name__given__icontains=value)
-            | Q(item_names__name__literal__icontains=value)
-        )
 
     def filter_issued_year(self, queryset, name, value):
         """Match a year-only date and a range beginning in it; no ``issued`` row excludes.
@@ -170,12 +212,10 @@ class ItemFilterSet(django_filters.FilterSet):
         ``annotate_issued()`` runs first and unconditionally — not only when
         the year filter has a value — so the ``issued`` column is present
         for a consumer that sorts on it (``ItemTable.order_issued``)
-        regardless of whether a year was requested. Three of the four
-        filters and three of the eight search paths traverse ``item_names``,
-        so a join can multiply a reference's rows; ``.distinct()`` lives
-        here, once, rather than in each view — the search path needs no
-        equivalent of its own, since the mixin's own query already ends in
-        ``.distinct()``.
+        regardless of whether a year was requested. Three of the eight
+        search paths traverse ``item_names``, so a join can multiply a
+        reference's rows; ``.distinct()`` lives here, once, rather than in
+        each view.
         """
         queryset = annotate_issued(queryset)
         return super().filter_queryset(queryset).distinct()
