@@ -5,9 +5,10 @@ another tool and turns every entry it can into a reference.
 
 ## Reaching the page
 
-The catalogue carries an Import action next to Add, on both presentations the front end can
-serve — the table and the card list. Following it opens a page with a format choice and a file
-control.
+The table catalogue carries an Import action at the end of its toolbar, after the filters.
+Following it opens a page with a format choice and a file control. The card list carries no
+Import action, so a project serving the catalogue as cards links to the `literature:item-import`
+route from its own navigation.
 
 ## Choosing a format and a file
 

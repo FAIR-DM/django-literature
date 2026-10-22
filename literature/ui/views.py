@@ -185,12 +185,13 @@ class ItemListView(CatalogueListMixin, MVPListView):
 
     filterset_class = ItemFilterSet
     toolbar_filters = ["q"]
+    # The filters are a drawer at every width, opened from the toolbar's
+    # Filters button, never a column beside the list.
+    filter_panel_attrs = {"position": "end", "breakpoint": False}
 
     empty_state_heading = _("Nothing in the catalogue yet")
     empty_state_message = _("References imported or created will appear here.")
 
-    # A wrapper template adds the import button to the title row.
-    template_name = "literature/ui/item_list_page.html"
     directory: list[str] = ["create", "import"]
     show_import_action = True
 
@@ -224,19 +225,17 @@ class ItemTableView(MVPTableView):
 
     page_title = CATALOGUE_TITLE
 
-    # A wrapper template adds the import button to the toolbar's action row.
+    # Adds Import to the end of the toolbar row, after the Filters button.
     template_name = "literature/ui/item_table_page.html"
-    toolbar_filters = ["q"]
+    toolbar_filters = ["q", "type", "issued_year", "language"]
     directory: list[str] = ["create", "import"]
     show_create_action = True
     show_import_action = True
     crud_views = CRUD_VIEWS
     filterset_class = ItemTableFilterSet
-
-    # Same flag name and semantics as ItemDetailView.show_update_action — a
-    # project that overrides one to gate the write page overrides the other
-    # the same way to gate this row control.
-    show_update_action = True
+    # The filters are a drawer at every width, opened from the toolbar's
+    # Filters button, never a column beside the table.
+    filter_panel_attrs = {"position": "end", "breakpoint": False}
 
     # No order_by: MVPTableViewMixin raises ImproperlyConfigured at
     # instantiation if it finds one — ordering lives on the table class.
@@ -278,18 +277,35 @@ class ItemTableView(MVPTableView):
             "verbose_name_plural": CATALOGUE_NAME_PLURAL,
         }
 
+    def get_context_data(self, **kwargs):
+        """Leave out empty choices, and draw the hidden ``sort`` field in the toolbar's form.
+
+        Every visible filter is in the toolbar, so a panel holding only the
+        hidden field would put a Filters button on the page that opens nothing.
+        """
+        context = super().get_context_data(**kwargs)
+        # A choice the catalogue holds no values for, such as Language when
+        # no reference records one, offers nothing to pick, so it is left out.
+        if "toolbar_fields" in context:
+            context["toolbar_fields"] = [
+                f
+                for f in context["toolbar_fields"]
+                if f["kind"] not in ("choice", "multichoice") or f["choices"]
+            ]
+        if "panel_fields" in context:
+            context["hidden_fields"] = [
+                f for f in context["panel_fields"] if f.is_hidden
+            ]
+            context["panel_fields"] = [
+                f for f in context["panel_fields"] if not f.is_hidden
+            ]
+        return context
+
     def get_active_filters(self, filterset):
         """Leave the hidden ``sort`` field, the table's own ordering, out of the count."""
         active = super().get_active_filters(filterset)
         active.pop("sort", None)
         return active
-
-    def get_table_kwargs(self):
-        """Pass show_action("update") directly; get_directory() is empty here."""
-        return {
-            **super().get_table_kwargs(),
-            "show_update_action": self.show_action("update"),
-        }
 
 
 class ItemCreateView(MVPCreateView):

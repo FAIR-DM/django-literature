@@ -72,6 +72,17 @@ def filter_badge_count(content):
     return int(match.group(1)) if match else None
 
 
+def toolbar_field(response, name):
+    """Return the toolbar's entry for the filter ``name``."""
+    (field,) = [f for f in response.context["toolbar_fields"] if f["name"] == name]
+    return field
+
+
+def toolbar_field_names(response):
+    """Return the names of the filters the toolbar draws."""
+    return [field["name"] for field in response.context["toolbar_fields"]]
+
+
 def table_header_row(content):
     """Return the table's ``<thead>`` markup.
 
@@ -440,7 +451,7 @@ class TestBothPresentationsReturnTheSameReferences:
         [
             {"q": "whale"},
             {"type": ItemType.BOOK},
-            {"contributor": "darwin"},
+            {"q": "darwin"},
             {"language": "en"},
             {"issued_year": 2020},
             {"q": "whale", "type": ItemType.BOOK},
@@ -448,7 +459,7 @@ class TestBothPresentationsReturnTheSameReferences:
         ids=[
             "search",
             "type",
-            "contributor",
+            "search-by-contributor",
             "language",
             "issued_year",
             "search-and-filter",
@@ -569,66 +580,40 @@ class TestItemTableView:
 
         assert len(large_search.captured_queries) == len(small_search.captured_queries)
 
-    def test_the_edit_control_renders_and_points_at_each_rows_own_update_page(
-        self, client, db
-    ):
-        item = ItemFactory()
-        content = client.get(reverse("literature:item-list")).content.decode()
-        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
-        assert f'href="{update_url}"' in content
-
-    def test_the_edit_control_follows_show_update_action_like_the_reference_pages_own(
-        self, client, db, monkeypatch
-    ):
-        # The same CRUDDirectoryMixin flag ItemDetailView's own edit
-        # action reads (literature/ui/views.py), overridden here the same way
-        # a project would override it to gate the write page.
-        from literature.ui.views import ItemTableView
-
-        monkeypatch.setattr(ItemTableView, "show_update_action", False)
-        item = ItemFactory()
-        content = client.get(reverse("literature:item-list")).content.decode()
-        update_url = reverse("literature:item-update", kwargs={"pk": item.pk})
-        assert f'href="{update_url}"' not in content
-
-    def test_the_control_and_its_target_are_reachable_with_no_authentication(
-        self, client, db
-    ):
-        # This feature introduces no permission check, login
-        # requirement or other access control of its own. ``client`` here is
-        # the plain, unauthenticated test client every other assertion in
-        # this module already uses; both pages 200 for it.
-        item = ItemFactory()
-        assert client.get(reverse("literature:item-list")).status_code == 200
-        assert (
-            client.get(
-                reverse("literature:item-update", kwargs={"pk": item.pk})
-            ).status_code
-            == 200
-        )
-
-    def test_carries_search_and_filter_but_no_column_chooser(self, client, db):
+    def test_carries_search_and_every_filter_in_its_toolbar(self, client, db):
         # Asserted against the rendered page and closed in both directions, so
         # an upstream default widening the action surface is still caught.
-        ItemFactory()
+        item = ItemFactory(language="en")
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
         response = client.get(reverse("literature:item-list"))
         content = response.content.decode()
         assert [field["name"] for field in response.context["toolbar_fields"]] == [
             "q",
-        ]
-        assert [field.name for field in response.context["panel_fields"]] == [
             "type",
-            "contributor",
-            "language",
             "issued_year",
-            "sort",
+            "language",
         ]
+        assert response.context["panel_fields"] == []
+        assert [field.name for field in response.context["hidden_fields"]] == ["sort"]
         assert 'name="q"' in content  # the search box's own input name
-        assert 'id="filters"' in content  # the filter panel's own id
         assert f'href="{reverse("literature:item-create")}"' in content
         assert f'href="{reverse("literature:item-import")}"' in content
         # No column-chooser ships in either django-tables2 or django-mvp
         # today — nothing here builds one.
+
+    def test_the_hidden_sort_field_is_drawn_inside_the_filter_form(self, client, db):
+        # The form carries the table's sort, so applying a filter keeps the
+        # order the reader chose.
+        ItemFactory()
+        content = client.get(
+            reverse("literature:item-list"), {"sort": "-citation_key"}
+        ).content.decode()
+        form_start = content.index('<form id="filterForm"')
+        form_end = content.index("</form>", form_start)
+        assert re.search(
+            r'<input[^>]+name="sort"[^>]+value="-citation_key"',
+            content[form_start:form_end],
+        )
 
     def test_the_import_link_follows_the_views_import_action_flag(
         self, client, db, monkeypatch
@@ -710,10 +695,6 @@ class TestCatalogueImportAction:
         content = client.get(reverse("literature:item-list")).content.decode()
         assert f'href="{reverse("literature:item-import")}"' in content
 
-    def test_the_card_catalogue_carries_the_same_link(self, client, db):
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert f'href="{reverse("literature:item-import")}"' in content
-
     def test_the_contributor_page_carries_no_import_link(self, client, db):
         contributor = NameFactory()
         content = client.get(
@@ -726,7 +707,7 @@ class TestCatalogueImportAction:
     ):
         content = client.get(reverse("literature:item-list")).content.decode()
         assert 'name="q"' in content
-        assert 'id="filters"' in content
+        assert 'name="type"' in content
         assert f'href="{reverse("literature:item-create")}"' in content
 
     def test_the_card_catalogue_still_renders_search_filter_and_create(
@@ -881,7 +862,7 @@ class TestCatalogueSearch:
             reverse("literature:item-list"), {"q": "no-such-term-anywhere"}
         ).content.decode()
         assert 'name="q"' in content
-        assert 'id="filters"' in content
+        assert 'name="type"' in content
 
     @pytest.mark.parametrize(
         "clearing_params", [{"q": ""}, {}], ids=["empty-q", "no-q"]
@@ -917,25 +898,13 @@ class TestCatalogueFilters:
     ):
         # Read from the filter control, not a row's type cell, which would
         # pass even if the control's own choices broke.
-        content = client.get(reverse("literature:item-list")).content.decode()
-        label = re.escape(str(ItemType.ARTICLE_JOURNAL.label))
-        assert re.search(
-            rf'<option value="article-journal"[^>]*>\s*{label}\s*</option>', content
-        )
-
-    def test_contributor_narrows_to_references_crediting_them_in_any_role(
-        self, client, db
-    ):
-        item = ItemFactory()
-        ItemNameFactory(
-            item=item, name=NameFactory(family="Darwin"), role=NameRole.EDITOR
-        )
-        other = ItemFactory()
-        content = client.get(
-            reverse("literature:item-list"), {"contributor": "darwin"}
-        ).content.decode()
-        assert item.citation_key in content
-        assert other.citation_key not in content
+        response = client.get(reverse("literature:item-list"))
+        type_field = toolbar_field(response, "type")
+        assert (
+            ItemType.ARTICLE_JOURNAL.value,
+            str(ItemType.ARTICLE_JOURNAL.label),
+            False,
+        ) in type_field["choices"]
 
     def test_a_reference_crediting_the_same_contributor_in_two_roles_is_returned_once(
         self, client, db
@@ -944,9 +913,7 @@ class TestCatalogueFilters:
         darwin = NameFactory(family="Darwin")
         ItemNameFactory(item=item, name=darwin, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, name=darwin, role=NameRole.EDITOR)
-        response = client.get(
-            reverse("literature:item-list"), {"contributor": "darwin"}
-        )
+        response = client.get(reverse("literature:item-list"), {"q": "darwin"})
         matches = [
             row
             for row in response.context["table"].page.object_list
@@ -997,9 +964,46 @@ class TestCatalogueFilters:
 
     def test_language_choices_offer_only_values_the_catalogue_holds(self, client, db):
         ItemFactory(language="en")
-        content = client.get(reverse("literature:item-list")).content.decode()
-        assert re.search(r'<option value="en"[^>]*>\s*en\s*</option>', content)
-        assert 'value="de"' not in content
+        response = client.get(reverse("literature:item-list"))
+        assert toolbar_field(response, "language")["choices"] == [("en", "en", False)]
+
+    def test_year_choices_offer_the_issued_years_held_newest_first(self, client, db):
+        for begin in ("2019", "2021"):
+            ItemDateFactory(item=ItemFactory(), date_type=DateType.ISSUED, begin=begin)
+        response = client.get(reverse("literature:item-list"))
+        assert [
+            key
+            for key, _label, _chosen in toolbar_field(response, "issued_year")[
+                "choices"
+            ]
+        ] == [
+            "2021",
+            "2019",
+        ]
+
+    def test_language_is_left_out_of_the_toolbar_when_no_reference_records_one(
+        self, client, db
+    ):
+        ItemFactory(language="")
+        response = client.get(reverse("literature:item-list"))
+        assert "language" not in toolbar_field_names(response)
+
+    def test_language_is_in_the_toolbar_once_a_reference_records_one(self, client, db):
+        ItemFactory(language="de")
+        response = client.get(reverse("literature:item-list"))
+        assert "language" in toolbar_field_names(response)
+
+    def test_year_is_left_out_of_the_toolbar_when_no_reference_has_an_issued_date(
+        self, client, db
+    ):
+        ItemDateFactory(item=ItemFactory(), date_type=DateType.ACCESSED, begin="2020")
+        response = client.get(reverse("literature:item-list"))
+        assert "issued_year" not in toolbar_field_names(response)
+
+    def test_type_stays_in_the_toolbar_over_an_empty_catalogue(self, client, db):
+        # Its choices are the fixed item types, never what the catalogue holds.
+        response = client.get(reverse("literature:item-list"), {"q": "nothing"})
+        assert "type" in toolbar_field_names(response)
 
 
 class TestCatalogueFilterComposition:
@@ -1067,12 +1071,15 @@ class TestCatalogueFilterComposition:
 
 class TestCatalogueFilterVisibility:
     def test_no_badge_when_nothing_is_applied(self, client, db):
-        content = client.get(reverse("literature:item-list")).content.decode()
+        ItemFactory()
+        content = client.get(reverse("item-list-cards")).content.decode()
         assert filter_badge_count(content) is None
 
     def test_a_filter_in_force_is_counted_and_shown_as_a_badge(self, client, db):
+        # The badge sits on the card list's Filters button; the table draws
+        # every filter in its toolbar and has no such button.
         ItemFactory(type=ItemType.BOOK)
-        response = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK})
+        response = client.get(reverse("item-list-cards"), {"type": ItemType.BOOK})
         assert response.context["applied_filter_count"] == 1
         content = response.content.decode()
         assert filter_badge_count(content) == 1
@@ -1080,7 +1087,7 @@ class TestCatalogueFilterVisibility:
     def test_two_filters_in_force_are_both_counted(self, client, db):
         ItemFactory(type=ItemType.BOOK, language="en")
         response = client.get(
-            reverse("literature:item-list"), {"type": ItemType.BOOK, "language": "en"}
+            reverse("item-list-cards"), {"type": ItemType.BOOK, "language": "en"}
         )
         assert response.context["applied_filter_count"] == 2
         content = response.content.decode()
@@ -1093,7 +1100,7 @@ class TestCatalogueFilterVisibility:
         # `filterset.form.cleaned_data`.
         ItemFactory(title="Whale Migration Patterns")
         content = client.get(
-            reverse("literature:item-list"), {"q": "whale"}
+            reverse("item-list-cards"), {"q": "whale"}
         ).content.decode()
         assert filter_badge_count(content) is None
 
@@ -1103,8 +1110,27 @@ class TestCatalogueFilterVisibility:
             reverse("literature:item-list"), {"type": ItemType.BOOK}
         ).content.decode()
         assert re.search(
-            r'<option value="book"[^>]*\sselected[^>]*>\s*Book\s*</option>', content
+            r'<input[^>]+name="type"[^>]+value="book"[^>]*\schecked', content
         )
+        assert not re.search(
+            r'<input[^>]+name="type"[^>]+value="chapter"[^>]*\schecked', content
+        )
+
+    def test_each_filter_in_force_is_listed_with_a_link_that_removes_it(
+        self, client, db
+    ):
+        ItemFactory(type=ItemType.BOOK, language="en")
+        response = client.get(
+            reverse("literature:item-list"), {"type": ItemType.BOOK, "language": "en"}
+        )
+        removals = {
+            refinement["name"]: refinement["remove_url"]
+            for refinement in response.context["refinements"]
+        }
+        assert removals == {
+            "type": f"{reverse('literature:item-list')}?language=en",
+            "language": f"{reverse('literature:item-list')}?type=book",
+        }
 
     @pytest.mark.parametrize(
         "clearing_params", [{"type": ""}, {}], ids=["empty-type", "no-params"]
@@ -1137,6 +1163,15 @@ class TestCatalogueFilterValidation:
         response = client.get(
             reverse("literature:item-list"), {"issued_year": "notanumber"}
         )
+        assert response.status_code == 200
+        assert len(response.context["table"].page.object_list) == 1
+
+    @pytest.mark.parametrize("year", ["0", "99999"])
+    def test_a_year_outside_the_calendar_is_ignored_not_an_error(
+        self, client, db, year
+    ):
+        ItemFactory()
+        response = client.get(reverse("literature:item-list"), {"issued_year": year})
         assert response.status_code == 200
         assert len(response.context["table"].page.object_list) == 1
 
@@ -1253,18 +1288,6 @@ class TestCatalogueOrdering:
         # Refused, not errored: django-tables2 silently drops an order_by
         # alias naming a non-orderable column, so the table keeps its
         # default newest-first order rather than raising or reordering.
-        citation_keys = [
-            row.record.citation_key
-            for row in response.context["table"].page.object_list
-        ]
-        assert citation_keys == [second.citation_key, first.citation_key]
-
-    def test_sort_by_the_actions_column_is_refused(self, client, db):
-        # A control, not data, has no single value to order on.
-        first = ItemFactory(citation_key="First")
-        second = ItemFactory(citation_key="Second")
-        response = client.get(reverse("literature:item-list"), {"sort": "actions"})
-        assert response.status_code == 200
         citation_keys = [
             row.record.citation_key
             for row in response.context["table"].page.object_list

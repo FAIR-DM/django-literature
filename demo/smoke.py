@@ -36,15 +36,16 @@ CONTRIBUTOR_LINK_RE = re.compile(
     r'href="(?P<path>/catalogue/contributors/\d+/)"[^>]*>(?P<text>[^<]+)<'
 )
 
-# The search box sits in the toolbar inside the filter <form>. The type and
-# language controls sit in the filter panel outside it, joined to it only by
-# the HTML5 `form="filterForm"` attribute, so ``form_fields`` cannot see them.
+# The search box and the filters sit in the table's toolbar. A single choice
+# such as language is a dropdown whose value travels in a hidden input joined
+# to the filter form by the HTML5 `form="filterForm"` attribute, so these
+# patterns look for the named control and ``form_fields`` is not used for them.
 SEARCH_INPUT_RE = re.compile(r'<input[^>]+type="search"[^>]+name="q"')
 
 
 def filter_control_re(name: str) -> re.Pattern[str]:
-    """Match the filter panel's control named ``name``, joined to the filter form."""
-    return re.compile(rf'<(?:select|input)[^>]+name="{name}"[^>]+form="filterForm"')
+    """Match the toolbar's control named ``name``."""
+    return re.compile(rf'<(?:select|input)[^>]+name="{name}"')
 
 
 # A rendered pagination link carrying another parameter joins it to `page=2`
@@ -64,11 +65,6 @@ SECOND_PAGE_LINK_RE = re.compile(
 CREATE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/add/)"')
 EDIT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/update/)"')
 DELETE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/delete/)"')
-
-# One row of the catalogue table (FS-009): scopes EDIT_LINK_RE to the row
-# that also carries a given item's own link, so the walk follows that row's
-# own edit control rather than the first edit link anywhere on the page.
-ROW_RE = re.compile(r"<tr\b.*?</tr>", re.DOTALL)
 
 # The import pass's own link (FS-011): the catalogue's Import action. Same
 # shape as CREATE_LINK_RE — the button's visible text sits behind an icon
@@ -489,41 +485,6 @@ class DemoWalk:
                 200,
                 f"catalogue list does not list the just-created reference at {item_path}",
                 list_after_create,
-            )
-
-        # Reach an edit form from a row's own edit control on the list page,
-        # not only from the reference page below (FS-009). Scoped to the row
-        # carrying this item's own link, so a different row's edit control
-        # landing on the right form by coincidence would not pass.
-        item_row = next(
-            (row for row in ROW_RE.findall(list_after_create) if item_path in row), None
-        )
-        if item_row is None:
-            self.fail(
-                list_url,
-                200,
-                f"no table row on the catalogue list carries {item_path}",
-                list_after_create,
-            )
-        row_edit_match = EDIT_LINK_RE.search(item_row)
-        if row_edit_match is None:
-            self.fail(
-                list_url,
-                200,
-                f"catalogue row for {item_path} carries no edit control",
-                item_row,
-            )
-        row_edit_url = f"{self.base_url}{row_edit_match.group('path')}"
-
-        row_edit_form_body = self.get(row_edit_url)
-        row_edit_fields = form_fields(row_edit_form_body)
-        if row_edit_fields.get("title") != title:
-            self.fail(
-                row_edit_url,
-                200,
-                f"the row's edit control did not open the edit form for {item_path} "
-                f"(its title field reads {row_edit_fields.get('title')!r}, not {title!r})",
-                row_edit_form_body,
             )
 
         edit_match = EDIT_LINK_RE.search(detail_body)

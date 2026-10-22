@@ -67,6 +67,19 @@ INSTALLED_APPS = [
     "literature.ui",
 ]
 
+# Live reload while developing: django-watchfiles is the faster file watcher
+# behind runserver's autoreload, and django-browser-reload refreshes the open
+# page after a change. Both come with the dev dependency group, not the `ui`
+# extra, so the demo still starts without them.
+try:
+    import django_browser_reload  # noqa: F401
+    import django_watchfiles  # noqa: F401
+except ImportError:
+    LIVE_RELOAD = False
+else:
+    LIVE_RELOAD = True
+    INSTALLED_APPS += ["django_watchfiles", "django_browser_reload"]
+
 # crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
 # with no default, so leaving this unset is an AttributeError on the first form
 # render rather than a fallback to another pack (FS-008). Shared with tests/settings.py.
@@ -88,6 +101,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.sites.middleware.CurrentSiteMiddleware",
 ]
+
+if LIVE_RELOAD:
+    MIDDLEWARE += ["django_browser_reload.middleware.BrowserReloadMiddleware"]
 
 TEMPLATES = [
     {

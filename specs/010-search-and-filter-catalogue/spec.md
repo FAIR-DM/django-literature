@@ -16,7 +16,7 @@
 
 - Q: FS-009 already gave the table bidirectional sorting from its column headings, so the issue's third clause — moving through results in a predictable order — looks served. Does this feature add an ordering surface, or does ordering enter only as the requirement that a sort survives a search and a filter? → A: The latter. No new ordering controls and no relevance ranking. Sorting stays the column headings, and this feature must compose with it.
 - Q: An item carries around sixty scalar fields, so "searching its text" needs a defined set. Does the search reach the abstract and the keywords, or stay on the fields that identify a reference? → A: Stay on identity. Citation key, the three title fields the row already falls back through, container title, and contributor names. Abstract and keyword text are excluded: a search over long text is a different capability with different infrastructure behind it, and including it would trade a fast, predictable lookup for a slow scan.
-- Q: The issue names item type, contributor and year. Contributor is awkward — thousands of references carry thousands of contributors, and there is already a contributor page answering "everything this person is credited on". Is that the filter set? → A: Add language. Contributor stays, because the contributor page answers only its one question and cannot be combined with "articles from 2019". The set is not meant to be exhaustive and is expected to grow as needs appear.
+- Q: The issue names item type, contributor and year. Contributor is awkward — thousands of references carry thousands of contributors, and there is already a contributor page answering "everything this person is credited on". Is that the filter set? → A: Item type, issued year and language. A contributor is found by searching their name: the search already matches every contributor's family, given and literal name in any role, and it combines with the filters, so "articles from 2019 by Darwin" is a search and two filters. A separate contributor filter would be a second text box running the same match. The set is not meant to be exhaustive and is expected to grow as needs appear.
 - Q: There are two public list views — the table the package now serves by default, and the card list a project can route to instead. Which one gets search and filtering? → A: Both, from one shared definition of what is searchable and filterable, each rendering the controls in its own idiom. A project that prefers cards must not silently lose the ability to find things.
 - Q: Issue #88 records that a chosen sort is discarded on a page change, because pagination links replace the whole query string. The upstream fix has now shipped. Does this feature absorb #88, or does it stay a separate issue? → A: Absorb it. This feature has to raise the same dependency floor regardless, because filtering discarded on page two is the defect the feature exists to remove.
 - Q: Are the fields the search reaches indexed? → A: Not today. Indexing them was asked for at intake and then withdrawn at the specification gate once it was established that an ordinary index cannot serve this search — see the scan below. The feature adds none.
@@ -27,8 +27,8 @@ Resolved from the intake session's context rather than escalated. Fuller rationa
 
 - Q: The searched fields were to be indexed. A single-column index does not serve a substring match — a query looking for a fragment anywhere inside a value cannot use an ordinary index, so adding one would cost write time and a migration and change no query. What does "indexed" have to mean here? → A: Nothing: the feature adds no index at all. Raised at the specification gate with the alternative, which is a database-specific index requiring an extension on PostgreSQL and having no equivalent on SQLite, and settled there — a package that needs a database extension to stay usable is a different package, and this feature is not the occasion to make it one. The filters are the same answer for a different reason: they narrow through foreign keys the framework already indexes, or through columns with too few distinct values for a planner to use one. Nothing about search speed is claimed anywhere, so nothing has to be qualified.
 - Q: Does the search match whole words or fragments, and does case matter? → A: Case-insensitive fragments. Someone hunting a half-remembered reference types part of a title or a surname, not its exact form, and a whole-word match would fail on the hyphenated and possessive forms bibliographic titles are full of.
-- Q: Contributor names are stored across several parts — family, given, particles, suffix, and a literal for organizations. Which does a search or a contributor filter match? → A: Family name, given name, and the literal that holds organizational and unparsed names. Particles and suffixes are matched only as part of those where they are stored inline. Omitting the literal would make every organization in the catalogue unfindable by name.
-- Q: An item can carry six date slots, and its dates are partial. What does the year filter mean? → A: The year of the `issued` slot, which is the date the table already shows and the one a reference is commonly cited by. A year-only date qualifies, as does the year a range begins in. A reference carrying no issued date is not returned when a year is chosen.
+- Q: Contributor names are stored across several parts — family, given, particles, suffix, and a literal for organizations. Which does a search match? → A: Family name, given name, and the literal that holds organizational and unparsed names. Particles and suffixes are matched only as part of those where they are stored inline. Omitting the literal would make every organization in the catalogue unfindable by name.
+- Q: An item can carry six date slots, and its dates are partial. What does the year filter mean? → A: The year of the `issued` slot, which is the date the table already shows and the one a reference is commonly cited by. A year-only date qualifies, as does the year a range begins in. A reference carrying no issued date is not returned when a year is chosen. The filter offers the years the catalogue's issued dates fall in, newest first, so a reader picks a year rather than typing one.
 - Q: `language` is a free-text field with no fixed vocabulary, so its values are whatever the imported data carries. What does the filter offer? → A: The distinct values present in the catalogue, shown as stored. Inventing a display vocabulary would mean mapping arbitrary strings onto a list this package does not own, and a value that appears in no reference is not worth offering.
 - Q: How do several filters, and several values within one filter, combine? → A: Choosing more than one value within a filter widens the result to any of them; filters combine with each other and with the search to narrow it. That is what a reader means by "articles or chapters, from 2019".
 - Q: What does the reader see when a search or a filter returns nothing? → A: A message saying nothing matched, distinct from the message shown when the catalogue itself is empty, with the search and filter controls still present so the reader can change them. Emptying the page of its own controls strands the reader on a dead end.
@@ -67,7 +67,7 @@ Someone with a few thousand references types part of a surname, a word from a ti
 
 ### User Story 2 - Narrow the catalogue to a part of it (Priority: P2)
 
-Someone wants the chapters, or everything from 2019, or everything by one contributor, or everything in German. Filters beside the catalogue offer item type, contributor, issued year and language, they combine with each other and with the search, and what is in force is visible on the page rather than only in the address bar.
+Someone wants the chapters, or everything from 2019, or everything in German. Filters for item type, issued year and language sit in the catalogue's toolbar beside the search box, they combine with each other and with the search, and what is in force is visible on the page rather than only in the address bar. Everything by one contributor is a search for their name.
 
 **Why this priority**: It answers the questions a search cannot — a reader who wants a group rather than a reference has nothing to type. It sits below search because a reader who knows what they are looking for is served by the box alone.
 
@@ -75,10 +75,10 @@ Someone wants the chapters, or everything from 2019, or everything by one contri
 
 **Acceptance Scenarios**:
 
-1. **Given** a catalogue page, **When** it is opened, **Then** filters for item type, contributor, issued year and language are present.
+1. **Given** a catalogue page over references carrying issued dates and languages, **When** it is opened, **Then** filters for item type, issued year and language are present.
 2. **Given** an item type is chosen, **When** the results are shown, **Then** every result carries that type and no other type appears.
 3. **Given** two item types are chosen, **When** the results are shown, **Then** results carrying either type appear and no other type does.
-4. **Given** a contributor is named, **When** the results are shown, **Then** every result credits that contributor in some role.
+4. **Given** the issued year filter is offered, **When** its choices are read, **Then** they are the years the catalogue's issued dates fall in, newest first, each once.
 5. **Given** an issued year is chosen, **When** the results are shown, **Then** every result's issued date falls in that year, including references whose issued date is a year alone.
 6. **Given** an issued year is chosen, **When** the results are shown, **Then** references carrying no issued date at all do not appear.
 7. **Given** a language is chosen, **When** the results are shown, **Then** every result carries that language value as stored.
@@ -86,7 +86,8 @@ Someone wants the chapters, or everything from 2019, or everything by one contri
 9. **Given** an item type and an issued year are both chosen, **When** the results are shown, **Then** every result satisfies both.
 10. **Given** a filter and a search term are both in force, **When** the results are shown, **Then** every result satisfies both, and the page states how many matched.
 11. **Given** filters are in force, **When** the page is read, **Then** what is in force is visible on the page and can be cleared from it.
-12. **Given** a filter value that matches no reference, **When** it is applied, **Then** the page reports that nothing matched and does not raise an error. **Given** a value a filter cannot accept at all, such as a year that is not a number, **When** the address carries it, **Then** that filter is ignored, every other filter and the search still apply, and the page does not raise an error.
+12. **Given** a filter value that matches no reference, such as a year no reference was issued in, **When** it is applied, **Then** the page reports that nothing matched and does not raise an error. **Given** a value a filter cannot accept at all, such as a year that is not a number, **When** the address carries it, **Then** that filter is ignored, every other filter and the search still apply, and the page does not raise an error.
+13. **Given** a catalogue in which no reference records a language, **When** the table is opened, **Then** its toolbar offers no language filter, and the same holds for the issued year when no reference carries an issued date.
 
 ---
 
@@ -119,7 +120,7 @@ A project that routes its catalogue at the card list rather than the table gets 
 
 **Acceptance Scenarios**:
 
-1. **Given** the catalogue routed at the card list, **When** the page is opened, **Then** a search box and the same four filters are present.
+1. **Given** the catalogue routed at the card list, **When** the page is opened, **Then** a search box is present, and a Filters button opens the same three filters in a drawer at every screen width.
 2. **Given** the same search term applied to both presentations, **When** the results are compared, **Then** they contain the same references.
 3. **Given** the same filters applied to both presentations, **When** the results are compared, **Then** they contain the same references.
 4. **Given** a search or filter on the card list spanning several pages, **When** the reader moves to another page, **Then** it survives.
@@ -138,7 +139,7 @@ The demo project serves a catalogue big enough and varied enough to search and f
 
 **Acceptance Scenarios**:
 
-1. **Given** the demo's seed references, **When** they are read, **Then** they span enough item types, years, languages and contributors for every filter to have more than one value.
+1. **Given** the demo's seed references, **When** they are read, **Then** they span enough item types, years and languages for every filter to have more than one value.
 2. **Given** the demo running, **When** the guard searches the catalogue, **Then** it confirms the results narrowed to the expected references.
 3. **Given** the demo running, **When** the guard applies a filter, **Then** it confirms the results narrowed to the expected references.
 4. **Given** the demo running, **When** the guard moves to a second page of a filtered result, **Then** it confirms the filter survived.
@@ -150,7 +151,7 @@ The demo project serves a catalogue big enough and varied enough to search and f
 
 - A search fragment of one character, or one consisting only of spaces, must behave predictably rather than returning the catalogue as though nothing had been typed.
 - A search fragment containing the pattern-matching characters a database treats specially must be matched as literal text.
-- A reference credited to the same contributor in two roles must appear once in a contributor-filtered result, not twice.
+- A reference credited to the same contributor in two roles must appear once in a search for that contributor's name, not twice.
 - A reference whose issued date is a range spanning a year boundary is returned for the year its range begins in.
 - A language value differing only by case or by region subtag from another is a distinct value in the filter, because the field stores what the source carried.
 - Search and filter terms are held in the address, so a reader can bookmark or share a narrowed catalogue and get the same result back.
@@ -172,11 +173,11 @@ The demo project serves a catalogue big enough and varied enough to search and f
 
 **Filters**
 
-- **FR-009**: The catalogue MUST offer filters for item type, contributor, issued year and language.
+- **FR-009**: The catalogue MUST offer filters for item type, issued year and language. On the table they MUST sit in the toolbar beside the search box. On the card list they MUST sit in a panel opened from the toolbar, which opens as a drawer at every screen width rather than sitting beside the list.
 - **FR-010**: The item type filter MUST offer the human-readable, translatable label of each type and MUST narrow on the stored type value.
-- **FR-011**: The contributor filter MUST narrow to references crediting a matching contributor in any role, and MUST return such a reference once even when it credits that contributor in more than one role.
+- **FR-011**: The issued year filter MUST offer the years the catalogue's issued dates fall in, newest first, each once. It MUST also accept a year none of them falls in, which narrows to nothing.
 - **FR-012**: The issued year filter MUST narrow to references whose `issued` date falls in the chosen year, including dates stored as a year alone and ranges beginning in that year, and MUST exclude references carrying no issued date.
-- **FR-013**: The language filter MUST offer the distinct language values the catalogue holds, as stored, and MUST NOT offer a value no reference carries.
+- **FR-013**: The language filter MUST offer the distinct language values the catalogue holds, as stored, and MUST NOT offer a value no reference carries. When the catalogue holds no value for a filter whose choices come from it, the table's toolbar MUST leave that filter out.
 - **FR-014**: Choosing more than one value within a filter MUST widen the result to references matching any of them.
 - **FR-015**: Filters MUST combine with each other and with the search so that a result satisfies all of them.
 - **FR-016**: What is currently in force MUST be visible on the page and clearable from it.
@@ -210,7 +211,7 @@ The demo project serves a catalogue big enough and varied enough to search and f
 **Packaging, the demo and the documentation**
 
 - **FR-031**: A core-only install MUST resolve nothing this feature adds to the front end.
-- **FR-032**: The demo's seed references MUST span enough item types, years, languages and contributors for every filter to offer more than one value.
+- **FR-032**: The demo's seed references MUST span enough item types, years and languages for every filter to offer more than one value.
 - **FR-033**: The demo's guard MUST exercise a search, a filter and a page move over a narrowed result, and MUST fail when any of them stops working.
 - **FR-034**: The documentation MUST state what the search matches, what it deliberately does not, what each filter narrows on, and how the search and filters compose with sorting and pagination.
 
@@ -223,7 +224,7 @@ No new entity and no changed field. The search and the filters read what the sto
 ### Measurable Outcomes
 
 - **SC-001**: A reader who remembers a fragment of a title, a contributor's surname, or a citation key reaches that reference from a catalogue of thousands in one action.
-- **SC-002**: A reader can narrow the catalogue to a single item type, a single contributor, a single issued year, or a single language, and to any combination of them together with a search.
+- **SC-002**: A reader can narrow the catalogue to a single item type, a single issued year, or a single language, and to any combination of them together with a search, including a search for a contributor's name.
 - **SC-003**: A search, a filter and a sort applied together all remain in force after moving to another page of the results.
 - **SC-004**: A catalogue narrowed by search and filters can be bookmarked and reopened to the same result.
 - **SC-005**: The card list returns the same references for the same search and the same filters as the table does.
@@ -238,7 +239,7 @@ No new entity and no changed field. The search and the filters read what the sto
 - Where the front end meets a defect in the interface layer's own logic or templates, the defect is raised upstream and the floor rises to the release that fixes it. This feature does not fork someone else's markup around a bug (Sam's direction, 2026-08-20).
 - The searched and filtered fields are those a reference is identified by. Discovery over abstracts and keywords is a different capability, with different infrastructure behind it, and is not in this feature.
 - The feature ships no index, and this is a decision rather than an omission (see `decisions.md`). Anyone reading the search later and reaching for `db_index=True` on the title fields should read that entry first: it would not be used by this search. Making a fragment search fast needs a database-specific facility — a trigram index on PostgreSQL, with no SQLite equivalent — and requiring one is a change to what the package demands of its host, which is its own decision and not this one.
-- The filter set — item type, contributor, issued year, language — is what references are commonly grouped by today, not a closed list. It is expected to grow, so the definition of what is filterable is written to be added to.
+- The filter set — item type, issued year, language — is what references are commonly grouped by today, not a closed list. It is expected to grow, so the definition of what is filterable is written to be added to.
 - Nothing in the front end checks permissions, so a search and its filters are visible to whoever can reach the catalogue page, matching what FS-008 and FS-009 settled for the pages around it.
 - Sorting is the column headings FS-009 shipped. This feature composes with them and introduces no ordering surface of its own.
 - The contributor page keeps its current behaviour, which is the boundary FS-009 drew for the same page.
