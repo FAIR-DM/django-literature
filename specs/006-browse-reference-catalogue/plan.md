@@ -70,9 +70,7 @@ specs/006-browse-reference-catalogue/
 ├── decisions.md
 ├── research.md
 ├── plan.md
-├── tasks.md
-├── progress.md
-└── feature-state.json
+└── tasks.md
 ```
 
 No `data-model.md` — this feature adds no model. No `contracts/` — it has no API surface; its

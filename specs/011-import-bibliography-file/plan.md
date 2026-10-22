@@ -74,7 +74,6 @@ specs/011-import-bibliography-file/
 ├── decisions.md
 ├── research.md
 ├── plan.md
-├── progress.md
 └── tasks.md
 ```
 

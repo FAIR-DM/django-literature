@@ -79,9 +79,7 @@ specs/005-import-references-ris/
 ├── decisions.md         # D1–D15
 ├── data-model.md        # the RIS→CSL mapping tables, as documentation (FR-012)
 ├── plan.md              # this file
-├── tasks.md
-├── progress.md
-└── feature-state.json
+└── tasks.md
 ```
 
 ### Source code

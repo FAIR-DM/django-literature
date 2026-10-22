@@ -333,9 +333,7 @@ specs/008-add-edit-remove-references/
 ├── decisions.md
 ├── research.md
 ├── plan.md            # this file
-├── tasks.md
-├── progress.md
-└── feature-state.json
+└── tasks.md
 ```
 
 ### Source code (repository root)

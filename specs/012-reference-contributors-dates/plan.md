@@ -73,9 +73,7 @@ specs/012-reference-contributors-dates/
 ├── decisions.md         D1–D10 from specification, D11+ from planning
 ├── research.md          R1–R7
 ├── plan.md              this file
-├── tasks.md
-├── progress.md
-└── feature-state.json
+└── tasks.md
 ```
 
 ### Source code
