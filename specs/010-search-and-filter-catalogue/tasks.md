@@ -25,7 +25,7 @@ phase — different files, no shared state.
 
 - [ ] **T002** `poetry lock` and install. The lock pins django-mvp 0.19.0 today, so this is a real
   resolution, not a formality. Record the resolved django-mvp and django-filter versions in
-  `progress.md`.
+  the build log.
 
 - [ ] **T003** Add `"django_filters"` to `INSTALLED_APPS` in `tests/settings.py` and
   `demo/settings.py`, unconditional in both, and to the installation documentation alongside
@@ -166,7 +166,7 @@ phase — different files, no shared state.
   `TestCatalogueOrdering::test_sort_survives_following_the_rendered_link_to_page_2`, whose assertion
   and fixture stay exactly as they are. The marker is `strict=True`, so an uncorrected helper and a
   removed marker each fail loudly — that is intended. This is the test that closes #88; watch it go
-  from red to green on the helper's line alone, and record that in `progress.md`.
+  from red to green on the helper's line alone, and record that in the build log.
 
   Everything in T018 to T021 that follows a rendered link measures through this helper, so nothing
   else in this story is trustworthy until it is fixed.

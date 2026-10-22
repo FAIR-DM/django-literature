@@ -30,7 +30,7 @@ phase — different files, no shared state.
   *Test scope:* `tests/test_ui/test_packaging.py`.
 
 - [ ] **T002** `poetry lock` and install, so django-tables2 is resolvable. Record the resolved
-  django-tables2 and django-mvp versions in `progress.md`.
+  django-tables2 and django-mvp versions in the build log.
 
 - [ ] **T003** Add `"django_tables2"` to `INSTALLED_APPS` in `tests/settings.py` and
   `demo/settings.py`. Unconditional in both — the `ui` extra installs it. Add `django_tables2` to

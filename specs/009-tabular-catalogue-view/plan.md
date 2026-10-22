@@ -78,9 +78,7 @@ specs/009-tabular-catalogue-view/
 ├── decisions.md
 ├── research.md
 ├── plan.md          # this file
-├── progress.md
-├── tasks.md
-└── feature-state.json
+└── tasks.md
 ```
 
 ### Source code

@@ -98,7 +98,6 @@ specs/003-import-contract/
 ├── quickstart.md        # Phase 1: what using it looks like
 ├── checklists/
 │   └── requirements.md  # spec quality checklist
-├── progress.md          # append-only run record
 └── tasks.md             # Phase 2
 ```
 

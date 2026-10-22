@@ -234,7 +234,6 @@ specs/007-runnable-demo-project/
 ├── decisions.md
 ├── research.md
 ├── plan.md
-├── progress.md
 └── tasks.md
 ```
 
