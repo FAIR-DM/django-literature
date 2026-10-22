@@ -200,15 +200,13 @@ This feature persists nothing and adds no model. The entities it introduces are 
 
 ### Component gaps
 
-Empty at specification time. FR-009 requires that any component built locally because django-mvp has none is recorded here, with the upstream request it was filed under, so it can be removed when a django-mvp release carries the component.
+FR-009 requires that any component built locally because django-mvp has none is recorded here, with the upstream request it was filed under, so it can be removed when a django-mvp release carries the component.
 
-One file stands in for something django-mvp does not yet ship, filed upstream as django-mvp#219:
+One template stands in for something django-mvp does not yet offer, filed upstream as django-mvp/django-mvp#579:
 
-- `literature/ui/templates/base.html` — a single `{% extends "mvp/base.html" %}` and nothing else.
+- `literature/ui/templates/literature/ui/item_table_page.html` — redraws the `page.panel` block of django-mvp's `table_view.html` as it ships, adding the Import action at the end of the toolbar row and drawing the hidden sort field inside the filter form.
 
-django-mvp routes every packaged page through the unqualified `base.html`: `page_view.html` extends it, and `list_view.html` and `detail_view.html` extend that in turn. The name belongs to the host project and django-mvp ships no default for it, so without this file the packaged chain raises `TemplateDoesNotExist` in a project that has written none — and SC-002 rules out asking a host to write one. With it, the app's pages render through django-mvp's own view templates, which is the arrangement this feature wants: no page template of ours to drift from the package.
-
-The stand-in is polite by construction, and two tests hold that line: it defines no block, so a project inherits nothing invisible from it, and a project's own `base.html` wins because a project's template directory is searched before any app's. It is deleted when django-mvp ships a default, which is what django-mvp#219 asks for. It defines no component.
+django-mvp's table page offers no block in the toolbar row under the title, so the only way to put Import at the end of that row is to redraw the row. The card list renders django-mvp's `list_view.html` with no template of the package's own over it. The redrawn block is deleted when django-mvp's table page offers a block in that row.
 
 ## Success Criteria *(mandatory)*
 

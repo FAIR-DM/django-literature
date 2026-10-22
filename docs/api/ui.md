@@ -10,16 +10,24 @@ table and the card presentation narrow to the same set of references.
 - `SEARCH_FIELDS` — the ORM paths a search matches: citation key, the three title
   fields, container title, and every credited contributor's family, given and literal
   name. `ItemFilterSet.q` searches them.
-- `ItemFilterSet` — the search and the four filters: item type, contributor, language
-  and issued year. It lists every filter explicitly and pins `Meta.fields` to an empty
-  list, so nothing is generated over fields the catalogue does not filter on.
+- `ItemFilterSet` — the search and the three filters: item type, issued year and
+  language. It lists every filter explicitly and pins `Meta.fields` to an empty list,
+  so nothing is generated over fields the catalogue does not filter on. A contributor
+  is found through the search, which matches every credited name.
 - `ItemTableFilterSet` — `ItemFilterSet` plus a hidden `sort` field that carries the
   table's column order through the filter form, so applying a filter keeps the sort.
 - `LanguageFilter` — offers the language values the catalogue actually holds, read
   from stored data on each request rather than from a fixed list a project has to keep
   in step.
+- `YearFilter` — offers the years the catalogue's issued dates fall in, newest first,
+  read from stored data on each request. Its field, `YearChoiceField`, still accepts a
+  year that is not on offer, so an old address carrying one narrows to nothing rather
+  than being ignored.
 - `annotate_issued` — annotates a queryset with `issued`, taken from the issued date
   slot. The year filter narrows on it and the table sorts on it.
+- `TypeFilter` — the item-type filter, any of several types. Its field,
+  `TypeChoiceField`, declares `ScalarOrListSelectMultiple` as its own default widget,
+  which is what lets django-mvp's toolbar draw it as a checkbox dropdown.
 - `ScalarOrListSelectMultiple` — the item-type widget. It accepts either one stored
   value or several, so choosing two types widens the result to either of them.
 
@@ -51,8 +59,15 @@ for why the choice is made this way rather than by routing.
 prefetching a row needs. The contributor page composes it without the search box and
 filters, which belong to the catalogue alone.
 
-`ItemImportView` serves the import page, reached from the Import action on either
-catalogue presentation. It renders the format choice and file control on a `GET`. On a
+`ItemTableView` draws the search box and every filter in its toolbar, and leaves out a
+choice filter the catalogue holds nothing for, such as Language when no reference
+records one. Its template, `literature/ui/item_table_page.html`, redraws django-mvp's
+toolbar row to put Import at the end of it, since django-mvp offers no block in that row
+(django-mvp/django-mvp#579). `ItemListView` renders django-mvp's list page as it ships,
+with the filters in a drawer opened from the toolbar at every screen width.
+
+`ItemImportView` serves the import page, reached from the Import action on the table
+catalogue. It renders the format choice and file control on a `GET`. On a
 valid `POST` it stages the uploaded file and redirects to the preview. Where the reader
 ticked the skip-preview control it instead runs the chosen format immediately and
 renders the report in that same response, which is the only path that still does.

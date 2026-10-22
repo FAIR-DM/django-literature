@@ -9,9 +9,10 @@ All notable changes to this project are documented in this file. The format foll
 ### Changed
 
 - **The front end needs django-mvp 0.30.1 or later.** The `ui` extra now asks for
-  `django-mvp (>=0.30.1,<1.0)`. The catalogue's search and filters share one definition, the
-  filters sit in a panel beside the results with the search box in the toolbar, and applying a
-  filter or moving to another page updates the list without reloading it. Forms render through
+  `django-mvp (>=0.30.1,<1.0)`. The catalogue's search and filters share one definition. On the
+  table they sit together in the toolbar, and on the card list the filters open in a drawer from a
+  Filters button. Applying a filter or moving to another page updates the list without reloading
+  it. Forms render through
   django-mvp-forms in place of crispy-tailwind. A filter value that cannot be read, such as a year
   that is not a number, is now ignored for that filter alone, where it used to empty the list.
 
@@ -44,9 +45,10 @@ All notable changes to this project are documented in this file. The format foll
 
 - Django 6.1 is supported, and tested on every change alongside 5.2 and 6.0.
 
-- **Importing a bibliography file through the front end.** The catalogue carries an Import
-  action, on both presentations, that opens a page to choose a configured format and attach a
-  file. Submitting it previews by default: the file is set aside and you land on a preview page at
+- **Importing a bibliography file through the front end.** The table catalogue carries an Import
+  action at the end of its toolbar, after the filters, that opens a page to choose a configured
+  format and attach a file. The card list has no Import action; a project serving it links to the
+  `literature:item-import` route from its own navigation. Submitting it previews by default: the file is set aside and you land on a preview page at
   its own address, saying plainly that nothing has been imported yet and showing the report a real
   import would produce. It gives the counts — how many entries would be created, skipped and
   failed — and one row per entry in source order, numbered from one, each outcome a colour-coded
@@ -80,8 +82,16 @@ All notable changes to this project are documented in this file. The format foll
   the file it accepts, the same as every other page in the front end.
 
 - **Searching and filtering the catalogue.** Both the table and the card presentation carry a
-  search box and four filters — item type, contributor, language, and issued year — reading from
-  one shared definition, so a narrowed catalogue looks the same whichever route serves it.
+  search box and three filters — item type, issued year and language — reading from one shared
+  definition, so a narrowed catalogue returns the same references whichever route serves it. On
+  the table every filter sits in the toolbar beside the search box. On the card list they open in a
+  drawer from a Filters button, at every screen width.
+
+  Item type takes several types at once. Year offers the years the catalogue's issued dates fall
+  in, newest first, and Language the language values the catalogue holds. The table leaves a filter
+  out of its toolbar when the catalogue holds nothing for it to offer, such as Language when no
+  reference records one. There is no contributor filter: the search box already finds a reference
+  by any credited contributor's name, in any role.
 
   The search box matches a fragment, case-insensitively, against a reference's citation key, its
   title, short title and original title, the container it appeared in, and every credited
@@ -90,8 +100,9 @@ All notable changes to this project are documented in this file. The format foll
   handful of short fields.
 
   Choosing more than one value within a single filter widens what it accepts; a search term and a
-  filter, or two different filters, narrow further. An invalid or unmatched filter value returns no
-  results rather than falling back to the whole catalogue or raising an error.
+  filter, or two different filters, narrow further. A filter value that matches nothing, such as a
+  year no reference was issued in, returns no results rather than falling back to the whole
+  catalogue or raising an error.
 
   A search, every filter, the chosen sort and the current page all live in the address, so moving to
   another page, changing the sort, or bookmarking the address and reopening it later keeps every one
@@ -131,8 +142,8 @@ All notable changes to this project are documented in this file. The format foll
 - **The catalogue serves as a table by default.** `literature.ui`'s catalogue page used to be a list
   of cards; a project installing the front end with no configuration now gets a row per reference —
   citation key, item type, title, the journal or book it appeared in, its credited names and its
-  issued date — with an edit control on every row and a sort on every column heading but the credited
-  names and the edit control themselves. Paging, the page size, the empty state and the Add action are
+  issued date — with a sort on every column heading but the credited names. A row's title opens the
+  reference's page, where it is edited. Paging, the page size, the empty state and the Add action are
   unchanged.
 
   The card presentation the package served before is still there, reachable the same way, and still

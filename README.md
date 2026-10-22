@@ -252,8 +252,8 @@ to write.
 
 With no further configuration, the catalogue route above serves references as a table — one row per
 reference, carrying its citation key, item type, title, the journal or book it appeared in, its
-credited names and its issued date, with an edit control on every row and a click to sort on every
-column heading but the credited names and the edit control themselves. That is what a project
+credited names and its issued date, with a click to sort on every column heading but the credited
+names. A row's title opens the reference's page, where it is edited. That is what a project
 managing its own library gets out of the box.
 
 The card presentation the package served before the table existed is still there: `ItemListView`,
@@ -287,10 +287,11 @@ order behind it does not change with it.
 
 ### Searching and filtering the catalogue
 
-Both presentations carry a search box and four filters, reading from one shared definition, so a
-narrowed catalogue looks the same whichever route serves it. The search box sits in the toolbar, and
-the four filters sit in a panel beside the results that opens from a Filters button on a narrow
-screen. Applying a filter, removing one or moving to another page updates the list without
+Both presentations carry a search box and three filters, reading from one shared definition, so a
+narrowed catalogue returns the same references whichever route serves it. On the table the search
+box and every filter sit together in the toolbar, each filter a dropdown. On the card list the
+search box sits in the toolbar and the filters open in a drawer from a Filters button, at every
+screen width. Applying a filter, removing one or moving to another page updates the list without
 reloading the page.
 
 The search box matches a fragment, case-insensitively, against a reference's citation key, its
@@ -299,21 +300,27 @@ contributor's name. It deliberately does not reach a reference's abstract or its
 runs much longer, and searching it well needs different infrastructure than a fast, predictable
 lookup over a handful of short fields.
 
-The four filters narrow on:
+The three filters narrow on:
 
-- **Item type** — the kind of reference: an article, a book, a dataset, and so on.
-- **Contributor** — a name fragment matched against a contributor's family, given, or literal name,
-  in any role.
+- **Type** — the kind of reference: an article, a book, a dataset, and so on. Several can be ticked
+  at once.
+- **Year** — the year a reference's issued date falls in, including a reference whose date covers a
+  range beginning that year. It offers the years the catalogue's issued dates fall in, newest
+  first. A reference with no issued date never matches a year.
 - **Language** — whichever language values the catalogue actually holds, offered as a chooser built
   from the stored data rather than a fixed list a project has to keep in sync with it.
-- **Issued year** — the year a reference's issued date falls in, including a reference whose date
-  covers a range beginning that year. A reference with no issued date never matches a year filter.
+
+The table leaves Year or Language out of its toolbar when the catalogue holds nothing for it to
+offer, such as Language when no reference records one.
+
+There is no contributor filter. To find everything a person is credited on, search their name: the
+search box matches every contributor's family, given and literal name, in any role.
 
 Choosing more than one value within a single filter widens what it accepts — an article or a book.
 A search term and a filter, or two different filters, narrow further — an article, published in
-2019. A filter value that matches no reference returns no results. A value a filter cannot accept, such as
-a year that is not a number, is ignored for that filter alone, and the search and the other filters
-still apply.
+2019. A filter value that matches no reference, such as a year no reference was issued in, returns
+no results. A value a filter cannot accept, such as a year that is not a number, is ignored for that
+filter alone, and the search and the other filters still apply.
 
 A search, every filter, the chosen sort and the current page all live in the address, so moving to
 another page, changing the sort, or bookmarking the address and reopening it later keeps every one
@@ -338,8 +345,9 @@ to the host project to add, the same way it would guard any other view.
 
 ### Importing a bibliography file
 
-The catalogue list carries an Import action too, opening a page with a format choice and a file
-control. Submitting previews the file by default, on a page of its own: the same report a real
+The table catalogue carries an Import action at the end of its toolbar, after the filters, opening
+a page with a format choice and a file control. The card list has none, so a project serving the
+catalogue as cards links to the `literature:item-import` route from its own navigation. Submitting previews the file by default, on a page of its own: the same report a real
 import would produce, with nothing yet written to the catalogue — how many entries would be
 created, skipped and failed, and one row per entry in the order the file held them, narrowable to
 one outcome without leaving the page. A control at the foot carries out the import it described

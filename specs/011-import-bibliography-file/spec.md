@@ -33,7 +33,7 @@ Resolved from the intake session's context rather than escalated. Fuller rationa
 - Q: The issue rules out guessing from a count. Does the report show counts at all? → A: Yes, alongside the per-entry list, never instead of it. How many were created, skipped and failed is the first thing a reader wants; which ones failed and why is the thing they cannot get anywhere else.
 - Q: Is the report grouped by outcome, or in the order the entries appear in the file? → A: Source order, so a reader can follow it against the file they submitted. Failed entries are distinguishable within that order rather than lifted out of it.
 - Q: A four-hundred-entry file produces a four-hundred-row report. Is the report paginated? → A: No. The report exists once, so a second page of it would be a page the reader cannot return to. It is one page however long the file was.
-- Q: The catalogue has two presentations — the table it serves by default and the card list a project can route to instead. Does the import action appear on both? → A: Both. FS-010 settled this exact fork for search and filtering: a project that chooses the card presentation must not silently lose a capability. The action is defined once and each presentation renders it in its own idiom.
+- Q: The catalogue has two presentations — the table it serves by default and the card list a project can route to instead. Does the import action appear on both? → A: On the table only, at the end of its toolbar row after the filters. The card list renders django-mvp's list page as it ships, with no template of the package's own over it, so it carries the create action and nothing more. The import page keeps its named route, so a project serving the card list can still link to it from its own navigation.
 - Q: Nothing already stored is compared against an incoming entry, so importing the same file twice produces two sets of references. Does the front end warn? → A: It states it plainly on the import page, before the reader submits. It does not detect it, because detecting it is a decision the package has taken twice and refused twice (ADR 0009, ADR 0023) and this feature is not the occasion to reopen it.
 - Q: A run that fails partway leaves the entries before the failure stored. Does the reader learn that? → A: The report shows it, because every entry appears with its own outcome — the created ones are created whatever happened after them. The documentation states it as well, since it is the one thing about the import a reader could reasonably assume the other way.
 - Q: Does the feature change the import contract, any model, or ship a migration? → A: None of the three. It is a front-end path onto a contract that already returns everything the report needs. If something the report requires turns out to be missing from the result, that is a finding raised as its own issue rather than a contract change smuggled in here.
@@ -67,9 +67,8 @@ Someone looking at the catalogue has a file their reference manager just exporte
 14. **Given** a report, **When** it is read, **Then** it offers a way back to the catalogue.
 15. **Given** a file where an entry fails after several have been created, **When** the report is read, **Then** the created entries are reported created and are present in the catalogue.
 16. **Given** a file of four hundred entries, **When** the report is shown, **Then** every entry appears on the one page and the report is not paginated.
-17. **Given** the catalogue routed at the card list instead of the table, **When** its toolbar is read, **Then** the same import action is present and leads to the same page.
-18. **Given** the import page, **When** it is read before submitting, **Then** it says that importing the same file twice creates the references twice.
-19. **Given** an import that created references, **When** the catalogue is opened afterwards, **Then** they are in it.
+17. **Given** the import page, **When** it is read before submitting, **Then** it says that importing the same file twice creates the references twice.
+18. **Given** an import that created references, **When** the catalogue is opened afterwards, **Then** they are in it.
 
 ---
 
@@ -207,8 +206,8 @@ Someone submits a file and lands on a page of its own, titled for what it is, th
 
 **Reaching the import**
 
-- **FR-001**: The catalogue MUST offer an action in its toolbar leading to the import page.
-- **FR-002**: The toolbar action MUST be defined once and MUST appear on both catalogue presentations, the table and the card list.
+- **FR-001**: The table catalogue MUST offer an action in its toolbar leading to the import page.
+- **FR-002**: The action MUST sit at the end of the table's toolbar row, after the filters. The card list MUST render django-mvp's list page unmodified and so carries no import action.
 - **FR-003**: The import page MUST be reachable at a named route within the front end's namespace.
 
 **Submitting a file**
@@ -300,7 +299,7 @@ No new entity, no changed field and no migration. The report renders what the im
 - **SC-003**: Every failed entry carries a reason naming what was wrong with it.
 - **SC-004**: A reader reaches a created reference's page from the report in one action.
 - **SC-005**: No submitted file — empty, undecodable, of the wrong format, or absent — produces a server error.
-- **SC-006**: The import path is reachable from both catalogue presentations.
+- **SC-006**: The import path is reachable from the table catalogue the package serves by default.
 - **SC-007**: The feature ships no migration and changes no model.
 - **SC-008**: Installing the core alone resolves nothing this feature added.
 - **SC-009**: The demo's guard fails when the import action, the preview, the confirmation or the report stops working.
@@ -317,5 +316,5 @@ No new entity, no changed field and no migration. The report renders what the im
 - The package imposes no size limit of its own on the submitted file. The import runs in the request, so what bounds a large file is the host project's upload and request limits, and the documentation says so rather than the package inventing a number.
 - Background imports are a separate feature with their own specification. Nothing here is designed around a future move off the request, because the report is what a background import would have to reproduce and it is worth building once against the simple case first.
 - Duplicate detection stays refused. ADR 0009 and ADR 0023 both settled it, and a front end that quietly acquired it would contradict the documented behaviour of the same import run started from code.
-- Both catalogue presentations carry the action, following the boundary FS-010 drew when it gave search and filtering to the card list as well as the table.
+- The table carries the action and the card list does not. A project that routes its catalogue at the card list and wants the import reachable links to the named route itself.
 - The formats offered are read from the installation's configuration, so this feature needs no change when a format is added or removed.
