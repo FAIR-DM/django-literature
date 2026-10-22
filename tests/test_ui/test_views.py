@@ -61,6 +61,17 @@ ER  -
 """
 
 
+#: The count on the Filters button, which django-mvp draws once any filter in
+#: its panel is applied.
+FILTER_BADGE_RE = r'Filters\s*<span class="badge badge-secondary badge-sm">(\d+)</span>'
+
+
+def filter_badge_count(content):
+    """Return the count on the rendered Filters button, or ``None`` without one."""
+    match = re.search(FILTER_BADGE_RE, content)
+    return int(match.group(1)) if match else None
+
+
 def table_header_row(content):
     """Return the table's ``<thead>`` markup.
 
@@ -195,7 +206,7 @@ class TestItemListView:
         ItemFactory.create_batch(30)
         response = client.get(reverse(route_name))
         content = response.content.decode()
-        assert "1-24 of 30" in content
+        assert "1\u201324 of 30" in content
         assert 'href="?page=2"' in content
 
     @pytest.mark.parametrize("route_name", CATALOGUE_ROUTES)
@@ -343,7 +354,7 @@ class TestTheCardListStaysAvailable:
 
         ItemFactory.create_batch(30)
         populated_content = client.get(reverse("item-list-cards")).content.decode()
-        assert "1-24 of 30" in populated_content
+        assert "1\u201324 of 30" in populated_content
         assert 'href="?page=2"' in populated_content
 
     def test_the_contributor_page_still_presents_cards(self, client, db):
@@ -393,18 +404,13 @@ class TestTheCardListFiltersAndSearches:
     def test_a_sort_with_no_filter_in_force_shows_no_applied_filter_badge(
         self, client, db
     ):
-        # MVPFilteredListView's own
-        # get_context_data() (mvp/integrations/django_filters/views.py)
-        # counts every non-empty field of filterset.form.cleaned_data, and
-        # "sort" (literature/ui/filters.py ItemFilterSet.sort) is a hidden
-        # field on that form carrying django-tables2's own ordering — not one of the catalogue's own filters.
-        # Proven through the shared exclusion function, not a second copy of
-        # the table's own override.
+        # The card list has no sort of its own, so a "sort" address
+        # parameter is not a filter and nothing counts it as one.
         ItemFactory()
         response = client.get(reverse("item-list-cards"), {"sort": "-citation_key"})
         assert not response.context.get("applied_filters")
         content = response.content.decode()
-        assert "indicator-item badge badge-secondary badge-xs" not in content
+        assert filter_badge_count(content) is None
 
 
 def catalogue_pks(route_name, params):
@@ -602,67 +608,52 @@ class TestItemTableView:
         )
 
     def test_carries_search_and_filter_but_no_column_chooser(self, client, db):
-        # FS-010 turned search and filter back on after FS-009 locked them off.
         # Asserted against the rendered page and closed in both directions, so
         # an upstream default widening the action surface is still caught.
         ItemFactory()
         response = client.get(reverse("literature:item-list"))
         content = response.content.decode()
-        assert response.context["table_actions"] == [
-            "search",
-            "filter",
-            "create",
-            "import",
+        assert [field["name"] for field in response.context["toolbar_fields"]] == [
+            "q",
+        ]
+        assert [field.name for field in response.context["panel_fields"]] == [
+            "type",
+            "contributor",
+            "language",
+            "issued_year",
+            "sort",
         ]
         assert 'name="q"' in content  # the search box's own input name
-        assert "filterModal" in content  # the filter control's own modal id
+        assert 'id="filters"' in content  # the filter panel's own id
+        assert f'href="{reverse("literature:item-create")}"' in content
+        assert f'href="{reverse("literature:item-import")}"' in content
         # No column-chooser ships in either django-tables2 or django-mvp
-        # today — nothing here builds one, and the closed actions list above
-        # is what would carry it if a future default introduced one.
+        # today — nothing here builds one.
 
-    def test_the_toolbar_renders_the_views_own_list_and_not_the_packaged_default(
+    def test_the_import_link_follows_the_views_import_action_flag(
         self, client, db, monkeypatch
     ):
-        # The gate on the seam itself. django-mvp 0.19.2 deleted
-        # ``MVPTableViewMixin.actions`` and the ``table_actions`` context key
-        # its ``table_view.html`` rendered the row from (upstream commit
-        # dfa7c3a), and the packaged template now renders
-        # ``<c-page.list.actions />`` bare, so the component's own c-vars
-        # default wins and nothing a view declares reaches the page. That
-        # removal blanked "import" off the catalogue toolbar without a single
-        # test going red on the mechanism — the three tests that did fail all
-        # assert an outcome, so any of them could be satisfied by a different
-        # route while the view's list stayed unread.
-        #
-        # This asserts the connection instead: a list set on the view and
-        # nothing else decides what renders. Set to "import" alone, the
-        # packaged default's search box and filter modal must be absent —
-        # under the default they are both present whatever the view says,
-        # which is exactly the red this reinstates.
+        # The gate on the seam itself: the wrapper template draws the link
+        # from the view's directory, so switching the action off removes the
+        # link and leaves the page's own search and filters in place.
         from literature.ui.views import ItemTableView
 
-        monkeypatch.setattr(ItemTableView, "table_actions", ["import"])
+        monkeypatch.setattr(ItemTableView, "show_import_action", False)
         ItemFactory()
         content = client.get(reverse("literature:item-list")).content.decode()
-        assert f'href="{reverse("literature:item-import")}"' in content
-        assert 'name="q"' not in content  # the search box's own input name
-        assert "filterModal" not in content  # the filter control's own modal id
+        assert f'href="{reverse("literature:item-import")}"' not in content
+        assert 'name="q"' in content
 
     def test_the_search_box_submits_through_the_filter_form(self, client, db):
-        # The search input renders with `form="filterForm"`,
-        # and `filterForm` is only declared inside `{% if filter %}` — a
-        # context key only FilterView sets. Without filterset_class
-        # configured, the input would be wired to a form that does not
-        # exist and typing into it would do nothing. Asserted on the
-        # literal markup, not merely on both controls being present, so a
-        # future markup change that renamed either id would still be caught.
+        # The search input sits inside the toolbar's filter form, and that
+        # form is only drawn when the view has a filterset. Asserted on the
+        # rendered markup, so a missing filterset would leave typing into the
+        # search box with nothing to submit it.
         ItemFactory()
         content = client.get(reverse("literature:item-list")).content.decode()
-        assert 'name="q" form="filterForm"' in content
-        assert 'id="filterForm"' in content
-        # No column-chooser ships in either django-tables2 or django-mvp
-        # today — nothing here builds one, and the closed actions list above
-        # is what would carry it if a future default introduced one.
+        form_start = content.index('<form id="filterForm"')
+        form_end = content.index("</form>", form_start)
+        assert 'name="q"' in content[form_start:form_end]
 
     def test_the_queryset_annotates_issued_matching_the_items_own_issued_date(
         self, client, db
@@ -688,9 +679,13 @@ class TestItemTableView:
         )
         issued_date.refresh_from_db()
         ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
-        response = client.get(reverse("literature:item-list"))
+        # The annotation arrives with the filterset, which django-filter binds
+        # only when the address carries a parameter, as a sort on the column does.
+        response = client.get(reverse("literature:item-list"), {"sort": "issued"})
         (annotated_item,) = [
-            row for row in response.context["object_list"] if row.pk == item.pk
+            row.record
+            for row in response.context["table"].page.object_list
+            if row.record.pk == item.pk
         ]
         assert annotated_item.issued.date() == issued_date.begin.date
 
@@ -699,9 +694,13 @@ class TestItemTableView:
     ):
         item = ItemFactory()
         ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-01-01")
-        response = client.get(reverse("literature:item-list"))
+        # The annotation arrives with the filterset, which django-filter binds
+        # only when the address carries a parameter, as a sort on the column does.
+        response = client.get(reverse("literature:item-list"), {"sort": "issued"})
         (annotated_item,) = [
-            row for row in response.context["object_list"] if row.pk == item.pk
+            row.record
+            for row in response.context["table"].page.object_list
+            if row.record.pk == item.pk
         ]
         assert annotated_item.issued is None
 
@@ -727,15 +726,18 @@ class TestCatalogueImportAction:
     ):
         content = client.get(reverse("literature:item-list")).content.decode()
         assert 'name="q"' in content
-        assert "filterModal" in content
+        assert 'id="filters"' in content
         assert f'href="{reverse("literature:item-create")}"' in content
 
     def test_the_card_catalogue_still_renders_search_filter_and_create(
         self, client, db
     ):
+        # A list with no records and nothing applied draws no toolbar, so
+        # the catalogue holds one reference.
+        ItemFactory()
         content = client.get(reverse("item-list-cards")).content.decode()
         assert 'name="q"' in content
-        assert "filterModal" in content
+        assert 'id="filters"' in content
         assert f'href="{reverse("literature:item-create")}"' in content
 
 
@@ -870,10 +872,8 @@ class TestCatalogueSearch:
         # only what it lists.
         ItemFactory.create_batch(3)
         ItemFactory(title="Zzyxq Unique Match")
-        content = client.get(
-            reverse("literature:item-list"), {"q": "zzyxq"}
-        ).content.decode()
-        assert "1-1 of 1" in content
+        response = client.get(reverse("literature:item-list"), {"q": "zzyxq"})
+        assert response.context["result_count"] == 1
 
     def test_a_search_matching_nothing_keeps_its_controls(self, client, db):
         ItemFactory.create_batch(3)
@@ -881,7 +881,7 @@ class TestCatalogueSearch:
             reverse("literature:item-list"), {"q": "no-such-term-anywhere"}
         ).content.decode()
         assert 'name="q"' in content
-        assert "filterModal" in content
+        assert 'id="filters"' in content
 
     @pytest.mark.parametrize(
         "clearing_params", [{"q": ""}, {}], ids=["empty-q", "no-q"]
@@ -1041,7 +1041,7 @@ class TestCatalogueFilterComposition:
         assert matching.citation_key in content
         assert wrong_type.citation_key not in content
         assert wrong_term.citation_key not in content
-        assert "1-1 of 1" in content
+        assert response.context["result_count"] == 1
 
     def test_widening_within_type_still_narrows_against_a_second_filter(
         self, client, db
@@ -1068,17 +1068,14 @@ class TestCatalogueFilterComposition:
 class TestCatalogueFilterVisibility:
     def test_no_badge_when_nothing_is_applied(self, client, db):
         content = client.get(reverse("literature:item-list")).content.decode()
-        assert "indicator-item badge badge-secondary badge-xs" not in content
+        assert filter_badge_count(content) is None
 
     def test_a_filter_in_force_is_counted_and_shown_as_a_badge(self, client, db):
         ItemFactory(type=ItemType.BOOK)
         response = client.get(reverse("literature:item-list"), {"type": ItemType.BOOK})
         assert response.context["applied_filter_count"] == 1
         content = response.content.decode()
-        assert (
-            '<span class="indicator-item badge badge-secondary badge-xs">1</span>'
-            in content
-        )
+        assert filter_badge_count(content) == 1
 
     def test_two_filters_in_force_are_both_counted(self, client, db):
         ItemFactory(type=ItemType.BOOK, language="en")
@@ -1087,10 +1084,7 @@ class TestCatalogueFilterVisibility:
         )
         assert response.context["applied_filter_count"] == 2
         content = response.content.decode()
-        assert (
-            '<span class="indicator-item badge badge-secondary badge-xs">2</span>'
-            in content
-        )
+        assert filter_badge_count(content) == 2
 
     def test_a_search_term_alone_carries_no_filter_badge(self, client, db):
         # The badge belongs to the Filter button specifically (django-mvp's own
@@ -1101,7 +1095,7 @@ class TestCatalogueFilterVisibility:
         content = client.get(
             reverse("literature:item-list"), {"q": "whale"}
         ).content.decode()
-        assert "indicator-item badge badge-secondary badge-xs" not in content
+        assert filter_badge_count(content) is None
 
     def test_the_chosen_value_stays_selected_on_the_rendered_control(self, client, db):
         ItemFactory(type=ItemType.BOOK)
@@ -1130,35 +1124,39 @@ class TestCatalogueFilterVisibility:
 
 
 class TestCatalogueFilterValidation:
-    def test_an_unmatched_value_of_a_declared_filter_matches_nothing(self, client, db):
+    def test_a_valid_value_no_reference_has_matches_nothing(self, client, db):
         ItemFactory(language="en")
-        response = client.get(reverse("literature:item-list"), {"language": "zz"})
+        response = client.get(reverse("literature:item-list"), {"issued_year": 1999})
         assert response.status_code == 200
         assert len(response.context["table"].page.object_list) == 0
 
-    def test_an_invalid_value_of_a_declared_filter_matches_nothing(self, client, db):
+    def test_an_invalid_value_of_a_declared_filter_is_ignored(self, client, db):
+        # django-mvp drops a value its filter cannot accept, for that filter
+        # alone, so the list is never emptied by a stale bookmark.
         ItemFactory()
         response = client.get(
             reverse("literature:item-list"), {"issued_year": "notanumber"}
         )
         assert response.status_code == 200
-        assert len(response.context["table"].page.object_list) == 0
+        assert len(response.context["table"].page.object_list) == 1
 
-    def test_neither_case_falls_back_to_the_unfiltered_catalogue(self, client, db):
-        ItemFactory.create_batch(3, language="en")
-        unmatched = client.get(reverse("literature:item-list"), {"language": "zz"})
-        assert len(unmatched.context["table"].page.object_list) == 0
-        invalid = client.get(
-            reverse("literature:item-list"), {"issued_year": "notanumber"}
+    def test_an_invalid_value_leaves_the_other_filters_in_force(self, client, db):
+        kept = ItemFactory(type=ItemType.BOOK)
+        ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        response = client.get(
+            reverse("literature:item-list"),
+            {"type": ItemType.BOOK, "issued_year": "notanumber"},
         )
-        assert len(invalid.context["table"].page.object_list) == 0
+        assert [row.record for row in response.context["table"].page.object_list] == [
+            kept
+        ]
 
     def test_an_address_carrying_an_undeclared_key_is_ignored_not_rejected(
         self, client, db
     ):
         # Validation reads a filter *value*, not an undefined key: a Django
         # form simply ignores data it has no field for, so an address like
-        # this is neither of the two cases above, and this feature
+        # this carries no filter value at all, and this feature
         # deliberately builds no rejection mechanism for it.
         # Pinned as what actually happens — 200, no exception, the
         # catalogue unnarrowed — not as a contract this feature owns.
@@ -1476,19 +1474,16 @@ class TestCatalogueStateSurvivesAChangeOfFilter:
         assert set(sorted_.context["applied_filters"]) == set(
             unsorted.context["applied_filters"]
         )
-        badge_re = (
-            r'<span class="indicator-item badge badge-secondary badge-xs">(\d+)</span>'
+        assert filter_badge_count(sorted_.content.decode()) == filter_badge_count(
+            unsorted.content.decode()
         )
-        sorted_badge = re.search(badge_re, sorted_.content.decode())
-        unsorted_badge = re.search(badge_re, unsorted.content.decode())
-        assert sorted_badge.group(1) == unsorted_badge.group(1)
 
     def test_a_sort_alone_carries_no_filter_badge(self, client, db):
         ItemFactory()
         content = client.get(
             reverse("literature:item-list"), {"sort": "-citation_key"}
         ).content.decode()
-        assert "indicator-item badge badge-secondary badge-xs" not in content
+        assert filter_badge_count(content) is None
 
 
 class TestCatalogueStateSurvivesReopeningTheAddress:
@@ -2962,7 +2957,7 @@ class TestContributorDetailView:
         assert response.status_code == 200
         content = response.content.decode()
         assert 'name="q"' not in content
-        assert "filterModal" not in content
+        assert 'id="filters"' not in content
 
     def test_credits_listed_with_roles(self, client, db):
         contributor = NameFactory()

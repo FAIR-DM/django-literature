@@ -1,9 +1,10 @@
 {% extends "list_view.html" %}
+{% load i18n %}
 {% comment %}
-  Card-list wrapper, action row only (FS-011). list_view.html's own page.actions block falls back
-  to a fixed default list with no way to extend it, so the only way to add "import" is to
-  override the block — carrying the packaged default through in full, not just the import link.
+  Card-list wrapper: adds the import link to the title row, which list_view.html leaves empty.
 {% endcomment %}
 {% block page.actions %}
-  <c-page.list.actions :actions="list_actions" />
+  {% if directory.import_url %}
+    <c-button text="{% translate 'Import' %}" size="sm" ghost href="{{ directory.import_url }}" />
+  {% endif %}
 {% endblock page.actions %}

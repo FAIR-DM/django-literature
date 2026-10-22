@@ -74,13 +74,8 @@ class TestSettings:
         # library resolves only from an installed app. Both arrive with
         # django-mvp as hard dependencies, so this costs no extra install.
         assert "crispy_forms" in settings.INSTALLED_APPS
-        assert "crispy_tailwind" in settings.INSTALLED_APPS
+        assert "mvp_forms" in settings.INSTALLED_APPS
 
-    def test_mvp_precedes_crispy_tailwind(self):
-        # django-mvp overrides crispy-tailwind's help-text template, and the
-        # first app to declare a template path wins.
-        apps = settings.INSTALLED_APPS
-        assert apps.index("mvp") < apps.index("crispy_tailwind")
         # Both crispy settings are now set. This module used to
         # assert each was absent, which was right while the package rendered no
         # form and wrong the moment one rendered: CRISPY_TEMPLATE_PACK has no
@@ -88,3 +83,9 @@ class TestSettings:
         # against at template-compile time, so leaving it unset stops every
         # template carrying {% crispy %} from compiling at all. Both assertions
         # are deliberately dropped rather than flipped.
+
+    def test_daisy_cotton_follows_mvp(self):
+        # Both packages ship an ``icon`` component, and the first app listed
+        # wins, so ``mvp`` must come first for icons to resolve by name.
+        apps = settings.INSTALLED_APPS
+        assert apps.index("mvp") < apps.index("daisy_cotton")

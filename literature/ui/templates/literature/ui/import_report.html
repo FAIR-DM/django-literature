@@ -6,14 +6,14 @@
   state this page once carried were dropped for the same reason — the preview carries neither.
 {% endcomment %}
 {% block page.content %}
-  <c-text class="mb-4">
+  <c-mvp.text class="mb-4">
     {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
       {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
     {% endblocktranslate %}
-  </c-text>
-  <c-addons.django-table :table="table" />
-  <c-group collapse wrap class="mt-4">
+  </c-mvp.text>
+  <c-mvp.addons.django-table :table="table" />
+  <c-mvp.group collapse wrap class="mt-4">
     <c-button href="{% url 'literature:item-list' %}" text="{% trans 'Back to the catalogue' %}" icon="arrow-left" />
     <c-button href="{% url 'literature:item-import' %}" text="{% trans 'Import another file' %}" />
-  </c-group>
+  </c-mvp.group>
 {% endblock page.content %}

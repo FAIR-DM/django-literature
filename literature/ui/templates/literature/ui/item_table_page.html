@@ -1,9 +1,11 @@
 {% extends "table_view.html" %}
+{% load i18n %}
 {% comment %}
-  Table wrapper, action row only (FS-011): extends table_view.html, not list_view.html, since
-  that template renders the table under this same block name. "sort" is left out deliberately —
-  a table sorts by its own column headers.
+  Table wrapper: adds the import link to the toolbar's action row, before the add button. The
+  table sorts by its own column headers, so the page has no sort control.
 {% endcomment %}
 {% block page.actions %}
-  <c-page.list.actions :actions="table_actions" />
+  {% if directory.import_url %}
+    <c-button text="{% translate 'Import' %}" size="sm" ghost href="{{ directory.import_url }}" />
+  {% endif %}
 {% endblock page.actions %}

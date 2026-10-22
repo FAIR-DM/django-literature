@@ -21,16 +21,16 @@
         {% endblocktranslate %}
       </c-alert>
     {% endif %}
-    <c-text class="mb-4">
+    <c-mvp.text class="mb-4">
       {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}
         {{ created }} created, {{ skipped }} skipped, {{ failed }} failed.
       {% endblocktranslate %}
-    </c-text>
+    </c-mvp.text>
     <div x-data="{ outcome: 'all' }">
       <c-filter :outcomes="outcome_choices" class="mb-4" />
-      <c-addons.django-table :table="table" />
+      <c-mvp.addons.django-table :table="table" />
     </div>
-    <c-group collapse wrap class="mt-4">
+    <c-mvp.group collapse wrap class="mt-4">
       <c-button href="{% url 'literature:item-list' %}" text="{% trans 'Back to the catalogue' %}" icon="arrow-left" />
       <form method="post" action="{% url 'literature:item-import-restart' %}">
         {% csrf_token %}
@@ -44,6 +44,6 @@
           <c-button text="{% trans 'Confirm import' %}" type="submit" icon="check" variant="primary" />
         </form>
       {% endif %}
-    </c-group>
+    </c-mvp.group>
   {% endif %}
 {% endblock page.content %}

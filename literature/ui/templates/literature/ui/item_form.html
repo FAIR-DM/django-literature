@@ -1,15 +1,15 @@
 {% extends "form_view.html" %}
 {% load i18n crispy_forms_tags %}
 {% comment %}
-  Renders ItemForm group by group, each group a <c-card> shown or hidden by Alpine for the
-  chosen item type (FS-008). page.content is overridden in full because <c-form.render />
+  Renders ItemForm group by group, each group a <c-mvp.card> shown or hidden by Alpine for the
+  chosen item type (FS-008). page.content is overridden in full because <c-mvp.form.render />
   dumps the whole form through crispy the moment it is given a bound form object.
 {% endcomment %}
 {% block page.content %}
   <div class="w-full lg:max-w-4xl">
     {% block before_form %}
     {% endblock before_form %}
-    <c-form title="{{ page.title }}" icon="{{ page.icon }}" method="post" action="{{ request.path }}">
+    <c-mvp.form title="{{ page.title }}" icon="{{ page.icon }}" method="post" action="{{ request.path }}">
       {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
       {% block formset %}
         {% comment %}
@@ -25,17 +25,15 @@
           {% for group in field_groups %}
             <div class="mb-4"
                  x-show="form.showAll || (form.forcedGroups || []).includes('{{ group.key }}') || (form.typeGroups[form.itemType] || []).includes('{{ group.key }}')">
-              <c-card title="{{ group.label }}">
+              <c-mvp.card title="{{ group.label }}">
                 {% for field in group.fields %}{{ field|as_crispy_field }}{% endfor %}
-              </c-card>
+              </c-mvp.card>
             </div>
           {% endfor %}
 
-          {% comment %}
-            <c-form.field> supplies its own daisyUI classes. This app's utility-class
-            allowlist (FS-008) covers only literal Tailwind utility attributes, never that.
-          {% endcomment %}
-          <c-form.field type="checkbox" label="{% translate "Show every field" %}" x-model="form.showAll" />
+          <c-form.label text="{% translate "Show every field" %}">
+            <c-form.checkbox x-model="form.showAll" />
+          </c-form.label>
         </div>
 
         {% comment %}
@@ -51,7 +49,7 @@
           packaged component unforked, relying on each row's own role field for a heading (FS-012).
         {% endcomment %}
         {% for inline in inlines %}
-          <c-form.formset :formset="inline" layout="tabular" />
+          <c-mvp.form.formset :formset="inline" layout="tabular" />
         {% endfor %}
       {% endblock formset %}
       {% block actions %}
@@ -60,11 +58,11 @@
           success_url — every save would land on the catalogue rather than the reference
           (FS-008). This button carries no name/value pair, so nothing overrides it.
         {% endcomment %}
-        <c-group collapse wrap>
+        <c-mvp.group collapse wrap>
           <c-button text="{% translate "Save" %}" type="submit" variant="primary" />
-        </c-group>
+        </c-mvp.group>
       {% endblock actions %}
-    </c-form>
+    </c-mvp.form>
     {% block after_form %}
     {% endblock after_form %}
   </div>

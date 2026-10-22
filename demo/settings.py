@@ -58,25 +58,25 @@ INSTALLED_APPS = [
     # django-filter, reached through django-mvp's own guarded integration
     # (README.md).
     "django_filters",
-    # ``mvp`` before ``crispy_tailwind``: django-mvp overrides one of
-    # crispy-tailwind's templates and the first app to declare a template
-    # path wins (README.md).
+    # Your own apps go above ``mvp`` so their templates win; ``daisy_cotton``
+    # goes directly below it (django-mvp's getting-started guide).
     "mvp",
+    "daisy_cotton",
     "crispy_forms",
-    "crispy_tailwind",
+    "mvp_forms",
     "literature.ui",
 ]
 
 # crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
 # with no default, so leaving this unset is an AttributeError on the first form
 # render rather than a fallback to another pack (FS-008). Shared with tests/settings.py.
-CRISPY_TEMPLATE_PACK = "tailwind"
+CRISPY_TEMPLATE_PACK = "daisyui"
 
 # The allowlist has to name the pack too: the {% crispy %} tag validates it at
 # template-compile time against CRISPY_ALLOWED_TEMPLATE_PACKS, whose default is
 # ("uni_form", "bootstrap3", "bootstrap4"), so every template carrying the tag
 # would fail to compile without this (FS-008).
-CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["daisyui"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
