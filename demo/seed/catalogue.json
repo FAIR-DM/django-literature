@@ -866,5 +866,60 @@
         ]
       ]
     }
+  },
+  {
+    "citation-key": "Bowker2013",
+    "type": "chapter",
+    "language": "en",
+    "title": "Data Flakes: An Afterword to “Raw Data” Is an Oxymoron, with Notes on Infrastructure, Memory and the Long Now of Scientific Records",
+    "author": [
+      {
+        "family": "Bowker",
+        "given": "Geoffrey C."
+      }
+    ],
+    "editor": [
+      {
+        "family": "Gitelman",
+        "given": "Lisa"
+      },
+      {
+        "family": "Jackson",
+        "given": "Virginia"
+      }
+    ],
+    "container-title": "“Raw Data” Is an Oxymoron",
+    "collection-title": "Infrastructures",
+    "collection-number": "7",
+    "publisher": "MIT Press",
+    "publisher-place": "Cambridge, MA",
+    "edition": "1",
+    "page": "167-171",
+    "number-of-pages": "192",
+    "issued": {
+      "date-parts": [
+        [
+          2013,
+          1,
+          25
+        ]
+      ]
+    },
+    "accessed": {
+      "date-parts": [
+        [
+          2026,
+          10,
+          22
+        ]
+      ]
+    },
+    "DOI": "10.7551/mitpress/9302.003.0011",
+    "ISBN": "978-0-262-51828-4",
+    "URL": "https://direct.mit.edu/books/edited-volume/3992",
+    "abstract": "Data are always already cooked. This afterword asks what it means for a scientific record to last: who keeps it, what it leaves out, and how the infrastructure that holds data shapes what can later be known from it.\n\nIt closes with notes on the slow time of archives and the fast time of computing.",
+    "keyword": "data; infrastructure; archives",
+    "note": "Afterword to the edited volume.",
+    "call-number": "Q180.55 .R39 2013"
   }
 ]

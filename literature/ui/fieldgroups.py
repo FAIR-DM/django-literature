@@ -449,7 +449,7 @@ class FieldGroups:
         (specs/008-add-edit-remove-references/spec.md) ask for: a group the
         current type would not otherwise show still renders when a stored
         value already lives in one of its fields. "Non-empty" matches
-        :func:`literature.ui.fields.scalar_fields`'s own test — ``None``, an
+        :func:`literature.ui.fields.field_sections`'s own test — ``None``, an
         empty string and ``False`` all count as not carried.
         """
         holding = set()

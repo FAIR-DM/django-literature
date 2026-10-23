@@ -1619,7 +1619,7 @@ class TestItemCreateView:
         )
         response = client.post(reverse("literature:item-create"), data, follow=True)
         assert response.status_code == 200
-        assert response.context["contributor_groups"] == []
+        assert response.context["byline"] is None
         assert response.context["identifiers"] == []
 
 
@@ -2735,20 +2735,34 @@ class TestItemDetailView:
     def test_carried_fields_appear_and_absent_fields_do_not(self, client, db):
         item = ItemFactory(title="Full Record", volume="12", issue="")
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
-        content = response.content.decode()
-        volume_label = item._meta.get_field("volume").verbose_name
-        issue_label = item._meta.get_field("issue").verbose_name
-        assert f">{volume_label}</h6>" in content
-        assert "12" in content
-        # issue is blank on this item — its label must not appear at all.
-        assert f">{issue_label}</h6>" not in content
+        rows = {
+            str(label): value
+            for section in response.context["field_sections"]
+            for label, value in section["rows"]
+        }
+        assert rows[str(item._meta.get_field("volume").verbose_name)] == "12"
+        assert str(item._meta.get_field("issue").verbose_name) not in rows
 
-    def test_carried_fields_match_the_scalar_fields_helper(self, client, db):
-        item = ItemFactory(title="Full Record", volume="12", issue="")
+    def test_the_page_is_titled_with_the_full_title(self, client, db):
+        # str(item) cuts a title at 80 characters for lists; the page about
+        # the item names it in full.
+        title = "A " + "very " * 30 + "long title"
+        item = ItemFactory(title=title)
         response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
-        labels = {str(label) for label, _ in response.context["scalar_fields"]}
-        assert str(item._meta.get_field("volume").verbose_name) in labels
-        assert str(item._meta.get_field("issue").verbose_name) not in labels
+        assert response.context["page"]["title"] == title
+
+    def test_a_bare_doi_links_to_doi_org(self, client, db):
+        item = ItemFactory()
+        ItemIdentifierFactory(item=item, type="DOI", value="10.1234/abc")
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        assert 'href="https://doi.org/10.1234/abc"' in response.content.decode()
+
+    def test_the_publication_line_carries_volume_issue_and_pages(self, client, db):
+        item = ItemFactory(
+            container_title="A Journal", volume="27", issue="3", page="379-423"
+        )
+        response = client.get(reverse("literature:item-detail", kwargs={"pk": item.pk}))
+        assert response.context["numbering"] == "vol. 27, no. 3, pp. 379-423"
 
     def test_contributors_grouped_by_role_and_in_stored_order(self, client, db):
         item = ItemFactory()
