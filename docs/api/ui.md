@@ -111,6 +111,34 @@ reader sees.
    :show-inheritance:
 ```
 
+## `literature.ui.fields` and `literature.ui.links`
+
+The reference page, `ItemDetailView`, reads its content from two small modules.
+
+`field_sections` returns the fields a reference carries, grouped under the same headings
+the edit form uses (see [Field groups](../field-groups.md)), in the same order. Each
+section is a dict of `label` and `rows`, a row being a label and value pair. A field
+holding nothing is left out, and so is a group left with no rows. The four fields the
+page shows in its header, the type, citation key, title and abstract, are never repeated
+in a section. `issued_year` returns the year of the reference's issued date, or `None`
+where the date is missing or held only as free text.
+
+`web_url` returns a stored identifier as a link target only when it is an `http` or
+`https` address, so a value such as `javascript:` is shown as text and never followed.
+`doi_url` turns a DOI stored without its resolver, such as `10.1002/abc`, into a
+`https://doi.org/` address. The scheme and host are fixed, so the stored text can only
+ever become the path of the link.
+
+```{eval-rst}
+.. automodule:: literature.ui.fields
+   :members:
+   :undoc-members: False
+
+.. automodule:: literature.ui.links
+   :members:
+   :undoc-members: False
+```
+
 ## `literature.ui.forms`
 
 `ImportForm` is the format choice, file control and skip-preview checkbox the import page renders

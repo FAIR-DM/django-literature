@@ -65,7 +65,7 @@ A reader has found a reference in the list and wants everything the catalogue ho
 1. **Given** a stored reference, **When** a reader opens its page, **Then** every scalar field the item carries is shown under a readable label, and no field it does not carry appears.
 2. **Given** a reference with contributors in several roles, **When** the reader opens its page, **Then** the contributors appear grouped by role and in the position order stored within each role.
 3. **Given** a reference carrying a year-only date and one carrying a date range, **When** the reader opens each page, **Then** each date is shown at the precision stored, and a range is shown as a range.
-4. **Given** a reference carrying identifiers, **When** the reader opens its page, **Then** each identifier is shown with its type, and one addressing a resolvable location is followable.
+4. **Given** a reference carrying identifiers, **When** the reader opens its page, **Then** each identifier is shown with its type, and one addressing a resolvable location, or a bare DOI, is followable.
 5. **Given** a reference that does not exist, **When** a reader requests its page, **Then** the response is a not-found, not an error.
 6. **Given** a reference with no contributors, no dates and no identifiers, **When** the reader opens its page, **Then** the page renders without those sections rather than failing.
 
@@ -157,7 +157,7 @@ A reader looking at a reference recognises one of its authors and wants to know 
 - **FR-021**: A field the item does not carry MUST be absent from the page entirely, label included.
 - **FR-022**: The page MUST show the item's contributors grouped by role and in the position order stored within each role, showing an unparsed or institutional name as the store holds it. Each contributor's name MUST link to that contributor's own page.
 - **FR-023**: The page MUST show the item's dates by slot at the precision stored, showing a range as a range and a fallback value where the store holds one.
-- **FR-024**: The page MUST show the item's identifiers with their type, including types the store does not recognise, and an identifier addressing a resolvable location MUST be followable.
+- **FR-024**: The page MUST show the item's identifiers with their type, including types the store does not recognise, and an identifier addressing a resolvable location MUST be followable. A DOI stored without its resolver MUST be followable through `https://doi.org/`.
 - **FR-025**: A request for a reference that does not exist MUST produce a not-found response.
 - **FR-026**: The page MUST render for every one of the catalogue's item types, and for an item carrying no contributors, no dates and no identifiers.
 

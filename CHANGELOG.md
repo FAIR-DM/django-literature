@@ -8,6 +8,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **The reference page leads with the citation.** It opens with the type and year, the authors,
+  any other contributors by role, and where the work was published. Below come the abstract,
+  the identifiers and dates, then the remaining fields under the same headings as the edit form.
+  The page is titled with the full title rather than one cut at 80 characters, and sits in
+  django-mvp's medium page width. A DOI stored without its resolver now links to `doi.org`.
+  `literature.ui.fields.scalar_fields` is replaced by `field_sections`, and the page's context
+  carries `field_sections`, `byline` and `other_contributors` in place of `scalar_fields` and
+  `contributor_groups`.
+
 - **The front end needs django-mvp 0.30.1 or later.** The `ui` extra now asks for
   `django-mvp (>=0.30.1,<1.0)`. The catalogue's search and filters share one definition. On the
   table they sit together in the toolbar, and on the card list the filters open in a drawer from a

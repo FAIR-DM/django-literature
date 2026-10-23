@@ -1,49 +1,111 @@
 {% extends "detail_view.html" %}
 {% load i18n %}
 {% block page.content %}
-  <c-mvp.grid cols="1" md="2" gap="4">
-    {% for label, value in scalar_fields %}<c-mvp.data-field label="{{ label }}" value="{{ value }}" />{% endfor %}
-  </c-mvp.grid>
+  <div class="flex flex-col gap-8">
+    {# What it is, who made it and where it appeared: read before anything else. #}
+    <div class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <c-badge variant="primary" soft text="{{ object.get_type_display }}" />
+        {% if year %}<c-mvp.text size="sm" muted tight>{{ year }}</c-mvp.text>{% endif %}
+      </div>
+      {# Built by the view so the role heading can pluralise — literature/ui/contributors.py. #}
+      {% if byline %}
+        <c-mvp.text size="lg" tight>
+          {% for name in byline.names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}
+        </c-mvp.text>
+      {% endif %}
+      {% for group in other_contributors %}
+        <c-mvp.text size="sm" muted tight>
+          {{ group.label }}:
+          {% for name in group.names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}
+        </c-mvp.text>
+      {% endfor %}
+      {% if object.container_title or publisher %}
+        <c-mvp.text muted tight>
+          {% if object.container_title %}
+            <span class="italic">{{ object.container_title }}</span>{% if numbering %}, {{ numbering }}{% endif %}
+          {% endif %}
+          {% if object.container_title and publisher %}&middot;{% endif %}
+          {% if publisher %}{{ publisher }}{% endif %}
+        </c-mvp.text>
+      {% endif %}
+    </div>
 
-  {# Built by the view so the role heading can pluralise — literature/ui/contributors.py. #}
-  {% if contributor_groups %}
-    <c-mvp.section title="{% translate "Contributors" %}">
-      <c-mvp.grid cols="1" md="2" gap="4">
-        {% for group in contributor_groups %}
-          <c-mvp.data-field label="{{ group.label }}">
-            {% for name in group.names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}
-          </c-mvp.data-field>
-        {% endfor %}
-      </c-mvp.grid>
-    </c-mvp.section>
-  {% endif %}
+    {% if object.abstract %}
+      <c-mvp.section title="{% translate "Abstract" %}" level="3">
+        <c-mvp.text class="max-w-prose leading-relaxed" tight>{{ object.abstract|linebreaksbr }}</c-mvp.text>
+      </c-mvp.section>
+    {% endif %}
 
-  {% if object.item_dates.all %}
-    <c-mvp.section title="{% translate "Dates" %}">
-      <c-mvp.grid cols="1" md="2" gap="4">
-        {% for item_date in object.item_dates.all %}
-          <c-mvp.data-field label="{{ item_date.get_date_type_display }}">
-            {% include "literature/ui/date_value.html" %}
-          </c-mvp.data-field>
-        {% endfor %}
-      </c-mvp.grid>
+    <c-mvp.section title="{% translate "Identifiers" %}" level="3">
+      <c-table size="sm" aria-label="{% translate "Identifiers" %}">
+        <tbody>
+          <tr>
+            <th scope="row" class="w-1/3 font-normal">
+              <c-mvp.text size="sm" muted tight>{% translate "Cite key" %}</c-mvp.text>
+            </th>
+            <td class="break-words">
+              <code class="font-mono">{{ object.citation_key }}</code>
+            </td>
+          </tr>
+          {% for identifier in identifiers %}
+            <tr>
+              <th scope="row" class="w-1/3 font-normal">
+                <c-mvp.text size="sm" muted tight>{{ identifier.type }}</c-mvp.text>
+              </th>
+              <td class="break-words">
+                {# identifier.href is set by the view, and only for an allowlisted scheme or a DOI (FS-006). #}
+                {% if identifier.href %}
+                  <c-link variant="primary" href="{{ identifier.href }}">{{ identifier.value }}</c-link>
+                {% else %}
+                  {{ identifier.value }}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </c-table>
     </c-mvp.section>
-  {% endif %}
 
-  {% if identifiers %}
-    <c-mvp.section title="{% translate "Identifiers" %}">
-      <c-mvp.grid cols="1" md="2" gap="4">
-        {% for identifier in identifiers %}
-          <c-mvp.data-field label="{{ identifier.type }}">
-            {# identifier.href is set by the view, and only for an allowlisted scheme (FS-006). #}
-            {% if identifier.href %}
-              <a href="{{ identifier.href }}">{{ identifier.value }}</a>
-            {% else %}
-              {{ identifier.value }}
-            {% endif %}
-          </c-mvp.data-field>
-        {% endfor %}
-      </c-mvp.grid>
-    </c-mvp.section>
-  {% endif %}
+    {% if object.item_dates.all %}
+      <c-mvp.section title="{% translate "Dates" %}" level="3">
+        <c-table size="sm" aria-label="{% translate "Dates" %}">
+          <tbody>
+            {% for item_date in object.item_dates.all %}
+              <tr>
+                <th scope="row" class="w-1/3 font-normal">
+                  <c-mvp.text size="sm" muted tight>{{ item_date.get_date_type_display }}</c-mvp.text>
+                </th>
+                <td class="break-words">
+                  {% include "literature/ui/date_value.html" %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </c-table>
+      </c-mvp.section>
+    {% endif %}
+
+    {# One section per field group, in the edit form's order; empty groups are left out. #}
+    {% for section in field_sections %}
+      <c-mvp.section title="{{ section.label }}" level="3">
+        <c-table size="sm" aria-label="{{ section.label }}">
+          <tbody>
+            {% for label, value in section.rows %}
+              <tr>
+                <th scope="row" class="w-1/3 font-normal">
+                  <c-mvp.text size="sm" muted tight>{{ label|capfirst }}</c-mvp.text>
+                </th>
+                <td class="break-words">{{ value }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </c-table>
+      </c-mvp.section>
+    {% endfor %}
+
+    <c-mvp.text size="xs" muted tight class="border-t border-base-300 pt-4">
+      {% blocktranslate with created=object.created|date:"j M Y" modified=object.modified|date:"j M Y" %}Added {{ created }} &middot; Updated {{ modified }}{% endblocktranslate %}
+    </c-mvp.text>
+  </div>
 {% endblock page.content %}

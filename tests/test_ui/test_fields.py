@@ -2,75 +2,72 @@
 
 import pytest
 
-from literature.choices import ItemType
-from literature.models import Item
-from literature.ui.fields import scalar_fields
-from tests.factories import ItemFactory
+from literature.choices import DateType
+from literature.ui.fieldgroups import FieldGroups
+from literature.ui.fields import field_sections, issued_year
+from tests.factories import ItemDateFactory, ItemFactory
+
+
+def labels_of(sections):
+    return [str(section["label"]) for section in sections]
+
+
+def rows_of(sections):
+    return {
+        str(label): value for section in sections for label, value in section["rows"]
+    }
 
 
 @pytest.mark.django_db
-class TestScalarFields:
-    def test_yields_non_empty_concrete_fields_under_their_verbose_name(self):
-        item = ItemFactory(title="A Title", volume="12")
-        pairs = {str(label): value for label, value in scalar_fields(item)}
-        assert pairs[str(item._meta.get_field("title").verbose_name)] == "A Title"
-        assert pairs[str(item._meta.get_field("volume").verbose_name)] == "12"
+class TestFieldSections:
+    def test_a_carried_field_appears_under_its_groups_heading(self):
+        item = ItemFactory(volume="12")
+        sections = field_sections(item)
+        numbering = next(
+            section
+            for section in sections
+            if section["label"] == FieldGroups.GROUP_LABELS["numbering"]
+        )
+        assert (item._meta.get_field("volume").verbose_name, "12") in numbering["rows"]
 
-    def test_omits_blank_fields_entirely(self):
-        item = ItemFactory(title="", volume="")
-        labels = {str(label) for label, _ in scalar_fields(item)}
-        assert str(item._meta.get_field("title").verbose_name) not in labels
-        assert str(item._meta.get_field("volume").verbose_name) not in labels
+    def test_blank_and_null_fields_are_left_out(self):
+        item = ItemFactory(volume="", issue="")
+        rows = rows_of(field_sections(item))
+        assert str(item._meta.get_field("volume").verbose_name) not in rows
+        assert str(item._meta.get_field("issue").verbose_name) not in rows
 
-    def test_a_choice_field_yields_its_label_not_its_stored_value(self):
-        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
-        pairs = {str(label): value for label, value in scalar_fields(item)}
-        assert (
-            pairs[str(item._meta.get_field("type").verbose_name)]
-            == ItemType.ARTICLE_JOURNAL.label
+    def test_a_group_holding_no_value_has_no_section(self):
+        item = ItemFactory(volume="12")
+        assert str(FieldGroups.GROUP_LABELS["legal"]) not in labels_of(
+            field_sections(item)
         )
 
-    def test_a_stored_value_matching_no_label_is_yielded_unchanged(self):
-        # get_FOO_display() falls back to the raw value, so a slug the
-        # enumeration has since dropped still renders rather than vanishing.
+    def test_sections_follow_the_edit_forms_group_order(self):
+        item = ItemFactory(volume="12", publisher="MIT Press", note="A note")
+        order = [str(label) for label in FieldGroups.GROUP_LABELS.values()]
+        labels = labels_of(field_sections(item))
+        assert labels == sorted(labels, key=order.index)
+
+    def test_fields_shown_in_the_page_header_are_not_repeated(self):
+        item = ItemFactory(title="A Title", abstract="An abstract", citation_key="K1")
+        rows = rows_of(field_sections(item))
+        for name in ("type", "citation_key", "title", "abstract"):
+            assert str(item._meta.get_field(name).verbose_name) not in rows
+
+
+@pytest.mark.django_db
+class TestIssuedYear:
+    def test_returns_the_year_of_the_issued_date(self):
         item = ItemFactory()
-        Item.objects.filter(pk=item.pk).update(type="not-a-csl-type")
-        item.refresh_from_db()
-        pairs = {str(label): value for label, value in scalar_fields(item)}
-        assert pairs[str(item._meta.get_field("type").verbose_name)] == "not-a-csl-type"
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1948-07")
+        assert issued_year(item) == 1948
 
-    def test_omits_relations(self):
+    def test_ignores_other_kinds_of_date(self):
         item = ItemFactory()
-        names = {name for name, _ in scalar_fields(item)}
-        assert not any(value == item.item_names for _, value in scalar_fields(item))
-        assert "item_names" not in names
-        assert "item_dates" not in names
-        assert "item_identifiers" not in names
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
+        assert issued_year(item) is None
 
-    def test_omits_the_primary_key(self):
+    def test_an_issued_date_held_only_as_text_has_no_year(self):
         item = ItemFactory()
-        labels = {str(label) for label, _ in scalar_fields(item)}
-        assert str(item._meta.get_field("id").verbose_name) not in labels
-
-    def test_default_skip_set_excludes_audit_and_json_fields(self):
-        item = ItemFactory(categories=["x"], custom={"a": 1})
-        labels = {str(label) for label, _ in scalar_fields(item)}
-        assert str(item._meta.get_field("created").verbose_name) not in labels
-        assert str(item._meta.get_field("modified").verbose_name) not in labels
-        assert str(item._meta.get_field("categories").verbose_name) not in labels
-        assert str(item._meta.get_field("custom").verbose_name) not in labels
-
-    def test_caller_supplied_skip_overrides_the_default(self):
-        item = ItemFactory(title="A Title")
-        pairs = {
-            str(label): value for label, value in scalar_fields(item, skip={"title"})
-        }
-        assert str(item._meta.get_field("title").verbose_name) not in pairs
-        # The default skip set no longer applies — created is now carried.
-        assert str(item._meta.get_field("created").verbose_name) in pairs
-
-    def test_citation_key_and_type_are_scalar_fields_too(self):
-        item = ItemFactory()
-        labels = {str(label) for label, _ in scalar_fields(item)}
-        assert str(item._meta.get_field("citation_key").verbose_name) in labels
-        assert str(item._meta.get_field("type").verbose_name) in labels
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="Spring 1990")
+        assert issued_year(item) is None

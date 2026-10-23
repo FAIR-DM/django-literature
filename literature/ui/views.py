@@ -20,6 +20,7 @@ from mvp.views import (
     MVPFormView,
     MVPListView,
     MVPUpdateView,
+    PageWidth,
 )
 
 from literature.choices import ItemType, NameRole
@@ -28,7 +29,7 @@ from literature.importers.results import Outcome
 from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups, stored_contributor_names
 from literature.ui.fieldgroups import FieldGroups
-from literature.ui.fields import scalar_fields
+from literature.ui.fields import field_sections, issued_year
 from literature.ui.filters import ItemFilterSet, ItemTableFilterSet
 from literature.ui.forms import (
     CONTRIBUTOR_NAMES_DATALIST_ID,
@@ -38,7 +39,7 @@ from literature.ui.forms import (
 )
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
-from literature.ui.links import web_url
+from literature.ui.links import doi_url, web_url
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
 
@@ -627,6 +628,7 @@ class ItemDetailView(MVPDetailView):
 
     model = Item
     template_name = "literature/ui/item_detail.html"
+    page_width = PageWidth.MEDIUM
 
     # The breadcrumb's own text, which otherwise derives from the model's
     # verbose_name_plural and would read "Items" beside a page titled
@@ -655,19 +657,46 @@ class ItemDetailView(MVPDetailView):
             .prefetch_related("item_names__name", "item_dates", "item_identifiers")
         )
 
+    def get_page_title(self):
+        """Title the page with the full title; ``str()`` cuts it at 80 characters."""
+        return self.object.title or self.object.citation_key
+
     def get_context_data(self, **kwargs):
-        """Add scalar fields, grouped contributors and linkable identifiers."""
+        """Add field sections, grouped contributors and linkable identifiers."""
         context = super().get_context_data(**kwargs)
-        context["scalar_fields"] = list(scalar_fields(self.object))
-        context["contributor_groups"] = contributor_groups(self.object)
+        item = self.object
+        context["field_sections"] = field_sections(item)
+        context["year"] = issued_year(item)
+
+        # The first role group is the byline under the title, normally the
+        # authors. Any further roles (editors, translators) sit beside it.
+        groups = contributor_groups(item)
+        context["byline"] = groups[0] if groups else None
+        context["other_contributors"] = groups[1:]
+
+        # Where the work appeared, as one line: the container with its
+        # volume, issue and pages, or the publisher with its place.
+        numbering = []
+        if item.volume:
+            numbering.append(_("vol. %(volume)s") % {"volume": item.volume})
+        if item.issue:
+            numbering.append(_("no. %(issue)s") % {"issue": item.issue})
+        if item.page:
+            numbering.append(_("pp. %(page)s") % {"page": item.page})
+        context["numbering"] = ", ".join(str(part) for part in numbering)
+        context["publisher"] = ", ".join(
+            value for value in (item.publisher, item.publisher_place) if value
+        )
 
         # Whether an identifier may be rendered as a link is decided here,
         # against a scheme allowlist, never in the template: a template can
         # only ask whether the value *looks* like a URL, and
         # ``javascript://x`` passes that test.
-        identifiers = list(self.object.item_identifiers.all())
+        identifiers = list(item.item_identifiers.all())
         for identifier in identifiers:
             identifier.href = web_url(identifier.value)
+            if identifier.href is None and identifier.type == "DOI":
+                identifier.href = doi_url(identifier.value)
         context["identifiers"] = identifiers
         return context
 

@@ -1,37 +1,45 @@
-"""Scalar-field iteration for the reference page.
+"""Field sections for the reference page.
 
 Lives beside its only caller, ``item_detail.html``'s view, rather than in
 ``literature/utils/``: the core stays free of a helper an optional app is
 the sole consumer of (FS-006, #55).
 """
 
-DEFAULT_SKIP = frozenset({"created", "modified", "categories", "custom"})
+from literature.choices import DateType
+from literature.ui.fieldgroups import FieldGroups
+
+#: Fields the reference page shows in its own header, not in a details table.
+HEADER_FIELDS = frozenset({"type", "citation_key", "title", "abstract"})
 
 
-def scalar_fields(item, skip=DEFAULT_SKIP):
-    """Yield ``(verbose_name, value)`` for ``item``'s non-empty scalar fields.
+def field_sections(item):
+    """Return the item's carried fields as ``{label, rows}`` sections.
 
-    Excludes relations (fields without ``attname``), the primary key, and any
-    field named in ``skip``. A field whose value is ``None``, an empty string,
-    or ``False`` is treated as not carried, so it is omitted rather than
-    yielded with a blank value.
+    One section per field group (``literature/ui/fieldgroups.py``), in the
+    order the edit form uses, so a reader finds a value under the same heading
+    on both pages. A group holding no value is left out, and so is every field
+    the page header already shows.
 
-    A field declared with ``choices`` yields its label, not its stored value:
-    ``Item.type`` reads "Journal Article" here exactly as it does on the
-    catalogue badge, rather than the raw CSL slug. Emptiness is still
-    judged on the stored value, and Django's ``get_FOO_display()`` returns the
-    raw value unchanged when it maps to no label.
+    A value of ``None``, an empty string or ``False`` counts as not carried.
     """
-    for field in item._meta.get_fields():
-        if not hasattr(field, "attname"):
-            continue  # relation
-        if field.primary_key:
-            continue
-        if field.name in skip:
-            continue
-        value = getattr(item, field.name, None)
-        if value is None or value == "" or value is False:
-            continue
-        if field.choices:
-            value = getattr(item, f"get_{field.name}_display")()
-        yield field.verbose_name, value
+    sections = []
+    for group, names in FieldGroups.GROUPS.items():
+        rows = []
+        for name in names:
+            if name in HEADER_FIELDS:
+                continue
+            value = getattr(item, name, None)
+            if value is None or value == "" or value is False:
+                continue
+            rows.append((item._meta.get_field(name).verbose_name, value))
+        if rows:
+            sections.append({"label": FieldGroups.GROUP_LABELS[group], "rows": rows})
+    return sections
+
+
+def issued_year(item):
+    """Return the year the item was issued, or ``None`` when no year is stored."""
+    for item_date in item.item_dates.all():
+        if item_date.date_type == DateType.ISSUED and item_date.begin:
+            return item_date.begin.date.year
+    return None

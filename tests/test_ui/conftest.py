@@ -32,9 +32,8 @@ EXCLUDED_FROM_FORM = frozenset({"categories", "custom", "created", "modified"})
 def scalar_field_names():
     """Every concrete, non-pk field ``Item`` declares, by name.
 
-    Mirrors the same walk ``literature/ui/fields.py``'s ``scalar_fields``
-    uses, so a field added to the model is picked up here the same way it
-    would be picked up there.
+    Walks the model itself, so a field added to ``Item`` is picked up here
+    without anyone listing it.
     """
     return {
         field.name
