@@ -467,9 +467,7 @@ class TestProcessorVariables:
 
     def test_a_custom_that_is_not_an_object_cannot_hold_them(self):
         with pytest.raises(ValidationError) as excinfo:
-            from_csl_json(
-                {"type": "book", "id": "X", "custom": "text", "locator": "4"}
-            )
+            from_csl_json({"type": "book", "id": "X", "custom": "text", "locator": "4"})
         assert excinfo.value.code == "custom_not_an_object"
 
 
