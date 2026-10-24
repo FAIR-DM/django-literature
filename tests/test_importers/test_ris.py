@@ -978,6 +978,30 @@ class TestDates:
         csl = RISFormat().to_csl_json(entry(pb="A publisher"))
         assert not ({"issued", "accessed"} & csl.keys())
 
+    def test_a_trailing_year_is_read_as_month_day_year(self):
+        csl = RISFormat().to_csl_json(entry(y2="1/26/2023"))
+        assert csl["accessed"] == {"date-parts": [[2023, 1, 26]]}
+
+    def test_a_trailing_year_supplies_issued_through_y1(self):
+        csl = RISFormat().to_csl_json(entry(y1="3/7/2020"))
+        assert csl["issued"] == {"date-parts": [[2020, 3, 7]]}
+
+    def test_a_trailing_year_da_refines_an_agreeing_py(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", da="6/24/2024"))
+        assert csl["issued"] == {"date-parts": [[2024, 6, 24]]}
+
+    def test_a_zero_month_or_day_is_unstated_precision(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2024/06/00"))
+        assert csl["issued"] == {"date-parts": [[2024, 6]]}
+
+    @pytest.mark.django_db
+    def test_a_month_day_year_access_date_is_stored(self):
+        raw = "TY  - JOUR\nTI  - A title\nPY  - 2019\nY2  - 1/26/2023\nER  -\n"
+        result = RISFormat().import_file(_ris_bytes(raw))
+        item = result.created[0].item
+        accessed = item.item_dates.get(date_type="accessed")
+        assert accessed.begin == PartialDate("2023-01-26")
+
 
 class TestYearLessDASplicing:
     def test_a_month_only_da_splices_to_month_precision(self):
@@ -1025,6 +1049,17 @@ class TestUnparseableDates:
     def test_an_unparseable_y2_falls_back_to_literal(self):
         csl = RISFormat().to_csl_json(entry(y2="undated"))
         assert csl["accessed"] == {"literal": "undated"}
+
+    @pytest.mark.parametrize(
+        "value", ["26/1/2023", "2023/13/01", "2023/02/30", "1/2023"]
+    )
+    def test_a_value_that_is_no_calendar_date_falls_back_to_literal(self, value):
+        csl = RISFormat().to_csl_json(entry(y2=value))
+        assert csl["accessed"] == {"literal": value}
+
+    def test_a_da_that_is_no_calendar_date_leaves_py_at_year_precision(self):
+        csl = RISFormat().to_csl_json(entry(py="2024", da="2024/13/01"))
+        assert csl["issued"] == {"date-parts": [[2024]]}
 
     @pytest.mark.django_db
     def test_an_unparseable_date_does_not_fail_the_entry(self):
