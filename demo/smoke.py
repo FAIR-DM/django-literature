@@ -599,8 +599,7 @@ class DemoWalk:
         # Credit a contributor (FS-012).
         contributor_name = f"Smoke Contributor {uuid.uuid4().hex[:6]}"
         contributor_fields = form_fields(self.get(edit_url))
-        contributor_fields["item_names-0-role"] = "author"
-        contributor_fields["item_names-0-family"] = contributor_name
+        contributor_fields["contributors-author-0-family"] = contributor_name
         after_contributor_body, landed_url = self.post(
             edit_url, edit_url, contributor_fields
         )
@@ -622,7 +621,7 @@ class DemoWalk:
         # Give the reference a date (FS-012).
         date_value = "2021"
         date_fields = form_fields(self.get(edit_url))
-        date_fields["item_dates-0-begin"] = date_value
+        date_fields["date_issued_year"] = date_value
         after_date_body, landed_url = self.post(edit_url, edit_url, date_fields)
         if urllib.parse.urlparse(landed_url).path != item_path:
             self.fail(
