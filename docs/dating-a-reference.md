@@ -1,38 +1,37 @@
 # Dating a reference
 
-Alongside a reference's own fields, the form the front end serves carries its dates as part of the
-same page: issued, accessed, submitted and the rest of CSL JSON's six date-variable slots.
+The form the front end serves gives each of CSL JSON's six date slots a field of its own, in the
+Dates section of the Reference tab:
+
+| Field | CSL JSON slot |
+|---|---|
+| Submitted | `submitted` |
+| Published | `issued` |
+| Available online | `available-date` |
+| Event date | `event-date` |
+| Originally published | `original-date` |
+| Accessed | `accessed` |
 
 ## Entering a date
 
-A date can be typed as a year alone, a year and month, or a full date, whichever precision you
-actually know. Nothing declares the precision up front. Typing `1998` stores a year-only date,
-`1998-03` stores a year and month, and `1998-03-14` stores a full date. A stored date is shown back
-at the same precision it was entered at.
+A date is a year, then optionally a month, then optionally a day, whichever precision you actually
+know. A year alone stores a year-only date, a year and a month store both, and all three store a
+full date. A stored date is shown back at the same precision it was entered at.
 
-A span is entered by giving a second, later date to end it. The two ends can hold different
-precisions, so a year-only start and a full end date are both valid together. An end date given
-without a start, or one that falls before its own start, is refused with a message rather than
-stored.
+An event date can be a span: give an end date as well. The two ends can hold different precisions,
+so a year-only start and a full end date are both valid together. Any other slot already holding a
+span shows its end date too. An end date given without a start, or one that falls before its own
+start, is refused with a message rather than stored.
 
-## Which dates are on the page already
+## Which dates are on the page
 
-The publication date (`issued`) is always on the page. Alongside it, a reference already shows a
-row for whichever other slots are typical for its own kind. A journal article, for instance,
-shows a row for its online availability date as well, since that is common for the type. This is a
-starting point, not a limit: it decides what is offered without your having to look for it, never
-what can actually be stored.
+Published is always on the page. Alongside it, the form shows whichever other slots are typical for
+the reference's type: a journal article shows Available online, a webpage shows Accessed, a
+conference paper shows Event date. "Show sections other types use" shows every slot. This decides
+what is offered without looking for it, never what can be stored.
 
 A slot that already holds a value is always shown, whatever the reference's type. Changing a
-reference's type on this same page never drops a date it already has, even one that type would not
-have shown by default.
-
-## Reaching a less common slot
-
-Every one of the six slots is reachable without leaving the form, whether or not it is one of the
-ones already showing. Adding a row offers a choice of whichever slots are not already on the page,
-so the same slot is never offered twice. Once a row's slot is chosen and the date is saved, that
-row's slot is settled and behaves the same as any other.
+reference's type never drops a date it already has, even one that type would not have shown.
 
 ## Repairing an imported date
 
@@ -44,13 +43,11 @@ either way.
 
 ## Clearing a date
 
-Removing a date takes it out of that slot and nothing else. No other slot is affected, and the
-slot itself becomes reachable again the way any other unused one is.
+Emptying a slot's field takes its date away and touches no other slot. A slot that also holds the
+original text of an imported date keeps that text, so emptying the field never loses it.
 
 ## Saving
 
-Dates are saved together with the rest of the reference, in one submission. Two rows both naming
-the same slot are refused with a message naming the slot, before anything is stored. If anything on
-the page is rejected, whether that is an invalid date, a duplicated slot or anything else on the
-form, none of it is stored, dates included. The page comes back with everything you entered still
-in it.
+Dates are saved together with the rest of the reference, in one submission. If anything on the page
+is rejected, whether that is an invalid date or anything else on the form, none of it is stored,
+dates included. The page comes back with everything you entered still in it.

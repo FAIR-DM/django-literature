@@ -1,0 +1,57 @@
+{% load i18n crispy_forms_filters mvp %}
+{% comment %}
+  One contributor row. Its first element is the row, because mvpFormset clones the empty row's
+  first element when a row is added, and no <template> may sit inside it, since mvpFormset finds
+  the set's own template with querySelector. The row's behaviour is literatureContributor, in
+  literature/ui/static/literature/item-form.js.
+{% endcomment %}
+<div data-contributor-row
+     x-data="mvpFormsetRow({{ form.DELETE.value|yesno:'true,false,false' }})"
+     x-show="!removed">
+  <div x-data="literatureContributor({% if form.literal.value and not form.family.value %}true{% else %}false{% endif %})"
+       class="flex flex-col gap-4">
+    {{ form|as_crispy_errors }}
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <input type="hidden" name="{{ form.ORDER.html_name }}" value="{{ form.ORDER.value|default_if_none:'' }}" data-order>
+    <input type="hidden" name="{{ form.DELETE.html_name }}" :value="removed ? 'on' : ''">
+    <div class="flex flex-col gap-4 md:grid md:items-start md:gap-x-4"
+         style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 9rem;">
+      <div x-show="!organisation" data-person>{{ form.family|as_crispy_cell }}</div>
+      <div x-show="!organisation" data-person>{{ form.given|as_crispy_cell }}</div>
+      <div x-show="organisation" data-organisation style="grid-column: span 2;">{{ form.literal|as_crispy_field }}</div>
+      <div class="flex items-center justify-end gap-1">
+        <c-indicator>
+          <c-slot name="items">
+            <c-indicator.item><c-status variant="primary" x-show="hasDetails" /></c-indicator.item>
+          </c-slot>
+          <c-button type="button" size="sm" ghost square icon="more" aria-label="{% translate "Name details" %}" x-on:click="$refs.details.showModal()" only />
+        </c-indicator>
+        <c-button type="button" size="sm" ghost square icon="chevron-up" aria-label="{% translate "Move up" %}" x-on:click="move(-1, $event)" only />
+        <c-button type="button" size="sm" ghost square icon="chevron-down" aria-label="{% translate "Move down" %}" x-on:click="move(1, $event)" only />
+        <c-button type="button" size="sm" ghost square icon="trash" aria-label="{% translate "Remove" %}" class="text-error" x-on:click="remove()" only />
+      </div>
+    </div>
+    <c-modal id="name-details-{{ form.prefix }}"
+             title="{% translate "Name details" %}"
+             closable
+             x-ref="details"
+             x-on:close="readDetails()">
+      <c-form.fieldset legend="{% translate "This contributor is" %}">
+        <c-form.label text="{% translate "A person" %}">
+          <c-form.radio size="sm" name="{{ form.prefix }}-kind" form="" x-bind:checked="!organisation" x-on:change="choose(false)" />
+        </c-form.label>
+        <c-form.label text="{% translate "An organisation, or a name to print exactly as written" %}">
+          <c-form.radio size="sm" name="{{ form.prefix }}-kind" form="" x-bind:checked="organisation" x-on:change="choose(true)" />
+        </c-form.label>
+      </c-form.fieldset>
+      <div x-show="!organisation" data-person>
+        {{ form.non_dropping_particle|as_crispy_field }}
+        {{ form.dropping_particle|as_crispy_field }}
+        {{ form.suffix|as_crispy_field }}
+      </div>
+      <c-slot name="actions">
+        <c-button type="button" variant="primary" text="{% translate "Done" %}" onclick="this.closest('dialog').close()" only />
+      </c-slot>
+    </c-modal>
+  </div>
+</div>

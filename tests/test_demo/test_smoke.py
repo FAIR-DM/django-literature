@@ -244,7 +244,7 @@ class TestEditLinkPattern:
 
 
 class TestRelatedRowFieldsOnTheEditPage:
-    def test_the_edit_page_carries_a_contributor_row_a_date_row_and_an_identifier_row(
+    def test_the_edit_page_carries_a_contributor_row_a_date_and_an_identifier_row(
         self, client, db
     ):
         item = ItemFactory()
@@ -252,9 +252,8 @@ class TestRelatedRowFieldsOnTheEditPage:
         response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
         fields = form_fields(response.content.decode())
 
-        assert "item_names-0-role" in fields
-        assert "item_names-0-family" in fields
-        assert "item_dates-0-begin" in fields
+        assert "contributors-author-0-family" in fields
+        assert "date_issued_year" in fields
         assert "item_identifiers-0-type" in fields
         assert "item_identifiers-0-value" in fields
 
@@ -266,9 +265,8 @@ class TestRelatedRowFieldsOnTheEditPage:
         response = client.get(reverse("literature:item-create"))
         fields = form_fields(response.content.decode())
 
-        assert "item_names-0-role" in fields
-        assert "item_names-0-family" in fields
-        assert "item_dates-0-begin" in fields
+        assert "contributors-author-0-family" in fields
+        assert "date_issued_year" in fields
         assert "item_identifiers-0-type" in fields
         assert "item_identifiers-0-value" in fields
 

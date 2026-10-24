@@ -1,0 +1,46 @@
+{% load i18n l10n %}
+{% comment %}
+  One role's contributor set, drawn here rather than by <c-mvp.form.formset> because a row holds
+  more than the packaged row can: a person-or-organisation switch, the rarer name parts in a
+  dialog, and buttons that move a row up or down. Adding and removing rows is the packaged
+  behaviour, through the same mvpFormset and mvpFormsetRow components, so a removed row is hidden
+  and still posts its DELETE flag. A row's position is its place in the list: every ORDER input is
+  rewritten from the order on screen whenever a row moves, and again as the form is sent.
+{% endcomment %}
+<div class="flex flex-col gap-4"
+     x-data="mvpFormset({{ formset.total_form_count|unlocalize }}, {{ formset.max_num|unlocalize }})"
+     x-on:mvp-formset-row-removed="visible--"
+     x-init="literatureWatchOrder($el)">
+  {% if formset.non_form_errors %}
+    <c-alert variant="error" icon="error" only>{{ formset.non_form_errors }}</c-alert>
+  {% endif %}
+  {{ formset.management_form.INITIAL_FORMS }}
+  {{ formset.management_form.MIN_NUM_FORMS }}
+  {{ formset.management_form.MAX_NUM_FORMS }}
+  <input type="hidden"
+         name="{{ formset.management_form.TOTAL_FORMS.html_name }}"
+         value="{{ formset.management_form.TOTAL_FORMS.value|unlocalize }}"
+         :value="total">
+  {% if formset.forms %}
+    <div class="hidden md:grid md:items-end md:gap-x-4" style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 9rem;" aria-hidden="true">
+      <c-mvp.text tight bold size="sm" only>{% translate "Family name" %}</c-mvp.text>
+      <c-mvp.text tight bold size="sm" only>{% translate "Given name" %}</c-mvp.text>
+      <span></span>
+    </div>
+  {% endif %}
+  {% for form in formset.forms %}
+    {% include "literature/ui/item_form_contributor_row.html" %}
+  {% endfor %}
+  <template>
+    {% include "literature/ui/item_form_contributor_row.html" with form=formset.empty_form %}
+  </template>
+  <div>
+    <c-button type="button"
+              size="sm"
+              outline
+              icon="plus"
+              text="{% translate "Add a name" %}"
+              x-bind:disabled="!canAddRow"
+              x-on:click="addRow()" only />
+  </div>
+</div>

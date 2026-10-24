@@ -333,10 +333,22 @@ Between them, a reference can be entered by hand, corrected, and removed without
 end. Each opens a route under the same `literature:` namespace: `literature:item-create`,
 `literature:item-update` and `literature:item-delete`.
 
-The form scopes itself to the reference's type: choosing a type reveals only the fields that kind
-of reference typically carries, with a toggle to show every field regardless. Nothing is ever
-dropped by choosing a narrower type: every field stays part of the form and keeps whatever value it
-already holds, whether or not its group is currently shown.
+The form is laid out in four tabs:
+
+- **Reference**: the type, citation key and title, the sections the chosen type uses, the dates,
+  and the abstract and keywords.
+- **Contributors**: one list per role.
+- **Identifiers**: a DOI, an ISBN, a URL and any other identifier.
+- **More**: notes, an annotation, alternate titles and where the reference was catalogued.
+
+The form scopes itself to the reference's type: choosing a type reveals only the sections, dates and
+contributor roles that kind of reference typically carries, with toggles to show the rest. Nothing
+is ever dropped by choosing a narrower type: every field stays part of the form and keeps whatever
+value it already holds, whether or not its section is currently shown. A form sent back with errors
+lists every one of them above the tabs, each linking to its field.
+
+The type, identifier type and keyword controls are Tom Select controls, and the form page loads Tom
+Select from jsDelivr. Without it they are plain selects and the form still works.
 
 These pages carry no permission check, the same as the read-only pages: anyone who can reach the
 catalogue can add, edit and remove a reference. That is intentional for a package built for one

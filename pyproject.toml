@@ -112,6 +112,8 @@ extend_exclude = ["tasks.py", "tests/", "demo/", "docs/"]
 # without this entry it warns and assumes the wrong name.
 [tool.deptry.package_module_name_map]
 django-mvp = "mvp"
+django-mvp-forms = "mvp_forms"
+django-crispy-forms = "crispy_forms"
 django-filter = "django_filters"
 
 [tool.deptry.per_rule_ignores]
@@ -148,11 +150,13 @@ classifiers = [
 # django-mvp declares requires-python >=3.12, so the marker keeps `uv lock`
 # resolvable on the package's 3.11 floor by making the extra unavailable there
 # rather than raising it. django-mvp installs its own form, icon and component
-# dependencies (django-mvp-forms, django-crispy-forms, daisy-cotton). Only
-# django-tables2 and django-filter are named here, because literature.ui imports
-# them directly.
+# dependencies (django-mvp-forms, django-crispy-forms, daisy-cotton). The rest
+# are named here because literature.ui imports them directly: the write form's
+# layout is built from django-crispy-forms and django-mvp-forms.
 ui = [
-    "django-mvp (>=0.30.1,<1.0) ; python_version >= '3.12'",
+    "django-mvp (>=0.31.0,<1.0) ; python_version >= '3.12'",
+    "django-mvp-forms (>=0.8.0,<1.0) ; python_version >= '3.12'",
+    "django-crispy-forms (>=2.7,<3) ; python_version >= '3.12'",
     "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
     "django-filter (>=26.1,<27) ; python_version >= '3.12'",
 ]

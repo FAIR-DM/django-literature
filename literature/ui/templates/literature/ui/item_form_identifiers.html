@@ -1,0 +1,6 @@
+{% load i18n %}
+{# The identifier set (FS-012). A kind outside the six known ones is stored as typed. #}
+<c-mvp.form.formset :formset="identifier_set"
+                    layout="tabular"
+                    description="{% translate "Choose a type such as DOI, ISBN or URL, or type another." %}"
+                    add-label="{% translate "Add an identifier" %}" />

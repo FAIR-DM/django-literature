@@ -153,35 +153,35 @@ Someone evaluating the package starts the demo with the documented command and c
 
 **Contributors**
 
-- **FR-001**: The reference form MUST carry the reference's contributors, each showing its role and its position within that role.
-- **FR-002**: A contributor MUST be addable to a reference in a chosen role.
+- **FR-001**: The reference form MUST carry the reference's contributors as one list per role, each list in the order its contributors hold within that role. Which roles' lists are shown directly MUST be decided by the item type, together with every role that already holds a contributor, and every other role MUST be reachable without leaving the form.
+- **FR-002**: A contributor MUST be addable to a reference in a chosen role, by adding it to that role's list.
 - **FR-003**: A contributor MUST be removable from a reference, and removing it MUST NOT delete the contributor record, whether or not it is credited elsewhere.
-- **FR-004**: Contributors MUST be reorderable within a role. Reordering one role MUST NOT change the order of any other role, and the interface MUST NOT offer an ordering across roles.
+- **FR-004**: Contributors MUST be reorderable within a role, by moving a contributor up or down its role's list, without dragging. Reordering one role MUST NOT change the order of any other role, and the interface MUST NOT offer an ordering across roles.
 - **FR-005**: The contributor name field MUST offer completions drawn from the names the catalogue already holds.
 - **FR-006**: Accepting a completion MUST NOT link the reference to the record the completion came from. Saving MUST create a new contributor record carrying the entered text, whether or not an identical one is already stored.
 - **FR-007**: The interface MUST NOT warn about, refuse, or merge a contributor whose name matches one already stored, on entry or afterwards.
 - **FR-008**: A contributor MUST be recordable as a single unparsed name, for organizations and names that do not divide.
-- **FR-009**: A contributor form MUST present the family and given name parts directly, and MUST make the particles, the suffix and the unparsed form reachable without leaving the form.
+- **FR-009**: A contributor form MUST present the family and given name parts directly, and MUST make the particles, the suffix and the unparsed form reachable from the contributor's own row without leaving the form.
 - **FR-010**: A contributor form MUST NOT offer the citation-processor flags (`comma_suffix`, `static_ordering`, `parse_names`), and saving MUST preserve their stored values exactly.
 - **FR-011**: A contributor MUST require a family name or an unparsed name. Submitting neither MUST NOT store anything, and MUST return the form saying so.
 
 **Dates**
 
-- **FR-012**: The reference form MUST present the reference's publication date directly, and MUST make the remaining date slots reachable without leaving the form.
+- **FR-012**: The reference form MUST give each of the six date slots a field of its own. The publication date MUST be presented directly, and the remaining slots MUST be reachable without leaving the form.
 - **FR-013**: Which date slots are presented directly MUST be decided by the package's item-type-to-field mapping, extended to cover date slots. As with the scalar fields, the mapping MUST NOT restrict what can be stored.
 - **FR-014**: A date MUST be enterable as a year alone, a year and month, or a full date, without the person declaring the precision beforehand, and MUST be stored at the precision given.
 - **FR-015**: A date MUST be enterable as a span by giving a second end, and each end MUST keep its own precision.
 - **FR-016**: Submitting an end with no beginning, or an end that falls before its beginning, MUST NOT store anything and MUST return the form saying so.
 - **FR-017**: Saving MUST preserve exactly the parts of a stored date the form does not offer.
 - **FR-018**: A stored date holding content the form does not otherwise present MUST be shown, so an unreadable imported date can be repaired.
-- **FR-019**: Clearing a date MUST remove the reference's date in that slot.
+- **FR-019**: Emptying a slot's field MUST remove the reference's date in that slot, and MUST keep any unparsed content the slot also holds.
 - **FR-020**: One date per slot per reference MUST be inherited unchanged. This feature MUST NOT widen it.
 
 **Identifiers**
 
-- **FR-021**: The reference form MUST carry the reference's identifiers, each showing its kind.
+- **FR-021**: The reference form MUST carry the reference's identifiers, each showing its type.
 - **FR-022**: An identifier MUST be addable and removable on a reference.
-- **FR-023**: The kinds the package knows MUST be offered, and a kind outside that set MUST be nameable by the person.
+- **FR-023**: The types the package knows MUST be offered as choices, and a type outside that set MUST be typeable by the person.
 - **FR-024**: An identifier of a person-named kind MUST be stored exactly as given and MUST NOT be format-checked, per ADR-0002.
 - **FR-025**: A person-named kind matching a known kind other than by casing MUST be treated as that known kind and checked accordingly.
 - **FR-026**: A rejected identifier MUST be reported with a message describing what is wrong with the value submitted.
@@ -202,7 +202,7 @@ Someone evaluating the package starts the demo with the documented command and c
 - **FR-035**: Every page this feature touches MUST remain reachable without authentication, and the feature MUST NOT impose a permission check of its own, per ADR-0022.
 - **FR-036**: The core MUST NOT acquire any front-end dependency. Everything except the identifier message change lives in the opt-in front-end app.
 - **FR-037**: The identifier message change MUST stay at the model layer where the existing validators live, so a caller that never installs the front end gets the same diagnosis.
-- **FR-038**: This feature MUST NOT introduce custom UI components or custom CSS. Its forms compose django-mvp's existing set, and a gap in that set is raised upstream rather than filled locally, per FS-006.
+- **FR-038**: This feature MUST NOT introduce custom CSS. Its forms compose django-mvp's and daisy-cotton's components. The one local composition is the contributor row, which holds a name-details dialog and move buttons the packaged formset row cannot, and reuses django-mvp's own behaviour for adding and removing rows.
 - **FR-039**: This feature MUST NOT change the stored data model. No field is added, removed, widened or constrained, and no migration is introduced.
 - **FR-040**: Joining contributor records that name the same person MUST NOT be delivered here. It belongs to #112.
 - **FR-041**: Every user-facing string this feature introduces, in Python and in templates, MUST be translatable per Article VIII.

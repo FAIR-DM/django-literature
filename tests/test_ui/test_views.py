@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
+from django.forms import MultiWidget
 from django.template.loader import get_template
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
@@ -22,6 +23,7 @@ from literature.choices import DateType, ItemType, NameRole
 from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import FieldGroups
+from literature.ui.formlayout import SECTION_ORDER
 from literature.ui.staging import StagedUpload
 from tests.factories import (
     ItemDateFactory,
@@ -63,7 +65,9 @@ ER  -
 
 #: The count on the Filters button, which django-mvp draws once any filter in
 #: its panel is applied.
-FILTER_BADGE_RE = r'Filters\s*<span class="badge badge-secondary badge-sm">(\d+)</span>'
+FILTER_BADGE_RE = (
+    r'Filters(?:</span>)?\s*<span class="badge badge-secondary badge-sm">(\d+)</span>'
+)
 
 
 def filter_badge_count(content):
@@ -135,7 +139,18 @@ def rendered_form_post_data(client, url, **overrides):
     """
     response = client.get(url)
     form = response.context["form"]
-    data = {name: (form[name].value() or "") for name in form.fields}
+    data = {}
+    for name in form.fields:
+        bound = form[name]
+        widget = bound.field.widget
+        if isinstance(widget, MultiWidget):
+            # A widget in parts posts each part under its own name, and a
+            # value posted under the field's own name is never read.
+            parts = widget.decompress(bound.value())
+            for suffix, part in zip(widget.widgets_names, parts, strict=True):
+                data[bound.html_name + suffix] = part or ""
+        else:
+            data[bound.html_name] = bound.value() or ""
     for inline in response.context.get("inlines", []):
         management_form = inline.management_form
         for name in management_form.fields:
@@ -1544,19 +1559,16 @@ class TestItemCreateView:
     def test_with_no_type_chosen_every_group_but_the_type_fields_own_is_guarded(
         self, client, db
     ):
-        # With no type chosen, only the type field itself has no
-        # x-show guard; every one of the thirteen groups does, so nothing
-        # else among the scalar-field groups shows. Scoped to the
-        # `typeGroups` guard specifically: the page's contributor,
-        # date and identifier rows carry their own unrelated `x-show`, one
-        # per row, for the removed-row state — a raw page-wide count would
-        # conflate the two.
-        content = client.get(reverse("literature:item-create")).content.decode()
-        for group in FieldGroups.GROUPS:
-            assert f"includes('{group}')" in content
-        assert content.count("form.typeGroups[form.itemType]") == len(
-            FieldGroups.GROUPS
+        # With no type chosen, every section the type decides is guarded,
+        # so nothing type-specific shows. Scoped to the `typeGroups` guard
+        # specifically: rows carry their own unrelated `x-show` for the
+        # removed-row state.
+        content = html.unescape(
+            client.get(reverse("literature:item-create")).content.decode()
         )
+        for group in SECTION_ORDER:
+            assert f"includes('{group}')" in content
+        assert content.count("form.typeGroups[form.itemType]") == len(SECTION_ORDER)
 
     def test_posting_a_valid_form_stores_exactly_what_was_posted(self, client, db):
         data = create_page_post_data(
@@ -1624,19 +1636,18 @@ class TestItemCreateView:
 
 
 class TestItemFormInlineSets:
-    def test_the_create_page_renders_all_three_inline_sets(self, client, db):
-        content = client.get(reverse("literature:item-create")).content.decode()
-        assert 'name="item_names-TOTAL_FORMS"' in content
-        assert 'name="item_dates-TOTAL_FORMS"' in content
-        assert 'name="item_identifiers-TOTAL_FORMS"' in content
-
-    def test_the_update_page_renders_all_three_inline_sets(self, client, db):
-        item = ItemFactory()
-        content = client.get(
-            reverse("literature:item-update", kwargs={"pk": item.pk})
-        ).content.decode()
-        assert 'name="item_names-TOTAL_FORMS"' in content
-        assert 'name="item_dates-TOTAL_FORMS"' in content
+    @pytest.mark.parametrize("on_update", [False, True])
+    def test_every_role_has_a_set_and_every_date_slot_a_field(
+        self, client, db, on_update
+    ):
+        url = reverse("literature:item-create")
+        if on_update:
+            url = reverse("literature:item-update", kwargs={"pk": ItemFactory().pk})
+        content = client.get(url).content.decode()
+        for role in NameRole.values:
+            assert f'name="contributors-{role}-TOTAL_FORMS"' in content
+        for slot in DateType.values:
+            assert f'name="date_{slot.replace("-", "_")}_year"' in content
         assert 'name="item_identifiers-TOTAL_FORMS"' in content
 
     def test_a_new_identifier_row_saves_in_the_same_transaction_as_the_reference(
@@ -1679,47 +1690,43 @@ class TestItemFormInlineSets:
         ).exists()
         assert "10.1234/should-not-save" in response.content.decode()
 
-    def test_an_invalid_date_row_reports_its_own_error_and_saves_nothing(
-        self, client, db
-    ):
-        # An inline set's own error blocks the whole save,
-        # not just its own rows, since all three formsets and the parent
-        # form are validated with all_valid() and share one transaction.
+    def test_an_invalid_date_reports_its_own_error_and_saves_nothing(self, client, db):
         data = create_page_post_data(
             client,
             type=ItemType.ARTICLE_JOURNAL,
             citation_key="BadDate2024",
-            **{
-                "item_dates-0-date_type": DateType.EVENT_DATE,
-                "item_dates-0-begin": "not-a-date",
-            },
+            date_event_date_year="20x4",
         )
         response = client.post(reverse("literature:item-create"), data)
         assert response.status_code == 200
         assert not Item.objects.filter(citation_key="BadDate2024").exists()
-        assert "not-a-date" in response.content.decode()
-        inlines = {formset.prefix: formset for formset in response.context["inlines"]}
-        assert inlines["item_dates"].forms[0].errors
+        assert "date_event_date" in response.context["form"].errors
+
+    def test_an_end_before_its_start_is_reported_on_the_slot_and_saves_nothing(
+        self, client, db
+    ):
+        data = create_page_post_data(
+            client,
+            type=ItemType.PAPER_CONFERENCE,
+            citation_key="BackwardsDate2024",
+            date_event_date_year="2021",
+            date_event_date_end_year="2020",
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        assert response.status_code == 200
+        assert not Item.objects.filter(citation_key="BackwardsDate2024").exists()
+        assert "date_event_date_end" in response.context["form"].errors
 
 
 class TestDateRows:
     def test_a_type_leading_only_with_issued_can_be_given_an_accessed_date_without_leaving_the_form(
         self, client, db
     ):
-        # MAP leads with no extra date slots of its own;
-        # the accessed date is reached by naming the slot on the
-        # set's own added row, not by a second page.
+        # MAP leads with no extra date slots of its own; every slot's
+        # field is on the page all the same, so the accessed date is
+        # entered there, not on a second page.
         item = ItemFactory(type=ItemType.MAP)
-        data = update_page_post_data(
-            client,
-            item,
-            **{
-                "item_dates-TOTAL_FORMS": "2",
-                "item_dates-1-date_type": DateType.ACCESSED,
-                "item_dates-1-begin": "2023",
-                "item_dates-1-end": "",
-            },
-        )
+        data = update_page_post_data(client, item, date_accessed_year="2023")
         response = client.post(
             reverse("literature:item-update", kwargs={"pk": item.pk}), data
         )
@@ -1733,15 +1740,7 @@ class TestDateRows:
         kept = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
         removed = ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021")
 
-        data = update_page_post_data(client, item)
-        removed_row_prefix = next(
-            name.rsplit("-id", 1)[0]
-            for name, value in data.items()
-            if name.startswith("item_dates-")
-            and name.endswith("-id")
-            and str(value) == str(removed.pk)
-        )
-        data[f"{removed_row_prefix}-DELETE"] = "on"
+        data = update_page_post_data(client, item, date_accessed_year="")
 
         response = client.post(
             reverse("literature:item-update", kwargs={"pk": item.pk}), data
@@ -1763,8 +1762,7 @@ class TestContributorRows:
             type=ItemType.ARTICLE_JOURNAL,
             citation_key="OrgAuthor2024",
             **{
-                "item_names-0-role": NameRole.AUTHOR,
-                "item_names-0-literal": "United Nations",
+                "contributors-author-0-literal": "United Nations",
             },
         )
         response = client.post(reverse("literature:item-create"), data)
@@ -1783,8 +1781,7 @@ class TestContributorRows:
             type=ItemType.ARTICLE_JOURNAL,
             citation_key="NoNameAuthor2024",
             **{
-                "item_names-0-role": NameRole.AUTHOR,
-                "item_names-0-given": "Jane",
+                "contributors-author-0-given": "Jane",
             },
         )
         response = client.post(reverse("literature:item-create"), data)
@@ -1807,9 +1804,8 @@ class TestContributorRows:
             type=ItemType.ARTICLE_JOURNAL,
             citation_key="SecondDoe2024",
             **{
-                "item_names-0-role": NameRole.AUTHOR,
-                "item_names-0-family": "Doe",
-                "item_names-0-given": "Jane",
+                "contributors-author-0-family": "Doe",
+                "contributors-author-0-given": "Jane",
             },
         )
         response = client.post(reverse("literature:item-create"), data)
@@ -1833,13 +1829,11 @@ class TestContributorRows:
             type=ItemType.ARTICLE_JOURNAL,
             citation_key="TwoSameAuthors2024",
             **{
-                "item_names-TOTAL_FORMS": "2",
-                "item_names-0-role": NameRole.AUTHOR,
-                "item_names-0-family": "Doe",
-                "item_names-0-given": "Jane",
-                "item_names-1-role": NameRole.AUTHOR,
-                "item_names-1-family": "Doe",
-                "item_names-1-given": "Jane",
+                "contributors-author-TOTAL_FORMS": "2",
+                "contributors-author-0-family": "Doe",
+                "contributors-author-0-given": "Jane",
+                "contributors-author-1-family": "Doe",
+                "contributors-author-1-given": "Jane",
             },
         )
         client.post(reverse("literature:item-create"), data)
@@ -1873,7 +1867,7 @@ class TestContributorRows:
             client,
             item_a,
             **{
-                "item_names-0-family": "Changed",
+                "contributors-author-0-family": "Changed",
             },
         )
         response = client.post(
@@ -1902,7 +1896,7 @@ class TestContributorRows:
         original_name_id = link.name_id
 
         data = update_page_post_data(
-            client, item, **{"item_names-0-family": "Corrected"}
+            client, item, **{"contributors-author-0-family": "Corrected"}
         )
         response = client.post(
             reverse("literature:item-update", kwargs={"pk": item.pk}), data
@@ -1930,12 +1924,11 @@ class TestContributorRows:
         assert author_b.order == 1
         assert editor.order == 0
 
-        # rendered_form_post_data indexes rows in queryset order (item, role,
-        # order): 0 and 1 are the two authors, 2 is the editor. Swap the
-        # authors' positions; leave the editor's own ORDER value as rendered.
+        # Each role is its own set, its rows in their stored order. Swap
+        # the authors' positions; leave the editor's own ORDER as rendered.
         data = update_page_post_data(client, item)
-        data["item_names-0-ORDER"] = "2"
-        data["item_names-1-ORDER"] = "1"
+        data["contributors-author-0-ORDER"] = "2"
+        data["contributors-author-1-ORDER"] = "1"
         response = client.post(
             reverse("literature:item-update", kwargs={"pk": item.pk}), data
         )
@@ -1949,34 +1942,36 @@ class TestContributorRows:
         assert author_a.order > author_b.order  # A now follows B
         assert editor.order == 0  # the other role's own position is untouched
 
-    def test_contributor_rows_are_grouped_by_role_on_the_page(self, client, db):
-        # An ungrouped list showing positions 0, 0, 1, 2, 0 reads as
-        # broken. The set renders through the packaged formset component,
-        # which draws no role heading of its own, so this no longer asserts
-        # a heading — it asserts the behaviour that actually ships:
-        # ContributorInline.sort_forms() keeps one role's rows adjacent, and
-        # each row's own role field, its first column, names the role
-        # directly.
+    def test_each_contributor_is_in_its_own_roles_set_in_credited_order(
+        self, client, db
+    ):
         item = ItemFactory()
         ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="A"))
         ItemNameFactory(item=item, role=NameRole.AUTHOR, name=NameFactory(family="B"))
         ItemNameFactory(item=item, role=NameRole.EDITOR, name=NameFactory(family="E"))
-        content = client.get(
-            reverse("literature:item-update", kwargs={"pk": item.pk})
-        ).content.decode()
+        response = client.get(reverse("literature:item-update", kwargs={"pk": item.pk}))
+        sets = {
+            formset.prefix: [row["family"].value() for row in formset.forms]
+            for formset in response.context["contributor_sets"]
+        }
+        assert sets["contributors-author"] == ["A", "B"]
+        assert sets["contributors-editor"] == ["E"]
 
-        # One <select name="item_names-N-role"> per rendered row, including
-        # the unfilled extra row; that row's selected <option> is what names
-        # its role now, in place of the heading the fork used to draw.
-        role_selects = re.findall(
-            r'name="item_names-\d+-role".*?</select>', content, re.DOTALL
+    def test_a_name_added_to_a_roles_set_is_credited_in_that_role(self, client, db):
+        item = ItemFactory()
+        data = update_page_post_data(
+            client,
+            item,
+            **{
+                "contributors-translator-TOTAL_FORMS": "1",
+                "contributors-translator-0-family": "Weaver",
+            },
         )
-        selected_roles = [
-            match.group(1)
-            for block in role_selects
-            if (match := re.search(r'<option value="([^"]+)"\s+selected', block))
-        ]
-        assert selected_roles == [NameRole.AUTHOR, NameRole.AUTHOR, NameRole.EDITOR]
+        response = client.post(
+            reverse("literature:item-update", kwargs={"pk": item.pk}), data
+        )
+        assert response.status_code == 302
+        assert item.item_names.get().role == NameRole.TRANSLATOR
 
     def test_no_ordering_across_roles_is_offered(self, client, db):
         # An author and an editor may share the same submitted
@@ -1990,8 +1985,8 @@ class TestContributorRows:
         )
 
         data = update_page_post_data(client, item)
-        data["item_names-0-ORDER"] = "0"
-        data["item_names-1-ORDER"] = "0"
+        data["contributors-author-0-ORDER"] = "0"
+        data["contributors-editor-0-ORDER"] = "0"
         response = client.post(
             reverse("literature:item-update", kwargs={"pk": item.pk}), data
         )
@@ -2011,7 +2006,9 @@ class TestContributorRows:
         link = ItemNameFactory(item=item, name=NameFactory(family="Survivor"))
         name_id = link.name_id
 
-        data = update_page_post_data(client, item, **{"item_names-0-DELETE": "on"})
+        data = update_page_post_data(
+            client, item, **{"contributors-author-0-DELETE": "on"}
+        )
         response = client.post(
             reverse("literature:item-update", kwargs={"pk": item.pk}), data
         )
@@ -2028,7 +2025,9 @@ class TestContributorRows:
         link = ItemNameFactory(item=item, name=NameFactory(family="LoneCredit"))
         name_id = link.name_id
 
-        data = update_page_post_data(client, item, **{"item_names-0-DELETE": "on"})
+        data = update_page_post_data(
+            client, item, **{"contributors-author-0-DELETE": "on"}
+        )
         client.post(reverse("literature:item-update", kwargs={"pk": item.pk}), data)
 
         response = client.get(
@@ -2050,9 +2049,8 @@ class TestContributorRows:
             type=ItemType.ARTICLE_JOURNAL,
             citation_key="",
             **{
-                "item_names-0-role": NameRole.AUTHOR,
-                "item_names-0-family": "ShouldNotPersist",
-                "item_names-0-given": "Nobody",
+                "contributors-author-0-family": "ShouldNotPersist",
+                "contributors-author-0-given": "Nobody",
             },
         )
         response = client.post(reverse("literature:item-create"), data)
@@ -2092,7 +2090,9 @@ class TestContributorDatalist:
 
     def test_the_family_input_references_the_datalist(self, client, db):
         content = client.get(reverse("literature:item-create")).content.decode()
-        match = re.search(r'<input[^>]*name="item_names-0-family"[^>]*>', content)
+        match = re.search(
+            r'<input[^>]*name="contributors-author-0-family"[^>]*>', content
+        )
         assert match, "no rendered family input"
         list_match = re.search(r'list="([^"]+)"', match.group(0))
         assert list_match, "family input carries no list= attribute"
@@ -2116,8 +2116,7 @@ class TestContributorDatalist:
             type=ItemType.ARTICLE_JOURNAL,
             citation_key="NotSuggested2024",
             **{
-                "item_names-0-role": NameRole.AUTHOR,
-                "item_names-0-family": "NeverStoredBefore",
+                "contributors-author-0-family": "NeverStoredBefore",
             },
         )
         response = client.post(reverse("literature:item-create"), data)
@@ -3208,6 +3207,12 @@ def alpine_scope(body):
     return parser
 
 
+def scope_value(x_init, name):
+    """Return the JSON assigned to ``form.<name>`` in the scope's ``x-init``."""
+    match = re.search(rf"form\.{name} = (.*?);?\s*(?:form\.|$)", x_init, re.DOTALL)
+    return json.loads(match.group(1))
+
+
 class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
     # A malformed attribute leaves the response text unchanged, so only parsing it the
     # way a browser does catches a truncated scope.
@@ -3228,8 +3233,9 @@ class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
         parser = alpine_scope(
             client.get(reverse("literature:item-create")).content.decode()
         )
-        assigned = parser.x_init.split("form.typeGroups = ", 1)[1].rsplit(";", 1)[0]
-        assert json.loads(assigned).keys() == {t.value for t in ItemType}
+        assert scope_value(parser.x_init, "typeGroups").keys() == {
+            t.value for t in ItemType
+        }
 
     def test_the_edit_pages_forced_groups_parse(self, client, db):
         item = ItemFactory(type=ItemType.ARTICLE_JOURNAL, scale="1:50000")
@@ -3239,10 +3245,42 @@ class TestTheFormsAlpineScopeSurvivesTheHtmlParser:
             ).content.decode()
         )
         assert parser.attr_count == 1
-        assigned = parser.x_init.split("form.forcedGroups = ", 1)[1].strip()
-        assert "physical" in json.loads(assigned), (
+        assert "physical" in scope_value(parser.x_init, "forcedGroups"), (
             "a populated off-type group must reach the browser as forced-visible"
         )
+
+
+class TestWhatTheEditPageAlwaysShows:
+    def test_a_role_holding_a_contributor_is_shown_whatever_the_type(self, client, db):
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        ItemNameFactory(item=item, role=NameRole.COMPOSER)
+        parser = alpine_scope(
+            client.get(
+                reverse("literature:item-update", kwargs={"pk": item.pk})
+            ).content.decode()
+        )
+        assert NameRole.COMPOSER in scope_value(parser.x_init, "forcedRoles")
+
+    def test_a_slot_holding_a_date_is_shown_whatever_the_type(self, client, db):
+        item = ItemFactory(type=ItemType.ARTICLE_JOURNAL)
+        ItemDateFactory(item=item, date_type=DateType.ORIGINAL_DATE, begin="1900")
+        parser = alpine_scope(
+            client.get(
+                reverse("literature:item-update", kwargs={"pk": item.pk})
+            ).content.decode()
+        )
+        assert DateType.ORIGINAL_DATE in scope_value(parser.x_init, "forcedDates")
+
+    def test_a_slot_with_an_error_is_shown_whatever_the_type(self, client, db):
+        data = create_page_post_data(
+            client,
+            type=ItemType.MAP,
+            citation_key="Errored2024",
+            date_submitted_year="20x4",
+        )
+        response = client.post(reverse("literature:item-create"), data)
+        parser = alpine_scope(response.content.decode())
+        assert DateType.SUBMITTED in scope_value(parser.x_init, "forcedDates")
 
 
 class TestSurroundingWhitespaceSurvivesACorrection:

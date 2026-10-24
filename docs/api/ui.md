@@ -111,6 +111,10 @@ reader sees.
    :show-inheritance:
 ```
 
+
+The write pages hand their template `form_problems()`: every error on the form and its sets, in
+page order, each with the id of the field to fix, for the summary drawn above the tabs.
+
 ## `literature.ui.fields` and `literature.ui.links`
 
 The reference page, `ItemDetailView`, reads its content from two small modules.
@@ -148,7 +152,32 @@ read from `available_formats()` when the form is instantiated, not when the clas
 format configured after import time still appears. The skip-preview checkbox is unticked by
 default, so a plain submission previews rather than imports. `ItemForm` is the
 one write form every create and update page shares — see the README's "Adding, editing and
-removing a reference" section for what it does.
+removing a reference" section for what it does. Besides every scalar field of `Item` but the
+processor-generated ones, it declares one date field per CSL date slot, named by
+`date_field_name()` in the order `DATE_SLOTS` gives, and writes each slot's `ItemDate` when it
+saves. `StoredPartialDateField` shows a stored partial date as the text it saves as.
+`KeywordsField` takes keywords as tags and stores them as the one comma-separated string CSL JSON
+keeps, offering every keyword the catalogue already uses through `keyword_choices()`.
+`ItemIdentifierForm` takes its identifier type through an `OpenChoiceField`, which accepts a type
+outside its choices. `CreatableSelect` and `CreatableSelectMultiple` are the Tom Select controls
+that let a person type a value in beside the choices offered.
+
+## `literature.ui.formlayout`
+
+`ItemFormLayout` builds the write form's crispy layout: the four tabs, the type-scoped sections in
+`SECTION_ORDER`, the dates and the contributor sets. Each section, date slot and role set is shown
+or hidden in the browser by the condition `shown_when()`, `date_shown_when()` or
+`role_shown_when()` writes for it, and `rows_of()` lays a run of fields out in equal columns. `TYPE_CHOICE_GROUPS` sorts the 45 item types
+into the groups the type control offers them in, and `FIELD_LABELS` and `FIELD_HELP` hold the copy
+a person reads in place of the model's own CSL notes. The contributor sets themselves are
+`CONTRIBUTOR_INLINES` in `literature.ui.inlines`, one per role in `ROLE_ORDER`, and which roles each
+type leads with is `TYPE_ROLES` in `literature.ui.fieldgroups`.
+
+```{eval-rst}
+.. automodule:: literature.ui.formlayout
+   :members:
+   :undoc-members: False
+```
 
 `ConfirmImportForm` names nothing the staged file can be found by. The file and the format it
 was staged as are read from the session, never posted back. Its one hidden field names which

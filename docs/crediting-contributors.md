@@ -1,21 +1,29 @@
 # Crediting contributors
 
-Alongside a reference's own fields, the form the front end serves carries its contributors as part
-of the same page: authors, editors, translators and the rest of CSL JSON's 26 name-variable roles.
+The form the front end serves gives a reference's contributors a tab of their own: authors,
+editors, translators and the rest of CSL JSON's 26 name-variable roles.
+
+## One list per role
+
+Each role is its own list, under its own heading, so a name's role is the list it is entered in.
+Authors are always listed. The roles the reference's type usually credits are listed beside them,
+editors and translators for a book, say, or a director and a producer for a film, and so is any role
+that already holds a name. "Show other roles" lists the rest. Like the type's field sections, this
+decides what is offered without looking for it, never what can be stored.
 
 ## Adding a contributor
 
-Each contributor is one row: a role, a family name and a given name. Typing an organization or a
-name that does not split into parts is fine too. Leave family and given blank and use the unparsed
-name field, and it is recorded as a single string instead, the way a publisher or a working group is
+Each contributor is one row: a family name and a given name. An organisation, or a name to print
+exactly as written, is entered by opening the row's name details and choosing "An organisation".
+The row then takes one name, recorded as a single string, the way a publisher or a working group is
 credited.
 
-A row needs a family name or an unparsed name. Leaving both blank returns the form saying so, and
-nothing is stored.
+A row needs a family name or an organisation name. Leaving both blank returns the form saying so,
+and nothing is stored.
 
-The less common parts of a name sit off to the side rather than as two more columns on every row.
-Those are the particles, such as "van" or "de", and the suffixes, such as "Jr." or "III". Someone
-whose name needs them almost never wants them left out, and most rows never need them at all.
+The less common parts of a name sit in the row's name details rather than as more columns on every
+row. Those are the particles, such as "van" or "de", and the suffixes, such as "Jr." or "III". A
+dot on the name details button shows that a row holds one.
 
 ## Completion is a spelling aid, not a link
 
@@ -50,9 +58,9 @@ does.
 
 ## Reordering and removing
 
-Contributors within one role can be reordered by changing the number beside each row. Numbers are
-scoped to their own role, so moving an author does not touch the editor list, and there is no single
-list spanning every role to reorder across.
+Contributors are credited in the order their role's list shows them. Each row's move up and move
+down buttons change that order. Each role's list has its own order, so moving an author does not
+touch the editors.
 
 Removing a row takes the reference's credit away and nothing else. The contributor's own record
 stays in the catalogue, still credited on whatever else it appears on, and still has its own page.

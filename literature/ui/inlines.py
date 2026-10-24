@@ -1,26 +1,26 @@
-"""The three related-row set declarations the reference form composes (FS-012, #117).
+"""The related-row set declarations the reference form composes.
 
-Each targets a different relation on ``Item`` — ``ItemName``, ``ItemDate`` and
-``ItemIdentifier`` — so the default per-relation prefixes
-``mvp.views.inline.InlinesMixin.construct_inlines()`` resolves are distinct and
-its duplicate-prefix guard never fires.
+One contributor set per role (``CONTRIBUTOR_INLINES``), each over ``ItemName``
+with a prefix of its own, ``contributors-<role>``, and one identifier set over
+``ItemIdentifier``. Dates are not a set: each date slot is a field of
+``ItemForm`` (docs/adr/0034-a-date-slot-is-a-field-of-the-form.md).
 
-Each row's own form does the work particular to its relation: ``NameForm`` and the position
-column for contributors, ``ItemDateForm`` for dates, and ``ItemIdentifierForm`` for identifiers.
+Each row's own form does the work particular to its relation: ``NameForm`` and
+the position column for contributors, ``ItemIdentifierForm`` for identifiers.
 """
 
 from collections import defaultdict
-from functools import cached_property
 
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.utils.translation import gettext_lazy as _
 from mvp.views.inline import InlineFormSet
 
-from literature.choices import DateType
-from literature.models import ItemDate, ItemIdentifier, ItemName
-from literature.ui.fieldgroups import TYPE_DATE_SLOTS
-from literature.ui.forms import ItemDateForm, ItemIdentifierForm, NameForm
+from literature.choices import NameRole
+from literature.models import ItemIdentifier, ItemName
+from literature.ui.contributors import ContributorGroups
+from literature.ui.fieldgroups import ROLE_ORDER
+from literature.ui.forms import ItemIdentifierForm, NameForm
 
 
 class ContributorFormSet(BaseInlineFormSet):
@@ -76,155 +76,73 @@ class ContributorFormSet(BaseInlineFormSet):
 
 
 class ContributorInline(InlineFormSet):
-    """A reference's contributors, one row per ``ItemName`` link (FS-012, #117)."""
+    """A reference's contributors in one role, one row per ``ItemName`` link.
+
+    One set per role (``CONTRIBUTOR_INLINES`` below), so a row's role is the
+    set it sits in, and its position is its place in that set.
+    """
 
     model = ItemName
     form = NameForm
     formset = ContributorFormSet
-    fields = ("role",)
-    extra = 1
+    fields = ()
+    extra = 0
     can_delete = True
-    title = _("Contributors")
 
-    # Django's own escape hatch — django-mvp has no reordering support of
-    # its own and deliberately dropped its Alpine sort plugin, so a drag
-    # affordance would mean a custom component this feature is not allowed
-    # to write. can_order adds an ORDER field to every row (an ordinary
-    # number input, one more column heading under the tabular layout);
-    # ItemName.order itself stays editable=False and is never in the form's
-    # own Meta.fields.
+    #: The role every row of this set holds. Set by each subclass.
+    role = ""
+
+    # Django's own escape hatch: can_order adds an ORDER field to every row,
+    # which the page writes from the row's place on screen. ItemName.order
+    # itself stays editable=False and is never in the form's own Meta.fields.
     factory_kwargs = {"can_order": True}
 
-    def sort_forms(self, forms):
-        """Bring a role's rows adjacent for display.
-
-        Display only, per the base class's own contract — it must never
-        reach save(), since reordering that would change which submitted
-        row maps to which record. A contributor row spans one of 26 roles,
-        and this set holds every role's rows on one page; an ungrouped list
-        shows positions running 0, 0, 1, 2, 0 and reads as broken.
-        """
-        return sorted(
-            forms, key=lambda form: (form.instance.role or "", form.instance.pk or 0)
-        )
-
-
-class ItemDateFormSet(BaseInlineFormSet):
-    """Refuses two rows of one set claiming the same CSL date slot, before the database's own ``unique_date_type_per_item`` constraint can fire inside the save transaction.
-
-    A row flagged for deletion is excluded from the check: clearing one
-    slot's date and adding another in the same submission is a
-    replacement, not a collision.
-
-    Does not call ``super().clean()``: ``BaseModelFormSet.clean()``'s own
-    ``validate_unique()`` already catches this exact collision (against
-    ``ItemDate``'s ``unique_date_type_per_item`` constraint) before this
-    method would even run, reporting it as a bare "Please correct the
-    duplicate values below" on the row's ``__all__`` and deleting
-    ``date_type`` from its ``cleaned_data`` in the process — which is both
-    the wrong message (this feature wants one naming the slot) and would
-    leave nothing here to detect a second time. This replaces that check
-    entirely rather than running alongside it.
-    """
-
-    def clean(self):
-        """Report a row naming a CSL date slot another surviving row already claims."""
-        if any(self.errors):
-            # A row with a field error of its own has nothing reliable in
-            # cleaned_data to compare — the same guard BaseModelFormSet's
-            # own uniqueness check uses.
-            return
-        slot_labels = dict(DateType.choices)
-        seen_by_slot = {}
-        for form in self.forms:
-            if not hasattr(form, "cleaned_data") or form.cleaned_data.get("DELETE"):
-                continue
-            date_type = form.cleaned_data.get("date_type")
-            if not date_type:
-                continue
-            if date_type in seen_by_slot:
-                form.add_error(
-                    "date_type",
-                    ValidationError(
-                        _("This reference already has a %(slot)s date."),
-                        code="duplicate_date_type",
-                        params={"slot": slot_labels.get(date_type, date_type)},
-                    ),
-                )
-            else:
-                seen_by_slot[date_type] = form
-
-
-class DateInline(InlineFormSet):
-    """A reference's dates, one row per ``ItemDate`` slot (FS-012, #117).
-
-    The set does not fix ``extra`` at the class level — how many blank rows
-    it pre-renders, and for which slots, depends on the reference's own
-    type and what it already has stored, so both are computed per instance
-    below and threaded through the two-phase construction
-    (``get_factory_kwargs``/``get_formset_kwargs``) ``InlineFormSet``
-    itself documents.
-    """
-
-    model = ItemDate
-    form = ItemDateForm
-    formset = ItemDateFormSet
-    can_delete = True
-    title = _("Dates")
-
-    # There is exactly one row per CSL date slot (unique_date_type_per_item),
-    # so the set has nothing to offer past the number of slots the enum
-    # defines — Django's own default of 1000 would otherwise apply.
-    max_num = len(DateType.choices)
-
-    def leading_slots(self):
-        """The slots a blank row is pre-rendered for: ``issued`` always, plus whatever ``TYPE_DATE_SLOTS`` leads with for the reference's own type.
-
-        ``self.instance`` is ``None`` on a create page's first GET, before
-        any type is chosen — ``TYPE_DATE_SLOTS.get(None, ...)`` then falls
-        through to the empty set the same way
-        ``FieldGroups.groups_for`` already tolerates an unrecognised type,
-        so only ``issued`` renders until the reference exists to have a
-        type of its own.
-        """
-        item_type = getattr(self.instance, "type", None)
-        return frozenset({DateType.ISSUED}) | TYPE_DATE_SLOTS.get(
-            item_type, frozenset()
-        )
-
-    def stored_slots(self):
-        """The slots the reference already holds a row for, whatever the type mapping says."""
-        if self.instance is None or self.instance.pk is None:
-            return frozenset()
-        return frozenset(self.instance.item_dates.values_list("date_type", flat=True))
-
-    @cached_property
-    def extra_slots(self):
-        """Leading slots with no stored row yet — the blank rows this set pre-renders beyond its queryset.
-
-        Sorted so the factory's ``extra`` count and the formset's own
-        ``initial`` list line up by index every time the two are built from
-        this same instance.
-        """
-        return sorted(self.leading_slots() - self.stored_slots())
-
-    def get_factory_kwargs(self):
-        """Pre-render one blank row per leading slot with no stored row yet."""
-        kwargs = super().get_factory_kwargs()
-        kwargs["extra"] = len(self.extra_slots)
-        return kwargs
+    def get_title(self):
+        """Name the set by its role, in the plural."""
+        return ContributorGroups.role_label(self.role, 2)
 
     def get_formset_kwargs(self):
-        """Seed each pre-rendered blank row's ``date_type`` with its own leading slot."""
+        """Hold only this role's rows."""
         kwargs = super().get_formset_kwargs()
-        kwargs["initial"] = [{"date_type": slot} for slot in self.extra_slots]
+        kwargs["queryset"] = ItemName.objects.filter(role=self.role).select_related(
+            "name"
+        )
         return kwargs
 
     def get_form_kwargs(self, index):
-        """Thread the slots already on the page through so an unsettled row narrows its own choices."""
-        kwargs = super().get_form_kwargs(index)
-        kwargs["occupied_slots"] = self.stored_slots() | self.leading_slots()
+        """Give every row, the blank template included, this set's role."""
+        return {**super().get_form_kwargs(index), "role": self.role}
+
+    def get_factory_kwargs(self):
+        """Offer one blank author row to a reference with no authors yet."""
+        kwargs = super().get_factory_kwargs()
+        if self.role == NameRole.AUTHOR and not (
+            self.instance is not None
+            and self.instance.pk
+            and self.instance.item_names.filter(role=self.role).exists()
+        ):
+            kwargs["extra"] = 1
         return kwargs
+
+    def sort_forms(self, forms):
+        """Show rows in their credited order, new rows last. Display only."""
+        return sorted(
+            forms,
+            key=lambda form: (
+                form.instance.pk is None,
+                form.instance.order if form.instance.pk else 0,
+            ),
+        )
+
+
+CONTRIBUTOR_INLINES = [
+    type(
+        f"ContributorInline_{role.replace('-', '_')}",
+        (ContributorInline,),
+        {"role": role, "prefix": f"contributors-{role}"},
+    )
+    for role in ROLE_ORDER
+]
 
 
 class ItemIdentifierFormSet(BaseInlineFormSet):
@@ -279,3 +197,14 @@ class IdentifierInline(InlineFormSet):
     extra = 1
     can_delete = True
     title = _("Identifiers")
+
+    def get_factory_kwargs(self):
+        """Offer a blank row only to a reference with no identifiers yet."""
+        kwargs = super().get_factory_kwargs()
+        if (
+            self.instance is not None
+            and self.instance.pk
+            and self.instance.item_identifiers.exists()
+        ):
+            kwargs["extra"] = 0
+        return kwargs

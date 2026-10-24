@@ -10,9 +10,13 @@ how to raise a disagreement with it.
 Nothing about which fields a reference *can* hold depends on this mapping. Every scalar field of
 `Item` is part of the form on every page, always, and every value already stored survives a save
 regardless of which fields the current type's groups happen to show. The mapping only decides
-which fields are visible without asking. A field a reference's type does not usually carry is one
-click away behind the form's "Show every field" toggle, and any field already holding a value is
-shown automatically even if the current type would not otherwise offer it.
+which fields are visible without asking. A section a reference's type does not usually carry is one
+click away behind the form's "Show sections other types use" toggle, and any field already holding
+a value is shown automatically even if the current type would not otherwise offer it.
+
+The one exception is the Processor-generated group, which is not on the form at all. Its values
+are written by a citation processor, never by a person, and a save through the form leaves whatever
+an import stored there untouched.
 
 ## CSL JSON has no such mapping
 
@@ -34,9 +38,9 @@ are on the form at all) belongs to exactly one of the following thirteen groups:
 | Group | What it covers |
 |---|---|
 | Core | Type, citation key, title, abstract: shown for every reference, on every page |
-| General | Note, annotation, keywords, language, status, source, call number: shown for every reference |
-| Alternate titles | A short title, an original title, a part title, a volume title. No item type offers this group by default, so these fields are reached through the toggle |
-| Container | The larger work a reference sits inside: a journal, a book, a collection |
+| General | Note, annotation, keywords, language, status, source, call number: shown for every reference, the notes and catalogue fields on the form's More tab |
+| Alternate titles | A short title, an original title, a part title, a volume title. On the form's More tab for every type |
+| Published in | The larger work a reference sits inside: a journal, a book, a collection |
 | Publication | Publisher, place, edition, medium, genre, version |
 | Original publication | The publisher and place of an earlier edition, for a republished or translated work |
 | Numbering and pagination | Volume, issue, page range, chapter and section numbers |
@@ -45,7 +49,7 @@ are on the form at all) belongs to exactly one of the following thirteen groups:
 | Legal | Authority, jurisdiction, division and cross-references, for legal and legislative references |
 | Archive | Where a physical or held item is kept |
 | Physical description | Dimensions and scale |
-| Processor-generated | Values a citation processor fills in, such as a citation label. Never offered by default, since no person enters them |
+| Processor-generated | Values a citation processor fills in, such as a citation label. Not on the form, since no person enters them |
 
 Every reference's form shows Core and General regardless of type. Every other group is shown only
 for the types it is assigned to, and the assignment follows a fixed set of criteria: evidence from

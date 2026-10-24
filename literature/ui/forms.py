@@ -9,15 +9,27 @@ write every omitted field as empty rather than leaving it alone — the
 opposite of the no-loss guarantee this feature exists for.
 """
 
+import re
+
 from django import forms
 from django.core.exceptions import ValidationError
-from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
+from mvp_forms.fields import PartialDateField
+from mvp_forms.widgets import PartialDateInput, TomSelect, TomSelectMultiple
+from partial_date import PartialDate
 
 from literature.choices import IdentifierType
 from literature.importers import available_formats
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import GROUPS
+from literature.ui.formlayout import (
+    DATE_SLOTS,
+    FIELD_HELP,
+    FIELD_LABELS,
+    TYPE_CHOICE_GROUPS,
+    ItemFormLayout,
+    date_field_name,
+)
 
 #: Every field ``ItemForm`` declares: every scalar field of ``Item`` except
 #: ``categories``, ``custom``, ``created`` and ``modified``. Built from
@@ -25,19 +37,127 @@ from literature.ui.fieldgroups import GROUPS
 #: the two artefacts cannot drift apart — ``fieldgroups.py`` already proves
 #: this set is exactly ``Item``'s form fields
 #: (``tests/test_ui/test_fieldgroups.py::TestFieldPartition``).
-FORM_FIELDS = tuple(sorted(name for fields in GROUPS.values() for name in fields))
+FORM_FIELDS = tuple(
+    sorted(
+        name
+        for group, fields in GROUPS.items()
+        if group != "processor"
+        for name in fields
+    )
+)
+
+
+class CreatableSelect(TomSelect):
+    """A Tom Select control that also takes a value typed in, beside the choices it offers.
+
+    ``literature/static/literature/creatable.js`` turns Tom Select's ``create``
+    setting on for every select marked ``data-create``, since django-mvp-forms'
+    widget passes no such setting.
+    """
+
+    class Media:
+        js = ["literature/creatable.js"]
+
+    def build_attrs(self, base_attrs, extra_attrs=None):
+        """Mark the select for the script that lets it take typed values."""
+        attrs = super().build_attrs(base_attrs, extra_attrs)
+        attrs["data-create"] = "true"
+        return attrs
+
+
+class CreatableSelectMultiple(CreatableSelect, TomSelectMultiple):
+    """A multiple Tom Select control that takes typed values as tags."""
+
+
+class OpenChoiceField(forms.ChoiceField):
+    """A choice field that also accepts a value outside its choices."""
+
+    def valid_value(self, value):
+        """Accept any value: the choices are suggestions."""
+        return True
+
+
+class KeywordsField(forms.MultipleChoiceField):
+    """Keywords as tags, stored as the one comma-separated string CSL JSON keeps them in."""
+
+    widget = CreatableSelectMultiple(
+        remove_button=True, placeholder=_("Type a keyword and press Enter")
+    )
+
+    @staticmethod
+    def split(value):
+        """Return the keywords a stored string holds, in order."""
+        if isinstance(value, str):
+            # CSL JSON separates keywords with commas, and some sources use
+            # semicolons, so either one ends a keyword.
+            return [part.strip() for part in re.split(r"[,;]", value) if part.strip()]
+        return list(value or [])
+
+    def prepare_value(self, value):
+        """Show a stored string as one tag per keyword."""
+        return self.split(value)
+
+    def valid_value(self, value):
+        """Accept any keyword: the choices are the catalogue's own, offered for reuse."""
+        return True
+
+    def has_changed(self, initial, data):
+        """Compare keyword by keyword, so a stored string unchanged in content is unchanged."""
+        return self.split(initial) != self.split(data)
 
 
 class ItemForm(forms.ModelForm):
-    """Every scalar field of ``Item``, always.
+    """Every scalar field of ``Item``, always, and one date field per CSL date slot.
 
-    Labels and help text are not restated here: every field already carries
-    a translated ``verbose_name`` and ``help_text`` on the model (Article
-    VIII), and ``ModelForm`` reads both by default.
+    The model's ``help_text`` records each field's CSL JSON name, which is
+    the developer's reference and means nothing to the person filling the
+    form in, so the form carries its own labels and help where the model's
+    would mislead (``FIELD_LABELS``, ``FIELD_HELP``) and none elsewhere.
+    The page's arrangement is ``ItemFormLayout``'s, built per instance.
+
+    Each slot is a start and an end, written to that slot's ``ItemDate`` on
+    save. A slot left empty that was empty stays absent, and a stored date
+    whose only content is unparsed text keeps that text.
     """
+
+    class Media:
+        js = ["literature/item-form.js"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            field.help_text = FIELD_HELP.get(name, "")
+            if name in FIELD_LABELS:
+                field.label = FIELD_LABELS[name]
+        self.fields["type"].choices = [("", ""), *TYPE_CHOICE_GROUPS]
+        self.fields["keyword"] = KeywordsField(
+            label=_("Keywords"),
+            required=False,
+            choices=keyword_choices(self.instance.keyword if self.instance.pk else ""),
+        )
+        self.stored_dates = (
+            {row.date_type: row for row in self.instance.item_dates.all()}
+            if self.instance.pk
+            else {}
+        )
+        for slot, label in DATE_SLOTS:
+            row = self.stored_dates.get(slot)
+            begin = StoredPartialDateField(
+                label=label, required=False, widget=PartialDateInput
+            )
+            end = StoredPartialDateField(
+                label=_("End date"), required=False, widget=PartialDateInput
+            )
+            self.fields[date_field_name(slot)] = begin
+            self.fields[date_field_name(slot, end=True)] = end
+            if row is not None:
+                self.initial[date_field_name(slot)] = row.begin
+                self.initial[date_field_name(slot, end=True)] = row.end
+                unparsed = row.literal or row.raw
+                if not row.begin and unparsed:
+                    year = begin.widget.widgets[0]
+                    year.attrs["placeholder"] = unparsed
+                    year.attrs["title"] = unparsed
         # Django's CharField strips surrounding whitespace by default, which
         # quietly rewrites a stored value on a save that changed nothing —
         # an abstract ending in a newline loses it, a title stored with
@@ -49,12 +169,65 @@ class ItemForm(forms.ModelForm):
         for field in self.fields.values():
             if isinstance(field, forms.CharField):
                 field.strip = False
+        self.helper = ItemFormLayout(self).helper()
+
+    def date_slots_holding_values(self):
+        """The slots with a stored date, of any kind, on the reference being edited."""
+        return frozenset(self.stored_dates)
+
+    def clean_keyword(self):
+        """Join the tags back into one string, or keep the stored string when no keyword changed."""
+        words = self.cleaned_data["keyword"]
+        stored = self.instance.keyword if self.instance.pk else ""
+        if words == KeywordsField.split(stored):
+            return stored
+        return ", ".join(words)
+
+    def clean(self):
+        """Check each date slot's range the way ``ItemDate`` does, and report it on the slot."""
+        cleaned_data = super().clean()
+        for slot, _label in DATE_SLOTS:
+            begin = cleaned_data.get(date_field_name(slot)) or None
+            end = cleaned_data.get(date_field_name(slot, end=True)) or None
+            try:
+                ItemDate(date_type=slot, begin=begin, end=end).clean()
+            except ValidationError as error:
+                self.add_error(date_field_name(slot, end=True), error)
+        return cleaned_data
+
+    def _save_m2m(self):
+        """Write the date slots after the reference itself is saved."""
+        super()._save_m2m()
+        for slot, _label in DATE_SLOTS:
+            names = (date_field_name(slot), date_field_name(slot, end=True))
+            if not any(name in self.changed_data for name in names):
+                continue
+            begin = self.cleaned_data[names[0]] or None
+            end = self.cleaned_data[names[1]] or None
+            row = self.stored_dates.get(slot)
+            if begin is None and end is None:
+                if row is None:
+                    continue
+                if row.literal or row.raw or row.raw_date_parts:
+                    row.begin = row.end = None
+                    row.save()
+                else:
+                    row.delete()
+                continue
+            row = row or ItemDate(item=self.instance, date_type=slot)
+            row.begin, row.end = begin, end
+            row.save()
 
     class Meta:
         model = Item
         fields = FORM_FIELDS
         widgets = {
-            "type": forms.Select(
+            "abstract": forms.Textarea(attrs={"rows": 8}),
+            "note": forms.Textarea(attrs={"rows": 3}),
+            "annote": forms.Textarea(attrs={"rows": 3}),
+            "references": forms.Textarea(attrs={"rows": 3}),
+            "type": TomSelect(
+                placeholder=_("Choose a type"),
                 attrs={
                     "x-model": "form.itemType",
                     # cotton/form/index.html opens x-data="{form: {}}" on the
@@ -66,9 +239,25 @@ class ItemForm(forms.ModelForm):
                     # type selected, and saving would then fail validation
                     # because type is required.
                     "x-init": "form.itemType = $el.value",
-                }
+                },
             ),
         }
+
+
+def keyword_choices(own):
+    """This reference's own keywords in their stored order, then every other keyword the catalogue uses.
+
+    Its own come first because a select sends its chosen options in the order
+    they are listed, and an unchanged save has to send them back in the order
+    they were stored.
+    """
+    mine = KeywordsField.split(own)
+    others = set()
+    for stored in Item.objects.exclude(keyword="").values_list("keyword", flat=True):
+        others.update(KeywordsField.split(stored))
+    others -= set(mine)
+    words = [*mine, *sorted(others, key=str.casefold)]
+    return [(word, word) for word in words]
 
 
 #: The id shared between the family-name input's ``list=`` attribute and the
@@ -82,30 +271,21 @@ class NameForm(forms.ModelForm):
     """A contributor row: an ``ItemName`` link whose form also carries the ``Name`` it points at (FS-012, #117).
 
     ``ItemName`` carries ``item``, ``name``, ``role`` and ``order``; the
-    person types into ``Name``. This form is declared over ``ItemName`` —
-    ``role`` is its one model field — and declares the name's own parts as
-    fields of its own, unbound to ``ItemName``. ``save()`` is what turns
-    them into a stored ``Name``; ``order`` is excluded on purpose, since it
-    is ``editable=False`` and no generated form can carry it at all — the
-    position column arrives through the formset's own ``can_order`` escape
-    hatch instead.
+    person types into ``Name``. This form declares none of ``ItemName``'s own
+    fields: the role is the set the row sits in, handed in as ``role`` and
+    written onto a new row, and ``order`` arrives through the formset's
+    ``can_order`` field. The name's own parts are fields of this form, unbound
+    to ``ItemName``, and ``save()`` turns them into a stored ``Name``.
 
     Each name-part field is built from ``Name``'s own field via
-    ``formfield()`` rather than restated here, so the label and help text
-    stay the model's own translated copy (Article VIII). Family and given
-    are the row's own columns; the particles, the suffix and the unparsed
-    organizational form ship as ordinary columns beside them too — the
-    row-level disclosure that would fold them out of sight does not exist
-    in the packaged formset component and waits on a django-mvp release
-    that carries one. The three citation-processor flags —
-    ``comma_suffix``, ``static_ordering``, ``parse_names`` — are never
-    declared, so nothing here can write them and their stored values are
-    preserved exactly.
+    ``formfield()``. The three citation-processor flags — ``comma_suffix``,
+    ``static_ordering``, ``parse_names`` — are never declared, so nothing here
+    can write them and their stored values are preserved exactly.
     """
 
     class Meta:
         model = ItemName
-        fields = ("role",)
+        fields = ()
 
     family = Name._meta.get_field("family").formfield(
         widget=forms.TextInput(attrs={"list": CONTRIBUTOR_NAMES_DATALIST_ID})
@@ -128,8 +308,12 @@ class NameForm(forms.ModelForm):
         "literal",
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, role=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # The role is the set's, never the row's: each role has a set of its
+        # own, so a row added to the editors is an editor.
+        if not self.instance.pk:
+            self.instance.role = role
         # Seeding initial from the linked Name is what makes an unedited row
         # round-trip unchanged: without it, every field would start from
         # ModelForm's own blank default and a save that touched nothing
@@ -138,6 +322,26 @@ class NameForm(forms.ModelForm):
             name = self.instance.name
             for field_name in self.NAME_FIELDS:
                 self.initial.setdefault(field_name, getattr(name, field_name))
+        for name, (label, help_text) in self.NAME_COPY.items():
+            self.fields[name].label = label
+            self.fields[name].help_text = help_text
+
+    #: What each name part is called on the page, with an example where the
+    #: CSL name would leave a person guessing.
+    NAME_COPY = {
+        "family": (_("Family name"), ""),
+        "given": (_("Given name"), ""),
+        "non_dropping_particle": (
+            _("Particle kept with the family name"),
+            _("Such as de in Jean de La Fontaine."),
+        ),
+        "dropping_particle": (
+            _("Particle dropped when sorting"),
+            _("Such as van in Ludwig van Beethoven."),
+        ),
+        "suffix": (_("Suffix"), _("Such as Jr. or III.")),
+        "literal": (_("Organisation name"), ""),
+    }
 
     def clean(self):
         """Require a family name or an unparsed name, unless the row is being deleted."""
@@ -150,7 +354,7 @@ class NameForm(forms.ModelForm):
         literal = cleaned_data.get("literal", "")
         if not family and not literal:
             raise forms.ValidationError(
-                _("A contributor needs a family name or an unparsed name."),
+                _("Enter a family name, or an organisation name under name details."),
                 code="name_required",
             )
         return cleaned_data
@@ -238,122 +442,18 @@ class SetPolicedConstraintMixin:
             self._update_errors(e)
 
 
-class ItemDateForm(SetPolicedConstraintMixin, forms.ModelForm):
-    """A date-slot row: one ``ItemDate`` reachable through the reference form's dates set (FS-012, #117).
+class StoredPartialDateField(PartialDateField):
+    """A partial date field that shows a stored ``PartialDate`` as the text it saves as.
 
-    Declares ``date_type`` alongside ``begin`` and ``end`` and nothing
-    else, so everything else ``ItemDate`` carries — season, circa,
-    literal, raw, raw date parts — is never written by a save through this
-    form. ``date_type`` earns its place for two reasons rather than one: it
-    is what lets an added row name a slot the reference's type does not
-    lead with, and it is what gets the value validated at all —
-    ``ModelForm``'s ``_post_clean`` excludes undeclared fields from
-    ``full_clean``, so a row cloned from the set's own ``__prefix__``
-    template with an undeclared ``date_type`` would otherwise save an empty
-    slot the model's own choices check would have refused.
-
-    ``begin``/``end`` are left to ``ModelForm``'s own default field for
-    ``PartialDateField`` — a plain ``CharField``/``TextInput``, since the
-    field defines no ``formfield()`` of its own — which is already what
-    accepts a year, a year and month, or a full date with no precision
-    declared beforehand, and what a stored value renders back as (the
-    canonical string that re-parses to the same value).
-
-    A row is "settled" — its slot fixed rather than offered as a choice —
-    when it edits a stored ``ItemDate`` or was pre-filled for a slot the
-    reference's type leads with
-    (:meth:`~literature.ui.inlines.DateInline.leading_slots`). In both
-    cases ``date_type`` is marked ``disabled`` rather than replaced with a
-    hidden input: Django reads a disabled field's value from ``initial``
-    rather than the submission, which carries the same guarantee a hidden
-    input would — the slot cannot be changed from the page — while keeping
-    the field a *visible* one for ``cotton/form/formset/index.html``'s
-    tabular layout, whose column headings and grid tracks are read from the
-    row with no slot settled (``formset.empty_form``). A literal
-    ``HiddenInput`` renders outside that grid entirely
-    (``cotton/form/formset/row.html`` renders hidden fields ahead of it,
-    not inside it), which would misalign every settled row's
-    ``begin``/``end`` cells by one column — a gap in the packaged component
-    this feature works around rather than forks. Disabling the field is
-    the closest supported way to carry the slot's own plain-language
-    label: the option text a disabled ``<select>`` still renders.
-
-    An unsettled row — the set's own ``__prefix__`` template, cloned by
-    "Add row" — instead narrows ``date_type``'s choices to the six CSL
-    slots less ``occupied_slots``, the ones already on the page, computed
-    by :class:`~literature.ui.inlines.DateInline` and passed in through
-    ``get_form_kwargs`` so the cloned template's choices agree with what
-    the page actually rendered.
+    The model hands the form a ``PartialDate``, which never compares equal to
+    the text sent back, so every stored date would count as changed.
     """
 
-    constraint_field = "date_type"
-
-    class Meta:
-        model = ItemDate
-        fields = ("date_type", "begin", "end")
-
-    def __init__(self, *args, occupied_slots=frozenset(), **kwargs):
-        super().__init__(*args, **kwargs)
-        settled_type = (
-            self.instance.date_type
-            if self.instance.pk
-            else self.initial.get("date_type")
-        )
-        if settled_type:
-            self.fields["date_type"].disabled = True
-        else:
-            self.fields["date_type"].choices = [
-                choice
-                for choice in self.fields["date_type"].choices
-                if choice[0] not in occupied_slots
-            ]
-        # A stored date whose only content is unparsed has nothing in
-        # begin/end for the person to see. Showing that content as begin's
-        # own placeholder makes it visible and repairable — a placeholder
-        # is never submitted, so leaving it untouched stores nothing.
-        if self.instance.pk and not self.instance.begin and not self.instance.end:
-            unparsed = self.instance.literal or self.instance.raw
-            if unparsed:
-                self.fields["begin"].widget.attrs["placeholder"] = unparsed
-
-
-class IdentifierKindWidget(forms.TextInput):
-    """A text input completing from the package's six known identifier kinds (FS-012, #117).
-
-    The same native ``<datalist>`` shape the contributor name field uses: accepting a
-    completion asserts the kind's spelling, and a value not among the six is equally acceptable —
-    the model's own ``type`` field carries no ``choices=`` for exactly that reason
-    (``docs/adr/0002-open-identifier-types.md``). Unlike the contributor list, the six kinds are
-    static rather than read from the catalogue, so this widget renders its own ``<datalist>``
-    sibling on every row rather than referencing one page-level element built from a
-    view-supplied queryset — each row already carries its own unique id from the formset's own
-    numbering (``id_item_identifiers-0-type``, ``-1-type``, ...), so a sibling ``<datalist>``
-    keyed off that same id never collides with another row's.
-    """
-
-    def get_context(self, name, value, attrs):
-        """Add the sibling ``<datalist>``'s own id, derived from this widget's."""
-        context = super().get_context(name, value, attrs)
-        widget_id = context["widget"]["attrs"].get("id") or f"id_{name}"
-        context["datalist_id"] = f"{widget_id}-kinds"
-        context["widget"]["attrs"]["list"] = context["datalist_id"]
-        return context
-
-    def render(self, name, value, attrs=None, renderer=None):
-        """Render the input followed by its sibling ``<datalist>`` of known kinds."""
-        context = self.get_context(name, value, attrs)
-        input_html = self._render(self.template_name, context, renderer)
-        options = format_html_join(
-            "",
-            '<option value="{}">',
-            ((kind,) for kind in IdentifierType.values),
-        )
-        return format_html(
-            '{}<datalist id="{}">{}</datalist>',
-            input_html,
-            context["datalist_id"],
-            options,
-        )
+    def prepare_value(self, value):
+        """Show a stored partial date as its ISO text."""
+        if isinstance(value, PartialDate):
+            return str(value)
+        return super().prepare_value(value)
 
 
 class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
@@ -387,7 +487,23 @@ class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
     class Meta:
         model = ItemIdentifier
         fields = ("type", "value")
-        widgets = {"type": IdentifierKindWidget}
+        labels = {"type": _("Identifier type"), "value": _("Identifier")}
+        help_texts = {"type": "", "value": ""}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The six known types are the choices. Any other type is typed in and
+        # stored as it is (docs/adr/0002-open-identifier-types.md), and a
+        # stored one is offered back so the row shows what it holds.
+        choices = [("", ""), *((kind, kind) for kind in IdentifierType.values)]
+        stored = self.instance.type if self.instance.pk else ""
+        if stored and stored not in IdentifierType.values:
+            choices.append((stored, stored))
+        self.fields["type"] = OpenChoiceField(
+            label=_("Identifier type"),
+            choices=choices,
+            widget=CreatableSelect(placeholder=_("DOI, ISBN, URL…")),
+        )
 
     def clean_type(self):
         """Normalize a typed kind matching a known one, other than by casing, to its canonical acronym.

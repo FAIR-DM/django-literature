@@ -1,0 +1,7 @@
+{% load i18n %}
+{# Reaches a section the chosen type does not use. Nothing is hidden from the save, only from view. #}
+<div x-show="form.itemType" class="mt-8">
+  <c-form.label text="{% translate "Show sections other types use" %}">
+    <c-form.toggle size="sm" x-model="form.showAll" form="" />
+  </c-form.label>
+</div>
