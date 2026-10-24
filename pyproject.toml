@@ -114,7 +114,7 @@ extend_exclude = ["tasks.py", "tests/", "demo/", "docs/"]
 django-mvp = "mvp"
 django-mvp-forms = "mvp_forms"
 django-crispy-forms = "crispy_forms"
-django-filter = "django_filters"
+django-filter = "django_filter>=26.2,<27"
 
 [tool.deptry.per_rule_ignores]
 DEP003 = ["literature"]
@@ -129,9 +129,9 @@ authors = [{ name = "Sam Jennings", email = "samuel.scott.jennings@gmail.com" }]
 requires-python = '>=3.11,<4.0'
 keywords = ["django", "literature", "publications", "scientific", "research"]
 dependencies = [
-    'django>=4.2',
+    'django>=5.2.18',
     'django-partial-date',
-    "bibtexparser (>=1.4.4,<2)",
+    "bibtexparser>=2.1.0,<3",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
