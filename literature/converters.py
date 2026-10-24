@@ -234,7 +234,7 @@ def to_csl_json(item: Any) -> dict[str, Any]:
     _custom: dict[str, Any] = {}
     if item.custom:
         _custom.update(item.custom)
-        for key in PROCESSOR_VARIABLES & _custom.keys():
+        for key in sorted(PROCESSOR_VARIABLES & _custom.keys()):
             result[key] = _custom.pop(key)
 
     for ident in item.item_identifiers.all():
