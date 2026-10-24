@@ -111,6 +111,10 @@ reader sees.
    :show-inheritance:
 ```
 
+
+The write pages hand their template `form_problems()`: every error on the form and its sets, in
+page order, each with the id of the field to fix, for the summary drawn above the tabs.
+
 ## `literature.ui.fields` and `literature.ui.links`
 
 The reference page, `ItemDetailView`, reads its content from two small modules.
@@ -161,7 +165,9 @@ that let a person type a value in beside the choices offered.
 ## `literature.ui.formlayout`
 
 `ItemFormLayout` builds the write form's crispy layout: the four tabs, the type-scoped sections in
-`SECTION_ORDER`, the dates and the contributor sets. `TYPE_CHOICE_GROUPS` sorts the 45 item types
+`SECTION_ORDER`, the dates and the contributor sets. Each section, date slot and role set is shown
+or hidden in the browser by the condition `shown_when()`, `date_shown_when()` or
+`role_shown_when()` writes for it, and `rows_of()` lays a run of fields out in equal columns. `TYPE_CHOICE_GROUPS` sorts the 45 item types
 into the groups the type control offers them in, and `FIELD_LABELS` and `FIELD_HELP` hold the copy
 a person reads in place of the model's own CSL notes. The contributor sets themselves are
 `CONTRIBUTOR_INLINES` in `literature.ui.inlines`, one per role in `ROLE_ORDER`, and which roles each

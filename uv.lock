@@ -716,8 +716,10 @@ dependencies = [
 
 [package.optional-dependencies]
 ui = [
+    { name = "django-crispy-forms", marker = "python_full_version >= '3.12'" },
     { name = "django-filter", marker = "python_full_version >= '3.12'" },
     { name = "django-mvp", marker = "python_full_version >= '3.12'" },
+    { name = "django-mvp-forms", marker = "python_full_version >= '3.12'" },
     { name = "django-tables2", marker = "python_full_version >= '3.12'" },
 ]
 
@@ -734,8 +736,10 @@ docs = [
 requires-dist = [
     { name = "bibtexparser", specifier = ">=1.4.4,<2" },
     { name = "django", specifier = ">=4.2" },
+    { name = "django-crispy-forms", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=2.7,<3" },
     { name = "django-filter", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=26.1,<27" },
     { name = "django-mvp", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=0.31.0,<1.0" },
+    { name = "django-mvp-forms", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=0.8.0,<1.0" },
     { name = "django-partial-date" },
     { name = "django-tables2", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=3.0,<4" },
 ]
