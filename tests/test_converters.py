@@ -413,12 +413,70 @@ class TestFromCslJsonList:
 
 
 @pytest.mark.django_db
+class TestProcessorVariables:
+    """The variables a citation processor generates live in ``custom``, not columns."""
+
+    PROCESSOR_VALUES = {
+        "citation-label": "MD21",
+        "citation-number": 3,
+        "first-reference-note-number": "12",
+        "locator": "45-47",
+        "year-suffix": "a",
+    }
+
+    def test_an_import_keeps_them_in_custom_beside_what_custom_already_held(self):
+        item = from_csl_json(
+            {
+                "type": "book",
+                "id": "Processor2021",
+                "custom": {"shelf": ["B", 4]},
+                **self.PROCESSOR_VALUES,
+            }
+        )
+        item.refresh_from_db()
+        assert item.custom == {"shelf": ["B", 4], **self.PROCESSOR_VALUES}
+
+    def test_an_export_writes_them_at_the_top_level_and_not_in_custom(self):
+        item = ItemFactory(custom={"shelf": ["B", 4], "citation-label": "MD21"})
+        result = to_csl_json(item)
+        assert result["citation-label"] == "MD21"
+        assert result["custom"] == {"shelf": ["B", 4]}
+
+    def test_an_export_leaves_out_an_emptied_custom(self):
+        item = ItemFactory(custom={"year-suffix": "b"})
+        result = to_csl_json(item)
+        assert result["year-suffix"] == "b"
+        assert "custom" not in result
+
+    def test_import_then_export_gives_the_same_csl_json(self):
+        data = {
+            "id": "Processor2021",
+            "type": "book",
+            "title": "A title",
+            **self.PROCESSOR_VALUES,
+        }
+        assert to_csl_json(from_csl_json(data)) == data
+
+    def test_one_already_inside_custom_is_exported_at_the_top_level_only(self):
+        data = {"id": "Inside2021", "type": "book", "custom": {"locator": "4"}}
+        assert to_csl_json(from_csl_json(data)) == {
+            "id": "Inside2021",
+            "type": "book",
+            "locator": "4",
+        }
+
+    def test_a_custom_that_is_not_an_object_cannot_hold_them(self):
+        with pytest.raises(ValidationError) as excinfo:
+            from_csl_json({"type": "book", "id": "X", "custom": "text", "locator": "4"})
+        assert excinfo.value.code == "custom_not_an_object"
+
+
+@pytest.mark.django_db
 class TestRoundTripFidelity:
     def test_full_item_round_trip_preserves_every_field(self):
         # Every scalar field gets its own field name as the value: short,
         # collision-free, and self-documenting on a mismatch.
         scalar_kwargs = {name: name for name in _item_scalar_field_names()}
-        scalar_kwargs["year_suffix"] = "a"  # field name itself overflows max_length=10
 
         original = ItemFactory(
             citation_key="FullRoundTrip",

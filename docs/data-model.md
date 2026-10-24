@@ -45,7 +45,13 @@ Date variables are stored in `ItemDate`. Identifiers are stored in `ItemIdentifi
 | `categories` | `categories` | JSONField — list of category strings |
 | `custom` | `custom` | JSONField — arbitrary extra fields |
 
-All 60+ scalar CSL JSON fields are represented. See the
+Five CSL JSON variables are not columns: `citation-label`, `citation-number`,
+`first-reference-note-number`, `locator` and `year-suffix`. A citation processor generates them for
+one citation in one document, so they describe no reference. An import keeps any it is given in
+`custom` under those names, and an export writes them back out at the top level
+([ADR 0035](adr/0035-processor-generated-variables-are-kept-in-custom.md)).
+
+Every other scalar CSL JSON field is represented. See the
 [full field listing](api/index.md) in the API reference.
 
 ### Citation key uniqueness
