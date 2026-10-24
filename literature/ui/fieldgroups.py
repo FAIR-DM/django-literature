@@ -23,7 +23,7 @@ governs presentation, never what can be stored
 
 from django.utils.translation import gettext_lazy as _
 
-from literature.choices import DateType, ItemType
+from literature.choices import DateType, ItemType, NameRole
 
 #: Field membership, one field in exactly one group (tests/test_ui/test_fieldgroups.py
 #: TestFieldPartition). Grouped as ``models.py`` already organises ``Item``,
@@ -99,7 +99,7 @@ GROUP_LABELS = {
     "core": _("Core"),
     "general": _("General"),
     "titles": _("Alternate titles"),
-    "container": _("Container"),
+    "container": _("Published in"),
     "publication": _("Publication"),
     "original": _("Original publication"),
     "numbering": _("Numbering and pagination"),
@@ -460,3 +460,56 @@ class FieldGroups:
                     holding.add(group)
                     break
         return frozenset(holding)
+
+
+# --- Per-type contributor roles --------------------------------------------
+#
+# The roles the contributor tab leads with for each type, beside `author`,
+# which every type shows. A role holding a contributor is shown whatever the
+# type, and the rest are one toggle away. Unlike the two mappings above this
+# one is a judgement of which roles a person cataloguing the type most often
+# needs, read from the role definitions in CSL's Appendix IV (Name
+# Variables), not a derivation from stated criteria.
+TYPE_ROLES: dict[str, frozenset[str]] = {
+    ItemType.BOOK: frozenset({NameRole.EDITOR, NameRole.TRANSLATOR}),
+    ItemType.CHAPTER: frozenset(
+        {NameRole.EDITOR, NameRole.CONTAINER_AUTHOR, NameRole.TRANSLATOR}
+    ),
+    ItemType.CLASSIC: frozenset({NameRole.EDITOR, NameRole.TRANSLATOR}),
+    ItemType.COLLECTION: frozenset({NameRole.EDITOR, NameRole.CURATOR}),
+    ItemType.ENTRY: frozenset({NameRole.EDITOR}),
+    ItemType.ENTRY_DICTIONARY: frozenset({NameRole.EDITOR}),
+    ItemType.ENTRY_ENCYCLOPEDIA: frozenset({NameRole.EDITOR}),
+    ItemType.PAPER_CONFERENCE: frozenset({NameRole.EDITOR}),
+    ItemType.PERIODICAL: frozenset({NameRole.EDITOR}),
+    ItemType.REPORT: frozenset({NameRole.EDITOR}),
+    ItemType.EVENT: frozenset({NameRole.ORGANIZER, NameRole.CHAIR}),
+    ItemType.SPEECH: frozenset({NameRole.CHAIR}),
+    ItemType.PERFORMANCE: frozenset({NameRole.PERFORMER, NameRole.DIRECTOR}),
+    ItemType.MOTION_PICTURE: frozenset(
+        {NameRole.DIRECTOR, NameRole.PRODUCER, NameRole.SCRIPT_WRITER}
+    ),
+    ItemType.BROADCAST: frozenset(
+        {NameRole.DIRECTOR, NameRole.HOST, NameRole.GUEST, NameRole.PRODUCER}
+    ),
+    ItemType.INTERVIEW: frozenset({NameRole.INTERVIEWER}),
+    ItemType.SONG: frozenset({NameRole.COMPOSER, NameRole.PERFORMER}),
+    ItemType.MUSICAL_SCORE: frozenset({NameRole.COMPOSER}),
+    ItemType.FIGURE: frozenset({NameRole.ILLUSTRATOR}),
+    ItemType.GRAPHIC: frozenset({NameRole.ILLUSTRATOR}),
+    ItemType.PERSONAL_COMMUNICATION: frozenset({NameRole.RECIPIENT}),
+    ItemType.REVIEW: frozenset({NameRole.REVIEWED_AUTHOR}),
+    ItemType.REVIEW_BOOK: frozenset({NameRole.REVIEWED_AUTHOR}),
+}
+
+#: The order the role sets take on the page: authors, then editors, then the
+#: rest in the order CSL lists them.
+ROLE_ORDER = (
+    NameRole.AUTHOR,
+    NameRole.EDITOR,
+    *(
+        role
+        for role in NameRole.values
+        if role not in (NameRole.AUTHOR, NameRole.EDITOR)
+    ),
+)

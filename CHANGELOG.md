@@ -8,6 +8,31 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **The add and edit form is laid out in four tabs.** Reference holds the type, citation key,
+  title, the sections the chosen type uses, the dates, and the abstract and keywords. Contributors,
+  Identifiers and More (notes, annotation, alternate titles, source and call number) follow. Every
+  section is a collapsible panel. A form sent back with errors lists every error above the tabs,
+  each linking to its field and opening the tab that holds it. Labels and help text are written for
+  the person filling the form in, in place of the model's CSL notes, and the Container section is
+  now headed "Published in", on the reference page too.
+- **Contributors are entered one list per role.** Authors are always listed, the roles the item
+  type usually credits are listed beside them, and "Show other roles" lists the rest. Rows move up
+  and down with buttons instead of a position number, and an organisation, a name's particles and
+  its suffix are entered in the row's name details.
+- **Each date slot is a field of the form.** Submitted, Published, Available online, Event date,
+  Originally published and Accessed each have a year, month and day control, shown when the item
+  type uses the slot or the slot holds a date. Emptying one removes that date.
+- **Keywords are entered as tags**, with every keyword the catalogue already uses offered for reuse.
+  They are still stored as one comma-separated string.
+- **The identifier type is a choice** of the six known types, and any other type can still be typed
+  in and is stored as typed.
+- **The fields a citation processor generates are no longer on the form.** A save leaves whatever
+  an import stored in them untouched.
+- `literature.ui.forms.ItemDateForm`, `literature.ui.inlines.ItemDateFormSet` and
+  `literature.ui.inlines.DateInline` are removed, and `literature.ui.inlines.ContributorInline` is
+  now the base of one set per role, `CONTRIBUTOR_INLINES`. `NameForm` no longer declares `role`.
+- django-mvp 0.31.0 or later is required, for django-mvp-forms 0.8.0's collapsible fieldsets.
+
 - **The reference page leads with the citation.** It opens with the type and year, the authors,
   any other contributors by role, and where the work was published. Below come the abstract,
   the identifiers and dates, then the remaining fields under the same headings as the edit form.

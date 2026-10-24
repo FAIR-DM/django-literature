@@ -73,11 +73,11 @@ class TestNoDemoOnlyDependencyEntersTheBuild:
     def test_the_ui_extra_is_exactly_the_front_end_packages(self):
         pyproject = load_pyproject()
         ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
-        # The django-mvp floor is 0.30.1, the first release whose list and
-        # table views, inline formsets and form rendering this front end is
-        # written against.
+        # The django-mvp floor is 0.31.0, the first release that requires
+        # django-mvp-forms 0.8.0, whose collapsible fieldsets the write form
+        # is built from.
         assert ui_extra == [
-            "django-mvp (>=0.30.1,<1.0) ; python_version >= '3.12'",
+            "django-mvp (>=0.31.0,<1.0) ; python_version >= '3.12'",
             "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
             "django-filter (>=26.1,<27) ; python_version >= '3.12'",
         ]

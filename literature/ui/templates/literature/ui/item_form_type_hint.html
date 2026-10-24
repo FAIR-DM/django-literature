@@ -1,0 +1,5 @@
+{% load i18n %}
+{# Shown until a type is chosen, since every type-scoped section waits on it. #}
+<div x-show="!form.itemType">
+  <c-alert variant="info" soft icon="help" role="status" only>{% translate "Choose a type to see the fields it uses, such as the journal for an article or the publisher for a book." %}</c-alert>
+</div>

@@ -6,6 +6,7 @@ from functools import cached_property
 
 from django.contrib import messages
 from django.db.models import Prefetch
+from django.forms import MultiWidget
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.crypto import get_random_string
@@ -28,17 +29,19 @@ from literature.importers import get_format
 from literature.importers.results import Outcome
 from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups, stored_contributor_names
-from literature.ui.fieldgroups import FieldGroups
+from literature.ui.fieldgroups import TYPE_DATE_SLOTS, TYPE_ROLES, FieldGroups
 from literature.ui.fields import field_sections, issued_year
 from literature.ui.filters import ItemFilterSet, ItemTableFilterSet
 from literature.ui.forms import (
     CONTRIBUTOR_NAMES_DATALIST_ID,
+    DATE_SLOTS,
     ConfirmImportForm,
     ImportForm,
     ItemForm,
+    date_field_name,
 )
 from literature.ui.importing import ImportReport
-from literature.ui.inlines import ContributorInline, DateInline, IdentifierInline
+from literature.ui.inlines import CONTRIBUTOR_INLINES, IdentifierInline
 from literature.ui.links import doi_url, web_url
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
@@ -46,7 +49,7 @@ from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
 #: The three related-row sets composed on both the create and update pages.
 #: Declared once here so the two views and the page's own template use the
 #: same list rather than three independent ones getting out of step.
-ITEM_INLINES = [ContributorInline, DateInline, IdentifierInline]
+ITEM_INLINES = [*CONTRIBUTOR_INLINES, IdentifierInline]
 
 #: What the catalogue calls itself, everywhere a reader is shown its name.
 #: "Item" is the model's name and reads as the store's vocabulary rather than
@@ -84,41 +87,99 @@ TYPE_GROUPS_JSON = json.dumps(
 )
 
 
-def field_group_context(form, forced_groups=frozenset()):
-    """Build the write form's template context for group-by-group rendering.
+#: The date slots and contributor roles each type leads with, serialised once
+#: into every write page beside ``TYPE_GROUPS_JSON``.
+TYPE_DATES_JSON = json.dumps(
+    {item_type: sorted(slots) for item_type, slots in TYPE_DATE_SLOTS.items()}
+)
+TYPE_ROLES_JSON = json.dumps(
+    {item_type: sorted(roles) for item_type, roles in TYPE_ROLES.items()}
+)
 
-    The ``type`` field is pulled out of ``core`` and returned on its own: with
-    no item type chosen, nothing else on the page is guarded to show, so it is
-    the one control that has to render unconditionally. Every other group
-    becomes a ``{key, label, fields}`` dict in a fixed order — a Django
-    template cannot index a dict by its own loop variable, so the field list
-    per group is resolved here rather than in ``item_form.html``.
 
-    ``forced_groups`` is the forced-visible set — group names already
-    holding a value on the object being edited, regardless of whether the
-    current item type would otherwise show them
-    (``FieldGroups.groups_holding_values``). The create view has none yet,
-    so its default is empty; ``item_form.html`` reads the key as
-    ``forced_groups_json`` and falls back to ``[]`` when it is absent.
+def field_group_context(form, inlines, forced_groups=frozenset()):
+    """Build the write form's template context.
+
+    ``forced_groups`` is the set of groups already holding a value on the
+    object being edited (``FieldGroups.groups_holding_values``), shown whatever
+    the item type. A group holding a field with an error joins it, so an error
+    is never drawn inside a section the page has hidden.
     """
-    groups = []
-    for group, field_names in FieldGroups.GROUPS.items():
-        names = [name for name in field_names if name != "type"]
-        if not names:
-            continue
-        groups.append(
-            {
-                "key": group,
-                "label": FieldGroups.GROUP_LABELS[group],
-                "fields": [form[name] for name in names],
-            }
-        )
-    return {
-        "type_field": form["type"],
-        "field_groups": groups,
-        "type_groups_json": TYPE_GROUPS_JSON,
-        "forced_groups_json": json.dumps(sorted(forced_groups)),
+    with_errors = {
+        group
+        for group, names in FieldGroups.GROUPS.items()
+        if any(name in form.errors for name in names)
     }
+    *contributor_sets, identifier_set = inlines
+    # The identifier set fills a tab of its own, whose label already names
+    # it, so it draws no heading of its own.
+    identifier_set.is_whole_page = True
+    dates_with_errors = {
+        slot
+        for slot, _label in DATE_SLOTS
+        if date_field_name(slot) in form.errors
+        or date_field_name(slot, end=True) in form.errors
+    }
+    roles_held = {
+        formset.prefix.removeprefix("contributors-")
+        for formset in contributor_sets
+        if any(row.instance.pk or row.errors for row in formset.forms)
+    }
+    return {
+        "type_groups_json": TYPE_GROUPS_JSON,
+        "forced_groups_json": json.dumps(sorted(forced_groups | with_errors)),
+        "type_dates_json": TYPE_DATES_JSON,
+        "forced_dates_json": json.dumps(
+            sorted(form.date_slots_holding_values() | dates_with_errors)
+        ),
+        "type_roles_json": TYPE_ROLES_JSON,
+        "forced_roles_json": json.dumps(sorted(roles_held)),
+        "contributor_sets": contributor_sets,
+        "identifier_set": identifier_set,
+        "problems": form_problems(form, inlines),
+    }
+
+
+def form_problems(form, inlines):
+    """Every error on the page, in page order, each with the id of the field to fix.
+
+    Drawn as one summary above the form, since an error may sit in a tab the
+    person is not looking at.
+    """
+    problems = []
+    for message in form.non_field_errors():
+        problems.append({"message": message, "target": ""})
+    for bound in form:
+        label = bound.label
+        if bound.name.startswith("date_") and bound.name.endswith("_end"):
+            label = form[bound.name.removesuffix("_end")].label
+        # A widget in parts, such as a partial date, gives its first part the id.
+        target = bound.auto_id
+        if isinstance(bound.field.widget, MultiWidget):
+            target = f"{target}_0"
+        for message in bound.errors:
+            problems.append({"message": f"{label}: {message}", "target": target})
+    for formset in inlines:
+        for message in formset.non_form_errors():
+            problems.append({"message": message, "target": ""})
+        for row in formset.forms:
+            if not row.errors:
+                continue
+            first = next(iter(row.visible_fields()), None)
+            target = first.auto_id if first else ""
+            for message in row.non_field_errors():
+                problems.append(
+                    {"message": f"{formset.title}: {message}", "target": target}
+                )
+            for bound in row:
+                for message in bound.errors:
+                    problems.append(
+                        {
+                            "message": f"{formset.title}, {bound.label}: {message}",
+                            "target": bound.auto_id,
+                        }
+                    )
+    return problems
 
 
 def contributor_datalist_context():
@@ -340,8 +401,9 @@ class ItemCreateView(MVPCreateView):
     def get_context_data(self, **kwargs):
         """Add the field-group and contributor-datalist context the write form needs."""
         context = super().get_context_data(**kwargs)
-        context.update(field_group_context(context["form"]))
+        context.update(field_group_context(context["form"], context["inlines"]))
         context.update(contributor_datalist_context())
+        context["cancel_url"] = reverse("literature:item-list")
         return context
 
 
@@ -616,10 +678,15 @@ class ItemUpdateView(MVPUpdateView):
         # a value already lives in it.
         context.update(
             field_group_context(
-                context["form"], FieldGroups.groups_holding_values(self.object)
+                context["form"],
+                context["inlines"],
+                FieldGroups.groups_holding_values(self.object),
             )
         )
         context.update(contributor_datalist_context())
+        context["cancel_url"] = reverse(
+            "literature:item-detail", kwargs={"pk": self.object.pk}
+        )
         return context
 
 

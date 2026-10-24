@@ -6,26 +6,89 @@ from django.test import override_settings
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.importers import available_formats
-from literature.models import ItemDate, Name
+from literature.models import Name
+from literature.ui.fieldgroups import GROUPS
 from literature.ui.forms import (
     ConfirmImportForm,
     ImportForm,
-    ItemDateForm,
     ItemForm,
     ItemIdentifierForm,
     NameForm,
 )
-from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameFactory
+from tests.factories import (
+    ItemDateFactory,
+    ItemFactory,
+    ItemIdentifierFactory,
+    ItemNameFactory,
+    NameFactory,
+)
 from tests.test_ui.conftest import EXCLUDED_FROM_FORM, scalar_field_names
 
+#: One start and one end field per CSL date slot.
+DATE_FIELDS = {
+    f"date_{slot.replace('-', '_')}{end}"
+    for slot in DateType.values
+    for end in ("", "_end")
+}
 
+
+def item_form_data(**fields):
+    """A valid write form submission, with ``fields`` posted on top."""
+    return {"type": ItemType.BOOK, "citation_key": "Form2024", **fields}
+
+
+@pytest.mark.django_db
 class TestItemFormFields:
-    def test_declares_every_scalar_field_of_item(self):
-        assert set(ItemForm().fields) == scalar_field_names() - EXCLUDED_FROM_FORM
+    def test_declares_every_scalar_field_but_the_processor_set_and_a_field_per_date_slot(
+        self,
+    ):
+        scalars = scalar_field_names() - EXCLUDED_FROM_FORM - set(GROUPS["processor"])
+        assert set(ItemForm().fields) == scalars | DATE_FIELDS
 
     def test_declares_neither_categories_nor_custom_nor_the_auto_timestamps(self):
         fields = ItemForm().fields
         assert EXCLUDED_FROM_FORM.isdisjoint(fields)
+
+    def test_an_unchanged_save_leaves_the_processor_fields_as_stored(self):
+        item = ItemFactory(citation_label="MD21", year_suffix="a")
+        form = ItemForm(
+            data=item_form_data(type=item.type, citation_key=item.citation_key),
+            instance=item,
+        )
+        assert form.is_valid(), form.errors
+        form.save()
+        item.refresh_from_db()
+        assert (item.citation_label, item.year_suffix) == ("MD21", "a")
+
+
+@pytest.mark.django_db
+class TestItemFormKeywords:
+    def test_tags_are_stored_as_one_comma_separated_string(self):
+        form = ItemForm(data=item_form_data(keyword=["entropy", "information theory"]))
+        assert form.is_valid(), form.errors
+        assert form.save().keyword == "entropy, information theory"
+
+    def test_a_keyword_the_catalogue_has_never_used_is_accepted(self):
+        ItemFactory(keyword="archives")
+        form = ItemForm(data=item_form_data(keyword=["never used before"]))
+        assert form.is_valid(), form.errors
+
+    def test_stored_keywords_are_offered_as_tags_in_their_stored_order(self):
+        item = ItemFactory(keyword="zebra; apple")
+        assert ItemForm(instance=item)["keyword"].value() == ["zebra", "apple"]
+
+    def test_unchanged_tags_keep_the_stored_string_exactly(self):
+        item = ItemFactory(keyword="zebra; apple")
+        form = ItemForm(
+            data=item_form_data(
+                type=item.type,
+                citation_key=item.citation_key,
+                keyword=["zebra", "apple"],
+            ),
+            instance=item,
+        )
+        assert form.is_valid(), form.errors
+        assert form.save().keyword == "zebra; apple"
 
 
 @pytest.mark.django_db
@@ -142,6 +205,9 @@ class TestConfirmImportForm:
 
 @pytest.mark.django_db
 class TestNameForm:
+    def test_declares_no_role_since_the_set_a_row_sits_in_is_its_role(self):
+        assert "role" not in NameForm(role=NameRole.EDITOR).fields
+
     def test_declares_neither_the_name_fk_nor_order(self):
         # ``name`` is written in save(), not posted; ``order`` is
         # ``editable=False`` and excluded from any generated form.
@@ -168,7 +234,7 @@ class TestNameForm:
             assert name in fields
 
     def test_a_contributor_with_only_an_unparsed_name_saves(self, item):
-        form = NameForm(data={"role": NameRole.AUTHOR, "literal": "United Nations"})
+        form = NameForm(data={"literal": "United Nations"}, role=NameRole.AUTHOR)
         assert form.is_valid(), form.errors
         item_name = form.save(commit=False)
         item_name.item = item
@@ -177,25 +243,24 @@ class TestNameForm:
         assert item_name.name.family == ""
 
     def test_a_contributor_with_neither_family_nor_unparsed_name_is_rejected(self):
-        form = NameForm(data={"role": NameRole.AUTHOR, "given": "Jane"})
+        form = NameForm(data={"given": "Jane"}, role=NameRole.AUTHOR)
         assert not form.is_valid()
         assert not Name.objects.exists()
 
     def test_the_rejection_names_no_specific_field_but_carries_a_message(self):
         # Neither family nor literal is individually required at the field
         # level, so the message belongs to the form as a whole.
-        form = NameForm(data={"role": NameRole.AUTHOR})
+        form = NameForm(data={}, role=NameRole.AUTHOR)
         assert not form.is_valid()
         assert form.non_field_errors()
 
     def test_a_valid_contributor_with_family_and_given_saves(self, item):
-        form = NameForm(
-            data={"role": NameRole.AUTHOR, "family": "Doe", "given": "Jane"}
-        )
+        form = NameForm(data={"family": "Doe", "given": "Jane"}, role=NameRole.AUTHOR)
         assert form.is_valid(), form.errors
         item_name = form.save(commit=False)
         item_name.item = item
         item_name.save()
+        assert item_name.role == NameRole.AUTHOR
         assert item_name.name.family == "Doe"
         assert item_name.name.given == "Jane"
 
@@ -206,163 +271,125 @@ class TestNameForm:
         assert form.initial["given"] == "Zoe"
 
 
-class TestItemDateFormFields:
-    def test_declares_exactly_date_type_begin_and_end(self):
-        assert set(ItemDateForm().fields) == {"date_type", "begin", "end"}
-
-    def test_declares_neither_season_circa_literal_raw_nor_raw_date_parts(self):
-        fields = ItemDateForm().fields
-        for name in ("season", "circa", "literal", "raw", "raw_date_parts", "item"):
-            assert name not in fields
-
-
 @pytest.mark.django_db
-class TestItemDateFormRejectsAnUndeclaredSlot:
-    def test_a_row_posted_with_no_slot_is_rejected_rather_than_stored(self):
-        form = ItemDateForm(data={"date_type": "", "begin": "2020", "end": ""})
+class TestItemFormDates:
+    @pytest.mark.parametrize(
+        ("parts", "stored"),
+        [
+            ({"year": "2019"}, "2019"),
+            ({"year": "2019", "month": "03"}, "2019-03"),
+            ({"year": "2019", "month": "03", "day": "14"}, "2019-03-14"),
+        ],
+    )
+    def test_each_precision_is_stored_in_its_slot(self, parts, stored):
+        data = item_form_data(**{f"date_issued_{k}": v for k, v in parts.items()})
+        form = ItemForm(data=data)
+        assert form.is_valid(), form.errors
+        item = form.save()
+        assert str(item.item_dates.get(date_type=DateType.ISSUED).begin) == stored
+
+    def test_a_range_is_stored_on_one_slot(self):
+        form = ItemForm(
+            data=item_form_data(
+                date_event_date_year="2019", date_event_date_end_year="2021"
+            )
+        )
+        assert form.is_valid(), form.errors
+        date = form.save().item_dates.get(date_type=DateType.EVENT_DATE)
+        assert (str(date.begin), str(date.end)) == ("2019", "2021")
+
+    def test_an_end_with_no_start_is_rejected_on_the_slots_end(self):
+        form = ItemForm(data=item_form_data(date_event_date_end_year="2021"))
         assert not form.is_valid()
-        assert "date_type" in form.errors
-        assert not ItemDate.objects.exists()
+        assert "date_event_date_end" in form.errors
 
-
-@pytest.mark.django_db
-class TestItemDateFormPrecision:
-    @pytest.mark.parametrize("value", ["2019", "2019-03", "2019-03-14"])
-    def test_each_precision_round_trips(self, value, item):
-        form = ItemDateForm(
-            data={"date_type": DateType.ISSUED, "begin": value, "end": ""}
-        )
-        assert form.is_valid(), form.errors
-        instance = form.save(commit=False)
-        instance.item = item
-        instance.save()
-        instance.refresh_from_db()
-        # The stored value renders back as the string that re-parses to it
-        # at the same precision.
-        assert str(instance.begin) == value
-
-
-@pytest.mark.django_db
-class TestItemDateFormSpan:
-    def test_a_year_to_year_span_is_valid(self):
-        form = ItemDateForm(
-            data={"date_type": DateType.EVENT_DATE, "begin": "2019", "end": "2021"}
-        )
-        assert form.is_valid(), form.errors
-
-    def test_a_mixed_precision_span_is_valid(self):
-        form = ItemDateForm(
-            data={
-                "date_type": DateType.EVENT_DATE,
-                "begin": "2019",
-                "end": "2021-06-15",
-            }
-        )
-        assert form.is_valid(), form.errors
-
-    def test_an_end_with_no_begin_is_rejected_as_a_form_error_not_an_exception(self):
-        form = ItemDateForm(
-            data={"date_type": DateType.EVENT_DATE, "begin": "", "end": "2021"}
+    def test_an_end_before_its_start_is_rejected_on_the_slots_end(self):
+        form = ItemForm(
+            data=item_form_data(
+                date_event_date_year="2021", date_event_date_end_year="2019"
+            )
         )
         assert not form.is_valid()
-        assert form.non_field_errors()
+        assert "date_event_date_end" in form.errors
 
-    def test_an_end_before_its_begin_is_rejected_as_a_form_error_not_an_exception(self):
-        form = ItemDateForm(
-            data={"date_type": DateType.EVENT_DATE, "begin": "2021", "end": "2019"}
-        )
-        assert not form.is_valid()
-        assert form.non_field_errors()
+    def test_a_slot_left_empty_stores_nothing(self):
+        form = ItemForm(data=item_form_data(date_issued_year="2020"))
+        assert form.is_valid(), form.errors
+        assert list(form.save().item_dates.values_list("date_type", flat=True)) == [
+            DateType.ISSUED
+        ]
 
-
-@pytest.mark.django_db
-class TestItemDateFormSettledSlot:
-    def test_an_unsettled_row_offers_every_slot_by_default(self):
-        # A required ChoiceField with no model default still carries
-        # Django's own blank placeholder choice alongside the six named
-        # slots (Field.formfield()'s own include_blank rule) — this
-        # asserts every real slot is among them, not that the blank choice
-        # is absent.
-        form = ItemDateForm()
-        choices = {choice[0] for choice in form.fields["date_type"].choices}
-        assert set(DateType.values) <= choices
-        assert form.fields["date_type"].disabled is False
-
-    def test_an_unsettled_row_excludes_the_occupied_slots(self):
-        form = ItemDateForm(occupied_slots={DateType.ISSUED, DateType.ACCESSED})
-        choices = {choice[0] for choice in form.fields["date_type"].choices}
-        assert choices.isdisjoint({DateType.ISSUED, DateType.ACCESSED})
-        assert set(DateType.values) - {DateType.ISSUED, DateType.ACCESSED} <= choices
-
-    def test_a_row_over_a_stored_instance_is_disabled(self, item):
-        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED)
-        form = ItemDateForm(instance=instance)
-        assert form.fields["date_type"].disabled is True
-
-    def test_a_pre_filled_extra_row_is_disabled(self):
-        form = ItemDateForm(initial={"date_type": DateType.ISSUED})
-        assert form.fields["date_type"].disabled is True
-
-    def test_a_disabled_rows_slot_ignores_a_different_posted_value(self, item):
-        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
-        form = ItemDateForm(
-            data={"date_type": DateType.ACCESSED, "begin": "2021", "end": ""},
-            instance=instance,
+    def test_clearing_a_slot_removes_its_date_and_no_other(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021")
+        form = ItemForm(
+            data=item_form_data(
+                type=item.type, citation_key=item.citation_key, date_issued_year="2020"
+            ),
+            instance=item,
         )
         assert form.is_valid(), form.errors
-        assert form.cleaned_data["date_type"] == DateType.ISSUED
+        form.save()
+        assert list(item.item_dates.values_list("date_type", flat=True)) == [
+            DateType.ISSUED
+        ]
 
+    def test_a_stored_date_shows_in_its_slot(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2021-05")
+        assert str(ItemForm(instance=item)["date_accessed"].value()) == "2021-05"
 
-@pytest.mark.django_db
-class TestItemDateFormUnparsedRepair:
-    def test_a_date_with_only_a_literal_value_shows_it(self, item):
-        instance = ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, literal="circa 1922"
-        )
-        form = ItemDateForm(instance=instance)
-        assert form.fields["begin"].widget.attrs.get("placeholder") == "circa 1922"
+    def test_a_date_with_only_unparsed_text_shows_it_on_the_slot(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="circa 1922")
+        year = ItemForm(instance=item).fields["date_issued"].widget.widgets[0]
+        assert year.attrs.get("placeholder") == "circa 1922"
 
-    def test_a_date_with_only_a_raw_value_shows_it(self, item):
-        instance = ItemDateFactory(item=item, date_type=DateType.ISSUED, raw="1922?")
-        form = ItemDateForm(instance=instance)
-        assert form.fields["begin"].widget.attrs.get("placeholder") == "1922?"
-
-    def test_a_date_already_carrying_begin_shows_no_placeholder(self, item):
-        instance = ItemDateFactory(
+    def test_clearing_a_slot_holding_unparsed_text_keeps_the_text(self):
+        item = ItemFactory()
+        ItemDateFactory(
             item=item, date_type=DateType.ISSUED, begin="1922", literal="circa 1922"
         )
-        form = ItemDateForm(instance=instance)
-        assert "placeholder" not in form.fields["begin"].widget.attrs
-
-    def test_replacing_the_unparsed_value_stores_the_readable_date_and_leaves_literal_alone(
-        self, item
-    ):
-        instance = ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, literal="circa 1922"
-        )
-        form = ItemDateForm(
-            data={"date_type": DateType.ISSUED, "begin": "1922", "end": ""},
-            instance=instance,
+        form = ItemForm(
+            data=item_form_data(type=item.type, citation_key=item.citation_key),
+            instance=item,
         )
         assert form.is_valid(), form.errors
-        saved = form.save()
-        saved.refresh_from_db()
-        assert str(saved.begin) == "1922"
-        assert saved.literal == "circa 1922"
+        form.save()
+        date = item.item_dates.get(date_type=DateType.ISSUED)
+        assert (date.begin, date.literal) == (None, "circa 1922")
+
+    def test_replacing_unparsed_text_stores_the_date_and_leaves_the_text(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="circa 1922")
+        form = ItemForm(
+            data=item_form_data(
+                type=item.type, citation_key=item.citation_key, date_issued_year="1922"
+            ),
+            instance=item,
+        )
+        assert form.is_valid(), form.errors
+        form.save()
+        date = item.item_dates.get(date_type=DateType.ISSUED)
+        assert (str(date.begin), date.literal) == ("1922", "circa 1922")
 
 
 class TestItemIdentifierFormFields:
     def test_declares_exactly_type_and_value(self):
         assert set(ItemIdentifierForm().fields) == {"type", "value"}
 
-    def test_the_type_field_offers_the_six_known_kinds_as_completions(self):
-        # Offered without restricting to them: the six known
-        # kinds render as <option>s of a <datalist> the type input
-        # references through list=, so another kind stays typeable.
-        rendered = str(ItemIdentifierForm()["type"])
-        assert "<datalist" in rendered
-        for kind in IdentifierType.values:
-            assert f'value="{kind}"' in rendered
+    def test_the_type_field_offers_the_six_known_types_as_choices(self):
+        choices = {
+            value for value, _label in ItemIdentifierForm().fields["type"].choices
+        }
+        assert set(IdentifierType.values) <= choices
+
+    @pytest.mark.django_db
+    def test_a_stored_type_outside_the_six_is_offered_back(self, item):
+        instance = ItemIdentifierFactory(item=item, type="arXiv", value="2101.00001")
+        choices = ItemIdentifierForm(instance=instance).fields["type"].choices
+        assert ("arXiv", "arXiv") in choices
 
 
 @pytest.mark.django_db

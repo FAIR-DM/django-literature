@@ -1,69 +1,53 @@
 {% extends "form_view.html" %}
-{% load i18n crispy_forms_tags %}
+{% load i18n static crispy_forms_tags %}
 {% comment %}
-  Renders ItemForm group by group, each group a <c-mvp.card> shown or hidden by Alpine for the
-  chosen item type (FS-008). page.content is overridden in full because <c-mvp.form.render />
-  dumps the whole form through crispy the moment it is given a bound form object.
+  The write form for one reference. ItemForm's helper (literature/ui/formlayout.py) draws the
+  three tabs and every field; the contributor, date and identifier sets are drawn inside the
+  Reference tab by the templates it includes. page.content is overridden in full so the error
+  summary sits above the form and the form's own buttons are this page's.
 {% endcomment %}
+{% block head %}
+  {{ block.super }}
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.default.min.css"
+        integrity="sha384-ysUSQKRs8NxL3MLtPxj9HZ7KmGXzQJwr8rfFRR8iT5A26QF3slDzsChy8nZ7Q1W2"
+        crossorigin="anonymous">
+  <link rel="stylesheet" href="{% static 'mvp_forms/tomselect.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"
+          integrity="sha384-zpRmcxaWZMsftDGxJwwTBxLTwPZrI4VJXe2bYlo01xaeBAdQjHP/nPlVH83BCW0U"
+          crossorigin="anonymous"></script>
+{% endblock head %}
 {% block page.content %}
-  <div class="w-full lg:max-w-4xl">
-    {% block before_form %}
-    {% endblock before_form %}
-    <c-mvp.form title="{{ page.title }}" icon="{{ page.icon }}" method="post" action="{{ request.path }}">
+  <div class="w-full lg:max-w-4xl flex flex-col gap-4">
+    {% if problems %}
+      {% include "literature/ui/item_form_problems.html" %}
+    {% endif %}
+    <c-mvp.form method="post" action="{{ request.path }}" novalidate :inlines="inlines">
       {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
-      {% block formset %}
+      {% include "literature/ui/contributor_datalist.html" with id=contributor_names_datalist_id names=contributor_names %}
+      {% comment %}
+        No |safe: a raw double quote in this JSON would close the attribute early.
+        Autoescaping emits &quot;, which the tokenizer decodes back before Alpine reads it.
+      {% endcomment %}
+      <div x-init="form.showAll = false;
+                   form.showAllRoles = false;
+                   form.typeGroups = {{ type_groups_json }};
+                   form.forcedGroups = {{ forced_groups_json|default:'[]' }};
+                   form.typeDates = {{ type_dates_json }};
+                   form.forcedDates = {{ forced_dates_json }};
+                   form.typeRoles = {{ type_roles_json }};
+                   form.forcedRoles = {{ forced_roles_json }}">
+        {% crispy form %}
+      </div>
+      <div class="mt-8 flex flex-col md:flex-row md:items-center gap-2">
         {% comment %}
-          No |safe: a raw double quote in this JSON would close the attribute early.
-          Autoescaping emits &quot;, which the tokenizer decodes back before Alpine reads it.
+          No name/value pair on Save: the stock block posts default_next=list, which
+          NextURLMixin reads ahead of success_url, and a save would land on the
+          catalogue rather than the reference (FS-008).
         {% endcomment %}
-        <div x-init="form.showAll = false;
-                     form.typeGroups = {{ type_groups_json }};
-                     form.forcedGroups = {{ forced_groups_json|default:'[]' }}">
-          {# The type field renders unconditionally — nothing else is guarded to show until it's chosen (FS-008). #}
-          <div class="mb-4">{{ type_field|as_crispy_field }}</div>
-
-          {% for group in field_groups %}
-            <div class="mb-4"
-                 x-show="form.showAll || (form.forcedGroups || []).includes('{{ group.key }}') || (form.typeGroups[form.itemType] || []).includes('{{ group.key }}')">
-              <c-mvp.card title="{{ group.label }}">
-                {% for field in group.fields %}{{ field|as_crispy_field }}{% endfor %}
-              </c-mvp.card>
-            </div>
-          {% endfor %}
-
-          <c-form.label text="{% translate "Show every field" %}">
-            <c-form.checkbox x-model="form.showAll" />
-          </c-form.label>
-        </div>
-
-        {% comment %}
-          The stored-name suggestion list (FS-012), rendered once for the page and referenced
-          by every row's family input through list= — its own template, since the formset's
-          __prefix__ cloning would otherwise rewrite it if it lived in a row.
-        {% endcomment %}
-        {% include "literature/ui/contributor_datalist.html" with id=contributor_names_datalist_id names=contributor_names %}
-
-        {% comment %}
-          The contributor, date and identifier sets, opted into layout="tabular" here since
-          InlineFormSet carries no layout of its own. The contributor set renders through the
-          packaged component unforked, relying on each row's own role field for a heading (FS-012).
-        {% endcomment %}
-        {% for inline in inlines %}
-          <c-mvp.form.formset :formset="inline" layout="tabular" />
-        {% endfor %}
-      {% endblock formset %}
-      {% block actions %}
-        {% comment %}
-          The stock block posts default_next=list, which NextURLMixin consults ahead of
-          success_url — every save would land on the catalogue rather than the reference
-          (FS-008). This button carries no name/value pair, so nothing overrides it.
-        {% endcomment %}
-        <c-mvp.group collapse wrap>
-          <c-button text="{% translate "Save" %}" type="submit" variant="primary" />
-        </c-mvp.group>
-      {% endblock actions %}
+        <c-button text="{% translate "Save" %}" type="submit" variant="primary" only />
+        <c-button text="{% translate "Cancel" %}" href="{{ cancel_url }}" ghost only />
+      </div>
     </c-mvp.form>
-    {% block after_form %}
-    {% endblock after_form %}
   </div>
 {% endblock page.content %}

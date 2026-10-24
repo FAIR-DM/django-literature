@@ -1,0 +1,22 @@
+{% load i18n %}
+{% comment %}
+  One summary of every error on the page, above the form, each linking to the field to fix. An
+  error may sit in a tab that is not open, so a link first opens the tab that holds its field
+  (literatureShowField, in literature/ui/static/literature/item-form.js).
+{% endcomment %}
+<c-alert variant="error" icon="error" only>
+  <div>
+    <c-mvp.text tight bold only>{% translate "There is a problem" %}</c-mvp.text>
+    <ul class="list-disc pl-5">
+      {% for problem in problems %}
+        <li>
+          {% if problem.target %}
+            <c-link href="#{{ problem.target }}" text="{{ problem.message }}" x-on:click.prevent="literatureShowField('{{ problem.target|escapejs }}')" />
+          {% else %}
+            {{ problem.message }}
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</c-alert>
