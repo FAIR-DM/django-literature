@@ -74,6 +74,10 @@ All notable changes to this project are documented in this file. The format foll
   `django-literature[ui]`. The extra's floor allowed django-mvp releases that no longer export
   `MVPInlineCreateView`, so a new install resolved one of them (#133). The floor is now 0.30.1 and
   the reference form uses django-mvp's own create and update views.
+- An RIS date written month/day/year, such as `Y2  - 1/26/2023`, is read as that date. It was read
+  year first, as year 1, month 26, day 2023, and the entry failed to import (#105). A date tag
+  whose numbers make no calendar date now falls back to the date's literal text, and a zero month
+  or day is read as unstated.
 
 ### Added
 
