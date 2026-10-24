@@ -12,7 +12,7 @@ from crispy_forms.layout import HTML, Column, Div, Layout, Row
 from django.utils.translation import gettext_lazy as _
 from mvp_forms.layout import Fieldset, Tab, TabHolder
 
-from literature.choices import ItemType
+from literature.choices import DateType, ItemType, NameRole
 from literature.ui.contributors import ContributorGroups
 from literature.ui.fieldgroups import GROUP_LABELS, GROUPS, ROLE_ORDER
 
@@ -180,6 +180,24 @@ SECTION_ORDER = (
 LEADING_NUMBERING = ("volume", "issue", "page", "number")
 
 
+#: The six CSL date slots as they read on the form, in the order a reference's
+#: life runs.
+DATE_SLOTS = (
+    (DateType.SUBMITTED, _("Submitted")),
+    (DateType.ISSUED, _("Published")),
+    (DateType.AVAILABLE_DATE, _("Available online")),
+    (DateType.EVENT_DATE, _("Event date")),
+    (DateType.ORIGINAL_DATE, _("Originally published")),
+    (DateType.ACCESSED, _("Accessed")),
+)
+
+
+def date_field_name(slot, end=False):
+    """Return the form field name for a date slot's start, or its end."""
+    name = "date_" + slot.replace("-", "_")
+    return name + "_end" if end else name
+
+
 def shown_when(group):
     """Return the Alpine condition under which an item-type section is shown."""
     return (
@@ -190,18 +208,22 @@ def shown_when(group):
 
 
 def date_shown_when(slot):
-    """Return the Alpine condition under which a date slot is shown."""
+    """Return the Alpine condition under which a date slot is shown. Published always is."""
+    if slot == DateType.ISSUED:
+        return "true"
     return (
-        f"'{slot}' === 'issued' || form.showAll"
+        "form.showAll"
         f" || (form.forcedDates || []).includes('{slot}')"
         f" || (form.typeDates[form.itemType] || []).includes('{slot}')"
     )
 
 
 def role_shown_when(role):
-    """Return the Alpine condition under which a contributor role's set is shown."""
+    """Return the Alpine condition under which a contributor role's set is shown. Authors always are."""
+    if role == NameRole.AUTHOR:
+        return "true"
     return (
-        f"'{role}' === 'author' || form.showAllRoles"
+        "form.showAllRoles"
         f" || (form.forcedRoles || []).includes('{role}')"
         f" || (form.typeRoles[form.itemType] || []).includes('{role}')"
     )
@@ -229,9 +251,8 @@ class ItemFormLayout:
     software sets (``GROUPS["processor"]``) are not on the form at all.
     """
 
-    def __init__(self, form, forced_groups=frozenset()):
+    def __init__(self, form):
         self.form = form
-        self.forced_groups = forced_groups
 
     def holds_value(self, name):
         """Whether the field already holds something, on this form's own data."""
@@ -278,8 +299,6 @@ class ItemFormLayout:
         An end date is offered for an event, whose dates are often a range,
         and for any slot that already holds one.
         """
-        from literature.ui.forms import DATE_SLOTS, date_field_name
-
         slots = []
         for slot, _label in DATE_SLOTS:
             end = date_field_name(slot, end=True)

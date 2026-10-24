@@ -32,13 +32,12 @@ from literature.ui.contributors import contributor_groups, stored_contributor_na
 from literature.ui.fieldgroups import TYPE_DATE_SLOTS, TYPE_ROLES, FieldGroups
 from literature.ui.fields import field_sections, issued_year
 from literature.ui.filters import ItemFilterSet, ItemTableFilterSet
+from literature.ui.formlayout import DATE_SLOTS, date_field_name
 from literature.ui.forms import (
     CONTRIBUTOR_NAMES_DATALIST_ID,
-    DATE_SLOTS,
     ConfirmImportForm,
     ImportForm,
     ItemForm,
-    date_field_name,
 )
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import CONTRIBUTOR_INLINES, IdentifierInline

@@ -18,15 +18,17 @@ from mvp_forms.fields import PartialDateField
 from mvp_forms.widgets import PartialDateInput, TomSelect, TomSelectMultiple
 from partial_date import PartialDate
 
-from literature.choices import DateType, IdentifierType
+from literature.choices import IdentifierType
 from literature.importers import available_formats
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import GROUPS
 from literature.ui.formlayout import (
+    DATE_SLOTS,
     FIELD_HELP,
     FIELD_LABELS,
     TYPE_CHOICE_GROUPS,
     ItemFormLayout,
+    date_field_name,
 )
 
 #: Every field ``ItemForm`` declares: every scalar field of ``Item`` except
@@ -102,24 +104,6 @@ class KeywordsField(forms.MultipleChoiceField):
     def has_changed(self, initial, data):
         """Compare keyword by keyword, so a stored string unchanged in content is unchanged."""
         return self.split(initial) != self.split(data)
-
-
-#: The six CSL date slots as they read on the form, in the order a reference's
-#: life runs.
-DATE_SLOTS = (
-    (DateType.SUBMITTED, _("Submitted")),
-    (DateType.ISSUED, _("Published")),
-    (DateType.AVAILABLE_DATE, _("Available online")),
-    (DateType.EVENT_DATE, _("Event date")),
-    (DateType.ORIGINAL_DATE, _("Originally published")),
-    (DateType.ACCESSED, _("Accessed")),
-)
-
-
-def date_field_name(slot, end=False):
-    """Return the form field name for a date slot's start, or its end."""
-    name = "date_" + slot.replace("-", "_")
-    return name + "_end" if end else name
 
 
 class ItemForm(forms.ModelForm):
@@ -287,25 +271,16 @@ class NameForm(forms.ModelForm):
     """A contributor row: an ``ItemName`` link whose form also carries the ``Name`` it points at (FS-012, #117).
 
     ``ItemName`` carries ``item``, ``name``, ``role`` and ``order``; the
-    person types into ``Name``. This form is declared over ``ItemName`` —
-    ``role`` is its one model field — and declares the name's own parts as
-    fields of its own, unbound to ``ItemName``. ``save()`` is what turns
-    them into a stored ``Name``; ``order`` is excluded on purpose, since it
-    is ``editable=False`` and no generated form can carry it at all — the
-    position column arrives through the formset's own ``can_order`` escape
-    hatch instead.
+    person types into ``Name``. This form declares none of ``ItemName``'s own
+    fields: the role is the set the row sits in, handed in as ``role`` and
+    written onto a new row, and ``order`` arrives through the formset's
+    ``can_order`` field. The name's own parts are fields of this form, unbound
+    to ``ItemName``, and ``save()`` turns them into a stored ``Name``.
 
     Each name-part field is built from ``Name``'s own field via
-    ``formfield()`` rather than restated here, so the label and help text
-    stay the model's own translated copy (Article VIII). Family and given
-    are the row's own columns; the particles, the suffix and the unparsed
-    organizational form ship as ordinary columns beside them too — the
-    row-level disclosure that would fold them out of sight does not exist
-    in the packaged formset component and waits on a django-mvp release
-    that carries one. The three citation-processor flags —
-    ``comma_suffix``, ``static_ordering``, ``parse_names`` — are never
-    declared, so nothing here can write them and their stored values are
-    preserved exactly.
+    ``formfield()``. The three citation-processor flags — ``comma_suffix``,
+    ``static_ordering``, ``parse_names`` — are never declared, so nothing here
+    can write them and their stored values are preserved exactly.
     """
 
     class Meta:
