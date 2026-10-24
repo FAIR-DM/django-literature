@@ -1,13 +1,82 @@
 """Tests proving django-mvp only ever arrives through the opt-in ``ui`` extra."""
 
+import subprocess
 import tomllib
+from email.parser import Parser
 from pathlib import Path
+from zipfile import ZipFile
 
-PYPROJECT_PATH = Path(__file__).resolve().parents[2] / "pyproject.toml"
+import pytest
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
+
+#: The packages a project installing ``django-literature`` resolves.
+RUNTIME_PACKAGES = {"bibtexparser", "django", "django-partial-date"}
+
+#: The packages the opt-in ``ui`` extra adds on top of those.
+UI_EXTRA_PACKAGES = {
+    "django-crispy-forms",
+    "django-filter",
+    "django-mvp",
+    "django-mvp-forms",
+    "django-tables2",
+}
 
 
 def load_pyproject():
     return tomllib.loads(PYPROJECT_PATH.read_text())
+
+
+def names_in(requirements):
+    """The distribution names a list of PEP 508 requirement strings refers to,
+    normalized so that ``Django`` and ``django`` are the same package."""
+    return {canonicalize_name(Requirement(text).name) for text in requirements}
+
+
+@pytest.fixture(scope="session")
+def built_package(tmp_path_factory):
+    """The metadata of a wheel built from the working tree.
+
+    A wheel's ``Requires-Dist`` lines are what a project installing this
+    package actually resolves, so the guards below read the artefact rather
+    than the declaration that produced it. The wheel is built once for the
+    whole session.
+    """
+    output_dir = tmp_path_factory.mktemp("wheel")
+    build = subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(output_dir)],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if build.returncode != 0:
+        pytest.fail(f"building the wheel failed:\n{build.stdout}{build.stderr}")
+    (wheel,) = output_dir.glob("*.whl")
+    with ZipFile(wheel) as archive:
+        (metadata_name,) = [
+            name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+        ]
+        return Parser().parsestr(archive.read(metadata_name).decode())
+
+
+def required_names(metadata, extra=None):
+    """The distribution names the built package requires: those a plain
+    install resolves when ``extra`` is ``None``, or those one named extra adds.
+    """
+    names = set()
+    for line in metadata.get_all("Requires-Dist") or []:
+        requirement = Requirement(line)
+        marker = str(requirement.marker or "")
+        if extra is None:
+            if "extra ==" in marker:
+                continue
+        elif f'extra == "{extra}"' not in marker:
+            continue
+        names.add(canonicalize_name(requirement.name))
+    return names
 
 
 def names_django_mvp(requirement):
@@ -59,27 +128,50 @@ class TestOnlyLiteratureIsPackaged:
 
 
 class TestNoDemoOnlyDependencyEntersTheBuild:
-    def test_the_hard_dependency_list_is_exactly_the_declared_runtime_dependencies(
-        self,
-    ):
-        pyproject = load_pyproject()
-        dependencies = pyproject["project"]["dependencies"]
-        assert dependencies == [
-            "django>=4.2",
-            "django-partial-date",
-            "bibtexparser (>=1.4.4,<2)",
-        ]
+    """FR-024: the demo adds no runtime dependency to the package, and
+    nothing existing only for the demo is resolved by a project installing it.
 
-    def test_the_ui_extra_is_exactly_the_front_end_packages(self):
+    The guard is a closed set of package *names*: a newcomer fails here
+    whatever it was added for, and no list of forbidden names has to be kept
+    up to date (decisions.md D13). Version specifiers are deliberately outside
+    the assertion. Raising a floor on a package already in the set changes
+    which release is resolved, never which packages are.
+    """
+
+    def test_a_plain_install_resolves_only_the_declared_runtime_packages(
+        self, built_package
+    ):
+        assert required_names(built_package) == RUNTIME_PACKAGES
+
+    def test_the_ui_extra_adds_only_the_front_end_packages(self, built_package):
+        assert required_names(built_package, extra="ui") == UI_EXTRA_PACKAGES
+
+    def test_the_built_package_requires_what_pyproject_declares(self, built_package):
         pyproject = load_pyproject()
-        ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
-        # The django-mvp floor is 0.31.0, the first release that requires
-        # django-mvp-forms 0.8.0, whose collapsible fieldsets the write form
-        # is built from.
-        assert ui_extra == [
-            "django-mvp (>=0.31.0,<1.0) ; python_version >= '3.12'",
-            "django-mvp-forms (>=0.8.0,<1.0) ; python_version >= '3.12'",
-            "django-crispy-forms (>=2.7,<3) ; python_version >= '3.12'",
-            "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
-            "django-filter (>=26.1,<27) ; python_version >= '3.12'",
-        ]
+        assert required_names(built_package) == names_in(
+            pyproject["project"]["dependencies"]
+        )
+        assert required_names(built_package, extra="ui") == names_in(
+            pyproject["project"]["optional-dependencies"]["ui"]
+        )
+
+    def test_no_development_only_package_is_resolved_by_installing_it(
+        self, built_package
+    ):
+        """The test tooling and the documentation build are declared in
+        dependency groups, which never reach an installing project. Reading
+        the groups rather than naming packages keeps this true as they change.
+        The ``dev`` group installs this package itself with its ``ui`` extra,
+        so its own name is left out.
+        """
+        pyproject = load_pyproject()
+        own_name = canonicalize_name(pyproject["project"]["name"])
+        development_only = {
+            canonicalize_name(Requirement(requirement).name)
+            for group in pyproject.get("dependency-groups", {}).values()
+            for requirement in group
+            if isinstance(requirement, str)
+        } - {own_name}
+        assert development_only, "no development-only packages left to check against"
+        assert development_only.isdisjoint(required_names(built_package))
+        assert development_only.isdisjoint(required_names(built_package, extra="ui"))
