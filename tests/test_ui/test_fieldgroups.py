@@ -36,10 +36,6 @@ class TestTypeCoverage:
             assert "core" in groups
             assert "general" in groups
 
-    def test_processor_is_in_no_types_groups(self):
-        for item_type in ItemType.values:
-            assert "processor" not in FieldGroups.groups_for(item_type)
-
     def test_every_group_a_type_names_is_a_real_group(self):
         referenced = {"core", "general"}
         for extra_groups in FieldGroups.TYPE_GROUPS.values():
@@ -51,11 +47,13 @@ class TestAssignmentCeiling:
     def test_article_journal_uses_fewer_than_half_the_forms_fields(self):
         groups = FieldGroups.groups_for(ItemType.ARTICLE_JOURNAL)
         assigned_field_count = sum(len(FieldGroups.GROUPS[group]) for group in groups)
-        total_field_count = sum(len(fields) for fields in FieldGroups.GROUPS.values())
-        # The broadest real type uses about 35 of ~60 fields; half is a
-        # ceiling wide enough for a legitimately broad type while still
-        # failing a mapping that assigns everything to everything.
-        assert assigned_field_count < total_field_count / 2
+        # Half of the 60 fields the groups held when this ceiling was set
+        # (specs/008-add-edit-remove-references/tasks.md T002), wide enough for
+        # a legitimately broad type while still failing a mapping that assigns
+        # everything to everything. Five of the 60 were never on the form and
+        # left the model under ADR 0035, which changed no type's assignment, so
+        # the bound stays at that count rather than moving with them.
+        assert assigned_field_count < 30
 
 
 class TestCorrectedC2Criterion:

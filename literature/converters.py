@@ -55,11 +55,21 @@ _DJANGO_TO_CSL: dict[str, str] = {
     "archive_collection": "archive_collection",
     "archive_location": "archive_location",
     "journal_abbreviation": "journalAbbreviation",
-    "citation_label": "citation-label",
-    "citation_number": "citation-number",
-    "first_reference_note_number": "first-reference-note-number",
-    "year_suffix": "year-suffix",
 }
+
+#: The CSL JSON variables a citation processor generates for one citation in one
+#: document. They describe no reference, so they are kept in ``custom`` rather than
+#: in columns: an import moves them there and an export writes them back out at the
+#: top level, so importing then exporting gives the same CSL JSON (ADR 0035).
+PROCESSOR_VARIABLES = frozenset(
+    {
+        "citation-label",
+        "citation-number",
+        "first-reference-note-number",
+        "locator",
+        "year-suffix",
+    }
+)
 
 _CSL_TO_DJANGO: dict[str, str] = {v: k for k, v in _DJANGO_TO_CSL.items()}
 _CSL_TO_DJANGO.update(
@@ -224,6 +234,8 @@ def to_csl_json(item: Any) -> dict[str, Any]:
     _custom: dict[str, Any] = {}
     if item.custom:
         _custom.update(item.custom)
+        for key in PROCESSOR_VARIABLES & _custom.keys():
+            result[key] = _custom.pop(key)
 
     for ident in item.item_identifiers.all():
         if ident.type in _KNOWN_IDENTIFIER_TYPES:
@@ -390,7 +402,9 @@ def from_csl_json(data: dict) -> Any:
 
     Raises:
         ValidationError: ``data["type"]`` is missing or not a recognized CSL
-            type, or both ``data["citation-key"]`` and ``data["id"]`` are absent.
+            type, both ``data["citation-key"]`` and ``data["id"]`` are absent, or
+            ``data`` carries a citation-processor variable beside a ``custom``
+            that is not an object.
     """
     from literature.models import Item, ItemIdentifier
 
@@ -422,8 +436,12 @@ def from_csl_json(data: dict) -> Any:
         f.name for f in Item._meta.get_fields() if hasattr(f, "attname")
     }
 
+    processor_values = {
+        key: value for key, value in data.items() if key in PROCESSOR_VARIABLES
+    }
+
     for csl_key, value in data.items():
-        if csl_key in non_scalar:
+        if csl_key in non_scalar or csl_key in PROCESSOR_VARIABLES:
             continue
         if csl_key in ("categories", "custom"):
             item_fields[csl_key] = value
@@ -437,6 +455,17 @@ def from_csl_json(data: dict) -> Any:
             ):
                 value = str(value)
             item_fields[django_field] = value
+
+    if processor_values:
+        custom = item_fields.get("custom")
+        if custom is not None and not isinstance(custom, dict):
+            raise ValidationError(
+                _("CSL JSON 'custom' must be an object to hold {keys}").format(
+                    keys=", ".join(sorted(processor_values))
+                ),
+                code="custom_not_an_object",
+            )
+        item_fields["custom"] = {**(custom or {}), **processor_values}
 
     if "shortTitle" in data and "title_short" not in item_fields:
         item_fields["title_short"] = data["shortTitle"]
@@ -467,7 +496,11 @@ def from_csl_json(data: dict) -> Any:
     custom_data = data.get("custom") or {}
     if isinstance(custom_data, dict):
         for key, value in custom_data.items():
-            if key not in _KNOWN_IDENTIFIER_TYPES and isinstance(value, str):
+            if (
+                key not in _KNOWN_IDENTIFIER_TYPES
+                and key not in PROCESSOR_VARIABLES
+                and isinstance(value, str)
+            ):
                 logger.warning(
                     "Unknown identifier type '%s' for item '%s'", key, citation_key
                 )

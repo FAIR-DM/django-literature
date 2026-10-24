@@ -247,8 +247,7 @@ class ItemFormLayout:
     """The write form's arrangement, for one form instance.
 
     Four tabs: the reference itself, its contributors, its identifiers, and
-    notes with the fields most references never need. The fields citation
-    software sets (``GROUPS["processor"]``) are not on the form at all.
+    notes with the fields most references never need.
     """
 
     def __init__(self, form):

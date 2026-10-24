@@ -26,8 +26,6 @@ All notable changes to this project are documented in this file. The format foll
   They are still stored as one comma-separated string.
 - **The identifier type is a choice** of the six known types, and any other type can still be typed
   in and is stored as typed.
-- **The fields a citation processor generates are no longer on the form.** A save leaves whatever
-  an import stored in them untouched.
 - `literature.ui.forms.ItemDateForm`, `literature.ui.inlines.ItemDateFormSet` and
   `literature.ui.inlines.DateInline` are removed, and `literature.ui.inlines.ContributorInline` is
   now the base of one set per role, `CONTRIBUTOR_INLINES`. `NameForm` no longer declares `role`.
@@ -196,6 +194,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Removed
 
+- **`Item` no longer has the five fields a citation processor generates**: `citation_label`,
+  `citation_number`, `first_reference_note_number`, `locator` and `year_suffix`. They describe one
+  citation in one document, not a reference. Migration `0004` moves any stored value into the
+  item's `custom` data under its CSL JSON name (`citation-label`, `citation-number`,
+  `first-reference-note-number`, `locator`, `year-suffix`) before dropping the columns, and stops
+  with the affected citation keys if an item's `custom` is not a JSON object. `from_csl_json()`
+  keeps these variables in `custom`, and `to_csl_json()` writes them back out at the top level, so
+  importing then exporting still gives the same CSL JSON. Read one from `item.custom` where code
+  read the field before. The Processor-generated group is gone from
+  `literature.ui.fieldgroups.GROUPS` and from the reference page.
 - The one-line `base.html` `literature.ui` used to ship. django-mvp now ships a default of its own,
   which was the stated condition for dropping this one. A project with its own `base.html` is
   unaffected, and a project with none still gets a working shell.

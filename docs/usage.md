@@ -179,6 +179,9 @@ The returned dict:
 - Serializes names in their original order per role.
 - Known identifiers (DOI, ISBN, ISSN, PMID, PMCID, URL) are top-level keys.
 - Unknown identifier types are placed under the `"custom"` key.
+- The variables a citation processor generates (`citation-label`, `citation-number`,
+  `first-reference-note-number`, `locator` and `year-suffix`) are written at the top level, from
+  where an import kept them in `custom`.
 
 Example output:
 
@@ -240,7 +243,11 @@ with_doi = Item.objects.filter(item_identifiers__type="DOI")
 ## Round-trip fidelity
 
 `to_csl_json()` followed by `from_csl_json()` produces a record with identical field
-values, the citation key included:
+values, the citation key included. In the other direction, importing CSL JSON and exporting it
+again gives the same CSL JSON, including the variables a citation processor generates. Those
+describe one citation in one document rather than the reference, so they are not fields of `Item`:
+an import keeps them in the item's `custom` data under their CSL JSON names, and an export writes
+them back out at the top level.
 
 ```python
 from literature.converters import from_csl_json, to_csl_json
