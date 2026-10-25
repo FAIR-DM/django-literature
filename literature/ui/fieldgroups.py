@@ -82,13 +82,6 @@ GROUPS: dict[str, tuple[str, ...]] = {
     "legal": ("authority", "jurisdiction", "division", "references"),
     "archive": ("archive", "archive_collection", "archive_location", "archive_place"),
     "physical": ("dimensions", "scale"),
-    "processor": (
-        "citation_label",
-        "citation_number",
-        "first_reference_note_number",
-        "locator",
-        "year_suffix",
-    ),
 }
 
 #: User-visible group headings (Article VIII). Left for mypy to infer as
@@ -108,7 +101,6 @@ GROUP_LABELS = {
     "legal": _("Legal"),
     "archive": _("Archive"),
     "physical": _("Physical description"),
-    "processor": _("Processor-generated"),
 }
 
 # --- Per-type assignment ---------------------------------------------------
@@ -421,9 +413,6 @@ class FieldGroups:
     TYPE_DATE_SLOTS = TYPE_DATE_SLOTS
 
     #: Groups every type carries regardless of its own ``TYPE_GROUPS`` entry.
-    #: ``processor`` is deliberately absent from this set and from every
-    #: entry above — a CSL processor assigns those values, not a person
-    #: filling in a form (specs/008-add-edit-remove-references/plan.md D-1).
     ALWAYS_ON = frozenset({"core", "general"})
 
     @classmethod

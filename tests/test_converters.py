@@ -418,7 +418,6 @@ class TestRoundTripFidelity:
         # Every scalar field gets its own field name as the value: short,
         # collision-free, and self-documenting on a mismatch.
         scalar_kwargs = {name: name for name in _item_scalar_field_names()}
-        scalar_kwargs["year_suffix"] = "a"  # field name itself overflows max_length=10
 
         original = ItemFactory(
             citation_key="FullRoundTrip",

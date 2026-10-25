@@ -152,8 +152,7 @@ read from `available_formats()` when the form is instantiated, not when the clas
 format configured after import time still appears. The skip-preview checkbox is unticked by
 default, so a plain submission previews rather than imports. `ItemForm` is the
 one write form every create and update page shares — see the README's "Adding, editing and
-removing a reference" section for what it does. Besides every scalar field of `Item` but the
-processor-generated ones, it declares one date field per CSL date slot, named by
+removing a reference" section for what it does. Besides every scalar field of `Item`, it declares one date field per CSL date slot, named by
 `date_field_name()` in the order `DATE_SLOTS` gives, and writes each slot's `ItemDate` when it
 saves. `StoredPartialDateField` shows a stored partial date as the text it saves as.
 `KeywordsField` takes keywords as tags and stores them as the one comma-separated string CSL JSON

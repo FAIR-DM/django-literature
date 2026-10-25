@@ -45,4 +45,5 @@ rest of this documentation covers the how.
 0032-a-related-row-is-kept-by-being-rendered
 0033-the-catalogue-view-is-chosen-by-a-setting
 0034-a-date-slot-is-a-field-of-the-form
+0035-citation-processor-variables-are-not-stored
 ```

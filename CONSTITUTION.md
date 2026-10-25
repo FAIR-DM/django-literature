@@ -1,5 +1,11 @@
 <!--
 Sync Impact Report
+- Version change: 5.1.0 → 6.0.0 (MAJOR: a guarantee narrowed). Article IX's round-trip fidelity,
+  and the CSL JSON line of the quality bar, now cover the variables that describe a reference. The
+  five a citation processor assigns while formatting one document (`citation-label`,
+  `citation-number`, `first-reference-note-number`, `locator`, `year-suffix`) are no longer stored,
+  so an import drops them. ADR 0035 records why.
+
 - Version change: 4.0.0 → 5.0.0 (MAJOR: an article removed). Article I now points at
   docs/contributing/standards/testing.md, which carries the test-first cycle, what gets a test,
   test structure and fixtures, and the coverage floors. Article XIV (Test structure & fixtures)
@@ -163,7 +169,10 @@ item types, name variables, date variables, and metadata fields.
 - Data models reflect the CSL JSON structure as closely as is practical within a Django relational
   database. Where CSL JSON names a concept, this package mirrors that name (`Item`, `Name`,
   `ItemDate`, `ItemIdentifier`) rather than inventing its own.
-- Import and export support CSL JSON as the primary interchange format, with round-trip fidelity.
+- Import and export support CSL JSON as the primary interchange format, with round-trip fidelity
+  for every variable that describes a reference. The variables a citation processor assigns while
+  it formats one document (`citation-label`, `citation-number`, `first-reference-note-number`,
+  `locator`, `year-suffix`) describe a citation rather than a reference, and are not stored.
 - Any deviation from CSL JSON field names or structure is explicitly documented, motivated, and
   mapped back to its CSL JSON equivalent.
 - Identifier fields (DOI, ISBN, ISSN, URL, PMID, PMCID) are validated at the model/form layer for
@@ -233,7 +242,8 @@ Read at planning and review; applies to every change.
 - Lint (Ruff), type-check (mypy), and `deptry` pass.
 - **Package:** builds with valid metadata; the README renders on the package index (absolute
   URLs); the public API honors the deprecation policy.
-- **CSL JSON:** round-trip fidelity holds — importing then exporting yields equivalent CSL JSON.
+- **CSL JSON:** round-trip fidelity holds — importing then exporting yields equivalent CSL JSON,
+  less the citation-processor variables Article IX leaves unstored.
 - **i18n:** `makemessages` runs clean over the package source (Article VIII).
 - **Demo app:** migrates cleanly and its core pages render without import errors (Article XII).
 
@@ -260,4 +270,4 @@ This constitution supersedes ad-hoc practice when they conflict. It covers the c
 - Final authority currently rests with the original author, leaving room for a broader governance
   model as more maintainers join.
 
-**Version**: 5.1.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-10-12
+**Version**: 6.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-10-25

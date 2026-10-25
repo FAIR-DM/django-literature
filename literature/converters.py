@@ -55,10 +55,6 @@ _DJANGO_TO_CSL: dict[str, str] = {
     "archive_collection": "archive_collection",
     "archive_location": "archive_location",
     "journal_abbreviation": "journalAbbreviation",
-    "citation_label": "citation-label",
-    "citation_number": "citation-number",
-    "first_reference_note_number": "first-reference-note-number",
-    "year_suffix": "year-suffix",
 }
 
 _CSL_TO_DJANGO: dict[str, str] = {v: k for k, v in _DJANGO_TO_CSL.items()}

@@ -37,14 +37,7 @@ from literature.ui.formlayout import (
 #: the two artefacts cannot drift apart — ``fieldgroups.py`` already proves
 #: this set is exactly ``Item``'s form fields
 #: (``tests/test_ui/test_fieldgroups.py::TestFieldPartition``).
-FORM_FIELDS = tuple(
-    sorted(
-        name
-        for group, fields in GROUPS.items()
-        if group != "processor"
-        for name in fields
-    )
-)
+FORM_FIELDS = tuple(sorted(name for fields in GROUPS.values() for name in fields))
 
 
 class CreatableSelect(TomSelect):
