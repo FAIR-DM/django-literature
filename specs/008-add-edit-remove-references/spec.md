@@ -128,7 +128,7 @@ Someone evaluating the package starts the demo with the documented command and c
 - **FR-002**: Creating a reference MUST ask for the item type before asking for the rest of the record.
 - **FR-003**: Once an item type is chosen, the form MUST present the scalar fields that apply to that type, and MUST make the remaining scalar fields reachable without leaving the form.
 - **FR-004**: The mapping from item type to its applicable fields MUST be carried in the package as a single readable artefact, MUST cover all forty-five item types, and MUST state what each type's set was decided from. It MUST NOT be derived from a source the package cannot lawfully redistribute.
-- **FR-004a**: The mapping MUST NOT restrict what can be stored. Every scalar field stays reachable and storable on every item type, whatever the mapping says, except the variables a citation processor generates, which are never on the form and keep whatever value an import stored.
+- **FR-004a**: The mapping MUST NOT restrict what can be stored. Every scalar field stays reachable and storable on every item type, whatever the mapping says.
 - **FR-005**: A reference MUST be creatable with nothing beyond an item type and a citation key.
 - **FR-006**: Submitting without an item type or without a citation key MUST NOT create a reference, and MUST return the form stating which field needs a value.
 - **FR-007**: A citation key matching one already stored MUST be accepted and stored unchanged. The interface MUST NOT warn about, refuse, or alter it.

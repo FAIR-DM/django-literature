@@ -2631,7 +2631,7 @@ class TestItemUpdateView:
             field = Item._meta.get_field(name)
             # Underscore-joined, not space-joined: Django's CharField strips
             # surrounding whitespace by default, and a value truncated to a
-            # short max_length (e.g. "language", "year_suffix" at 10) could
+            # short max_length (e.g. "language" at 10) could
             # otherwise land mid-space and silently lose it on the POST
             # round trip for a reason unrelated to what this test checks.
             raw = f"value_for_{name}"

@@ -366,40 +366,6 @@ class Item(models.Model):
         verbose_name=_("journal abbreviation"),
         help_text=_("CSL JSON: journalAbbreviation (camelCase in CSL JSON)"),
     )
-    citation_label = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_("citation label"),
-        help_text=_(
-            "CSL JSON: citation-label (processor-generated; stored for round-trip)"
-        ),
-    )
-    citation_number = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_("citation number"),
-        help_text=_("CSL JSON: citation-number (string-or-number stored as string)"),
-    )
-    first_reference_note_number = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_("first reference note number"),
-        help_text=_(
-            "CSL JSON: first-reference-note-number (string-or-number stored as string)"
-        ),
-    )
-    locator = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_("locator"),
-        help_text=_("CSL JSON: locator (string-or-number stored as string)"),
-    )
-    year_suffix = models.CharField(
-        max_length=10,
-        blank=True,
-        verbose_name=_("year suffix"),
-        help_text=_("CSL JSON: year-suffix"),
-    )
 
     keyword = models.TextField(
         blank=True,
