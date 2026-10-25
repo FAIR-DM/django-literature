@@ -9,6 +9,7 @@ what happened to every entry (``specs/005-import-references-ris/research.md``).
 import dataclasses
 import re
 from collections.abc import Iterator
+from datetime import date
 from typing import Any, ClassVar, cast
 
 from django.core.exceptions import ValidationError
@@ -530,24 +531,40 @@ def _contributors(raw: RISEntry, ref_type: str) -> dict[str, list[dict[str, Any]
 def _ris_date_parts(value: str) -> tuple[int, ...] | None:
     """Return the date components ``value`` states, at whatever precision it carries.
 
-    RIS date tags share one shape: up to three slash-separated numbers, optionally followed by
-    more that this parser does not need.
+    RIS date tags share one shape: up to three slash-separated numbers, year first, optionally
+    followed by more that this parser does not need. Exports also write the US month/day/year
+    form, recognised by a four-digit last number after a one- or two-digit first. A zero month
+    or day is unstated, so precision stops before it.
 
     Args:
         value: A ``PY``, ``DA``, ``Y1`` or ``Y2`` value.
 
     Returns:
-        The year, then month and day where stated, or ``None`` with no leading number.
+        The year, then month and day where stated, or ``None`` with no leading number or when
+        the numbers are no calendar date.
     """
-    parts: list[int] = []
+    segments: list[str] = []
     for segment in value.strip().split("/"):
         segment = segment.strip()
         if not segment.isdigit():
             break
-        parts.append(int(segment))
-        if len(parts) == 3:
+        segments.append(segment)
+        if len(segments) == 3:
             break
-    return tuple(parts) if parts else None
+    if not segments:
+        return None
+
+    if len(segments) == 3 and len(segments[0]) <= 2 and len(segments[2]) == 4:
+        segments = [segments[2], segments[0], segments[1]]
+    numbers = [int(segment) for segment in segments]
+    if 0 in numbers[1:]:
+        numbers = numbers[: numbers.index(0, 1)]
+
+    try:
+        date(*numbers, *[1] * (3 - len(numbers)))
+    except ValueError:
+        return None
+    return tuple(numbers)
 
 
 #: RIS's three-letter month abbreviations, for Web of Science's year-less ``DA``.
@@ -1081,6 +1098,13 @@ def _mapping_document() -> str:
         "Without `PY`, `Y1` supplies the issued date at whatever precision it states. Where neither",
         "resolves to a structured date but one carries text, that text is kept as a literal fallback",
         "rather than discarded, `PY`'s own text taking precedence over `Y1`'s.",
+        "",
+        "Every date tag is read year first, `YYYY/MM/DD`, as the format specifies. A value whose",
+        "last number has four digits and whose first has one or two, such as `1/26/2023`, is read",
+        "as month/day/year, the form several exports write. A zero month or day counts as unstated.",
+        "Numbers that make no calendar date in the form they are read in, such as `26/1/2023` or",
+        "`2023/13/01`, are not a structured date: a `DA` is ignored, and any other tag's text is kept",
+        "as the literal fallback.",
         "",
         "## Identifiers",
         "",
