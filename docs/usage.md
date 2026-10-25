@@ -240,7 +240,10 @@ with_doi = Item.objects.filter(item_identifiers__type="DOI")
 ## Round-trip fidelity
 
 `to_csl_json()` followed by `from_csl_json()` produces a record with identical field
-values, the citation key included:
+values, the citation key included. In the other direction, importing CSL JSON and exporting it
+again gives the same CSL JSON, less the variables a citation processor assigns (`citation-label`,
+`citation-number`, `first-reference-note-number`, `locator` and `year-suffix`). Those describe one
+citation in one document rather than the reference, so an import drops them.
 
 ```python
 from literature.converters import from_csl_json, to_csl_json

@@ -7,7 +7,6 @@ from django.test import override_settings
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.importers import available_formats
 from literature.models import Name
-from literature.ui.fieldgroups import GROUPS
 from literature.ui.forms import (
     ConfirmImportForm,
     ImportForm,
@@ -39,26 +38,13 @@ def item_form_data(**fields):
 
 @pytest.mark.django_db
 class TestItemFormFields:
-    def test_declares_every_scalar_field_but_the_processor_set_and_a_field_per_date_slot(
-        self,
-    ):
-        scalars = scalar_field_names() - EXCLUDED_FROM_FORM - set(GROUPS["processor"])
+    def test_declares_every_scalar_field_and_a_field_per_date_slot(self):
+        scalars = scalar_field_names() - EXCLUDED_FROM_FORM
         assert set(ItemForm().fields) == scalars | DATE_FIELDS
 
     def test_declares_neither_categories_nor_custom_nor_the_auto_timestamps(self):
         fields = ItemForm().fields
         assert EXCLUDED_FROM_FORM.isdisjoint(fields)
-
-    def test_an_unchanged_save_leaves_the_processor_fields_as_stored(self):
-        item = ItemFactory(citation_label="MD21", year_suffix="a")
-        form = ItemForm(
-            data=item_form_data(type=item.type, citation_key=item.citation_key),
-            instance=item,
-        )
-        assert form.is_valid(), form.errors
-        form.save()
-        item.refresh_from_db()
-        assert (item.citation_label, item.year_suffix) == ("MD21", "a")
 
 
 @pytest.mark.django_db

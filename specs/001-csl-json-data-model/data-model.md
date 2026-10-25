@@ -135,11 +135,6 @@
 | `source` | `source` | CharField(255) | blank | |
 | `references` | `references` | TextField | blank | |
 | `journal_abbreviation` | `journalAbbreviation` | CharField(100) | blank | CamelCase in CSL JSON |
-| `citation_label` | `citation-label` | CharField(100) | blank | Processor-generated; stored for round-trip |
-| `citation_number` | `citation-number` | CharField(50) | blank | String-or-number |
-| `first_reference_note_number` | `first-reference-note-number` | CharField(50) | blank | String-or-number |
-| `locator` | `locator` | CharField(100) | blank | String-or-number |
-| `year_suffix` | `year-suffix` | CharField(10) | blank | |
 | `keyword` | `keyword` | TextField | blank | CSL `keyword` is a single string (comma-separated) |
 | `categories` | `categories` | JSONField | null, blank | String array in CSL JSON |
 | `custom` | `custom` | JSONField | null, blank | Arbitrary key-value pairs |

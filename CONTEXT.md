@@ -83,7 +83,10 @@ throughout (not "CSL-JSON" in prose, though the constitution and some docstrings
 
 The import/export boundary: `from_csl_json` / `from_csl_json_list` build model instances from CSL
 JSON dicts, and `to_csl_json` renders an item back to a standards-compliant dict. The governing
-guarantee is **round-trip fidelity** — importing then exporting yields equivalent CSL JSON.
+guarantee is **round-trip fidelity** — importing then exporting yields equivalent CSL JSON. The
+variables a citation processor assigns (`citation-label`, `citation-number`,
+`first-reference-note-number`, `locator`, `year-suffix`) describe a citation, not a reference, so
+they are not stored and an import drops them (ADR 0035).
 
 ### Identifier validation
 
