@@ -131,6 +131,13 @@ Without `PY`, `Y1` supplies the issued date at whatever precision it states. Whe
 resolves to a structured date but one carries text, that text is kept as a literal fallback
 rather than discarded, `PY`'s own text taking precedence over `Y1`'s.
 
+Every date tag is read year first, `YYYY/MM/DD`, as the format specifies. A value whose
+last number has four digits and whose first has one or two, such as `1/26/2023`, is read
+as month/day/year, the form several exports write. A zero month or day counts as unstated.
+Numbers that make no calendar date in the form they are read in, such as `26/1/2023` or
+`2023/13/01`, are not a structured date: a `DA` is ignored, and any other tag's text is kept
+as the literal fallback.
+
 ## Identifiers
 
 | RIS tag | CSL key |
