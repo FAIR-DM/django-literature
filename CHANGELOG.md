@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-10-25
+
 ### Changed
 
 - **The add and edit form is laid out in four tabs.** Reference holds the type, citation key,
