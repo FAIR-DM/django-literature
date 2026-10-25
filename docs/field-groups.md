@@ -14,10 +14,6 @@ which fields are visible without asking. A section a reference's type does not u
 click away behind the form's "Show sections other types use" toggle, and any field already holding
 a value is shown automatically even if the current type would not otherwise offer it.
 
-The one exception is the Processor-generated group, which is not on the form at all. Its values
-are written by a citation processor, never by a person, and a save through the form leaves whatever
-an import stored there untouched.
-
 ## CSL JSON has no such mapping
 
 The [CSL JSON 1.0.2 specification](https://github.com/citation-style-language/schema) validates
@@ -33,7 +29,7 @@ This mapping is `literature.ui`'s own artefact, authored rather than derived, an
 ## The groups
 
 Every scalar field of `Item` (excluding the two JSON fields and the two timestamps, none of which
-are on the form at all) belongs to exactly one of the following thirteen groups:
+are on the form at all) belongs to exactly one of the following twelve groups:
 
 | Group | What it covers |
 |---|---|
@@ -49,7 +45,6 @@ are on the form at all) belongs to exactly one of the following thirteen groups:
 | Legal | Authority, jurisdiction, division and cross-references, for legal and legislative references |
 | Archive | Where a physical or held item is kept |
 | Physical description | Dimensions and scale |
-| Processor-generated | Values a citation processor fills in, such as a citation label. Not on the form, since no person enters them |
 
 Every reference's form shows Core and General regardless of type. Every other group is shown only
 for the types it is assigned to, and the assignment follows a fixed set of criteria: evidence from
