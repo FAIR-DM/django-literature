@@ -699,6 +699,7 @@ ui = [
     { name = "django-mvp", marker = "python_full_version >= '3.12'" },
     { name = "django-mvp-forms", marker = "python_full_version >= '3.12'" },
     { name = "django-tables2", marker = "python_full_version >= '3.12'" },
+    { name = "django-tomselect", marker = "python_full_version >= '3.12'" },
 ]
 
 [package.dev-dependencies]
@@ -720,6 +721,7 @@ requires-dist = [
     { name = "django-mvp-forms", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=0.8.0,<1.0" },
     { name = "django-partial-date" },
     { name = "django-tables2", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=3.0,<4" },
+    { name = "django-tomselect", marker = "python_full_version >= '3.12' and extra == 'ui'", specifier = ">=2026.6.2" },
 ]
 provides-extras = ["ui"]
 
@@ -829,6 +831,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/87/c4/ac3eee8fb075e0b945452780f876cdad72caff38dba84df7df42c9cc8763/django_tables2-3.0.1.tar.gz", hash = "sha256:5a8b51b6c18ce5ec4edd4d0f23c55a8b15590854168b2e5c734118ee369dcbfd", size = 130254, upload-time = "2026-08-30T10:59:02.682Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/43/e7/6a75201123d94d0644588b40cc759dc88df50fa917d121046de5b182ec43/django_tables2-3.0.1-py3-none-any.whl", hash = "sha256:cfabaeeb4b5c4df0844ab0b3f634263deeb131ba2f3174fa5d3e15975047e881", size = 96402, upload-time = "2026-08-30T10:59:03.969Z" },
+]
+
+[[package]]
+name = "django-tomselect"
+version = "2026.6.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/a6/3780a9bc35ca62897bc720a01f575d47b036d8ecc5aea63615479600d760/django_tomselect-2026.6.2.tar.gz", hash = "sha256:584da0f81889da263bf1498484f414b022ae6d4df968bd44169161084084ff1a", size = 285267, upload-time = "2026-06-13T22:23:01.151Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cf/d6/e0b85e7432eaea047e83d475680d47824a6e8215c087df5b2a989904ddbb/django_tomselect-2026.6.2-py3-none-any.whl", hash = "sha256:726f713a203015319045ecd09f4935394e4040357ba52c9bbfaaaf74ff96c501", size = 322977, upload-time = "2026-06-13T22:23:03.201Z" },
 ]
 
 [[package]]

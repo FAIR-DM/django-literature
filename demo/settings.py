@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "daisy_cotton",
     "crispy_forms",
     "mvp_forms",
+    "django_tomselect",
     "literature.ui",
 ]
 
@@ -100,6 +101,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.sites.middleware.CurrentSiteMiddleware",
+    "django_tomselect.middleware.TomSelectMiddleware",
 ]
 
 if LIVE_RELOAD:
