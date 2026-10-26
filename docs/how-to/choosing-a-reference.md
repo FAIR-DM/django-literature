@@ -116,6 +116,53 @@ reference already chosen. The form's `cleaned_data` holds a queryset of the chos
 with a reference chosen twice counted once. Submitting a reference that has since been deleted
 gives the usual `invalid_choice` error.
 
+## 4. Restrict which references are offered
+
+Pass `queryset=` to offer only some references. The picker then searches only those:
+
+```python
+from django import forms
+
+from literature.models import Item
+from literature.ui.picker import ItemChoiceField
+
+
+class ReviewForm(forms.Form):
+    reference = ItemChoiceField(queryset=Item.objects.filter(language="en"))
+```
+
+The same works for `ItemMultipleChoiceField`. On a model form, the model field's `limit_choices_to`
+restricts the picker without any further code, because Django builds the field's queryset from it.
+To restrict by something known only when the form is built, such as a language the view chose, set the
+field's queryset in the form's `__init__`; the picker uses whatever queryset the field holds when
+the form is drawn:
+
+```python
+class ReviewForm(forms.Form):
+    reference = ItemChoiceField()
+
+    def __init__(self, *args, language, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["reference"].queryset = Item.objects.filter(language=language)
+```
+
+A reference outside the restriction is refused with `invalid_choice` when the form is submitted,
+as for any Django choice field. A reference already chosen when the form opens is still shown as
+chosen, even if it lies outside the restriction, and submitting it unchanged is refused.
+
+### Use a cache shared between processes in production
+
+A restricted picker's select carries a signed key, not the restriction itself. The restriction is
+kept in Django's default cache for a day, and the search route finds it there by the key. Each time
+the form is drawn the entry is stored again, so a form left open for less than a day keeps working.
+
+In production the default cache must be shared between the processes that serve your site, such as
+Redis, Memcached or a database or file cache. With a cache that each process keeps to itself, such
+as `LocMemCache` under more than one worker, a search can reach a process that never stored the
+restriction. That search answers 404 and the picker offers nothing. It never falls back to the
+whole catalogue. The same happens when the key was changed or the cache was cleared; reloading the
+page stores the restriction again.
+
 ## What the search matches
 
 Typing narrows the choices to the references where the text appears in any one of:

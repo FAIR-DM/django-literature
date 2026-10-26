@@ -13,6 +13,10 @@ All notable changes to this project are documented in this file. The format foll
   [How to choose a reference in your own form](docs/how-to/choosing-a-reference.md).
 - `ItemMultipleChoiceField` in `literature.ui.picker` lets a project's own form choose several
   references the same way, for a plain form or a `ManyToManyField` to `Item`.
+- A reference picker given a filtered `queryset=`, or built from a model field with
+  `limit_choices_to`, now searches only that queryset, through `SearchRestriction` in
+  `literature.ui.picker`. A restricted picker needs a cache shared between processes in production;
+  without one it offers nothing rather than too much.
 - `Item.get_absolute_url()` returns the reference's page in the catalogue, `literature:item-detail`.
   It resolves only where `literature.ui.urls` is mounted.
 - `Item.doi`, `Item.doi_url` and `Item.year` give a reference's DOI, its `https://doi.org/` link and

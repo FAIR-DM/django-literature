@@ -53,7 +53,8 @@ The reference picker for a project's own forms. `ItemChoiceField` chooses one re
 its select with `ItemSearchSelect`, which holds only the chosen references and loads the rest from
 the search route as the reader types. `ItemMultipleChoiceField` chooses several and draws its
 select with `ItemSearchSelectMultiple`, which does the same and adds a button to remove each chosen
-reference. `item_label` names a reference the same way in the select and
+reference. `SearchRestriction` turns a field's filtered queryset into the signed key its select
+carries and back into the queryset for the search route. `item_label` names a reference the same way in the select and
 in the search results: its title or citation key, its year and its first contributor. How to use it
 is in [How to choose a reference in your own form](../how-to/choosing-a-reference.md).
 
@@ -73,7 +74,8 @@ for why the choice is made this way rather than by routing.
 
 `ItemSearchView` answers the reference picker's searches as JSON, at most `SEARCH_LIMIT` references
 at a time, under the route name `literature:item-search`. It is open to everyone, like the
-catalogue list.
+catalogue list. A `key` in the request limits the search to the queryset a restricted picker
+signed; a key that is not valid, or whose queryset is no longer cached, answers 404 with no results.
 
 `CatalogueListMixin` carries the card configuration that `ItemListView` and
 `ContributorDetailView` share — the model, the card template, the page title and the
