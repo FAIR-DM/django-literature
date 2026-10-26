@@ -39,7 +39,7 @@ def item_label(item: Item) -> str:
     return label
 
 
-class _ReferencePicker:
+class ReferencePickerMixin:
     """What the two reference fields share: a default config and a restriction check.
 
     The default config points django-tomselect at the package's search route.
@@ -73,7 +73,7 @@ class _ReferencePicker:
         """Refuse a chosen reference outside the config's constant conditions."""
         cleaned = super().clean(value)
         chosen = [cleaned] if isinstance(cleaned, Item) else cleaned
-        if chosen and not self._within_restriction([item.pk for item in chosen]):
+        if chosen and not self.within_restriction([item.pk for item in chosen]):
             raise ValidationError(
                 self.error_messages["invalid_choice"],
                 code="invalid_choice",
@@ -81,19 +81,19 @@ class _ReferencePicker:
             )
         return cleaned
 
-    def _within_restriction(self, pks):
+    def within_restriction(self, pks):
         """Return whether every pk meets the constant conditions."""
         queryset = Item.objects.filter(pk__in=pks)
         for spec in self.config.get_normalized_filters():
             if spec.source_type == "const":
-                queryset = queryset.filter(**{spec.lookup: self._value_of(spec)})
+                queryset = queryset.filter(**{spec.lookup: self.constant_value(spec)})
         for spec in self.config.get_normalized_excludes():
             if spec.source_type == "const":
-                queryset = queryset.exclude(**{spec.lookup: self._value_of(spec)})
+                queryset = queryset.exclude(**{spec.lookup: self.constant_value(spec)})
         return queryset.count() == len(set(pks))
 
     @staticmethod
-    def _value_of(spec):
+    def constant_value(spec):
         """Return a constant condition's value, split when its lookup takes a list."""
         if spec.lookup.rsplit("__", 1)[-1] in ("in", "range"):
             return spec.source.split(",")
@@ -101,7 +101,7 @@ class _ReferencePicker:
 
 
 # django-tomselect's model mixin and Django's choice field type ``queryset`` differently.
-class ReferenceField(_ReferencePicker, TomSelectModelChoiceField):  # type: ignore[misc]
+class ReferenceField(ReferencePickerMixin, TomSelectModelChoiceField):  # type: ignore[misc]
     """Choose one reference by searching the catalogue.
 
     On a plain form, declare it as an attribute. On a model form, name it in
@@ -110,7 +110,7 @@ class ReferenceField(_ReferencePicker, TomSelectModelChoiceField):  # type: igno
 
 
 class ReferenceMultipleField(  # type: ignore[misc]
-    _ReferencePicker, TomSelectModelMultipleChoiceField
+    ReferencePickerMixin, TomSelectModelMultipleChoiceField
 ):
     """Choose several references by searching the catalogue.
 
