@@ -928,6 +928,8 @@ class ReferenceAutocompleteView(AutocompleteModelView):
 
     model = Item
     page_size = SEARCH_LIMIT
+    value_fields = ["label"]
+    virtual_fields = ["label"]
     allow_anonymous = True
     skip_authorization = True
 
@@ -938,15 +940,21 @@ class ReferenceAutocompleteView(AutocompleteModelView):
         self.page_size = SEARCH_LIMIT
 
     def get(self, request, *args, **kwargs):
-        """Refuse text containing a NUL character before any query runs."""
+        """Answer no text with no results and refuse a NUL character before any query."""
         if "\x00" in self.query:
             return JsonResponse({"results": []}, status=400)
+        if not self.query:
+            return JsonResponse({"results": [], "page": 1, "has_more": False})
         return super().get(request, *args, **kwargs)
 
     def search(self, queryset, query):
-        """Keep the references ``query`` finds and rank them; no text finds nothing."""
+        """Keep the references ``query`` finds and rank them.
+
+        The field validates a submission against this view's queryset without
+        any text, so no text must leave the queryset whole.
+        """
         if not query:
-            return queryset.none()
+            return queryset
         return queryset.filter(self.matches(query)).annotate(
             rank=Case(
                 When(
@@ -962,13 +970,18 @@ class ReferenceAutocompleteView(AutocompleteModelView):
         """Put a title or citation key that starts with the text first, then by title."""
         return queryset.order_by("rank", "title", "pk") if self.query else queryset
 
+    @staticmethod
+    def prepare_label(item):
+        """Label a reference chosen in a field the way a search result is labelled."""
+        return item_label(item)
+
     def hook_prepare_results(self, results):
         """Label each result, reading the page's references once."""
         items = Item.objects.prefetch_related("item_dates", "item_names__name").in_bulk(
             [result["id"] for result in results]
         )
         return [
-            {"id": result["id"], "label": item_label(items[result["id"]])}
+            {"id": result["id"], "label": self.prepare_label(items[result["id"]])}
             for result in results
         ]
 

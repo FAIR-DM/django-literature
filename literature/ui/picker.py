@@ -1,14 +1,11 @@
-"""A searchable picker for choosing one reference in a project's own form."""
+"""Searchable fields for choosing references in a project's own form."""
 
-import hashlib
-
-from django import forms
-from django.core import signing
-from django.core.cache import cache
-from django.core.exceptions import EmptyResultSet, ValidationError
-from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
-from mvp_forms.widgets import TomSelect, TomSelectMultiple
+from django.core.exceptions import ValidationError
+from django_tomselect.app_settings import TomSelectConfig, merge_configs
+from django_tomselect.forms import (
+    TomSelectModelChoiceField,
+    TomSelectModelMultipleChoiceField,
+)
 
 from literature.choices import NameRole
 from literature.models import Item
@@ -42,184 +39,77 @@ def item_label(item: Item) -> str:
     return label
 
 
-class SearchRestriction:
-    """The two directions of a restricted picker's search key.
+class ReferencePicker:
+    """What the two reference fields share: a default config and a restriction check.
 
-    The widget turns a filtered queryset into a key with ``key_for``, and the
-    search route turns the key back into the queryset with ``queryset_for``.
-    The query itself stays on the server, in the default cache; the page and
-    the request carry only a signed digest, so nothing from a request is ever
-    unpickled. Production needs a cache shared between processes, or a search
-    served by another process finds no entry and offers nothing.
-
-    The search runs on the default database. A picker restricted with
-    ``.using()`` keeps its filter but is searched there, not on the database it
-    names.
+    The default config points django-tomselect at the package's search route.
+    A config the developer passes is merged over it, so any django-tomselect
+    setting can be added. django-tomselect validates a submission against the
+    search view's whole queryset, so a chosen reference is also checked against
+    the config's constant ``filter_by`` and ``exclude_by`` conditions. A
+    condition that takes its value from another form field is left to
+    django-tomselect.
     """
 
-    SALT = "literature.picker"
-    PREFIX = "literature:picker:"
-    TIMEOUT = 86400
+    default_config = TomSelectConfig(
+        url="literature:item-search", value_field="id", label_field="label"
+    )
 
-    @classmethod
-    def key_for(cls, queryset):
-        """Store a queryset's query and return the signed key that finds it.
-
-        Args:
-            queryset: The references a picker may offer.
-
-        Returns:
-            The signed digest. The same restriction always gives the same key,
-            and each call keeps its entry in the cache for another day.
-        """
-        try:
-            sql, params = queryset.query.sql_with_params()
-        except EmptyResultSet:
-            sql, params = "", ()
-        digest = hashlib.sha256(
-            f"{queryset.model._meta.label}\n{sql}\n{params!r}".encode()
-        ).hexdigest()
-        cache.set(cls.PREFIX + digest, queryset.query, cls.TIMEOUT)
-        return signing.Signer(salt=cls.SALT).sign(digest)
-
-    @classmethod
-    def queryset_for(cls, key):
-        """Return the references a key restricts to.
+    def __init__(self, *args, config=None, **kwargs):
+        """Merge the developer's config over the default.
 
         Args:
-            key: A key from ``key_for``, as the request carried it.
-
-        Returns:
-            The queryset, or ``None`` when the key was not signed here or its
-            entry is no longer in the cache.
+            *args: What the django-tomselect field takes.
+            config: A ``TomSelectConfig`` or a dict of its settings.
+            **kwargs: What the django-tomselect field takes.
         """
-        try:
-            digest = signing.Signer(salt=cls.SALT).unsign(key)
-        except signing.BadSignature:
-            return None
-        query = cache.get(cls.PREFIX + digest)
-        if query is None:
-            return None
-        queryset = Item.objects.all()
-        queryset.query = query
-        return queryset
-
-
-class ItemSearchSelect(TomSelect):
-    """A Tom Select that draws only the chosen references and searches for the rest.
-
-    The select never lists the catalogue. The script loads matches from the
-    search route as the reader types.
-    """
-
-    class Media:
-        js = ["literature/picker.js"]
-
-    def __init__(self, attrs=None, choices=(), **settings):
-        """Default the placeholder to a prompt to search.
-
-        Args:
-            attrs: HTML attributes for the select.
-            choices: Kept for the field to assign; never drawn.
-            **settings: The settings ``TomSelect`` takes.
-        """
-        settings.setdefault("placeholder", _("Search for a reference…"))
-        super().__init__(attrs, choices, **settings)
-
-    def build_attrs(self, base_attrs, extra_attrs=None):
-        """Add the address of the search, and the key of the restriction when there is one."""
-        attrs = super().build_attrs(base_attrs, extra_attrs)
-        attrs["data-search-url"] = reverse("literature:item-search")
-        queryset = getattr(self.choices, "queryset", None)
-        if queryset is not None and queryset.query.has_filters():
-            attrs["data-search-key"] = SearchRestriction.key_for(queryset)
-        return attrs
-
-    def optgroups(self, name, value, attrs=None):
-        """Return an option for each chosen reference and for nothing else.
-
-        Iterating ``self.choices`` would run the field's whole queryset and
-        label every reference, so the chosen ones are read by primary key.
-        A value the primary key refuses, or one that no longer exists, is
-        left out; the field reports it when the form is validated.
-        """
-        pks = []
-        for raw in value or []:
-            try:
-                pks.append(Item._meta.pk.to_python(raw))
-            except ValidationError:
-                continue
-        chosen = (
-            Item.objects.prefetch_related("item_dates", "item_names__name").in_bulk(pks)
-            if pks
-            else {}
+        if config is not None and not isinstance(config, TomSelectConfig):
+            config = TomSelectConfig(**config)
+        super().__init__(
+            *args, config=merge_configs(self.default_config, config), **kwargs
         )
-        options = [
-            self.create_option(
-                name, str(pk), item_label(chosen[pk]), True, index, attrs=attrs
+
+    def clean(self, value):
+        """Refuse a chosen reference outside the config's constant conditions."""
+        cleaned = super().clean(value)
+        chosen = [cleaned] if isinstance(cleaned, Item) else cleaned
+        if chosen and not self._within_restriction([item.pk for item in chosen]):
+            raise ValidationError(
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": value},
             )
-            for index, pk in enumerate(pk for pk in pks if pk in chosen)
-        ]
-        return [(None, [option], index) for index, option in enumerate(options)]
+        return cleaned
+
+    def _within_restriction(self, pks):
+        """Return whether every pk meets the constant conditions."""
+        queryset = Item.objects.filter(pk__in=pks)
+        for spec in self.config.get_normalized_filters():
+            if spec.source_type == "const":
+                queryset = queryset.filter(**{spec.lookup: self._value_of(spec)})
+        for spec in self.config.get_normalized_excludes():
+            if spec.source_type == "const":
+                queryset = queryset.exclude(**{spec.lookup: self._value_of(spec)})
+        return queryset.count() == len(set(pks))
+
+    @staticmethod
+    def _value_of(spec):
+        """Return a constant condition's value, split when its lookup takes a list."""
+        if spec.lookup.rsplit("__", 1)[-1] in ("in", "range"):
+            return spec.source.split(",")
+        return spec.source
 
 
-class ItemSearchSelectMultiple(ItemSearchSelect, TomSelectMultiple):
-    """The search select for several references, with a button to remove each."""
-
-    def __init__(self, attrs=None, choices=(), **settings):
-        """Default the remove button on.
-
-        Args:
-            attrs: HTML attributes for the select.
-            choices: Kept for the field to assign; never drawn.
-            **settings: The settings ``TomSelectMultiple`` takes.
-        """
-        settings.setdefault("remove_button", True)
-        super().__init__(attrs, choices, **settings)
-
-
-class ItemChoiceField(forms.ModelChoiceField):
+class ReferenceField(ReferencePicker, TomSelectModelChoiceField):
     """Choose one reference by searching the catalogue.
 
     On a plain form, declare it as an attribute. On a model form, name it in
-    ``Meta.field_classes`` so Django builds it from the model field and keeps
-    that field's ``blank`` and ``limit_choices_to``.
+    ``Meta.field_classes`` so Django builds it from the model field.
     """
 
-    widget = ItemSearchSelect
 
-    def __init__(self, queryset=None, **kwargs):
-        """Choose among the whole catalogue unless a queryset is given.
-
-        Args:
-            queryset: The references that may be chosen.
-            **kwargs: What ``ModelChoiceField`` takes.
-        """
-        super().__init__(Item.objects.all() if queryset is None else queryset, **kwargs)
-
-    def label_from_instance(self, obj):
-        """Label a reference the way the search does."""
-        return item_label(obj)
-
-
-class ItemMultipleChoiceField(forms.ModelMultipleChoiceField):
+class ReferenceMultipleField(ReferencePicker, TomSelectModelMultipleChoiceField):
     """Choose several references by searching the catalogue.
 
-    Declared the same way as ``ItemChoiceField``: an attribute on a plain form,
-    or ``Meta.field_classes`` on a model form.
+    Declared the same way as ``ReferenceField``.
     """
-
-    widget = ItemSearchSelectMultiple
-
-    def __init__(self, queryset=None, **kwargs):
-        """Choose among the whole catalogue unless a queryset is given.
-
-        Args:
-            queryset: The references that may be chosen.
-            **kwargs: What ``ModelMultipleChoiceField`` takes.
-        """
-        super().__init__(Item.objects.all() if queryset is None else queryset, **kwargs)
-
-    def label_from_instance(self, obj):
-        """Label a reference the way the search does."""
-        return item_label(obj)
