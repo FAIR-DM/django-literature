@@ -42,7 +42,7 @@ module and docs page.
 - **T004** — `literature/ui/static/literature/picker.js` (plan P-4) and its `Media` entry. Test:
   the widget's media lists `literature/picker.js` after `mvp_forms/tomselect.js`. The script's
   behaviour is checked in a headless browser at convergence, not here.
-- **T005** — Documentation: `docs/choosing-a-reference.md` (how-to: install, the two Tom Select
+- **T005** — Documentation: `docs/how-to/choosing-a-reference.md` (how-to: install, the two Tom Select
   tags copied from `item_form.html`, declaring `ItemChoiceField` on a plain form and, through `Meta.field_classes`, on a `ModelForm`,
   what the search matches, that the search follows the catalogue list's read access and is closed with the catalogue's other
   read routes by guarding the include), added to the
@@ -58,7 +58,7 @@ module and docs page.
   reference as for several; through `field_classes`, `required` follows a many-to-many's `blank`
   (`ManyToManyField(Item, blank=True).formfield(form_class=ItemMultipleChoiceField)`). No model in the package has a many-to-many to `Item`, so
   the field is tested as a plain form field.
-- **T007** — Documentation: the multiple field in `docs/choosing-a-reference.md`, with its
+- **T007** — Documentation: the multiple field in `docs/how-to/choosing-a-reference.md`, with its
   `ModelForm` example through `field_classes`, CHANGELOG line.
 
 ## User Story 3 — A developer restricts which references a picker offers (P3)
@@ -73,6 +73,6 @@ module and docs page.
   empty results; a well-signed key absent from the cache answers 404 with empty results; a form
   submitted with a pk outside the restriction is refused with `invalid_choice` (Django's own
   behaviour, asserted because FR-013 depends on it). Use `LocMemCache` in tests.
-- **T009** — Documentation: restricting a picker in `docs/choosing-a-reference.md`, including that a
+- **T009** — Documentation: restricting a picker in `docs/how-to/choosing-a-reference.md`, including that a
   restricted picker needs a cache shared between processes in production, and what happens without
   one. CHANGELOG line.

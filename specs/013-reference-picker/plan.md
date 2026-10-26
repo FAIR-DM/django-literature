@@ -46,7 +46,7 @@ literature/ui/
 ├── views.py                      # + ItemSearchView
 ├── urls.py                       # + path("search/", …, name="item-search")
 └── static/literature/picker.js   # NEW: gives each picker control its load function
-docs/choosing-a-reference.md      # NEW how-to, added to the Getting Started toctree
+docs/how-to/choosing-a-reference.md      # NEW how-to, added to the Getting Started toctree
 README.md, CHANGELOG.md, CONTEXT.md
 tests/test_ui/test_picker.py      # NEW, mirrors picker.py
 tests/test_ui/test_views.py       # + the search view
