@@ -100,7 +100,8 @@ class _ReferencePicker:
         return spec.source
 
 
-class ReferenceField(_ReferencePicker, TomSelectModelChoiceField):
+# django-tomselect's model mixin and Django's choice field type ``queryset`` differently.
+class ReferenceField(_ReferencePicker, TomSelectModelChoiceField):  # type: ignore[misc]
     """Choose one reference by searching the catalogue.
 
     On a plain form, declare it as an attribute. On a model form, name it in
@@ -108,7 +109,9 @@ class ReferenceField(_ReferencePicker, TomSelectModelChoiceField):
     """
 
 
-class ReferenceMultipleField(_ReferencePicker, TomSelectModelMultipleChoiceField):
+class ReferenceMultipleField(  # type: ignore[misc]
+    _ReferencePicker, TomSelectModelMultipleChoiceField
+):
     """Choose several references by searching the catalogue.
 
     Declared the same way as ``ReferenceField``.
