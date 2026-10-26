@@ -379,6 +379,13 @@ Importing creates references, so the import page, its preview and its confirm co
 require `literature.add_item`, the same permission as adding one by hand. The package imposes no
 size limit of its own on the file it accepts. Bounding it is left to the host project.
 
+### Choosing a reference in your own form
+
+A project whose own model points at a reference can add a searchable picker to its form with one
+field, `ItemChoiceField` from `literature.ui.picker`. People find the reference by typing part of
+its title, a contributor's name, its citation key or its DOI. See
+[How to choose a reference in your own form](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/choosing-a-reference.md).
+
 ### Try it: the demo project
 
 The repository carries a runnable demo of everything above, wired the same way this section

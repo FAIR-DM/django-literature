@@ -244,6 +244,13 @@ The set of stored items, spoken about from the interface. The core's own term fo
 the store, or `Item.objects` — *catalogue* is the UI app's word for it in prose and on the page
 itself: "the catalogue list", "a catalogue holding no items".
 
+### reference picker
+
+A form field for choosing an existing **Item** by searching the catalogue as the person types,
+rather than listing every item: `ItemChoiceField` from `literature.ui.picker`. It matches title,
+**citation key**, a contributor's name and DOI, and it only chooses, never creates. Part of the
+**UI app**.
+
 ## Synonyms to avoid
 
 - **`Reference` / `Publication` / `Record`** for an item — the canonical term is **`Item`**
