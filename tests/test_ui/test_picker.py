@@ -8,6 +8,7 @@ from django import forms
 from django.contrib.staticfiles import finders
 from django.db import connection, models
 from django.forms import formset_factory
+from django.forms.models import apply_limit_choices_to_to_formfield
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
@@ -308,6 +309,25 @@ class TestItemChoiceFieldOnAModelForm:
 
         assert isinstance(field, ItemChoiceField)
         assert field.required is False
+
+    @pytest.mark.usefixtures("restriction_cache")
+    def test_a_model_fields_limit_choices_to_restricts_the_search(self):
+        book = ItemFactory(title="Shared", type="book")
+        ItemFactory(title="Shared", type="article")
+        foreign_key = models.ForeignKey(
+            Item, on_delete=models.CASCADE, limit_choices_to={"type": "book"}
+        )
+
+        class LimitedForm(forms.Form):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                field = foreign_key.formfield(form_class=ItemChoiceField)
+                apply_limit_choices_to_to_formfield(field)
+                self.fields["reference"] = field
+
+        key = select_of(LimitedForm(), "reference")["attrs"]["data-search-key"]
+
+        assert list(SearchRestriction.queryset_for(key)) == [book]
 
     def test_an_existing_instance_renders_its_choice(self):
         link = ItemNameFactory(item=ItemFactory(title="Linked"))
