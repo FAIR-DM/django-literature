@@ -15,6 +15,7 @@ from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django.views import View
+from django_tomselect.autocompletes import AutocompleteModelView
 from mvp.integrations.django_tables.views import MVPTableView
 from mvp.views import (
     MVPCreateView,
@@ -45,7 +46,7 @@ from literature.ui.forms import (
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import CONTRIBUTOR_INLINES, IdentifierInline
 from literature.ui.links import web_url
-from literature.ui.picker import SearchRestriction, item_label
+from literature.ui.picker import item_label
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
 from literature.utils.doi import doi_url
@@ -913,56 +914,63 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
         return context
 
 
-class ItemSearchView(View):
+class ReferenceAutocompleteView(AutocompleteModelView):
     """Answer a reference picker's search with the references that match.
 
     Matches the text against title, citation key, a contributor's family or
     literal name and a DOI, ranking a title or citation key that starts with
-    the text first.
+    the text first. Each result carries the reference's ``id`` and its
+    ``label``.
 
-    A ``key`` the picker put on its select limits the search to that picker's
-    queryset; a key that is not ours or no longer cached answers 404, never the
-    whole catalogue.
-
-    There is deliberately no permission mixin: the catalogue list is open to
-    everyone (ADR 0036), and this search follows the list's read rule.
+    The route is open to everyone (ADR 0036): the catalogue list is, and this
+    search follows its read rule.
     """
 
+    model = Item
+    page_size = SEARCH_LIMIT
+    allow_anonymous = True
+    skip_authorization = True
+
+    def setup(self, request, *args, **kwargs):
+        """Cut the text to ``SEARCH_TEXT_LIMIT`` and hold the page to ``SEARCH_LIMIT``."""
+        super().setup(request, *args, **kwargs)
+        self.query = self.query.strip()[:SEARCH_TEXT_LIMIT]
+        self.page_size = SEARCH_LIMIT
+
     def get(self, request, *args, **kwargs):
-        """Return ``{"results": [{"value", "text"}]}``, at most ``SEARCH_LIMIT`` long."""
-        key = request.GET.get("key")
-        catalogue = Item.objects.all()
-        if key is not None:
-            catalogue = SearchRestriction.queryset_for(key)
-            if catalogue is None:
-                return JsonResponse({"results": []}, status=404)
-        text = request.GET.get("q", "").strip()[:SEARCH_TEXT_LIMIT]
-        if "\x00" in text:
+        """Refuse text containing a NUL character before any query runs."""
+        if "\x00" in self.query:
             return JsonResponse({"results": []}, status=400)
-        if not text:
-            return JsonResponse({"results": []})
-        items = (
-            catalogue.filter(self.matches(text))
-            .annotate(
-                rank=Case(
-                    When(
-                        Q(title__istartswith=text) | Q(citation_key__istartswith=text),
-                        then=Value(0),
-                    ),
-                    default=Value(1),
-                    output_field=IntegerField(),
-                )
+        return super().get(request, *args, **kwargs)
+
+    def search(self, queryset, query):
+        """Keep the references ``query`` finds and rank them; no text finds nothing."""
+        if not query:
+            return queryset.none()
+        return queryset.filter(self.matches(query)).annotate(
+            rank=Case(
+                When(
+                    Q(title__istartswith=query) | Q(citation_key__istartswith=query),
+                    then=Value(0),
+                ),
+                default=Value(1),
+                output_field=IntegerField(),
             )
-            .order_by("rank", "title", "pk")
-            .prefetch_related("item_dates", "item_names__name")[:SEARCH_LIMIT]
         )
-        return JsonResponse(
-            {
-                "results": [
-                    {"value": item.pk, "text": item_label(item)} for item in items
-                ]
-            }
+
+    def order_queryset(self, queryset):
+        """Put a title or citation key that starts with the text first, then by title."""
+        return queryset.order_by("rank", "title", "pk") if self.query else queryset
+
+    def hook_prepare_results(self, results):
+        """Label each result, reading the page's references once."""
+        items = Item.objects.prefetch_related("item_dates", "item_names__name").in_bulk(
+            [result["id"] for result in results]
         )
+        return [
+            {"id": result["id"], "label": item_label(items[result["id"]])}
+            for result in results
+        ]
 
     @staticmethod
     def matches(text):

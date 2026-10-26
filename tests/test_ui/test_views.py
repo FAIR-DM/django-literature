@@ -3429,7 +3429,7 @@ class TestWriteLinksFollowPermission:
 
 
 @pytest.mark.django_db
-class TestItemSearchView:
+class TestReferenceAutocompleteView:
     @staticmethod
     def search(client, text):
         response = client.get(reverse("literature:item-search"), {"q": text})
@@ -3438,7 +3438,7 @@ class TestItemSearchView:
 
     @staticmethod
     def values(results):
-        return [result["value"] for result in results]
+        return [result["id"] for result in results]
 
     def test_the_route_reverses_under_the_catalogue_prefix(self):
         assert reverse("literature:item-search") == "/catalogue/search/"
@@ -3448,8 +3448,8 @@ class TestItemSearchView:
 
         (result,) = self.search(anonymous_client, "deep")
 
-        assert result["value"] == item.pk
-        assert "Deep Time" in result["text"]
+        assert result["id"] == item.pk
+        assert "Deep Time" in result["label"]
 
     @pytest.mark.parametrize(
         "field",
@@ -3523,7 +3523,7 @@ class TestItemSearchView:
         response = anonymous_client.get(reverse("literature:item-search"))
 
         assert response.status_code == 200
-        assert response.json() == {"results": []}
+        assert response.json()["results"] == []
 
     def test_no_match_returns_an_empty_list(self, anonymous_client):
         ItemFactory(title="Deep Time")
@@ -3641,80 +3641,14 @@ class TestItemSearchView:
 
         assert count_queries("a" * 10_000) == count_queries("a")
 
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("restriction_cache")
-class TestItemSearchViewRestricted:
-    @staticmethod
-    def key_for(queryset):
-        from literature.ui.picker import SearchRestriction
-
-        return SearchRestriction.key_for(queryset)
-
-    @staticmethod
-    def search(client, text, key):
-        return client.get(reverse("literature:item-search"), {"q": text, "key": key})
-
-    def test_a_key_searches_only_its_restriction(self, anonymous_client):
-        inside = ItemFactory(title="Shared Title", language="en")
-        ItemFactory(title="Shared Title", language="fr")
-        key = self.key_for(Item.objects.filter(language="en"))
-
-        response = self.search(anonymous_client, "shared", key)
-
-        assert response.status_code == 200
-        assert [r["value"] for r in response.json()["results"]] == [inside.pk]
-
-    def test_two_keys_each_search_their_own_set(self, anonymous_client):
-        english = ItemFactory(title="Shared Title", language="en")
-        french = ItemFactory(title="Shared Title", language="fr")
-        english_key = self.key_for(Item.objects.filter(language="en"))
-        french_key = self.key_for(Item.objects.filter(language="fr"))
-
-        found = {
-            key: [
-                r["value"]
-                for r in self.search(anonymous_client, "shared", key).json()["results"]
-            ]
-            for key in (english_key, french_key)
-        }
-
-        assert found == {english_key: [english.pk], french_key: [french.pk]}
-
-    def test_no_key_still_searches_the_whole_catalogue(self, anonymous_client):
-        ItemFactory(title="Shared Title", language="en")
-        ItemFactory(title="Shared Title", language="fr")
+    def test_a_requested_page_size_cannot_exceed_the_search_limit(
+        self, anonymous_client
+    ):
+        for number in range(SEARCH_LIMIT + 5):
+            ItemFactory(title=f"Common {number}")
 
         response = anonymous_client.get(
-            reverse("literature:item-search"), {"q": "shared"}
+            reverse("literature:item-search"), {"q": "common", "page_size": 100}
         )
 
-        assert len(response.json()["results"]) == 2
-
-    def test_a_tampered_key_answers_404_with_no_results(self, anonymous_client):
-        ItemFactory(title="Shared Title")
-        key = self.key_for(Item.objects.filter(language="en"))
-
-        response = self.search(anonymous_client, "shared", key + "x")
-
-        assert response.status_code == 404
-        assert response.json() == {"results": []}
-
-    def test_a_signed_key_missing_from_the_cache_answers_404(
-        self, anonymous_client, restriction_cache
-    ):
-        ItemFactory(title="Shared Title")
-        key = self.key_for(Item.objects.filter(language="en"))
-        restriction_cache.clear()
-
-        response = self.search(anonymous_client, "shared", key)
-
-        assert response.status_code == 404
-        assert response.json() == {"results": []}
-
-    def test_an_empty_key_answers_404(self, anonymous_client):
-        ItemFactory(title="Shared Title")
-
-        response = self.search(anonymous_client, "shared", "")
-
-        assert response.status_code == 404
+        assert len(response.json()["results"]) == SEARCH_LIMIT
