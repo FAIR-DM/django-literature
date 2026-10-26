@@ -3,8 +3,8 @@
 // django-mvp-forms starts the control and sends mvp-forms:tomselect with it,
 // and this gives it a load function that asks the search route. The select
 // holds only the chosen references, so there is nothing local to match: the
-// options the last search returned are offered, in the order it returned them,
-// and a chosen reference the search did not return is not.
+// options the last search returned are offered, and a chosen reference the
+// search did not return is not.
 (function () {
   "use strict";
   if (window.literaturePicker) return;

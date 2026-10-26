@@ -167,6 +167,9 @@ restriction. That search answers 404 and the picker offers nothing. It never fal
 whole catalogue. The same happens when the key was changed or the cache was cleared; reloading the
 page stores the restriction again.
 
+A dummy cache (`DummyCache`) stores nothing, so every restricted picker offers nothing. Use a real
+cache, even a local one in development.
+
 ## What the search matches
 
 Typing narrows the choices to the references where the text appears in any one of:
@@ -180,7 +183,8 @@ Typing narrows the choices to the references where the text appears in any one o
 Case does not matter. Typing `%`, `_` or a quotation mark matches those characters and nothing
 else. A reference that matches in several ways is offered once. A title or citation key that
 starts with the text comes first, and at most 20 references are offered at a time. Each is shown
-as its title (its citation key when it has no title), its year and its first author.
+as its title (its citation key when it has no title), its year and its first contributor, preferring
+an author when it has one.
 
 ## Who may search
 
