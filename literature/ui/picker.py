@@ -1,7 +1,11 @@
 """A searchable picker for choosing one reference in a project's own form."""
 
+import hashlib
+
 from django import forms
-from django.core.exceptions import ValidationError
+from django.core import signing
+from django.core.cache import cache
+from django.core.exceptions import EmptyResultSet, ValidationError
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from mvp_forms.widgets import TomSelect, TomSelectMultiple
@@ -38,6 +42,65 @@ def item_label(item: Item) -> str:
     return label
 
 
+class SearchRestriction:
+    """The two directions of a restricted picker's search key.
+
+    The widget turns a filtered queryset into a key with ``key_for``, and the
+    search route turns the key back into the queryset with ``queryset_for``.
+    The query itself stays on the server, in the default cache; the page and
+    the request carry only a signed digest, so nothing from a request is ever
+    unpickled. Production needs a cache shared between processes, or a search
+    served by another process finds no entry and offers nothing.
+    """
+
+    SALT = "literature.picker"
+    PREFIX = "literature:picker:"
+    TIMEOUT = 86400
+
+    @classmethod
+    def key_for(cls, queryset):
+        """Store a queryset's query and return the signed key that finds it.
+
+        Args:
+            queryset: The references a picker may offer.
+
+        Returns:
+            The signed digest. The same restriction always gives the same key,
+            and each call keeps its entry in the cache for another day.
+        """
+        try:
+            sql, params = queryset.query.sql_with_params()
+        except EmptyResultSet:
+            sql, params = "", ()
+        digest = hashlib.sha256(
+            f"{queryset.model._meta.label}\n{sql}\n{params!r}".encode()
+        ).hexdigest()
+        cache.set(cls.PREFIX + digest, queryset.query, cls.TIMEOUT)
+        return signing.Signer(salt=cls.SALT).sign(digest)
+
+    @classmethod
+    def queryset_for(cls, key):
+        """Return the references a key restricts to.
+
+        Args:
+            key: A key from ``key_for``, as the request carried it.
+
+        Returns:
+            The queryset, or ``None`` when the key was not signed here or its
+            entry is no longer in the cache.
+        """
+        try:
+            digest = signing.Signer(salt=cls.SALT).unsign(key)
+        except signing.BadSignature:
+            return None
+        query = cache.get(cls.PREFIX + digest)
+        if query is None:
+            return None
+        queryset = Item.objects.all()
+        queryset.query = query
+        return queryset
+
+
 class ItemSearchSelect(TomSelect):
     """A Tom Select that draws only the chosen references and searches for the rest.
 
@@ -60,9 +123,12 @@ class ItemSearchSelect(TomSelect):
         super().__init__(attrs, choices, **settings)
 
     def build_attrs(self, base_attrs, extra_attrs=None):
-        """Add the address of the search to the select's attributes."""
+        """Add the address of the search, and the key of the restriction when there is one."""
         attrs = super().build_attrs(base_attrs, extra_attrs)
         attrs["data-search-url"] = reverse("literature:item-search")
+        queryset = getattr(self.choices, "queryset", None)
+        if queryset is not None and queryset.query.has_filters():
+            attrs["data-search-key"] = SearchRestriction.key_for(queryset)
         return attrs
 
     def optgroups(self, name, value, attrs=None):

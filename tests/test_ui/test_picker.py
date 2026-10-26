@@ -18,6 +18,7 @@ from literature.ui.picker import (
     ItemMultipleChoiceField,
     ItemSearchSelect,
     ItemSearchSelectMultiple,
+    SearchRestriction,
     item_label,
 )
 from tests.factories import (
@@ -496,3 +497,132 @@ class TestItemSearchSelectMedia:
 
     def test_the_picker_script_is_served_as_a_static_file(self):
         assert finders.find("literature/picker.js") is not None
+
+
+@pytest.fixture
+def locmem_cache(settings):
+    """Give the restriction a cache of its own, empty for each test."""
+    settings.CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+    }
+    from django.core.cache import cache
+
+    cache.clear()
+    return cache
+
+
+def restricted_form(queryset, name="reference"):
+    class RestrictedForm(forms.Form):
+        reference = ItemChoiceField(queryset=queryset)
+
+    return RestrictedForm
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("locmem_cache")
+class TestSearchRestriction:
+    def test_an_unrestricted_field_carries_no_search_key(self):
+        assert "data-search-key" not in select_of(ReferenceForm())["attrs"]
+
+    def test_an_all_queryset_carries_no_search_key(self):
+        form = restricted_form(Item.objects.all())()
+
+        assert "data-search-key" not in select_of(form)["attrs"]
+
+    def test_a_restricted_field_carries_a_search_key(self):
+        form = restricted_form(Item.objects.filter(title="Inside"))()
+
+        assert select_of(form)["attrs"]["data-search-key"]
+
+    def test_the_key_resolves_to_the_restriction(self):
+        inside = ItemFactory(title="Inside")
+        ItemFactory(title="Outside")
+        queryset = Item.objects.filter(title="Inside")
+        key = select_of(restricted_form(queryset)())["attrs"]["data-search-key"]
+
+        assert list(SearchRestriction.queryset_for(key)) == [inside]
+
+    def test_two_restrictions_carry_different_keys(self):
+        class TwoFields(forms.Form):
+            first = ItemChoiceField(queryset=Item.objects.filter(title="A"))
+            second = ItemChoiceField(queryset=Item.objects.filter(title="B"))
+
+        form = TwoFields()
+
+        assert (
+            select_of(form, "first")["attrs"]["data-search-key"]
+            != select_of(form, "second")["attrs"]["data-search-key"]
+        )
+
+    def test_the_same_restriction_rendered_twice_carries_the_same_key(self):
+        form_class = restricted_form(Item.objects.filter(title="Inside"))
+
+        assert (
+            select_of(form_class())["attrs"]["data-search-key"]
+            == select_of(form_class())["attrs"]["data-search-key"]
+        )
+
+    def test_a_queryset_assigned_in_init_is_the_one_restricted_to(self):
+        inside = ItemFactory(title="Inside")
+        ItemFactory(title="Outside")
+
+        class LateForm(forms.Form):
+            reference = ItemChoiceField()
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.fields["reference"].queryset = Item.objects.filter(title="Inside")
+
+        key = select_of(LateForm())["attrs"]["data-search-key"]
+
+        assert list(SearchRestriction.queryset_for(key)) == [inside]
+
+    def test_a_tampered_key_resolves_to_nothing(self):
+        key = select_of(restricted_form(Item.objects.filter(title="x"))())["attrs"][
+            "data-search-key"
+        ]
+
+        assert SearchRestriction.queryset_for(key + "x") is None
+        assert SearchRestriction.queryset_for("") is None
+
+    def test_a_signed_key_missing_from_the_cache_resolves_to_nothing(
+        self, locmem_cache
+    ):
+        key = select_of(restricted_form(Item.objects.filter(title="x"))())["attrs"][
+            "data-search-key"
+        ]
+        locmem_cache.clear()
+
+        assert SearchRestriction.queryset_for(key) is None
+
+    def test_an_empty_queryset_is_a_restriction_too(self):
+        form = restricted_form(Item.objects.none())()
+
+        assert select_of(form)["attrs"]["data-search-key"]
+
+    def test_an_initial_value_outside_the_restriction_is_drawn_as_chosen(self):
+        outside = ItemFactory(title="Outside")
+        form = restricted_form(Item.objects.filter(title="Inside"))(
+            initial={"reference": outside}
+        )
+
+        (option,) = select_of(form)["options"]
+        assert option["value"] == str(outside.pk)
+
+    def test_submitting_a_value_outside_the_restriction_is_refused(self):
+        outside = ItemFactory(title="Outside")
+        form = restricted_form(Item.objects.filter(title="Inside"))(
+            data={"reference": str(outside.pk)}
+        )
+
+        assert not form.is_valid()
+        assert form.errors["reference"].as_data()[0].code == "invalid_choice"
+
+    def test_a_value_inside_the_restriction_is_accepted(self):
+        inside = ItemFactory(title="Inside")
+        form = restricted_form(Item.objects.filter(title="Inside"))(
+            data={"reference": str(inside.pk)}
+        )
+
+        assert form.is_valid()
+        assert form.cleaned_data["reference"] == inside

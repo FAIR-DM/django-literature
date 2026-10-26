@@ -45,7 +45,7 @@ from literature.ui.forms import (
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import CONTRIBUTOR_INLINES, IdentifierInline
 from literature.ui.links import web_url
-from literature.ui.picker import item_label
+from literature.ui.picker import SearchRestriction, item_label
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
 from literature.utils.doi import doi_url
@@ -917,17 +917,27 @@ class ItemSearchView(View):
     literal name and a DOI, ranking a title or citation key that starts with
     the text first.
 
+    A ``key`` the picker put on its select limits the search to that picker's
+    queryset; a key that is not ours or no longer cached answers 404, never the
+    whole catalogue.
+
     There is deliberately no permission mixin: the catalogue list is open to
     everyone (ADR 0036), and this search follows the list's read rule.
     """
 
     def get(self, request, *args, **kwargs):
         """Return ``{"results": [{"value", "text"}]}``, at most ``SEARCH_LIMIT`` long."""
+        key = request.GET.get("key")
+        catalogue = Item.objects.all()
+        if key is not None:
+            catalogue = SearchRestriction.queryset_for(key)
+            if catalogue is None:
+                return JsonResponse({"results": []}, status=404)
         text = request.GET.get("q", "").strip()
         if not text:
             return JsonResponse({"results": []})
         items = (
-            Item.objects.filter(self.matches(text))
+            catalogue.filter(self.matches(text))
             .annotate(
                 rank=Case(
                     When(

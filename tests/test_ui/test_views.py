@@ -3602,3 +3602,93 @@ class TestItemSearchView:
         add_items(6)
 
         assert count_queries() == one
+
+
+@pytest.fixture
+def restriction_cache(settings):
+    """Give the restriction a cache of its own, empty for each test."""
+    settings.CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+    }
+    from django.core.cache import cache
+
+    cache.clear()
+    return cache
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("restriction_cache")
+class TestItemSearchViewRestricted:
+    @staticmethod
+    def key_for(queryset):
+        from literature.ui.picker import SearchRestriction
+
+        return SearchRestriction.key_for(queryset)
+
+    @staticmethod
+    def search(client, text, key):
+        return client.get(reverse("literature:item-search"), {"q": text, "key": key})
+
+    def test_a_key_searches_only_its_restriction(self, anonymous_client):
+        inside = ItemFactory(title="Shared Title", language="en")
+        ItemFactory(title="Shared Title", language="fr")
+        key = self.key_for(Item.objects.filter(language="en"))
+
+        response = self.search(anonymous_client, "shared", key)
+
+        assert response.status_code == 200
+        assert [r["value"] for r in response.json()["results"]] == [inside.pk]
+
+    def test_two_keys_each_search_their_own_set(self, anonymous_client):
+        english = ItemFactory(title="Shared Title", language="en")
+        french = ItemFactory(title="Shared Title", language="fr")
+        english_key = self.key_for(Item.objects.filter(language="en"))
+        french_key = self.key_for(Item.objects.filter(language="fr"))
+
+        found = {
+            key: [
+                r["value"]
+                for r in self.search(anonymous_client, "shared", key).json()["results"]
+            ]
+            for key in (english_key, french_key)
+        }
+
+        assert found == {english_key: [english.pk], french_key: [french.pk]}
+
+    def test_no_key_still_searches_the_whole_catalogue(self, anonymous_client):
+        ItemFactory(title="Shared Title", language="en")
+        ItemFactory(title="Shared Title", language="fr")
+
+        response = anonymous_client.get(
+            reverse("literature:item-search"), {"q": "shared"}
+        )
+
+        assert len(response.json()["results"]) == 2
+
+    def test_a_tampered_key_answers_404_with_no_results(self, anonymous_client):
+        ItemFactory(title="Shared Title")
+        key = self.key_for(Item.objects.filter(language="en"))
+
+        response = self.search(anonymous_client, "shared", key + "x")
+
+        assert response.status_code == 404
+        assert response.json() == {"results": []}
+
+    def test_a_signed_key_missing_from_the_cache_answers_404(
+        self, anonymous_client, restriction_cache
+    ):
+        ItemFactory(title="Shared Title")
+        key = self.key_for(Item.objects.filter(language="en"))
+        restriction_cache.clear()
+
+        response = self.search(anonymous_client, "shared", key)
+
+        assert response.status_code == 404
+        assert response.json() == {"results": []}
+
+    def test_an_empty_key_answers_404(self, anonymous_client):
+        ItemFactory(title="Shared Title")
+
+        response = self.search(anonymous_client, "shared", "")
+
+        assert response.status_code == 404

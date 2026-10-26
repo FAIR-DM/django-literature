@@ -12,6 +12,7 @@
   document.addEventListener("mvp-forms:tomselect", function (event) {
     const url = event.target.dataset.searchUrl;
     if (!url) return;
+    const key = event.target.dataset.searchKey;
     const control = event.detail.tomselect;
     const settings = control.settings;
     settings.valueField = "value";
@@ -30,6 +31,7 @@
       // an earlier search be typed again and loaded again.
       control.clearOptions();
       const query = new URLSearchParams({ q: text });
+      if (key) query.set("key", key);
       fetch(url + "?" + query.toString(), {
         headers: { Accept: "application/json" },
         credentials: "same-origin",
