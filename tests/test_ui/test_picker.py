@@ -1,5 +1,6 @@
 """Tests for ``literature/ui/picker.py``."""
 
+import json
 from html.parser import HTMLParser
 
 import pytest
@@ -12,7 +13,13 @@ from django.urls import reverse
 
 from literature.choices import DateType, NameRole
 from literature.models import Item, ItemName
-from literature.ui.picker import ItemChoiceField, ItemSearchSelect, item_label
+from literature.ui.picker import (
+    ItemChoiceField,
+    ItemMultipleChoiceField,
+    ItemSearchSelect,
+    ItemSearchSelectMultiple,
+    item_label,
+)
 from tests.factories import (
     ItemDateFactory,
     ItemFactory,
@@ -331,6 +338,150 @@ class TestItemChoiceFieldInAFormset:
         assert {select["attrs"]["data-search-url"] for select in selects} == {
             reverse("literature:item-search")
         }
+
+
+class ReferencesForm(forms.Form):
+    references = ItemMultipleChoiceField()
+
+
+class OptionalReferencesForm(forms.Form):
+    references = ItemMultipleChoiceField(required=False)
+
+
+@pytest.mark.django_db
+class TestItemMultipleChoiceField:
+    def test_the_select_is_multiple_and_holds_every_chosen_option_and_no_others(self):
+        first = ItemFactory(title="First")
+        second = ItemFactory(title="Second")
+        ItemFactory(title="Left out")
+
+        select = select_of(
+            ReferencesForm(initial={"references": [first, second]}), "references"
+        )
+
+        assert "multiple" in select["attrs"]
+        assert [option["value"] for option in select["options"]] == [
+            str(first.pk),
+            str(second.pk),
+        ]
+        assert select["options"][0]["text"] == item_label(Item.objects.get(pk=first.pk))
+
+    def test_the_field_is_drawn_with_the_multiple_picker_widget(self):
+        field = ReferencesForm().fields["references"]
+
+        assert isinstance(field.widget, ItemSearchSelectMultiple)
+
+    def test_the_select_carries_the_search_route_and_the_tom_select_marker(self):
+        select = select_of(ReferencesForm(), "references")
+
+        assert select["attrs"]["data-search-url"] == reverse("literature:item-search")
+        assert "data-tom-select" in select["attrs"]
+
+    def test_remove_button_is_on_by_default(self):
+        select = select_of(ReferencesForm(), "references")
+
+        assert (
+            "remove_button" in json.loads(select["attrs"]["data-tom-select"])["plugins"]
+        )
+
+    def test_remove_button_can_be_turned_off(self):
+        widget = ItemSearchSelectMultiple(remove_button=False)
+
+        assert "plugins" not in widget.control_settings()
+
+    def test_an_empty_field_draws_no_options_and_no_queries(
+        self, django_assert_num_queries
+    ):
+        ItemFactory()
+        form = ReferencesForm()
+
+        with django_assert_num_queries(0):
+            html = str(form["references"])
+
+        assert Selects(html).selects[0]["options"] == []
+
+    def test_drawing_one_chosen_reference_costs_the_same_queries_as_several(self):
+        items = []
+        for number in range(5):
+            item = ItemFactory(title=f"Title {number}")
+            ItemNameFactory(item=item)
+            items.append(item)
+
+        def queries_drawing(chosen):
+            form = ReferencesForm(initial={"references": chosen})
+            with CaptureQueriesContext(connection) as queries:
+                str(form["references"])
+            return len(queries)
+
+        assert queries_drawing(items[:1]) == queries_drawing(items)
+
+    def test_several_pks_clean_to_the_items(self):
+        first, second = ItemFactory(), ItemFactory()
+        form = ReferencesForm(data={"references": [str(first.pk), str(second.pk)]})
+
+        assert form.is_valid()
+        assert set(form.cleaned_data["references"]) == {first, second}
+
+    def test_a_repeated_pk_cleans_to_one_item(self):
+        item = ItemFactory()
+        form = ReferencesForm(data={"references": [str(item.pk), str(item.pk)]})
+
+        assert form.is_valid()
+        assert list(form.cleaned_data["references"]) == [item]
+
+    def test_a_vanished_pk_is_refused_with_invalid_choice(self):
+        kept, gone = ItemFactory(), ItemFactory()
+        pk = gone.pk
+        gone.delete()
+        form = ReferencesForm(data={"references": [str(kept.pk), str(pk)]})
+
+        assert not form.is_valid()
+        assert form.has_error("references", code="invalid_choice")
+
+    def test_initial_values_render_every_choice(self):
+        items = [ItemFactory(), ItemFactory(), ItemFactory()]
+        form = ReferencesForm(initial={"references": [item.pk for item in items]})
+
+        values = [o["value"] for o in select_of(form, "references")["options"]]
+
+        assert values == [str(item.pk) for item in items]
+
+    def test_a_bound_form_redraws_the_submitted_choices(self):
+        first, second = ItemFactory(), ItemFactory()
+        form = ReferencesForm(data={"references": [str(first.pk), str(second.pk)]})
+
+        values = [o["value"] for o in select_of(form, "references")["options"]]
+
+        assert values == [str(first.pk), str(second.pk)]
+
+    def test_an_empty_submission_is_refused_when_required(self):
+        form = ReferencesForm(data={"references": []})
+
+        assert form.has_error("references", code="required")
+
+    def test_an_empty_submission_is_accepted_when_not_required(self):
+        form = OptionalReferencesForm(data={"references": []})
+
+        assert form.is_valid()
+        assert list(form.cleaned_data["references"]) == []
+
+
+class TestItemMultipleChoiceFieldOnAModelField:
+    def test_a_blank_many_to_many_makes_the_field_optional(self):
+        many_to_many = models.ManyToManyField(Item, blank=True)
+
+        field = many_to_many.formfield(form_class=ItemMultipleChoiceField)
+
+        assert isinstance(field, ItemMultipleChoiceField)
+        assert field.required is False
+        assert isinstance(field.widget, ItemSearchSelectMultiple)
+
+    def test_a_many_to_many_that_is_not_blank_makes_the_field_required(self):
+        field = models.ManyToManyField(Item).formfield(
+            form_class=ItemMultipleChoiceField
+        )
+
+        assert field.required is True
 
 
 class TestItemSearchSelectMedia:

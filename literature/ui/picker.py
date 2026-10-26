@@ -4,7 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from mvp_forms.widgets import TomSelect
+from mvp_forms.widgets import TomSelect, TomSelectMultiple
 
 from literature.choices import NameRole
 from literature.models import Item
@@ -93,6 +93,21 @@ class ItemSearchSelect(TomSelect):
         return [(None, [option], index) for index, option in enumerate(options)]
 
 
+class ItemSearchSelectMultiple(ItemSearchSelect, TomSelectMultiple):
+    """The search select for several references, with a button to remove each."""
+
+    def __init__(self, attrs=None, choices=(), **settings):
+        """Default the remove button on.
+
+        Args:
+            attrs: HTML attributes for the select.
+            choices: Kept for the field to assign; never drawn.
+            **settings: The settings ``TomSelectMultiple`` takes.
+        """
+        settings.setdefault("remove_button", True)
+        super().__init__(attrs, choices, **settings)
+
+
 class ItemChoiceField(forms.ModelChoiceField):
     """Choose one reference by searching the catalogue.
 
@@ -109,6 +124,29 @@ class ItemChoiceField(forms.ModelChoiceField):
         Args:
             queryset: The references that may be chosen.
             **kwargs: What ``ModelChoiceField`` takes.
+        """
+        super().__init__(Item.objects.all() if queryset is None else queryset, **kwargs)
+
+    def label_from_instance(self, obj):
+        """Label a reference the way the search does."""
+        return item_label(obj)
+
+
+class ItemMultipleChoiceField(forms.ModelMultipleChoiceField):
+    """Choose several references by searching the catalogue.
+
+    Declared the same way as ``ItemChoiceField``: an attribute on a plain form,
+    or ``Meta.field_classes`` on a model form.
+    """
+
+    widget = ItemSearchSelectMultiple
+
+    def __init__(self, queryset=None, **kwargs):
+        """Choose among the whole catalogue unless a queryset is given.
+
+        Args:
+            queryset: The references that may be chosen.
+            **kwargs: What ``ModelMultipleChoiceField`` takes.
         """
         super().__init__(Item.objects.all() if queryset is None else queryset, **kwargs)
 
