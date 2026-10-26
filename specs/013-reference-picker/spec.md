@@ -16,7 +16,7 @@
 
 - Q: Who is this for, and what do they do? → A: A developer whose own model points at `Item` declares one field on their form. The people using that form type part of a title, a contributor's name, a citation key or a DOI, and choose from the references that match, instead of scrolling a list of the whole catalogue. A form editing an existing record opens with its current choice already in the picker.
 - Q: Can the picker choose several references? → A: Yes. There is a single-choice field and a multiple-choice field, so a many-to-many link to `Item` is served as well as a foreign key.
-- Q: Can the picker create a reference that is not in the catalogue yet? → A: No. It chooses from what exists. Creating a reference from inside another model's form puts a reference's whole entry form inside someone else's, which is a different feature. What it does instead is offer the catalogue's add page to someone who finds nothing and is allowed to add.
+- Q: Can the picker create a reference that is not in the catalogue yet? → A: No. It chooses from what exists. Creating a reference from inside another model's form puts a reference's whole entry form inside someone else's, which is a different feature.
 - Q: What does a search match? → A: The title, the citation key, a contributor's family name or organisational (literal) name, and the DOI.
 - Q: How does each option identify its reference? → A: By its title, its year and its first contributor, enough to tell two similar titles apart.
 - Q: Who may search? → A: Whoever may read the catalogue list, which today is anyone. ADR 0036 left reading open and put only writing behind permissions, and a search returns nothing the list does not already show.
@@ -35,7 +35,6 @@ Resolved from the intake session's context rather than escalated. Fuller rationa
 - Q: Is the picker required? → A: It follows the form field's own `required`, as any field does. On a model form it follows the model field, so an optional link gives an optional picker that can be cleared.
 - Q: The same picker appears on every row of an inline formset. Does each row work on its own? → A: Yes. Each row searches and chooses independently, including rows added on the page after it loaded.
 - Q: The project mounts the catalogue under a prefix of its own choosing. Does the picker still find its search? → A: Yes. The picker locates the search by its route name, never by a fixed path.
-- Q: Who sees the offer to add a reference when nothing matches? → A: Only someone who holds the permission the add page itself requires. Everyone else sees that nothing matched, and nothing else. The offer opens the add page without discarding the form being filled in.
 - Q: Does a models-only install gain anything it must now configure or install? → A: No. The picker lives in the opt-in front end, and a project using only the models is untouched.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -95,38 +94,6 @@ A developer wants a picker that offers only some of the catalogue, such as only 
 
 ---
 
-### User Story 4 - A person who finds nothing is offered the add page (Priority: P3)
-
-Someone filling in a form searches the picker for a paper that is not in the catalogue yet. If they are allowed to add references, they are offered the catalogue's add page, where they enter it, and they then come back to the form they were filling in and choose it. Someone who is not allowed to add sees only that nothing matched.
-
-**Why this priority**: A dead end with no way forward is the commonest frustration with a picker, but the feature is complete without it.
-
-**Independent Test**: As a user holding the add permission, search for a title that is not stored and follow the offer. Repeat as a user without it.
-
-**Acceptance Scenarios**:
-
-1. **Given** a user holding the permission to add references, **When** a search matches nothing, **Then** the picker offers the catalogue's add page.
-2. **Given** a user without that permission, or a visitor who is not signed in, **When** a search matches nothing, **Then** no offer to add appears.
-3. **Given** a user who follows the offer, **When** the add page opens, **Then** the form they were filling in is not discarded.
-
----
-
-### User Story 5 - An evaluator tries the picker in the demo (Priority: P4)
-
-Someone evaluating the package starts the demo with the documented command and finds a form in it that uses both pickers on a model of the demo's own, so they can try searching and choosing references. The check that runs on every change walks that form, so a picker that has stopped working is caught on the change that broke it.
-
-**Why this priority**: The demo is the package's executable documentation and its regression guard, and each feature extends both as part of its own delivery (FS-007). It guards work the other stories deliver, so it comes last.
-
-**Independent Test**: Start the demo from a clean clone with the documented command, open the form that uses the pickers, choose references with each, and save. Then run the guard and confirm it fails when the search is broken.
-
-**Acceptance Scenarios**:
-
-1. **Given** a demo started with the documented command, **When** an evaluator opens the form with the pickers, searches and chooses references, and saves, **Then** the record holds the references chosen.
-2. **Given** the check that runs on every change, **When** it runs against the demo, **Then** it searches through each picker and saves a choice.
-3. **Given** the search broken, **When** the check runs, **Then** it fails.
-
----
-
 ### Edge Cases
 
 - A search for text that matches nothing returns an empty result, never an error.
@@ -155,12 +122,9 @@ Someone evaluating the package starts the demo with the documented command and f
 - **FR-012**: A developer MUST be able to restrict the references a field offers by giving it the references to choose from. *(US3)*
 - **FR-013**: A restricted field MUST offer only references inside its restriction, and its form MUST refuse a submitted reference outside it. *(US3)*
 - **FR-014**: The multiple-choice field MUST NOT link the same reference twice, and MUST let a chosen reference be removed. *(US2)*
-- **FR-015**: When a search matches nothing, the field MUST offer the catalogue's add page to a user who holds the permission that page requires, and to no one else. *(US4)*
-- **FR-016**: Following the offer to add MUST NOT discard the form being filled in. *(US4)*
-- **FR-017**: The field's `required` MUST behave as for any Django form field. On a model form it follows the model field, and an optional field can be cleared. *(US1)*
-- **FR-018**: Both fields and the search MUST live in the opt-in front end, adding nothing a models-only install must configure or install. *(US1)*
-- **FR-019**: The demo MUST include a form on a model of its own that uses both fields, and the check that runs on every change MUST search through each and save a choice. *(US5)*
-- **FR-020**: The package documentation MUST describe how to declare each field, how to restrict it, and what the search matches. *(US1, US2, US3)*
+- **FR-015**: The field's `required` MUST behave as for any Django form field. On a model form it follows the model field, and an optional field can be cleared. *(US1)*
+- **FR-016**: Both fields and the search MUST live in the opt-in front end, adding nothing a models-only install must configure or install. *(US1)*
+- **FR-017**: The package documentation MUST describe how to declare each field, how to restrict it, and what the search matches. *(US1, US2, US3)*
 
 ### Key Entities
 
@@ -175,14 +139,13 @@ Someone evaluating the package starts the demo with the documented command and f
 - **SC-002**: A person finds a stored reference by any one of its title, citation key, a contributor's family name, or its DOI pasted with its resolver.
 - **SC-003**: Each search returns at most the bounded number of references however large the catalogue is, demonstrated with a catalogue larger than the bound.
 - **SC-004**: A form never saves a reference outside its picker's restriction, demonstrated by submitting one directly.
-- **SC-005**: No one without permission to add references is ever shown the offer to add one.
-- **SC-006**: A project using only the models runs unchanged after upgrading, demonstrated by the existing models-only tests passing untouched.
-- **SC-007**: The check that runs on every change fails when the picker's search is broken.
+- **SC-005**: A project using only the models runs unchanged after upgrading, demonstrated by the existing models-only tests passing untouched.
 
 ## Assumptions
 
-- **The picker chooses and never creates.** Creating a reference from another model's form is out of scope. The offer to add is a link to the existing add page, not an inline form.
+- **The picker chooses and never creates.** Creating a reference from another model's form is out of scope.
 - **Reading stays open.** The search answers anyone, because ADR 0036 left reading open and the catalogue list already shows every reference to anyone. If reading is later put behind a permission, the search follows it under FR-010 without a change of its own.
 - **Showing a chosen reference on a page is #161,** a separate component. This feature ends at the form.
 - **References only.** Choosing a contributor record is not offered, and should not follow from this: FS-012 decided against selecting stored contributors because selection asserts who a person is (FS-012 `decisions.md`, D1). A reference has no such problem, since choosing one asserts nothing beyond which reference is meant.
 - **The catalogue's own search page (FS-010) is unchanged.** The picker's search is its own route with its own bounded result, not a reuse of the list page.
+- **Not in this feature, by decision on 2026-10-26:** offering the catalogue's add page when a search finds nothing, and a demo form using the picker. Both were specified and taken out at review. See `decisions.md`, D4.

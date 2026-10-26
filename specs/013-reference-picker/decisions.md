@@ -31,15 +31,16 @@ stored DOI (`Item.doi`, issue #159), so the search normalises what was typed the
 comparing (FR-005). Matching only the exact stored text would make the pasted link, the form
 most likely to arrive, the one that fails.
 
-## D4 — An offer to add, not inline creation
+## D4 — No offer to add, and no demo form
 
-**Settled at intake, shaped in the clarification scan.** A search that finds nothing is a dead
-end. Creating a reference inside the picker would need the whole entry form, with its tabs,
-contributors, dates and identifiers, inside another model's form. That is a feature of its own.
-Linking to the existing add page solves the dead end with no new form. It is shown only to people
-holding the permission that page requires (FR-015), since showing a link to a page that answers
-403 is worse than showing nothing. It must not cost the person the form they were filling in
-(FR-016). How that is achieved is a planning decision.
+**Decided at review, 2026-10-26.** The draft carried two further stories: offering the catalogue's
+add page when a search finds nothing, and a form in the demo project using both pickers. Both
+were taken out at the specification's review as not wanted for now. A search that finds nothing
+says so and offers nothing further.
+
+Leaving the demo out departs from the constitution's Article XII, which keeps the demo current
+when integration patterns change. The picker is covered by the package's own tests and its
+documentation instead, and adding it to the demo is a later change.
 
 ## D5 — The fields and the search ship together
 
