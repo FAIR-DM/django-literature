@@ -1,6 +1,6 @@
 # ADR 0022 — The front end's pages are open, including the ones that write
 
-**Status:** accepted
+**Status:** superseded by [ADR 0036](0036-writing-asks-for-a-model-permission.md)
 
 ## Decision
 

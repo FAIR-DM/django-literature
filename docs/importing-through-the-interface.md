@@ -131,6 +131,6 @@ a repeat upload:
 - **A failure partway through does not undo what already succeeded.** Every entry is handled on
   its own, so the entries that were created before a failing one stay created — the report tells
   you what happened to each one individually rather than treating the file as all-or-nothing.
-- **The page carries no permission check of its own.** It is reachable by anyone who can reach the
-  catalogue, the same as every other page in the front end. A project that needs it restricted to
-  particular users restricts it at its own routing, the same way it would guard any other view.
+- **Importing needs the permission to add references.** The page, its preview and its confirm
+  control all require `literature.add_item`, so only users your project has granted it can import.
+  A visitor who is not signed in is sent to sign in.

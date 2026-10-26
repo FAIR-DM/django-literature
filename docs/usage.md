@@ -235,6 +235,25 @@ recent = Item.objects.filter(
 with_doi = Item.objects.filter(item_identifiers__type="DOI")
 ```
 
+### Linking to a reference and citing it
+
+An item answers the three questions a page showing it usually asks:
+
+```python
+item.get_absolute_url()  # "/catalogue/12/": its page in the catalogue
+item.doi                 # "10.1093/gji/ggz376", or None
+item.doi_url             # "https://doi.org/10.1093/gji/ggz376", or None
+item.year                # 2019, from the issued date, or None
+```
+
+`get_absolute_url()` resolves only in a project that mounts `literature.ui.urls`. `doi` and
+`doi_url` read the item's identifiers, and `year` reads its dates. On a list, prefetch both so
+each row costs no extra query:
+
+```python
+items = Item.objects.prefetch_related("item_identifiers", "item_dates")
+```
+
 ---
 
 ## Round-trip fidelity

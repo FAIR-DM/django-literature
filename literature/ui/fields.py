@@ -5,7 +5,6 @@ Lives beside its only caller, ``item_detail.html``'s view, rather than in
 the sole consumer of (FS-006, #55).
 """
 
-from literature.choices import DateType
 from literature.ui.fieldgroups import FieldGroups
 
 #: Fields the reference page shows in its own header, not in a details table.
@@ -35,11 +34,3 @@ def field_sections(item):
         if rows:
             sections.append({"label": FieldGroups.GROUP_LABELS[group], "rows": rows})
     return sections
-
-
-def issued_year(item):
-    """Return the year the item was issued, or ``None`` when no year is stored."""
-    for item_date in item.item_dates.all():
-        if item_date.date_type == DateType.ISSUED and item_date.begin:
-            return item_date.begin.date.year
-    return None

@@ -2,6 +2,7 @@
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 from partial_date import PartialDate
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
@@ -88,6 +89,88 @@ class TestItemModel:
         item = ItemFactory(citation_key="Auto2024", type=ItemType.REPORT)
         assert item.created is not None
         assert item.modified is not None
+
+
+@pytest.mark.django_db
+class TestItemAddressAndCitationFacts:
+    def test_absolute_url_is_the_reference_page(self):
+        item = ItemFactory()
+
+        url = item.get_absolute_url()
+
+        assert url == reverse("literature:item-detail", kwargs={"pk": item.pk})
+
+    def test_doi_is_the_stored_doi_identifier(self):
+        item = ItemFactory()
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.ISBN, value="9780306406157"
+        )
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1000/xyz123"
+        )
+
+        assert item.doi == "10.1000/xyz123"
+
+    def test_doi_is_none_without_a_doi_identifier(self):
+        item = ItemFactory()
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.ISBN, value="9780306406157"
+        )
+
+        assert item.doi is None
+
+    def test_doi_url_resolves_the_doi_at_doi_org(self):
+        item = ItemFactory()
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1000/xyz123"
+        )
+
+        assert item.doi_url == "https://doi.org/10.1000/xyz123"
+
+    def test_doi_url_is_none_without_a_doi(self):
+        item = ItemFactory()
+
+        assert item.doi_url is None
+
+    def test_year_is_the_year_of_the_issued_date(self):
+        item = ItemFactory()
+        ItemDateFactory(
+            item=item, date_type=DateType.ACCESSED, begin=PartialDate("2024-01-05")
+        )
+        ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
+        )
+
+        assert item.year == 2019
+
+    def test_year_is_none_without_an_issued_date(self):
+        item = ItemFactory()
+        ItemDateFactory(
+            item=item, date_type=DateType.ACCESSED, begin=PartialDate("2024-01-05")
+        )
+
+        assert item.year is None
+
+    def test_year_is_none_for_an_issued_date_held_only_as_text(self):
+        item = ItemFactory()
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="in press")
+
+        assert item.year is None
+
+    def test_doi_and_year_read_prefetched_rows_without_querying(
+        self, django_assert_num_queries
+    ):
+        item = ItemFactory()
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1000/xyz123"
+        )
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
+        prefetched = Item.objects.prefetch_related(
+            "item_identifiers", "item_dates"
+        ).get(pk=item.pk)
+
+        with django_assert_num_queries(0):
+            assert (prefetched.doi, prefetched.year) == ("10.1000/xyz123", 2019)
 
 
 @pytest.mark.django_db

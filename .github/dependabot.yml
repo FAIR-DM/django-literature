@@ -17,6 +17,12 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # Update uv.lock only, inside the ranges pyproject.toml declares. This is a
+    # library, so its ranges are what consumers install against: raising a
+    # floor or moving to a new major is a change made by hand. A release that
+    # falls outside a declared range is skipped rather than written into
+    # pyproject.toml.
+    versioning-strategy: "lockfile-only"
     # mvp-shared is a git dependency pinned to a tag, and the same tag is
     # pinned again in every workflow that calls django-mvp/shared. The two have
     # to move together, which a Dependabot bump to pyproject.toml and uv.lock

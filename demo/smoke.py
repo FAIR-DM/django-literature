@@ -71,6 +71,13 @@ DELETE_LINK_RE = re.compile(r'href="(?P<path>/catalogue/\d+/delete/)"')
 # element (mvp's <c-button>), so only the address is captured.
 IMPORT_LINK_RE = re.compile(r'href="(?P<path>/catalogue/import/)"')
 
+# The second address the walk knows. The catalogue links to no sign-in page,
+# because signing in belongs to the host project, and the demo signs in
+# through its admin. The account is the one ``seed_demo`` leaves behind.
+SIGN_IN_PATH = "/admin/login/"
+EDITOR_USERNAME = "editor.user"
+EDITOR_PASSWORD = "password"  # noqa: S105 — the demo's published login, not a secret
+
 # The preview's own confirm control (FS-011): unlike every other pattern in
 # this module it matches a <form>'s action, not an <a>'s href — the control
 # that carries out a previewed import is a POST, never a link.
@@ -269,6 +276,19 @@ class DemoWalk:
 
         self.walk_narrowed_catalogue(list_url, list_body)
         self.walk_to_contributor(item_links)
+
+        # Writing asks for permission: a visitor who is not signed in is
+        # offered no way to it, and the editor is.
+        if CREATE_LINK_RE.search(list_body) or IMPORT_LINK_RE.search(list_body):
+            self.fail(
+                list_url,
+                200,
+                "offers Add or Import to a visitor not signed in",
+                list_body,
+            )
+        self.sign_in()
+        list_body = self.get(list_url)
+
         self.walk_write_pass(list_url, list_body)
         self.walk_related_rows(list_url, list_body)
         # Last (FS-011): unlike walk_write_pass, this leaves its references
@@ -875,6 +895,34 @@ class DemoWalk:
                 url, 200, f"{what} does not carry the failing entry's own reason", body
             )
 
+    def sign_in(self):
+        """Sign in as the demo's editor through the admin's login page.
+
+        Sends the form through the opener directly: ``fetch`` fails any
+        response that lands on a login page, and this one starts on one.
+        Fails if the sign-in is refused, which lands back on that page.
+        """
+        login_url = f"{self.base_url}{SIGN_IN_PATH}?next=/catalogue/"
+        try:
+            with self.opener.open(login_url, timeout=10) as response:
+                fields = form_fields(response.read().decode("utf-8", errors="replace"))
+            fields["username"] = EDITOR_USERNAME
+            fields["password"] = EDITOR_PASSWORD
+            data = urllib.parse.urlencode(fields).encode("ascii")
+            request = urllib.request.Request(  # noqa: S310 — http(s) only, built from base_url argv
+                login_url, data=data, headers={"Referer": login_url}
+            )
+            with self.opener.open(request, timeout=10) as response:
+                body = response.read().decode("utf-8", errors="replace")
+                final_url = response.geturl()
+        except urllib.error.HTTPError as exc:
+            self.fail(login_url, exc.code, "unsuccessful response", exc.read().decode())
+        except urllib.error.URLError as exc:
+            self.fail(login_url, None, f"could not connect: {exc.reason}")
+
+        if "login" in urllib.parse.urlparse(final_url).path.lower():
+            self.fail(login_url, 200, f"{EDITOR_USERNAME} could not sign in", body)
+
     def get(self, url):
         """GET url, following redirects, and fail if any lands on a login page (FS-007)."""
         body, _final_url = self.fetch(url, url)
@@ -917,14 +965,15 @@ class DemoWalk:
         except urllib.error.URLError as exc:
             self.fail(display_url, None, f"could not connect: {exc.reason}")
 
-        # The whole walk is unauthenticated (FS-007) — a redirect to a login
-        # page anywhere in it is a failure of that openness, checked rather
-        # than assumed.
+        # Every page the walk reaches is open to it (FS-007): the read pages
+        # to anyone, the write pages to the signed-in editor. A redirect to a
+        # login page anywhere in it is a failure of that, checked rather than
+        # assumed.
         if "login" in urllib.parse.urlparse(final_url).path.lower():
             self.fail(
                 display_url,
                 200,
-                f"redirected to a login page ({final_url}) on an unauthenticated walk",
+                f"redirected to a login page ({final_url})",
                 body,
             )
 
