@@ -1,0 +1,43 @@
+{% extends "page_view.html" %}
+{% block page.content %}
+  <div class="flex flex-col gap-8">
+    <c-alert variant="info" soft>
+      This page stands in for a project's own page, such as a dataset in a research portal. Every reference on it is drawn with <code class="font-mono">&lt;c-literature.item :item="reference" /&gt;</code>.
+    </c-alert>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div class="flex flex-col gap-4 lg:col-span-2">
+        <c-mvp.section title="Related publications" level="2">
+          <c-mvp.card>
+            <c-list class="-mx-4">
+              {% for reference in related %}
+                <c-list.row>
+                  <c-literature.item :item="reference" class="list-col-grow" />
+                </c-list.row>
+              {% endfor %}
+            </c-list>
+          </c-mvp.card>
+        </c-mvp.section>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <c-mvp.section title="Data publication" level="2">
+          <c-mvp.card>
+            {% if data_publication %}
+              <c-literature.item :item="data_publication" />
+            {% endif %}
+          </c-mvp.card>
+        </c-mvp.section>
+
+        <c-mvp.section title="Without the catalogue" level="2">
+          <c-mvp.card>
+            <c-mvp.text size="sm" muted tight class="mb-2">For a project that doesn't mount the catalogue: <code class="font-mono">:link="False"</code></c-mvp.text>
+            {% if data_publication %}
+              <c-literature.item :item="data_publication" :link="False" />
+            {% endif %}
+          </c-mvp.card>
+        </c-mvp.section>
+      </div>
+    </div>
+  </div>
+{% endblock page.content %}

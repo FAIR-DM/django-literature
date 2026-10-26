@@ -442,6 +442,28 @@ class Item(models.Model):
                 return year
         return None
 
+    def names_in_role(self, role: str) -> list["Name"]:
+        """Return the names credited in ``role``, in their stored order.
+
+        Reads ``item_names.all()``, so a queryset that prefetches
+        ``item_names__name`` answers it without a query per item.
+        """
+        return [
+            item_name.name
+            for item_name in self.item_names.all()
+            if item_name.role == role
+        ]
+
+    @property
+    def authors(self) -> list["Name"]:
+        """Return the item's authors, in their stored order."""
+        return self.names_in_role(NameRole.AUTHOR)
+
+    @property
+    def editors(self) -> list["Name"]:
+        """Return the item's editors, in their stored order."""
+        return self.names_in_role(NameRole.EDITOR)
+
 
 class Name(models.Model):
     """CSL JSON name-variable definition.

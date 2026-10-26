@@ -921,5 +921,59 @@
     "keyword": "data; infrastructure; archives",
     "note": "Afterword to the edited volume.",
     "call-number": "Q180.55 .R39 2013"
+  },
+  {
+    "citation-key": "Wessel2019",
+    "type": "book",
+    "language": "en",
+    "title": "The Handbook of Geophysical Exploration: Heat Flow and Thermal Structure of the Lithosphere",
+    "editor": [
+      {
+        "family": "Wessel",
+        "given": "Anna"
+      },
+      {
+        "family": "Okafor",
+        "given": "Chidi"
+      },
+      {
+        "family": "Lindqvist",
+        "given": "Maja"
+      },
+      {
+        "family": "Tanaka",
+        "given": "Hiro"
+      }
+    ],
+    "publisher": "Springer",
+    "publisher-place": "Cham",
+    "issued": {
+      "date-parts": [
+        [
+          2019
+        ]
+      ]
+    },
+    "DOI": "10.1007/978-3-030-00000-0"
+  },
+  {
+    "citation-key": "IHFC2024",
+    "type": "report",
+    "language": "en",
+    "title": "Global Heat Flow Database: Release 2024",
+    "author": [
+      {
+        "literal": "International Heat Flow Commission"
+      }
+    ],
+    "publisher": "GFZ Data Services",
+    "issued": {
+      "date-parts": [
+        [
+          2024,
+          3
+        ]
+      ]
+    }
   }
 ]

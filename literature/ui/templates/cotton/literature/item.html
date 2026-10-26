@@ -1,0 +1,43 @@
+{% load i18n %}
+{# @description One reference, shown the way a reference list shows it: its title, who made it, what it is, when and where it appeared, and its DOI. Works from the item alone; prefetch item_names__name, item_dates and item_identifiers on a list. #}
+{# @prop item:object | description:"The literature.models.Item to show." #}
+{# @prop href:text | description:"Where the title links to. Defaults to the item's catalogue page." #}
+{# @prop link:bool | default:True | description:"Link the title and names. Pass :link=\"False\" where the catalogue is not mounted." #}
+{# @prop level:number | default:3 | description:"Heading level of the title, to fit the page's outline." #}
+{# @prop abstract:bool | default:False | description:"Show the start of the abstract under the reference." #}
+{# @prop class:text | description:"Extra classes added to the outer element." #}
+{# @slot — Extra lines under the reference, such as how a person is credited on it. #}
+<c-vars item href link=True level="3" abstract=False class="" />
+<div class="flex min-w-0 flex-col gap-1 {{ class }}" {{ attrs }}>
+  <h{{ level }} class="font-semibold leading-snug break-words">
+    {% if link %}
+      <c-link hover href="{% if href %}{{ href }}{% else %}{{ item.get_absolute_url }}{% endif %}" only>{{ item.title|default:item.citation_key }}</c-link>
+    {% else %}
+      {{ item.title|default:item.citation_key }}
+    {% endif %}
+  </h{{ level }}>
+  {% with authors=item.authors editors=item.editors %}
+    {% if authors %}
+      <c-mvp.text size="sm" tight only>
+        {% for name in authors|slice:":3" %}{% if link %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}" only>{{ name }}</c-link>{% else %}{{ name }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% if authors|length > 3 %} {% translate "et al." %}{% endif %}
+      </c-mvp.text>
+    {% elif editors %}
+      <c-mvp.text size="sm" tight only>
+        {% for name in editors|slice:":3" %}{% if link %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}" only>{{ name }}</c-link>{% else %}{{ name }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% if editors|length > 3 %} {% translate "et al." %}{% endif %}
+        {% blocktranslate count counter=editors|length %}(ed.){% plural %}(eds.){% endblocktranslate %}
+      </c-mvp.text>
+    {% endif %}
+  {% endwith %}
+  <c-mvp.text size="sm" muted tight only>
+    {{ item.get_type_display }}{% if item.year %} <span aria-hidden="true">&middot;</span> {{ item.year }}{% endif %}{% if item.container_title %} <span aria-hidden="true">&middot;</span> <span class="italic">{{ item.container_title }}</span>{% if item.volume %}, {% blocktranslate with volume=item.volume %}vol. {{ volume }}{% endblocktranslate %}{% endif %}{% if item.issue %}, {% blocktranslate with issue=item.issue %}no. {{ issue }}{% endblocktranslate %}{% endif %}{% if item.page %}, {% blocktranslate with page=item.page %}pp. {{ page }}{% endblocktranslate %}{% endif %}{% elif item.publisher %} <span aria-hidden="true">&middot;</span> {{ item.publisher }}{% endif %}
+  </c-mvp.text>
+  {% if item.doi_url %}
+    <c-mvp.text size="sm" tight class="break-all" only>
+      <c-link variant="primary" href="{{ item.doi_url }}" only>{{ item.doi_url }}</c-link>
+    </c-mvp.text>
+  {% endif %}
+  {% if abstract and item.abstract %}
+    <c-mvp.text size="sm" muted tight class="mt-1 max-w-prose" only>{{ item.abstract|truncatewords:30 }}</c-mvp.text>
+  {% endif %}
+  {{ slot }}
+</div>

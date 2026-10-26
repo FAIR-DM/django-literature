@@ -1,39 +1,11 @@
 {% load i18n %}
 <c-mvp.card>
-  <c-slot name="badges">
-    <c-badge variant="primary" text="{{ object.get_type_display }}" />
-  </c-slot>
-  <h3 class="text-lg font-semibold">
-    <c-link hover href="{{ object.get_absolute_url }}">{{ object.title|default:object.citation_key }}</c-link>
-  </h3>
-  {% comment %}
-    Grouped by the view, not here: a role heading reads "Authors" over three
-    names and "Author" over one, and choosing between those needs the group's
-    size and the active language's plural forms. See literature/ui/contributors.py.
-  {% endcomment %}
-  {% if object.contributor_groups %}
-    <c-mvp.text size="sm" muted>
-      {% for group in object.contributor_groups %}
-        {{ group.label }}:
-        {% for name in group.names %}
-          <c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}
-        {% endfor %}
-        {% if not forloop.last %}&middot;{% endif %}
-      {% endfor %}
-    </c-mvp.text>
-  {% endif %}
-  {% comment %}
-    The contributor page's credit row is this row plus its own roles line (FR-034), so it extends
-    this template and fills the block rather than restating the card.
-  {% endcomment %}
-  {% block credited_roles %}{% endblock %}
-  {% for item_date in object.item_dates.all %}
-    {% if item_date.date_type == "issued" %}
-      <c-mvp.text size="sm" muted>{% translate "Issued" %}: {% include "literature/ui/date_value.html" %}</c-mvp.text>
-    {% endif %}
-  {% endfor %}
-  {% if object.abstract %}
-    <c-mvp.text size="sm" muted>{{ object.abstract|truncatewords:30 }}</c-mvp.text>
-  {% endif %}
-  <c-mvp.text size="xs" muted>{% translate "Cite key" %}: {{ object.citation_key }}</c-mvp.text>
+  <c-literature.item :item="object" abstract>
+    {% comment %}
+      The contributor page's credit row is this row plus its own roles line (FR-034), so it extends
+      this template and fills the block rather than restating the card.
+    {% endcomment %}
+    {% block credited_roles %}{% endblock %}
+    <c-mvp.text size="xs" muted tight class="mt-1">{% translate "Cite key" %}: {{ object.citation_key }}</c-mvp.text>
+  </c-literature.item>
 </c-mvp.card>

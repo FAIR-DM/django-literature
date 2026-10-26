@@ -257,7 +257,9 @@ class CatalogueListMixin:
 
     def get_queryset(self):
         """Prefetch what a row needs so a page costs a constant number of queries."""
-        return super().get_queryset().prefetch_related("item_names__name", "item_dates")
+        return super().get_queryset().prefetch_related(
+            "item_names__name", "item_dates", "item_identifiers"
+        )
 
     def get_model_info(self):
         """Name the collection ``CATALOGUE_NAME_PLURAL``, not the model's own name."""
