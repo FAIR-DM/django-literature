@@ -48,8 +48,9 @@ Matching (FR-004, FR-005), case-insensitive, any one of:
 - `citation_key__icontains`
 - `item_names__name__family__icontains`
 - `item_names__name__literal__icontains`
-- a DOI identifier (`item_identifiers__type="DOI"`) whose value contains the typed text with any
-  `https://doi.org/`, `http://dx.doi.org/` or `doi:` prefix removed
+- a DOI identifier (`item_identifiers__type="DOI"`) whose value contains the typed text after
+  `IdentifierNormalizer.normalize_doi()` (`literature/importers/normalizers.py:28`) has removed any
+  resolver or `doi:` prefix. Left out when nothing remains after normalising.
 
 Ranking (FR-007): an annotation that is 0 when `title` or `citation_key` starts with the text and 1
 otherwise, then title. `.distinct()` because the name joins multiply rows, as
@@ -81,8 +82,8 @@ by one worker is unknown to another. That must not break the common case, so:
 
 - **An unrestricted picker** (`queryset` is every `Item`) sends no key and searches the whole
   catalogue. It needs no cache at all.
-- **A restricted picker** stores its queryset's `query` in the default cache under a random key,
-  signed onto the select as `data-search-key`. The search view resolves it and searches only that
+- **A restricted picker** stores its queryset's `query` in the default cache under a key derived from it,
+  signed onto the select as `data-search-key`. The key is a digest of the restriction itself, so one restriction holds one cache entry however many pages draw it. The search view resolves it and searches only that
   queryset.
 - **A key the view cannot resolve** (tampered, expired, or stored by another process's local
   memory) returns an empty result with status 404, never the unrestricted catalogue. The picker
@@ -124,6 +125,7 @@ two published tags is neither.
 | Remote loading of options | installed package: Tom Select's own `load` setting, via the existing `mvp-forms:tomselect` event (pattern: `literature/ui/static/literature/creatable.js`) |
 | Validating a submitted choice against a restriction | Django: `ModelChoiceField`, `ModelMultipleChoiceField` |
 | Year of a reference | this repo: `Item.year` |
+| Removing a DOI's resolver or `doi:` prefix | this repo: `IdentifierNormalizer.normalize_doi` |
 | Search route | new code: one view and one route in `literature/ui/` |
 | Option label | new code: one function, shared by view and widget |
 | Restricted-search key | new code, following django-select2's cache mechanism |

@@ -57,7 +57,10 @@ tests/test_ui/test_views.py       # + the search view
 ### P-1 — The search answers `{"results": [{"value", "text"}]}`, 20 at most
 
 `ItemSearchView(View)` with `get()` only. Text from `?q=`, stripped. Empty text → empty results.
-Matching and ranking as research R3. Prefetch `item_dates` and `item_names__name`. The bound is a
+Matching and ranking as research R3. The DOI clause matches against
+`IdentifierNormalizer.normalize_doi(text)` (`literature/importers/normalizers.py`), and is left out
+when that is empty, so typing a bare `doi:` or `https://doi.org/` does not match every reference
+with a DOI. Prefetch `item_dates` and `item_names__name`. The bound is a
 module constant, `SEARCH_LIMIT = 20`. `JsonResponse` with `results`. No permission mixin, with a
 comment pointing at ADR 0036, so the search follows the list's rule.
 
@@ -72,7 +75,13 @@ view uses it, so a chosen reference reads the same before and after saving.
 ### P-3 — The widget draws only the chosen options
 
 `ItemSearchSelect(mvp_forms.widgets.TomSelect)` and `ItemSearchSelectMultiple(ItemSearchSelect,
-TomSelectMultiple)`. `optgroups()` keeps only options whose value is selected. `build_attrs()` adds
+TomSelectMultiple)`. **`optgroups()` never iterates `self.choices`**, which would run the field's
+whole queryset and label every reference. It builds the chosen options from one query for the
+selected primary keys alone, with `item_dates` and `item_names__name` prefetched, labelled with
+`item_label`. Values the primary key field's `to_python` refuses (a submitted `abc`) are dropped
+before the query. The lookup goes through `Item.objects`, not the restricted queryset, so a record
+linked outside its picker's restriction opens showing that reference. Validation on submit stays
+Django's, against the field's own queryset, so saving it unchanged is still refused. `build_attrs()` adds
 `data-search-url` (`reverse("literature:item-search")`, resolved at render, so the mount prefix
 never matters) and, for a restricted field, `data-search-key`. `Media` adds
 `literature/picker.js` after mvp-forms' own script. The multiple widget defaults to
@@ -84,24 +93,43 @@ never matters) and, for a restricted field, `data-search-key`. `Media` adds
 on the instance: `valueField: "value"`, `labelField: "text"`, `searchField: []`, a `score` function
 that keeps every option the server returned, `shouldLoad` true for any non-empty text, and `load`,
 which fetches `<url>?q=<text>[&key=<key>]` and passes `results` to the callback. Before each load it
-clears options that are not chosen, so stale matches from the last search do not linger. A failed
-fetch calls the callback with nothing.
+clears options that are not chosen, and resets the control's record of queries it has loaded, so
+stale matches do not linger and retyping an earlier search loads it again. A failed fetch calls the
+callback with nothing.
 
 ### P-5 — A restricted picker carries a signed key to its queryset
 
-When the field's queryset has filters (`queryset.query.has_filters()`), the widget is given a key
-on first render: `secrets.token_urlsafe()`, the queryset's `query` stored in the default cache under
-`literature:picker:<key>` for a day, and the key signed with `django.core.signing` (salt
-`literature.picker`). The view unsigns it, loads the query into `Item.objects.none()`'s queryset,
-and searches that. An absent key searches the whole catalogue. A key that fails to unsign or is
-not in the cache answers 404 with empty results, never the whole catalogue. Restriction on submit
-needs nothing new: the field validates against its own queryset.
+One class in `picker.py`, `SearchRestriction`, holds both directions as classmethods and has no
+base class: `key_for(queryset)` and `queryset_for(key)`. The widget calls the first, the search
+view the second.
+
+The widget reads the restriction from `self.choices.queryset` at render, so a queryset assigned in
+a form's `__init__` is the one used. When it has filters (`queryset.query.has_filters()`), the key
+is a digest of the model label and the query's SQL and parameters, so one restriction has one key,
+and `key_for` stores the queryset's `query` in the default cache under `literature:picker:<digest>`
+for a day, refreshed on every render. The key on the select is that digest, signed with
+`django.core.signing` (salt `literature.picker`), so a malformed key is refused before the cache is
+touched. An absent key searches the whole catalogue. A key that fails to unsign, or whose entry is
+not in the cache, answers 404 with empty results, never the whole catalogue. Nothing unpickled ever
+comes from the request.
 
 ### P-6 — Inline formsets
 
 Nothing of our own. mvp-forms' observer starts each added select, which sends the event the script
 listens for. A test asserts each rendered row's select carries its own `data-search-url`, and the
 headless check adds a row and searches it.
+
+### P-7 — On a model form, the picker is named through `Meta.field_classes`
+
+A field declared on a `ModelForm` is used as written, so a declared `ItemChoiceField()` would be
+required whatever the model field's `blank` says and would drop its `limit_choices_to`. The how-to
+names the picker through `Meta.field_classes = {"reference": ItemChoiceField}`, still one line,
+which makes Django build it from the model field. On a plain `Form` it is declared as usual.
+
+### P-8 — Order of the stories
+
+US2 and US3 both build on US1's module, test module and docs page, so the stories run in order
+US1, US2, US3, each from the previous story's commit.
 
 ## Complexity Tracking
 
