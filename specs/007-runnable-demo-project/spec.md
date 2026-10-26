@@ -42,7 +42,7 @@ Someone has found the package and wants to know what it does before reading any 
 1. **Given** a fresh clone with dependencies installed and no database present, **When** the documented steps are run in order, **Then** the database is created, the seed catalogue is loaded, the server starts, and the catalogue list renders the seeded references.
 2. **Given** the demo running, **When** a reader follows a reference from the list, **Then** that reference's page renders its record, and a contributor named on it leads to that contributor's page.
 3. **Given** a demo whose database already exists and has been changed, **When** the seed step is run again, **Then** the catalogue returns to exactly the seeded state.
-4. **Given** the demo running, **When** a reader browses any of its pages, **Then** nothing asks them to sign in and no account was created to start it.
+4. **Given** the demo running, **When** a reader browses any of its pages, **Then** nothing asks them to sign in and no account was created to start it. Adding, editing, removing and importing ask them to sign in, as the editor account the seed step creates.
 5. **Given** someone reading the repository for the first time, **When** they look for how to run the demo, **Then** the steps and what to expect from them are documented in one place.
 
 ---
@@ -189,5 +189,5 @@ This feature persists nothing in the package and adds no model. The entities it 
 - **The seed references are chosen once.** Correcting a typo in one or adding a reference to widen the spread is ordinary maintenance, not a change of scope.
 - **The demo is not a production configuration** and never claims to be — debug on, a local file database, a throwaway key. Its documentation says so.
 - **Requiring the new check in the branch ruleset is a repository-settings action** outside the code this feature lands, and is the maintainer's to arm once the check is reporting.
-- **Access control is out of scope.** The front end's pages are open, which #45 settled, and the demo inherits that.
+- **The demo signs in through its admin.** The read pages are open. The write pages ask for a model permission (ADR-0036), so the seed step leaves an editor account holding them, and the regression check signs in as it before it writes.
 - **The store's existing limits are inherited.** One identifier per type per item, one date per slot and the store's partial-date handling apply to the seed catalogue as they do to any other data.

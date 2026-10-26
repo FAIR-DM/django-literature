@@ -183,7 +183,7 @@ class FakeResponse:
         return self.final_url
 
 
-class TestUnauthenticatedWalk:
+class TestLoginRedirect:
     def test_a_redirect_to_a_login_page_fails_the_check(self, monkeypatch):
         monkeypatch.setattr(
             "urllib.request.OpenerDirector.open",
@@ -206,6 +206,32 @@ class TestUnauthenticatedWalk:
         walk = DemoWalk("http://127.0.0.1:8000")
 
         assert walk.get("http://127.0.0.1:8000/catalogue/") == "<h1>Catalogue</h1>"
+
+
+class TestSignIn:
+    def test_a_refused_sign_in_fails_the_check(self, monkeypatch):
+        monkeypatch.setattr(
+            "urllib.request.OpenerDirector.open",
+            lambda self, request, timeout=None: FakeResponse(
+                '<form method="post"><input name="username"></form>',
+                "http://127.0.0.1:8000/admin/login/?next=/catalogue/",
+            ),
+        )
+        walk = DemoWalk("http://127.0.0.1:8000")
+
+        with pytest.raises(SmokeCheckFailed, match="could not sign in"):
+            walk.sign_in()
+
+    def test_a_sign_in_that_lands_on_the_catalogue_passes(self, monkeypatch):
+        monkeypatch.setattr(
+            "urllib.request.OpenerDirector.open",
+            lambda self, request, timeout=None: FakeResponse(
+                "<h1>Catalogue</h1>", "http://127.0.0.1:8000/catalogue/"
+            ),
+        )
+        walk = DemoWalk("http://127.0.0.1:8000")
+
+        walk.sign_in()
 
 
 class TestSharedOpener:

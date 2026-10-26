@@ -158,7 +158,7 @@ Someone evaluating the package starts the demo and the catalogue they land on is
 
 **Editing**
 
-- **FR-019**: A reference's edit form MUST be reached from the reference's own page, which the row's title opens. The table MUST NOT introduce a permission check, a login requirement, or any other access control.
+- **FR-019**: A reference's edit form MUST be reached from the reference's own page, which the row's title opens. The table MUST NOT introduce access control of its own. Its Add and Import actions are offered only to a user holding `literature.add_item` (ADR-0036).
 
 **What the package serves, and what it keeps**
 
@@ -197,6 +197,6 @@ No new entity, and no change to an existing one. Every column reads what the sto
 
 - A released version of django-mvp carrying the table view and its full-screen layout is available to depend on; the front-end extra's floor rises to it rather than the feature vendoring anything.
 - The table package the front end needs is added to the `ui` extra. The project's stack constraints named django-mvp as the one adopted UI layer and required an amendment before another was adopted; that restriction was judged too heavy for the decision it governed and is lifted on this branch, with front-end additions now sitting under the ordinary dependency discipline. The amendment is declared in the pull request's description.
-- Nothing in the front end checks permissions today. FS-008 settled that the write pages are open on the assumption of one person managing their own library.
+- The read pages are open. The write pages ask for Django's model permissions (ADR-0036).
 - Finding a reference in a large catalogue — search, filtering and the ordering that goes with them — is issue #49, delivered by FS-010.
 - User-configurable columns and column order remain aspirational, as issue #81 states.

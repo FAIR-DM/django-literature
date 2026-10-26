@@ -157,7 +157,7 @@ Someone evaluating the package starts the demo with the documented command and c
 **Scope and posture**
 
 - **FR-023**: This feature MUST cover only the reference's own scalar record. Creating, changing, ordering or removing contributors, dates and identifiers belongs to #48 and MUST NOT be delivered here.
-- **FR-024**: Every page this feature adds MUST be reachable without authentication, and the feature MUST NOT impose a permission check of its own. Restricting access stays the host's to do, as it is for the existing pages.
+- **FR-024**: Each page this feature adds MUST require the matching model permission: `literature.add_item` to add, `literature.change_item` to edit and `literature.delete_item` to delete. A visitor who is not signed in MUST be sent to sign in, and a signed-in user without the permission MUST be refused. The Add, Edit and Delete actions MUST be offered only to a user holding the permission behind them (ADR-0036).
 - **FR-025**: The core MUST NOT acquire any front-end dependency. Everything here lives in the opt-in front-end app.
 - **FR-026**: This feature MUST NOT introduce custom UI components or custom CSS. Its forms and pages compose django-mvp's existing set, and a gap in that set is raised upstream rather than filled locally.
 - **FR-027**: This feature MUST NOT change the stored data model. No field is added, removed, widened or constrained, and no migration is introduced.
@@ -191,7 +191,7 @@ Someone evaluating the package starts the demo with the documented command and c
 
 ## Assumptions
 
-- **The write pages are open, and that is a decision rather than an oversight.** The package is developed for a single person managing their own library. Anyone who can reach a URL can add, correct and remove references, and the demo ships that way. Access control for the front end has no issue and no roadmap item, and wants one before the package is used by more than one person against the same store.
+- **The write pages ask for Django's model permissions** (ADR-0036). A host grants them to users or groups in the usual way, and a host wanting a different rule subclasses the view.
 - **Contributors, dates and identifiers are absent from a reference created here.** They are #48's, so between this feature and that one the interface can create a reference nobody is credited on. The existing pages already render such a reference.
 - **Citation-key uniqueness is nobody's problem.** Nothing here checks, warns or rewrites. The import path currently does de-duplicate against the whole store, which contradicts this posture; that is issue #69 and is not a dependency of this work.
 - **The store's existing limits are inherited and not widened.** One identifier per type per item, one date per slot, and partial-date fallbacks apply as they do today.

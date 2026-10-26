@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
@@ -15,13 +17,37 @@ DEFAULT_SEED_PATH = (
 )
 
 
+#: The demo's one account. Browsing needs none, but adding, editing, removing
+#: and importing a reference each ask for a permission, so the seed leaves a
+#: user holding all of them. ``is_staff`` lets it sign in through the admin's
+#: login page, the demo's only one.
+EDITOR_USERNAME = "editor.user"
+EDITOR_PASSWORD = "password"  # noqa: S105 — a published demo login, not a secret
+EDITOR_PERMISSIONS = ("add_item", "change_item", "delete_item")
+
+
+def seed_editor():
+    """Create the demo's editor, or reset an existing one to its known password."""
+    editor, _created = get_user_model().objects.get_or_create(
+        username=EDITOR_USERNAME, defaults={"is_staff": True}
+    )
+    editor.is_staff = True
+    editor.set_password(EDITOR_PASSWORD)
+    editor.save()
+    editor.user_permissions.set(
+        Permission.objects.filter(
+            content_type__app_label="literature", codename__in=EDITOR_PERMISSIONS
+        )
+    )
+
+
 def key_of(entry):
     """The citation key a loaded Item would carry, as the converter reads it."""
     return entry.get("citation-key") or entry.get("id")
 
 
 class Command(BaseCommand):
-    """Delete every ``Item`` and ``Name``, then reload the demo catalogue from the seed file.
+    """Delete every ``Item`` and ``Name``, reload the demo catalogue, and seed the editor.
 
     Destructive: anything entered through the admin is lost.
     """
@@ -72,8 +98,11 @@ class Command(BaseCommand):
                     f"failed to load: {', '.join(missing)}"
                 )
 
+            seed_editor()
+
         self.stdout.write(
             self.style.SUCCESS(
-                f"seed_demo loaded {len(loaded)} references from {seed_path}"
+                f"seed_demo loaded {len(loaded)} references from {seed_path}, "
+                f"and {EDITOR_USERNAME} can sign in with the password {EDITOR_PASSWORD!r}"
             )
         )

@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 
 import pytest
 from django.contrib import messages
+from django.contrib.auth.models import Permission
 from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
@@ -2483,10 +2484,14 @@ class TestItemImportConfirm:
         assert response.status_code == 200
         assert Item.objects.count() == 0
 
-    def test_a_confirmation_from_a_different_session_imports_nothing(self, client, db):
-        # A file staged by one session is not reachable through another.
+    def test_a_confirmation_from_a_different_session_imports_nothing(
+        self, client, editor
+    ):
+        # A file staged by one session is not reachable through another, even
+        # the same editor's.
         self._preview(client)
         other_client = Client()
+        other_client.force_login(editor)
         response = other_client.post(
             reverse("literature:item-import-confirm"), follow=True
         )
@@ -3301,3 +3306,122 @@ class TestSurroundingWhitespaceSurvivesACorrection:
         item.refresh_from_db()
         assert item.title == "  Padded Title  "
         assert item.abstract == "Line one\n\nLine two\n"
+
+
+#: Every write route, with the URL kwargs it needs and the HTTP method that
+#: reaches it. Restart and confirm accept only a POST.
+WRITE_ROUTES = [
+    ("literature:item-create", False, "get"),
+    ("literature:item-import", False, "get"),
+    ("literature:item-import-preview", False, "get"),
+    ("literature:item-import-restart", False, "post"),
+    ("literature:item-import-confirm", False, "post"),
+    ("literature:item-update", True, "get"),
+    ("literature:item-delete", True, "get"),
+    ("literature:item-delete", True, "post"),
+]
+
+
+def write_route_url(route_name, takes_pk):
+    if takes_pk:
+        return reverse(route_name, kwargs={"pk": ItemFactory().pk})
+    return reverse(route_name)
+
+
+@pytest.mark.django_db
+class TestWritePagesRequirePermission:
+    @pytest.mark.parametrize(("route_name", "takes_pk", "method"), WRITE_ROUTES)
+    def test_a_visitor_who_is_not_signed_in_is_sent_to_sign_in(
+        self, anonymous_client, settings, route_name, takes_pk, method
+    ):
+        url = write_route_url(route_name, takes_pk)
+
+        response = getattr(anonymous_client, method)(url)
+
+        assert response.status_code == 302
+        assert response.url.startswith(settings.LOGIN_URL)
+
+    @pytest.mark.parametrize(("route_name", "takes_pk", "method"), WRITE_ROUTES)
+    def test_a_signed_in_user_without_the_permission_is_refused(
+        self, reader_client, route_name, takes_pk, method
+    ):
+        url = write_route_url(route_name, takes_pk)
+
+        response = getattr(reader_client, method)(url)
+
+        assert response.status_code == 403
+
+    @pytest.mark.parametrize(
+        ("route_name", "permission"),
+        [
+            ("literature:item-create", "add_item"),
+            ("literature:item-import", "add_item"),
+            ("literature:item-update", "change_item"),
+            ("literature:item-delete", "delete_item"),
+        ],
+    )
+    def test_each_page_opens_for_a_user_holding_only_its_own_permission(
+        self, django_user_model, route_name, permission
+    ):
+        user = django_user_model.objects.create_user("editor.user2")
+        user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="literature", codename=permission
+            )
+        )
+        user_client = Client()
+        user_client.force_login(user)
+
+        response = user_client.get(
+            write_route_url(route_name, route_name.endswith(("update", "delete")))
+        )
+
+        assert response.status_code == 200
+
+    def test_a_refused_delete_leaves_the_reference_in_place(self, reader_client):
+        item = ItemFactory()
+
+        reader_client.post(reverse("literature:item-delete", kwargs={"pk": item.pk}))
+
+        assert Item.objects.filter(pk=item.pk).exists()
+
+
+@pytest.mark.django_db
+class TestWriteLinksFollowPermission:
+    @pytest.mark.parametrize("route_name", ["literature:item-list", "item-list-cards"])
+    def test_the_catalogue_offers_no_add_or_import_without_permission(
+        self, reader_client, route_name
+    ):
+        ItemFactory()
+
+        content = reader_client.get(reverse(route_name)).content.decode()
+
+        assert f'href="{reverse("literature:item-create")}"' not in content
+        assert f'href="{reverse("literature:item-import")}"' not in content
+
+    def test_the_reference_page_offers_no_edit_or_delete_without_permission(
+        self, reader_client
+    ):
+        item = ItemFactory()
+
+        content = reader_client.get(item.get_absolute_url()).content.decode()
+
+        assert reverse("literature:item-update", kwargs={"pk": item.pk}) not in content
+        assert reverse("literature:item-delete", kwargs={"pk": item.pk}) not in content
+
+    def test_the_contributor_page_offers_no_add_without_permission(self, reader_client):
+        name = ItemNameFactory().name
+
+        content = reader_client.get(
+            reverse("literature:contributor-detail", kwargs={"pk": name.pk})
+        ).content.decode()
+
+        assert f'href="{reverse("literature:item-create")}"' not in content
+
+    def test_the_reference_page_offers_edit_and_delete_to_an_editor(self, client):
+        item = ItemFactory()
+
+        content = client.get(item.get_absolute_url()).content.decode()
+
+        assert reverse("literature:item-update", kwargs={"pk": item.pk}) in content
+        assert reverse("literature:item-delete", kwargs={"pk": item.pk}) in content

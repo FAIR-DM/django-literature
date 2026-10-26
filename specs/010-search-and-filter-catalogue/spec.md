@@ -240,6 +240,6 @@ No new entity and no changed field. The search and the filters read what the sto
 - The searched and filtered fields are those a reference is identified by. Discovery over abstracts and keywords is a different capability, with different infrastructure behind it, and is not in this feature.
 - The feature ships no index, and this is a decision rather than an omission (see `decisions.md`). Anyone reading the search later and reaching for `db_index=True` on the title fields should read that entry first: it would not be used by this search. Making a fragment search fast needs a database-specific facility — a trigram index on PostgreSQL, with no SQLite equivalent — and requiring one is a change to what the package demands of its host, which is its own decision and not this one.
 - The filter set — item type, issued year, language — is what references are commonly grouped by today, not a closed list. It is expected to grow, so the definition of what is filterable is written to be added to.
-- Nothing in the front end checks permissions, so a search and its filters are visible to whoever can reach the catalogue page, matching what FS-008 and FS-009 settled for the pages around it.
+- The catalogue page is open, so a search and its filters are visible to whoever can reach it.
 - Sorting is the column headings FS-009 shipped. This feature composes with them and introduces no ordering surface of its own.
 - The contributor page keeps its current behaviour, which is the boundary FS-009 drew for the same page.

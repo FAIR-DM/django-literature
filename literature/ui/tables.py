@@ -9,7 +9,6 @@ test is ``tests/test_ui/test_tables.py``, one module split by
 import django_tables2 as tables
 from django.db.models import F
 from django.utils.translation import gettext_lazy as _
-from django_tables2.utils import A
 
 from literature.choices import DateType, NameRole
 from literature.importers.results import Outcome
@@ -116,9 +115,7 @@ class ItemTable(tables.Table):
         # reaches render_title, defeating the fallback chain it exists for.
         empty_values=(),
         order_by=("title", "pk"),
-        # Item has no get_absolute_url(), so linkify=True cannot be used —
-        # the route lives in the table class, inside literature/ui/.
-        linkify=("literature:item-detail", {"pk": A("pk")}),
+        linkify=True,
         attrs={
             "a": {"class": "link link-primary"},
             "td": {"class": "mvp-col-wrap mvp-col-max-xl"},
