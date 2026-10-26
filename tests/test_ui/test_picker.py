@@ -499,6 +499,16 @@ class TestItemSearchSelectMedia:
         assert finders.find("literature/picker.js") is not None
 
 
+class TestItemSearchSelectAddress:
+    @pytest.mark.django_db
+    @pytest.mark.urls("tests.urls_refs")
+    def test_the_search_address_follows_where_the_front_end_is_mounted(self, client):
+        select = select_of(ReferenceForm())
+
+        assert select["attrs"]["data-search-url"] == "/refs/search/"
+        assert client.get("/refs/search/", {"q": "x"}).status_code == 200
+
+
 @pytest.fixture
 def locmem_cache(settings):
     """Give the restriction a cache of its own, empty for each test."""
