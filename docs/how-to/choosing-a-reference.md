@@ -150,6 +150,10 @@ A reference outside the restriction is refused with `invalid_choice` when the fo
 as for any Django choice field. A reference already chosen when the form opens is still shown as
 chosen, even if it lies outside the restriction, and submitting it unchanged is refused.
 
+The search runs on the default database. A picker whose queryset names another database with
+`.using()` keeps its filter, but its search looks for references in the default database, not in
+the one named. Validating the submitted value still uses the database the queryset names.
+
 ### Use a cache shared between processes in production
 
 A restricted picker's select carries a signed key, not the restriction itself. The restriction is

@@ -51,6 +51,10 @@ class SearchRestriction:
     the request carry only a signed digest, so nothing from a request is ever
     unpickled. Production needs a cache shared between processes, or a search
     served by another process finds no entry and offers nothing.
+
+    The search runs on the default database. A picker restricted with
+    ``.using()`` keeps its filter but is searched there, not on the database it
+    names.
     """
 
     SALT = "literature.picker"
