@@ -6,8 +6,9 @@ from functools import cached_property
 
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.db.models import Prefetch
+from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
 from django.forms import MultiWidget
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.crypto import get_random_string
@@ -25,10 +26,11 @@ from mvp.views import (
     PageWidth,
 )
 
-from literature.choices import ItemType, NameRole
+from literature.choices import IdentifierType, ItemType, NameRole
 from literature.importers import get_format
+from literature.importers.normalizers import IdentifierNormalizer
 from literature.importers.results import Outcome
-from literature.models import Item, ItemName, Name
+from literature.models import Item, ItemIdentifier, ItemName, Name
 from literature.ui.contributors import contributor_groups, stored_contributor_names
 from literature.ui.fieldgroups import TYPE_DATE_SLOTS, TYPE_ROLES, FieldGroups
 from literature.ui.fields import field_sections
@@ -43,9 +45,13 @@ from literature.ui.forms import (
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import CONTRIBUTOR_INLINES, IdentifierInline
 from literature.ui.links import web_url
+from literature.ui.picker import item_label
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
 from literature.utils.doi import doi_url
+
+#: The most references one search answers with.
+SEARCH_LIMIT = 20
 
 #: The three related-row sets composed on both the create and update pages.
 #: Declared once here so the two views and the page's own template use the
@@ -902,3 +908,72 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
             page_item.credited_roles = roles_by_item[page_item.id]
 
         return context
+
+
+class ItemSearchView(View):
+    """Answer a reference picker's search with the references that match.
+
+    Matches the text against title, citation key, a contributor's family or
+    literal name and a DOI, ranking a title or citation key that starts with
+    the text first.
+
+    There is deliberately no permission mixin: the catalogue list is open to
+    everyone (ADR 0036), and this search follows the list's read rule.
+    """
+
+    def get(self, request, *args, **kwargs):
+        """Return ``{"results": [{"value", "text"}]}``, at most ``SEARCH_LIMIT`` long."""
+        text = request.GET.get("q", "").strip()
+        if not text:
+            return JsonResponse({"results": []})
+        items = (
+            Item.objects.filter(self.matches(text))
+            .annotate(
+                rank=Case(
+                    When(
+                        Q(title__istartswith=text) | Q(citation_key__istartswith=text),
+                        then=Value(0),
+                    ),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("rank", "title", "pk")
+            .prefetch_related("item_dates", "item_names__name")[:SEARCH_LIMIT]
+        )
+        return JsonResponse(
+            {
+                "results": [
+                    {"value": item.pk, "text": item_label(item)} for item in items
+                ]
+            }
+        )
+
+    @staticmethod
+    def matches(text):
+        """Return the condition a reference meets when ``text`` finds it.
+
+        Args:
+            text: What the reader typed, stripped and not empty.
+
+        Returns:
+            A ``Q`` object. Contributor and DOI matches go through subqueries so
+            a reference matched twice is one row.
+        """
+        condition = (
+            Q(title__icontains=text)
+            | Q(citation_key__icontains=text)
+            | Q(
+                pk__in=ItemName.objects.filter(
+                    Q(name__family__icontains=text) | Q(name__literal__icontains=text)
+                ).values("item")
+            )
+        )
+        doi = IdentifierNormalizer.normalize_doi(text)
+        if doi:
+            condition |= Q(
+                pk__in=ItemIdentifier.objects.filter(
+                    type=IdentifierType.DOI, value__icontains=doi
+                ).values("item")
+            )
+        return condition

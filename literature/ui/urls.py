@@ -50,6 +50,7 @@ urlpatterns = [
         views.ItemImportConfirmView.as_view(),
         name="item-import-confirm",
     ),
+    path("search/", views.ItemSearchView.as_view(), name="item-search"),
     path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("<int:pk>/update/", views.ItemUpdateView.as_view(), name="item-update"),
     path("<int:pk>/delete/", views.ItemDeleteView.as_view(), name="item-delete"),
