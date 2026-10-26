@@ -104,6 +104,33 @@ The routes these views are reachable at, all within the `literature` namespace:
 See [Importing a bibliography file](../importing-through-the-interface.md) for what a
 reader sees.
 
+### Permissions
+
+Every view that changes the catalogue uses Django's `PermissionRequiredMixin`, with
+`permission_required` set to one of three module constants
+([ADR 0036](../adr/0036-writing-asks-for-a-model-permission.md)):
+
+| Views | Constant | Permission |
+|---|---|---|
+| `ItemCreateView`, and the four import views | `ADD_PERMISSION` | `literature.add_item` |
+| `ItemUpdateView` | `CHANGE_PERMISSION` | `literature.change_item` |
+| `ItemDeleteView` | `DELETE_PERMISSION` | `literature.delete_item` |
+
+The list, detail and contributor views check nothing. Their Add, Import, Edit and Delete
+actions are drawn through `HasPermission`, a callable `show_<action>_action` flag that
+django-mvp calls with the request user, so a user sees only the actions their
+permissions open. To apply a different rule, subclass the view and set
+`permission_required`, or override `has_permission()`:
+
+```python
+from literature.ui.views import ItemDeleteView
+
+
+class StaffOnlyDeleteView(ItemDeleteView):
+    def has_permission(self):
+        return self.request.user.is_staff
+```
+
 ```{eval-rst}
 .. automodule:: literature.ui.views
    :members:
