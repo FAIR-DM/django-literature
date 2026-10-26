@@ -53,6 +53,9 @@ from literature.utils.doi import doi_url
 #: The most references one search answers with.
 SEARCH_LIMIT = 20
 
+#: The most characters of a search the view reads; the rest is dropped.
+SEARCH_TEXT_LIMIT = 200
+
 #: The three related-row sets composed on both the create and update pages.
 #: Declared once here so the two views and the page's own template use the
 #: same list rather than three independent ones getting out of step.
@@ -933,7 +936,7 @@ class ItemSearchView(View):
             catalogue = SearchRestriction.queryset_for(key)
             if catalogue is None:
                 return JsonResponse({"results": []}, status=404)
-        text = request.GET.get("q", "").strip()
+        text = request.GET.get("q", "").strip()[:SEARCH_TEXT_LIMIT]
         if "\x00" in text:
             return JsonResponse({"results": []}, status=400)
         if not text:

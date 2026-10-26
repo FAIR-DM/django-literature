@@ -3617,6 +3617,30 @@ class TestItemSearchView:
         assert response.json() == {"results": []}
         assert len(queries) == 0
 
+    def test_text_longer_than_the_limit_is_cut_and_still_finds_the_reference(
+        self, anonymous_client
+    ):
+        item = ItemFactory(title="a" * 200 + " and the rest of a long title")
+
+        response = anonymous_client.get(
+            reverse("literature:item-search"), {"q": "a" * 10_000}
+        )
+
+        assert response.status_code == 200
+        assert self.values(response.json()["results"]) == [item.pk]
+
+    def test_text_longer_than_the_limit_costs_the_queries_a_short_text_does(
+        self, anonymous_client
+    ):
+        ItemFactory(title="a" * 200)
+
+        def count_queries(text):
+            with CaptureQueriesContext(connection) as queries:
+                self.search(anonymous_client, text)
+            return len(queries)
+
+        assert count_queries("a" * 10_000) == count_queries("a")
+
 
 @pytest.fixture
 def restriction_cache(settings):
