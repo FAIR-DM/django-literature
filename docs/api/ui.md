@@ -51,8 +51,9 @@ and why the search and filter definition lives in exactly one place
 
 The reference picker for a project's own forms. `ReferenceField` chooses one reference and
 `ReferenceMultipleField` chooses several. Both are django-tomselect model fields whose default
-configuration points at the catalogue's search route, `literature:item-search`; a `config` passed to
-either is merged over that default. They also refuse a chosen reference outside the configuration's
+configuration points at the catalogue's search route, `literature:item-search`. A `config` passed to
+either is merged over that default. Both inherit that default and the restriction check from
+`ReferencePickerMixin`, which is not used on its own. They also refuse a chosen reference outside the configuration's
 constant `filter_by` and `exclude_by` conditions. `item_label` names a reference the same way in the
 control and in the search results: its title or citation key, its year and its first contributor.
 How to use them is in
