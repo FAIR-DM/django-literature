@@ -78,18 +78,41 @@ all eleven were cheap enough to apply to the plan rather than carry as watch ite
 
 **ADR:** none — local to this feature's implementation, recorded in `plan.md`.
 
-## D7 — A restricted picker keeps its query in the cache
+## D7 — Restriction through a cache key, replaced
 
-**Resolved in planning (plan P-5), refined at design review.** The shared search route learns a
-restricted picker's queryset from a signed key, and the query lives in Django's default cache. It
-is the first runtime reliance on a project's cache, which a consumer has to know about.
+**Replaced by D9.** The first build kept a restricted picker's query in Django's cache under a
+signed key, so the shared search route could search only that restriction. Rebuilding on
+django-tomselect removed it: the restriction now travels as django-tomselect's own filter
+conditions, and no cache is used.
 
-**ADR:** docs/adr/0037-a-restricted-picker-keeps-its-query-in-the-cache.md
+**ADR:** none — superseded before merge; D9's ADR records the design that shipped.
 
-## D8 — The script offers only what the last search returned
+## D8 — The package's own picker script, removed
 
-**Found in the browser check at convergence.** A chosen reference stays an option of a single
-picker's control, so with every option scored alike it was offered again on a later search that
-did not match it. The script now offers only the values the last search returned.
+**Replaced by D9.** The first build carried its own script to wire Tom Select's remote loading,
+and a fix to it from the browser check. Rebuilding on django-tomselect removed the script: that
+package's own script loads the matches and shows the chosen references.
 
-**ADR:** none — local to the picker's script.
+**ADR:** none — superseded before merge.
+
+## D9 — The picker is a thin django-tomselect field
+
+**Decided at the merge gate, 2026-10-26, at the maintainer's direction.** The first build drew the
+control with django-mvp-forms' plain Tom Select widget and wrote its own script, widget and
+restriction mechanism around it. django-mvp-forms already supports django-tomselect, which ships an
+autocomplete view, model choice fields that point at a view by URL name, filter and exclude
+conditions, and its own script. So:
+
+- `ReferenceField` and `ReferenceMultipleField` subclass django-tomselect's
+  `TomSelectModelChoiceField` and `TomSelectModelMultipleChoiceField`. Their only addition is a
+  default config naming the package's search view, so one declaration still works (SC-001).
+- The search route is a subclass of django-tomselect's `AutocompleteModelView`, carrying the
+  matching, ranking, bound, label and open access this spec settled (D1–D3).
+- A restriction is django-tomselect's `filter_by` / `exclude_by` config (FR-012). django-tomselect
+  validates a submission against its view's unfiltered queryset, so the fields also apply the
+  config's constant conditions when they clean a value, and the form refuses a reference outside
+  them (FR-013, SC-004).
+- Names: "reference" is used in the front end's public names, because that is the word the pages
+  and docs use for an item. `Item` stays the model's name.
+
+**ADR:** docs/adr/0037-the-reference-picker-is-a-django-tomselect-field.md

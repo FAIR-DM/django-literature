@@ -47,5 +47,5 @@ rest of this documentation covers the how.
 0034-a-date-slot-is-a-field-of-the-form
 0035-citation-processor-variables-are-not-stored
 0036-writing-asks-for-a-model-permission
-0037-a-restricted-picker-keeps-its-query-in-the-cache
+0037-the-reference-picker-is-a-django-tomselect-field
 ```

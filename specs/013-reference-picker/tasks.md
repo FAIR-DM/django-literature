@@ -76,3 +76,32 @@ module and docs page.
 - **T009** — Documentation: restricting a picker in `docs/how-to/choosing-a-reference.md`, including that a
   restricted picker needs a cache shared between processes in production, and what happens without
   one. CHANGELOG line.
+
+## Rebuild on django-tomselect (D9)
+
+Supersedes T003, T004, T004a, T006, T008, T012 and T014 for what ships. Run in order.
+
+- **T018** — Add `django-tomselect>=2026.6.2` to the `ui` extra, relock, and add `django_tomselect`
+  (after `mvp_forms`) and `TomSelectMiddleware` to `tests/settings.py` and `demo/settings.py`.
+  Confirm the suite still runs.
+- **T019** — `ReferenceAutocompleteView` (plan P-9) replacing `ItemSearchView`. Port the existing
+  search-view tests to the new response shape and keep every behaviour they assert: matching,
+  DOI normalisation, ranking, the bound, literal wildcards, one row per reference, anonymous
+  access, NUL 400, the 200-character cut, fixed query count, the route under another prefix.
+  Remove the restriction-key tests.
+- **T020** — `ReferenceField` and `ReferenceMultipleField` (plan P-10), replacing the old fields,
+  widgets and `SearchRestriction`. Tests: the rendered control points at the search route by name
+  (under the alternative prefix too); a valid pk cleans to the item, a vanished pk is refused with
+  `invalid_choice`; `required` follows `Meta.field_classes` on a model form; a developer's config
+  merges over the default; a constant `filter_by` refuses an outside item on submit and an
+  `exclude_by` refuses an excluded one; the multiple field cleans several and refuses an outside
+  one. Remove the old field, widget, restriction and media tests.
+- **T021** — Delete `literature/ui/static/literature/picker.js`, the cache fixture and anything else
+  plan P-11 lists. `item_label` and its tests stay.
+- **T022** — Documentation: rewrite `docs/how-to/choosing-a-reference.md` (setup, `ReferenceField` on
+  a plain form and through `Meta.field_classes`, `ReferenceMultipleField`, any django-tomselect
+  setting such as `counted` passed through the config, restricting with `filter_by`/`exclude_by`,
+  what the search matches, who may search); `docs/api/ui.md`; CHANGELOG; CONTEXT.md glossary
+  (**reference picker** names the new fields, and *Synonyms to avoid* says "reference" is used in the
+  front end's public names while `Item` stays the model's); README section. Replace ADR 0037 with
+  `docs/adr/0037-the-reference-picker-is-a-django-tomselect-field.md` and its index line.

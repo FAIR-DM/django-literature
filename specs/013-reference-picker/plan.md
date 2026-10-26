@@ -136,3 +136,48 @@ US1, US2, US3, each from the previous story's commit.
 | Addition | Why it is needed |
 |---|---|
 | The cache key for restricted pickers | FR-013 requires the search to offer only the restriction. A query string cannot carry a queryset, and one URL per restriction breaks SC-001. Unrestricted pickers, the common case, do without it. |
+
+## Rebuild on django-tomselect (D9)
+
+This section supersedes P-3, P-4 and P-5 above, which describe the first build.
+
+### P-9 — The search view
+
+`ReferenceAutocompleteView(django_tomselect.autocompletes.AutocompleteModelView)` in
+`literature/ui/views.py`, routed as `literature:item-search` (the name is unchanged):
+
+- `model = Item`, `page_size = SEARCH_LIMIT` (20), `allow_anonymous = True` and
+  `skip_authorization = True`, with the comment pointing at ADR 0036 (D1).
+- `search(queryset, query)` applies the existing matching (`ItemSearchView.matches`, with the
+  DOI normaliser) and the rank annotation. `order_queryset` orders by rank, title, pk.
+- The NUL refusal (400) and the 200-character cut stay, in `setup()` or `get()`.
+- Each result carries `label` from `item_label`, filled in `hook_prepare_results` from the page's
+  items fetched once with `item_dates` and `item_names__name` prefetched.
+
+### P-10 — The fields
+
+`ReferenceField(TomSelectModelChoiceField)` and
+`ReferenceMultipleField(TomSelectModelMultipleChoiceField)` in `literature/ui/picker.py`:
+
+- A default config `TomSelectConfig(url="literature:item-search", value_field="id",
+  label_field="label")`. A config passed by the developer is merged over it, so they can add
+  `filter_by`, `exclude_by`, `placeholder`, plugins and any other django-tomselect setting.
+- `clean()` calls the parent, then refuses (code `invalid_choice`) any chosen item that does not
+  meet the config's constant `filter_by` / `exclude_by` conditions. Field-sourced conditions are
+  left to django-tomselect, and the docs say so.
+- Nothing else: no widget, no script, no `optgroups`, no label method beyond what
+  django-tomselect needs.
+
+### P-11 — Removed
+
+`ItemSearchSelect`, `ItemSearchSelectMultiple`, `ItemChoiceField`, `ItemMultipleChoiceField`,
+`SearchRestriction`, `literature/ui/static/literature/picker.js`, the cache fixture and every test
+of them, and ADR 0037's first text. `item_label` stays.
+
+### P-12 — Dependencies and host setup
+
+`django-tomselect>=2026.6.2` joins the `ui` extra. A host adds `django_tomselect` to
+`INSTALLED_APPS` after `mvp_forms`, and `django_tomselect.middleware.TomSelectMiddleware` to
+`MIDDLEWARE`, as django-mvp-forms' own documentation describes. The test and demo settings do the
+same. On Django 6.1 django-tomselect's `tomselect_media` tag writes nothing (a known
+django-mvp-forms issue), so the how-to tells hosts to render `{{ form.media }}`.

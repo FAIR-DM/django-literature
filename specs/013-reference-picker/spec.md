@@ -21,7 +21,7 @@
 - Q: How does each option identify its reference? → A: By its title, its year and its first contributor, enough to tell two similar titles apart.
 - Q: Who may search? → A: Whoever may read the catalogue list, which today is anyone. ADR 0036 left reading open and put only writing behind permissions, and a search returns nothing the list does not already show.
 - Q: What does a developer have to wire up? → A: Nothing beyond what mounting the catalogue already does. The search is part of the catalogue's routes, so a project that has mounted the catalogue has the search.
-- Q: Can a developer restrict which references a picker offers? → A: Yes, in the way a developer restricts any choice field: by giving it the references to choose from. The restriction holds for what is searched and for what a submitted form accepts.
+- Q: Can a developer restrict which references a picker offers? → A: Yes, with the filter and exclude conditions django-tomselect fields already take, for example "only references whose type is book". The same conditions decide what a submitted form accepts.
 
 ### Session 2026-10-26 — clarification scan
 
@@ -80,7 +80,7 @@ A developer whose model has a many-to-many link to `Item`, such as a dataset's r
 
 ### User Story 3 - A developer restricts which references a picker offers (Priority: P3)
 
-A developer wants a picker that offers only some of the catalogue, such as only journal articles, or only references their own model has not already used. They give the picker the references it may choose from, as they would give any choice field its choices. People using the form are never offered anything outside that set, and a submitted form never accepts anything outside it.
+A developer wants a picker that offers only some of the catalogue, such as only journal articles. They give the picker a filter or exclude condition, the way any django-tomselect field is restricted. People using the form are never offered anything outside that set, and a submitted form never accepts anything outside it.
 
 **Why this priority**: Most pickers offer the whole catalogue. Restricting one is a refinement that matters to some projects and builds on the first two stories.
 
@@ -119,7 +119,7 @@ A developer wants a picker that offers only some of the catalogue, such as only 
 - **FR-009**: The search MUST be part of the catalogue's routes, available wherever the catalogue is mounted and under whatever prefix, and the fields MUST locate it by route name. *(US1)*
 - **FR-010**: The search MUST be readable by anyone who may read the catalogue list, under the same rule. *(US1)*
 - **FR-011**: The fields MUST work on every row of an inline formset, including rows added after the page loaded. *(US1)*
-- **FR-012**: A developer MUST be able to restrict the references a field offers by giving it the references to choose from. *(US3)*
+- **FR-012**: A developer MUST be able to restrict the references a field offers with django-tomselect's filter and exclude conditions. *(US3)*
 - **FR-013**: A restricted field MUST offer only references inside its restriction, and its form MUST refuse a submitted reference outside it. *(US3)*
 - **FR-014**: The multiple-choice field MUST NOT link the same reference twice, and MUST let a chosen reference be removed. *(US2)*
 - **FR-015**: The field's `required` MUST behave as for any Django form field. On a model form it follows the model field, and an optional field can be cleared. *(US1)*
