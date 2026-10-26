@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file. The format foll
 - `ItemChoiceField` in `literature.ui.picker` lets a project's own form choose one reference by
   searching the catalogue, with a JSON search route, `literature:item-search`, behind it. See
   [How to choose a reference in your own form](docs/how-to/choosing-a-reference.md).
+- `ItemMultipleChoiceField` in `literature.ui.picker` lets a project's own form choose several
+  references the same way, for a plain form or a `ManyToManyField` to `Item`.
 - `Item.get_absolute_url()` returns the reference's page in the catalogue, `literature:item-detail`.
   It resolves only where `literature.ui.urls` is mounted.
 - `Item.doi`, `Item.doi_url` and `Item.year` give a reference's DOI, its `https://doi.org/` link and

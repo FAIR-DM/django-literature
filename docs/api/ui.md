@@ -51,7 +51,9 @@ and why the search and filter definition lives in exactly one place
 
 The reference picker for a project's own forms. `ItemChoiceField` chooses one reference and draws
 its select with `ItemSearchSelect`, which holds only the chosen references and loads the rest from
-the search route as the reader types. `item_label` names a reference the same way in the select and
+the search route as the reader types. `ItemMultipleChoiceField` chooses several and draws its
+select with `ItemSearchSelectMultiple`, which does the same and adds a button to remove each chosen
+reference. `item_label` names a reference the same way in the select and
 in the search results: its title or citation key, its year and its first contributor. How to use it
 is in [How to choose a reference in your own form](../how-to/choosing-a-reference.md).
 

@@ -76,6 +76,46 @@ chosen. Submitting a reference that has since been deleted gives the usual `inva
 
 The same field works on every row of an inline formset. Each row searches on its own.
 
+## 3. Choose several references
+
+To choose several references, use `ItemMultipleChoiceField` in place of `ItemChoiceField`. The
+control shows each chosen reference with a button to remove it. On a plain form, declare it as an
+attribute:
+
+```python
+from django import forms
+
+from literature.ui.picker import ItemMultipleChoiceField
+
+
+class BibliographyForm(forms.Form):
+    references = ItemMultipleChoiceField()
+```
+
+On a model form, name it in `Meta.field_classes` for a `ManyToManyField`, for the same reason as
+above:
+
+```python
+from django import forms
+
+from literature.ui.picker import ItemMultipleChoiceField
+
+from .models import Bibliography
+
+
+class BibliographyForm(forms.ModelForm):
+    class Meta:
+        model = Bibliography
+        fields = ["references"]
+        field_classes = {"references": ItemMultipleChoiceField}
+```
+
+Here `Bibliography.references` is a `ManyToManyField` to `literature.Item`. The field is required
+unless the model field has `blank=True`, and a form opened on an existing record shows every
+reference already chosen. The form's `cleaned_data` holds a queryset of the chosen references,
+with a reference chosen twice counted once. Submitting a reference that has since been deleted
+gives the usual `invalid_choice` error.
+
 ## What the search matches
 
 Typing narrows the choices to the references where the text appears in any one of:
