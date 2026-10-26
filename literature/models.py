@@ -15,11 +15,13 @@ Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.j
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from partial_date import PartialDate
 from partial_date.fields import PartialDateField
 
-from literature.choices import DateType, ItemType, NameRole
+from literature.choices import DateType, IdentifierType, ItemType, NameRole
+from literature.utils.doi import doi_url
 from literature.validators import validate_identifier
 
 
@@ -399,6 +401,46 @@ class Item(models.Model):
         if self.title:
             return self.title[:80] + "…" if len(self.title) > 80 else self.title
         return self.citation_key
+
+    def get_absolute_url(self) -> str:
+        """Return the reference's page in the catalogue.
+
+        The page belongs to the opt-in front end, so this resolves only in a
+        project that mounts ``literature.ui.urls``. Anywhere else it raises
+        ``NoReverseMatch``.
+        """
+        return reverse("literature:item-detail", kwargs={"pk": self.pk})
+
+    @property
+    def doi(self) -> str | None:
+        """Return the DOI among the item's identifiers, or ``None`` if it has none.
+
+        Reads ``item_identifiers.all()``, so a queryset that prefetches
+        ``item_identifiers`` answers it without a query per item.
+        """
+        for identifier in self.item_identifiers.all():
+            if identifier.type == IdentifierType.DOI:
+                return identifier.value
+        return None
+
+    @property
+    def doi_url(self) -> str | None:
+        """Return the ``https://doi.org/`` link for the item's DOI, or ``None``."""
+        return doi_url(self.doi)
+
+    @property
+    def year(self) -> int | None:
+        """Return the year of the issued date, or ``None`` when no year is stored.
+
+        An issued date held only as text, such as "in press", has no year.
+        Reads ``item_dates.all()``, so a queryset that prefetches
+        ``item_dates`` answers it without a query per item.
+        """
+        for item_date in self.item_dates.all():
+            if item_date.date_type == DateType.ISSUED and item_date.begin:
+                year: int = item_date.begin.date.year
+                return year
+        return None
 
 
 class Name(models.Model):

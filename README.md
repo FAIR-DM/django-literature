@@ -350,10 +350,13 @@ lists every one of them above the tabs, each linking to its field.
 The type, identifier type and keyword controls are Tom Select controls, and the form page loads Tom
 Select from jsDelivr. Without it they are plain selects and the form still works.
 
-These pages carry no permission check, the same as the read-only pages: anyone who can reach the
-catalogue can add, edit and remove a reference. That is intentional for a package built for one
-person managing their own library, and restricting these pages to particular users or groups is left
-to the host project to add, the same way it would guard any other view.
+Each of these pages requires Django's model permission for what it does: `literature.add_item` to
+add, `literature.change_item` to edit and `literature.delete_item` to delete. A visitor who is not
+signed in is sent to your project's `LOGIN_URL`, and a signed-in user without the permission is
+refused. The Add, Edit and Delete actions are only shown to users who hold the permission behind
+them. Grant the three permissions to a group for the people who maintain the catalogue. The
+catalogue list, reference pages and contributor pages stay open to everyone. To apply a different
+rule, subclass the view and set `permission_required` or override `has_permission()`.
 
 ### Importing a bibliography file
 
@@ -372,10 +375,9 @@ whether a file has already been imported, so submitting the same file twice crea
 twice. The page says so before you submit. A failure partway through the file does not undo what
 already succeeded — the entries created before it stay in the catalogue.
 
-Like the pages above, the import page carries no permission check of its own — anyone who can reach
-the catalogue can reach it too — and the package imposes no size limit of its own on the file it
-accepts. Restricting or bounding either is left to the host project, the same way it would guard any
-other view.
+Importing creates references, so the import page, its preview and its confirm control all
+require `literature.add_item`, the same permission as adding one by hand. The package imposes no
+size limit of its own on the file it accepts. Bounding it is left to the host project.
 
 ### Try it: the demo project
 
@@ -391,9 +393,11 @@ uv run python manage.py runserver
 
 `migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
 `runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
-reference page and a contributor page are all live and populated. The Add, Edit, Delete and Import
-actions on those pages are live too, so you can enter, correct, remove and import references the
-same way a host project's own users would. The Add and Edit forms carry the reference's
+reference page and a contributor page are all live and populated. Browsing needs no account. To
+add, edit, remove or import references, sign in at `http://127.0.0.1:8000/admin/login/` as
+`editor.user` with the password `password`, the account `seed_demo` creates. The Add, Edit, Delete
+and Import actions then appear, so you can enter, correct, remove and import references the same
+way a host project's own users would. The Add and Edit forms carry the reference's
 contributors, dates and identifiers as part of the same page, so crediting a contributor, dating a
 reference and identifying it are all things you can try there too — see
 [Crediting contributors](https://github.com/FAIR-DM/django-literature/blob/main/docs/crediting-contributors.md), [Dating a reference](https://github.com/FAIR-DM/django-literature/blob/main/docs/dating-a-reference.md)
@@ -403,7 +407,8 @@ not, so the report has something to show.
 
 `seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
 again returns the demo to the same seeded state whatever state it was in before — including
-discarding anything you added through the admin. Once seeded, `runserver` on its own is enough for
+discarding anything you added through the admin. It also resets the editor account's password to
+`password`. Once seeded, `runserver` on its own is enough for
 subsequent runs.
 
 The demo is not a production configuration: `DEBUG` is on, the database is a local SQLite file, and

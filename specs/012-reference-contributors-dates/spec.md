@@ -199,7 +199,7 @@ Someone evaluating the package starts the demo with the documented command and c
 
 **Scope and posture**
 
-- **FR-035**: Every page this feature touches MUST remain reachable without authentication, and the feature MUST NOT impose a permission check of its own, per ADR-0022.
+- **FR-035**: Every page this feature touches MUST keep the access its page already has: the reference page open, the add and edit pages behind their model permissions (ADR-0036).
 - **FR-036**: The core MUST NOT acquire any front-end dependency. Everything except the identifier message change lives in the opt-in front-end app.
 - **FR-037**: The identifier message change MUST stay at the model layer where the existing validators live, so a caller that never installs the front end gets the same diagnosis.
 - **FR-038**: This feature MUST NOT introduce custom CSS. Its forms compose django-mvp's and daisy-cotton's components. The one local composition is the contributor row, which holds a name-details dialog and move buttons the packaged formset row cannot, and reuses django-mvp's own behaviour for adding and removing rows.

@@ -33,12 +33,20 @@ from django.core.management import call_command
 call_command("migrate", "--noinput", verbosity=0)
 call_command("seed_demo", verbosity=0)
 
+from django.contrib.auth import authenticate
+
 from literature.models import Item, Name
+
+editor = authenticate(username="editor.user", password="password")
 
 print("RESULT_JSON:" + json.dumps({{
     "item_count": Item.objects.count(),
     "name_count": Name.objects.count(),
     "citation_keys": sorted(Item.objects.values_list("citation_key", flat=True)),
+    "editor": editor and {{
+        "is_staff": editor.is_staff,
+        "permissions": sorted(editor.get_all_permissions()),
+    }},
 }}))
 """
 
@@ -128,6 +136,26 @@ def run_seed_demo_strict_encoding(
 
 
 class TestSeedDemo:
+    def test_leaves_an_editor_who_can_sign_in_to_the_admin_and_write(self, tmp_path):
+        result = run_seed_demo(tmp_path / "db.sqlite3", REAL_CATALOGUE)
+
+        assert result["editor"] == {
+            "is_staff": True,
+            "permissions": [
+                "literature.add_item",
+                "literature.change_item",
+                "literature.delete_item",
+            ],
+        }
+
+    def test_seeding_again_still_leaves_the_editor(self, tmp_path):
+        db_path = tmp_path / "db.sqlite3"
+        run_seed_demo(db_path, REAL_CATALOGUE)
+
+        result = run_seed_demo(db_path, REAL_CATALOGUE)
+
+        assert result["editor"] is not None
+
     def test_loads_the_catalogue(self, tmp_path):
         result = run_seed_demo(tmp_path / "db.sqlite3", REAL_CATALOGUE)
         catalogue = json.loads(REAL_CATALOGUE.read_text(encoding="utf-8"))

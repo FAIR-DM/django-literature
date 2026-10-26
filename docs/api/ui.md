@@ -104,6 +104,33 @@ The routes these views are reachable at, all within the `literature` namespace:
 See [Importing a bibliography file](../importing-through-the-interface.md) for what a
 reader sees.
 
+### Permissions
+
+Every view that changes the catalogue uses Django's `PermissionRequiredMixin`, with
+`permission_required` set to one of three module constants
+([ADR 0036](../adr/0036-writing-asks-for-a-model-permission.md)):
+
+| Views | Constant | Permission |
+|---|---|---|
+| `ItemCreateView`, and the four import views | `ADD_PERMISSION` | `literature.add_item` |
+| `ItemUpdateView` | `CHANGE_PERMISSION` | `literature.change_item` |
+| `ItemDeleteView` | `DELETE_PERMISSION` | `literature.delete_item` |
+
+The list, detail and contributor views check nothing. Their Add, Import, Edit and Delete
+actions are drawn through `HasPermission`, a callable `show_<action>_action` flag that
+django-mvp calls with the request user, so a user sees only the actions their
+permissions open. To apply a different rule, subclass the view and set
+`permission_required`, or override `has_permission()`:
+
+```python
+from literature.ui.views import ItemDeleteView
+
+
+class StaffOnlyDeleteView(ItemDeleteView):
+    def has_permission(self):
+        return self.request.user.is_staff
+```
+
 ```{eval-rst}
 .. automodule:: literature.ui.views
    :members:
@@ -117,21 +144,19 @@ page order, each with the id of the field to fix, for the summary drawn above th
 
 ## `literature.ui.fields` and `literature.ui.links`
 
-The reference page, `ItemDetailView`, reads its content from two small modules.
+The reference page, `ItemDetailView`, reads its content from two small modules, and from
+`Item.year` and `Item.doi_url` on the model.
 
 `field_sections` returns the fields a reference carries, grouped under the same headings
 the edit form uses (see [Field groups](../field-groups.md)), in the same order. Each
 section is a dict of `label` and `rows`, a row being a label and value pair. A field
 holding nothing is left out, and so is a group left with no rows. The four fields the
 page shows in its header, the type, citation key, title and abstract, are never repeated
-in a section. `issued_year` returns the year of the reference's issued date, or `None`
-where the date is missing or held only as free text.
+in a section.
 
 `web_url` returns a stored identifier as a link target only when it is an `http` or
-`https` address, so a value such as `javascript:` is shown as text and never followed.
-`doi_url` turns a DOI stored without its resolver, such as `10.1002/abc`, into a
-`https://doi.org/` address. The scheme and host are fixed, so the stored text can only
-ever become the path of the link.
+`https` address, so a value such as `javascript:` is shown as text and never followed. A
+DOI stored without its resolver is linked through `literature.utils.doi.doi_url` instead.
 
 ```{eval-rst}
 .. automodule:: literature.ui.fields

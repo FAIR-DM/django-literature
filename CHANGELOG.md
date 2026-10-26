@@ -6,6 +6,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- `Item.get_absolute_url()` returns the reference's page in the catalogue, `literature:item-detail`.
+  It resolves only where `literature.ui.urls` is mounted.
+- `Item.doi`, `Item.doi_url` and `Item.year` give a reference's DOI, its `https://doi.org/` link and
+  the year of its issued date, or `None`. They read prefetched `item_identifiers` and `item_dates`
+  when a queryset has them.
+
+### Changed
+
+- **The catalogue's write pages require Django's model permissions.** Adding a reference and every
+  import page require `literature.add_item`, editing requires `literature.change_item`, and
+  deleting requires `literature.delete_item`. A visitor who is not signed in is sent to
+  `LOGIN_URL`, and a signed-in user without the permission is refused. The Add, Import, Edit and
+  Delete actions are shown only to users holding the permission behind them. Until now any visitor
+  could add, change, delete and import references. Grant the permissions to the users or groups
+  that maintain your catalogue. The read pages stay open.
+- The demo's `seed_demo` creates an `editor.user` account, password `password`, which signs in
+  through the admin and holds the three permissions.
+- `doi_url` moved from `literature.ui.links` to `literature.utils.doi`, and
+  `literature.ui.fields.issued_year` is removed in favour of `Item.year`.
+
 ## [v0.2.0] - 2026-10-25
 
 ### Changed
