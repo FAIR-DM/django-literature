@@ -45,6 +45,9 @@ class ItemSearchSelect(TomSelect):
     search route as the reader types.
     """
 
+    class Media:
+        js = ["literature/picker.js"]
+
     def __init__(self, attrs=None, choices=(), **settings):
         """Default the placeholder to a prompt to search.
 

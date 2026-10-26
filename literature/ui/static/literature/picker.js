@@ -1,0 +1,49 @@
+// Lets a Tom Select control marked data-search-url find references on the
+// server as the reader types, in place of listing the whole catalogue.
+// django-mvp-forms starts the control and sends mvp-forms:tomselect with it,
+// and this gives it a load function that asks the search route. The select
+// holds only the chosen references, so there is nothing local to match: every
+// option the server returns is kept, in the order it returned them.
+(function () {
+  "use strict";
+  if (window.literaturePicker) return;
+  window.literaturePicker = true;
+
+  document.addEventListener("mvp-forms:tomselect", function (event) {
+    const url = event.target.dataset.searchUrl;
+    if (!url) return;
+    const control = event.detail.tomselect;
+    const settings = control.settings;
+    settings.valueField = "value";
+    settings.labelField = "text";
+    settings.searchField = [];
+    settings.score = function () {
+      return function () {
+        return 1;
+      };
+    };
+    settings.shouldLoad = function (text) {
+      return text.length > 0;
+    };
+    settings.load = function (text, callback) {
+      // Drop the matches of the last search but keep what is chosen, and let
+      // an earlier search be typed again and loaded again.
+      control.clearOptions();
+      const query = new URLSearchParams({ q: text });
+      fetch(url + "?" + query.toString(), {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error("Search answered " + response.status);
+          return response.json();
+        })
+        .then(function (data) {
+          callback(data.results);
+        })
+        .catch(function () {
+          callback();
+        });
+    };
+  });
+})();

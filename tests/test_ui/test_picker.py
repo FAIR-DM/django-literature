@@ -4,6 +4,7 @@ from html.parser import HTMLParser
 
 import pytest
 from django import forms
+from django.contrib.staticfiles import finders
 from django.db import connection, models
 from django.forms import formset_factory
 from django.test.utils import CaptureQueriesContext
@@ -330,3 +331,17 @@ class TestItemChoiceFieldInAFormset:
         assert {select["attrs"]["data-search-url"] for select in selects} == {
             reverse("literature:item-search")
         }
+
+
+class TestItemSearchSelectMedia:
+    def test_the_picker_script_follows_the_starting_script(self):
+        media = str(ItemSearchSelect().media)
+
+        assert "mvp_forms/tomselect.js" in media
+        assert "literature/picker.js" in media
+        assert media.index("mvp_forms/tomselect.js") < media.index(
+            "literature/picker.js"
+        )
+
+    def test_the_picker_script_is_served_as_a_static_file(self):
+        assert finders.find("literature/picker.js") is not None
