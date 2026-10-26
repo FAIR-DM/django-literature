@@ -126,13 +126,16 @@ INSTALLED_APPS = [
     "daisy_cotton",
     "crispy_forms",
     "mvp_forms",
+    "django_tomselect",
     "literature.ui",
 ]
 ```
 
 `daisy_cotton` comes directly after `mvp`, because both ship an `icon` component and the first app
 listed wins. `crispy_forms`, `mvp_forms` and `daisy_cotton` arrive with django-mvp as hard
-dependencies, so listing them installs nothing extra.
+dependencies, so listing them installs nothing extra. `django_tomselect` comes after `mvp_forms`, so
+that django-mvp-forms' template for its controls wins; the `ui` extra installs it, and it draws the
+reference picker.
 
 The add, edit and delete pages render through crispy-forms with the `daisyui` template pack from
 django-mvp-forms. crispy-forms needs the pack chosen before anything renders. With neither setting
@@ -211,8 +214,12 @@ matching middleware:
 MIDDLEWARE = [
     # ...
     "django.contrib.sites.middleware.CurrentSiteMiddleware",
+    "django_tomselect.middleware.TomSelectMiddleware",
 ]
 ```
+
+`TomSelectMiddleware` lets django-tomselect's controls read the request they are drawn for. The
+reference picker below needs it.
 
 Then include the app's URLs at whatever prefix the project wants:
 
@@ -382,8 +389,9 @@ size limit of its own on the file it accepts. Bounding it is left to the host pr
 ### Choosing a reference in your own form
 
 A project whose own model points at a reference can add a searchable picker to its form with one
-field, `ItemChoiceField` from `literature.ui.picker`. People find the reference by typing part of
-its title, a contributor's name, its citation key or its DOI. See
+field, `ReferenceField` from `literature.ui.picker` (`ReferenceMultipleField` for several). It is a
+django-tomselect field whose default points at the catalogue's search. People find the reference by
+typing part of its title, a contributor's name, its citation key or its DOI. See
 [How to choose a reference in your own form](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/choosing-a-reference.md).
 
 ### Try it: the demo project

@@ -247,15 +247,19 @@ itself: "the catalogue list", "a catalogue holding no items".
 ### reference picker
 
 A form field for choosing an existing **Item** by searching the catalogue as the person types,
-rather than listing every item: `ItemChoiceField` from `literature.ui.picker`. It matches title,
-**citation key**, a contributor's name and DOI, and it only chooses, never creates. Part of the
-**UI app**.
+rather than listing every item: `ReferenceField` (one) or `ReferenceMultipleField` (several) from
+`literature.ui.picker`. Each is a django-tomselect field whose default configuration points at the
+package's search view. It matches title, **citation key**, a contributor's name and DOI, and it only
+chooses, never creates. Part of the **UI app**.
 
 ## Synonyms to avoid
 
 - **`Reference` / `Publication` / `Record`** for an item — the canonical term is **`Item`**
   (CSL-faithful). Renaming would introduce a deviation from CSL naming that Principle I requires be
-  documented and mapped back; don't drift into these in specs.
+  documented and mapped back; don't drift into these in specs. The one place "reference" is the
+  right word is the front end's public names (`ReferenceField`, `ReferenceMultipleField`,
+  `ReferenceAutocompleteView`), because that is the word its pages and docs use for an item. The
+  model stays `Item`.
 - **`Person` / `Author`** for a contributor — use **`Name`** (may be an organization) plus a
   **role** on `ItemName`. Role is not part of the name.
 - **`LiteratureItem` / `CSLDate`** — early pre-implementation names that appear in older

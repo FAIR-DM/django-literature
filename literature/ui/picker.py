@@ -39,7 +39,7 @@ def item_label(item: Item) -> str:
     return label
 
 
-class ReferencePicker:
+class _ReferencePicker:
     """What the two reference fields share: a default config and a restriction check.
 
     The default config points django-tomselect at the package's search route.
@@ -100,7 +100,7 @@ class ReferencePicker:
         return spec.source
 
 
-class ReferenceField(ReferencePicker, TomSelectModelChoiceField):
+class ReferenceField(_ReferencePicker, TomSelectModelChoiceField):
     """Choose one reference by searching the catalogue.
 
     On a plain form, declare it as an attribute. On a model form, name it in
@@ -108,7 +108,7 @@ class ReferenceField(ReferencePicker, TomSelectModelChoiceField):
     """
 
 
-class ReferenceMultipleField(ReferencePicker, TomSelectModelMultipleChoiceField):
+class ReferenceMultipleField(_ReferencePicker, TomSelectModelMultipleChoiceField):
     """Choose several references by searching the catalogue.
 
     Declared the same way as ``ReferenceField``.

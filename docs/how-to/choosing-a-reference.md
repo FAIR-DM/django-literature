@@ -5,60 +5,76 @@ mean by typing part of its title, a contributor's name, its citation key or its 
 scrolling a list of the whole catalogue. The picker chooses from references that already exist.
 It does not create one.
 
+`ReferenceField` and `ReferenceMultipleField` are [django-tomselect](https://github.com/OmenApps/django-tomselect)
+fields. Their only addition is a default that points at the catalogue's search, so one declaration
+works. Everything else about the control is django-tomselect's, and any of its settings can be
+passed in.
+
 ## Before you start
 
 The picker belongs to the front end, so the project needs `literature.ui` installed and its URLs
 mounted, as described in [Installing the front end](../installation.md). The search is one of the
 catalogue's routes, so a project that has mounted the catalogue already has it.
 
-## 1. Load Tom Select on the page
+django-tomselect arrives with the `ui` extra. Two lines in your settings let it draw a control:
 
-The picker draws a [Tom Select](https://tom-select.js.org/) control. The page that shows the form
-loads Tom Select itself, and a page without it leaves the control as an ordinary select. Add these
-tags to the page's `<head>`, copied from the package's own form page, `item_form.html`:
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    "mvp_forms",
+    "django_tomselect",  # after mvp_forms, so django-mvp-forms' template for it wins
+    "literature.ui",
+]
 
-```html
-{% load static %}
-<link rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.default.min.css"
-      integrity="sha384-ysUSQKRs8NxL3MLtPxj9HZ7KmGXzQJwr8rfFRR8iT5A26QF3slDzsChy8nZ7Q1W2"
-      crossorigin="anonymous">
-<link rel="stylesheet" href="{% static 'mvp_forms/tomselect.css' %}">
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"
-        integrity="sha384-zpRmcxaWZMsftDGxJwwTBxLTwPZrI4VJXe2bYlo01xaeBAdQjHP/nPlVH83BCW0U"
-        crossorigin="anonymous"></script>
+MIDDLEWARE = [
+    # ...
+    "django_tomselect.middleware.TomSelectMiddleware",
+]
 ```
 
-Render the form's media once on the page, after the tags above, so the scripts that start the
-control and give it its search load too:
+## 1. Load the control's files on the page
+
+The page that shows the form loads django-tomselect's script and styles. Render the form's media
+once in the page's `<head>` or before the form:
 
 ```html
 {{ form.media }}
 ```
 
+On Django 6.1, django-tomselect's own `{% tomselect_media %}` tag writes nothing, so use
+`{{ form.media }}` there.
+
+To fit the control into a daisyUI form, also load the stylesheet django-mvp-forms ships for it:
+
+```html
+{% load static %}
+<link rel="stylesheet" href="{% static 'mvp_forms/tomselect.css' %}">
+```
+
 ## 2. Declare the field
 
-On a plain form, declare `ItemChoiceField` as an attribute:
+On a plain form, declare `ReferenceField` as an attribute:
 
 ```python
 from django import forms
 
-from literature.ui.picker import ItemChoiceField
+from literature.ui.picker import ReferenceField
 
 
 class ReviewForm(forms.Form):
-    reference = ItemChoiceField()
+    reference = ReferenceField()
 ```
 
 On a model form, name the field in `Meta.field_classes` instead of declaring it. A field declared
 on a model form is used exactly as written, so it would be required whatever the model field's
-`blank` says and would lose the model field's `limit_choices_to`. Naming the class lets Django
-build the field from the model field, as it does for any foreign key:
+`blank` says. Naming the class lets Django build the field from the model field, as it does for any
+foreign key:
 
 ```python
 from django import forms
 
-from literature.ui.picker import ItemChoiceField
+from literature.ui.picker import ReferenceField
 
 from .models import Review
 
@@ -67,108 +83,99 @@ class ReviewForm(forms.ModelForm):
     class Meta:
         model = Review
         fields = ["reference"]
-        field_classes = {"reference": ItemChoiceField}
+        field_classes = {"reference": ReferenceField}
 ```
 
 Here `Review.reference` is a `ForeignKey` to `literature.Item`. The field is required unless the
 model field has `blank=True`, and a form opened on an existing record shows the reference already
 chosen. Submitting a reference that has since been deleted gives the usual `invalid_choice` error.
 
-The same field works on every row of an inline formset. Each row searches on its own.
-
 ## 3. Choose several references
 
-To choose several references, use `ItemMultipleChoiceField` in place of `ItemChoiceField`. The
-control shows each chosen reference with a button to remove it. On a plain form, declare it as an
-attribute:
+To choose several references, use `ReferenceMultipleField` in place of `ReferenceField`:
 
 ```python
 from django import forms
 
-from literature.ui.picker import ItemMultipleChoiceField
+from literature.ui.picker import ReferenceMultipleField
 
 
 class BibliographyForm(forms.Form):
-    references = ItemMultipleChoiceField()
+    references = ReferenceMultipleField()
 ```
 
 On a model form, name it in `Meta.field_classes` for a `ManyToManyField`, for the same reason as
 above:
 
 ```python
-from django import forms
-
-from literature.ui.picker import ItemMultipleChoiceField
-
-from .models import Bibliography
+from literature.ui.picker import ReferenceMultipleField
 
 
 class BibliographyForm(forms.ModelForm):
     class Meta:
         model = Bibliography
         fields = ["references"]
-        field_classes = {"references": ItemMultipleChoiceField}
+        field_classes = {"references": ReferenceMultipleField}
 ```
 
-Here `Bibliography.references` is a `ManyToManyField` to `literature.Item`. The field is required
-unless the model field has `blank=True`, and a form opened on an existing record shows every
-reference already chosen. The form's `cleaned_data` holds a queryset of the chosen references,
-with a reference chosen twice counted once. Submitting a reference that has since been deleted
-gives the usual `invalid_choice` error.
+The field is required unless the model field has `blank=True`. The form's `cleaned_data` holds a
+queryset of the chosen references.
 
-## 4. Restrict which references are offered
+## 4. Change the control's settings
 
-Pass `queryset=` to offer only some references. The picker then searches only those:
+Pass a django-tomselect `TomSelectConfig`, or a dict of its settings, as `config`. It is merged over
+the default, so name only what you want to change. The default already holds the search route and
+the fields the control reads, so leave `url`, `value_field` and `label_field` alone:
 
 ```python
-from django import forms
+from django_tomselect.app_settings import PluginRemoveButton, TomSelectConfig
 
-from literature.models import Item
-from literature.ui.picker import ItemChoiceField
+from literature.ui.picker import ReferenceMultipleField
+
+
+class BibliographyForm(forms.Form):
+    references = ReferenceMultipleField(
+        config=TomSelectConfig(
+            placeholder="Find a source",
+            max_items=5,
+            plugin_remove_button=PluginRemoveButton(title="Drop this source"),
+        )
+    )
+```
+
+django-tomselect's documentation lists every setting.
+
+## 5. Restrict which references are offered
+
+Use django-tomselect's `filter_by` and `exclude_by`. A constant condition is written with `Const`,
+which takes the value and the Django lookup:
+
+```python
+from django_tomselect.app_settings import Const, TomSelectConfig
+
+from literature.ui.picker import ReferenceField
 
 
 class ReviewForm(forms.Form):
-    reference = ItemChoiceField(queryset=Item.objects.filter(language="en"))
+    reference = ReferenceField(
+        config=TomSelectConfig(
+            filter_by=Const("book", "type"),
+            exclude_by=Const("fr", "language"),
+        )
+    )
 ```
 
-The same works for `ItemMultipleChoiceField`. On a model form, the model field's `limit_choices_to`
-restricts the picker without any further code, because Django builds the field's queryset from it.
-To restrict by something known only when the form is built, such as a language the view chose, set the
-field's queryset in the form's `__init__`; the picker uses whatever queryset the field holds when
-the form is drawn:
+The search offers only books not in French, and the form refuses any other reference with
+`invalid_choice` when it is submitted. django-tomselect itself validates a submission against the
+search view's whole queryset, so the fields apply a constant condition again themselves. A list
+lookup takes a list: `Const(["book", "article"], "type__in")`.
 
-```python
-class ReviewForm(forms.Form):
-    reference = ItemChoiceField()
+A condition that takes its value from another field of the same form (`FilterSpec` with
+`source_type="field"`, or the legacy `("field", "lookup")` pair) narrows the search as the person
+changes that field. The form does not check it on submit; that is django-tomselect's own behaviour.
 
-    def __init__(self, *args, language, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["reference"].queryset = Item.objects.filter(language=language)
-```
-
-A reference outside the restriction is refused with `invalid_choice` when the form is submitted,
-as for any Django choice field. A reference already chosen when the form opens is still shown as
-chosen, even if it lies outside the restriction, and submitting it unchanged is refused.
-
-The search runs on the default database. A picker whose queryset names another database with
-`.using()` keeps its filter, but its search looks for references in the default database, not in
-the one named. Validating the submitted value still uses the database the queryset names.
-
-### Use a cache shared between processes in production
-
-A restricted picker's select carries a signed key, not the restriction itself. The restriction is
-kept in Django's default cache for a day, and the search route finds it there by the key. Each time
-the form is drawn the entry is stored again, so a form left open for less than a day keeps working.
-
-In production the default cache must be shared between the processes that serve your site, such as
-Redis, Memcached or a database or file cache. With a cache that each process keeps to itself, such
-as `LocMemCache` under more than one worker, a search can reach a process that never stored the
-restriction. That search answers 404 and the picker offers nothing. It never falls back to the
-whole catalogue. The same happens when the key was changed or the cache was cleared; reloading the
-page stores the restriction again.
-
-A dummy cache (`DummyCache`) stores nothing, so every restricted picker offers nothing. Use a real
-cache, even a local one in development.
+A `queryset=` passed to the field, and a model field's `limit_choices_to`, are not used: the search
+view decides what is offered, and `filter_by` and `exclude_by` narrow it.
 
 ## What the search matches
 
@@ -182,9 +189,10 @@ Typing narrows the choices to the references where the text appears in any one o
 
 Case does not matter. Typing `%`, `_` or a quotation mark matches those characters and nothing
 else. A reference that matches in several ways is offered once. A title or citation key that
-starts with the text comes first, and at most 20 references are offered at a time. Each is shown
-as its title (its citation key when it has no title), its year and its first contributor, preferring
-an author when it has one.
+starts with the text comes first, and at most 20 references are offered at a time, with more loaded
+as the list is scrolled. Each is shown as its title (its citation key when it has no title), its
+year and its first contributor, preferring an author when it has one. Text of more than 200
+characters is cut to 200, and text containing a NUL character is refused.
 
 ## Who may search
 

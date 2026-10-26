@@ -8,15 +8,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
-- `ItemChoiceField` in `literature.ui.picker` lets a project's own form choose one reference by
-  searching the catalogue, with a JSON search route, `literature:item-search`, behind it. See
+- `ReferenceField` in `literature.ui.picker` lets a project's own form choose one reference by
+  searching the catalogue, with a JSON search route, `literature:item-search`, behind it. It is a
+  django-tomselect field whose default points at that route, so any django-tomselect setting can be
+  passed in its `config`. See
   [How to choose a reference in your own form](docs/how-to/choosing-a-reference.md).
-- `ItemMultipleChoiceField` in `literature.ui.picker` lets a project's own form choose several
+- `ReferenceMultipleField` in `literature.ui.picker` lets a project's own form choose several
   references the same way, for a plain form or a `ManyToManyField` to `Item`.
-- A reference picker given a filtered `queryset=`, or built from a model field with
-  `limit_choices_to`, now searches only that queryset, through `SearchRestriction` in
-  `literature.ui.picker`. A restricted picker needs a cache shared between processes in production;
-  without one it offers nothing rather than too much.
+- A reference field is restricted with django-tomselect's `filter_by` and `exclude_by`. A submission
+  naming a reference outside a constant condition is refused with `invalid_choice`.
+- `django-tomselect` joins the `ui` extra. Add `django_tomselect` to `INSTALLED_APPS` after
+  `mvp_forms`, and `django_tomselect.middleware.TomSelectMiddleware` to `MIDDLEWARE`.
 - `Item.get_absolute_url()` returns the reference's page in the catalogue, `literature:item-detail`.
   It resolves only where `literature.ui.urls` is mounted.
 - `Item.doi`, `Item.doi_url` and `Item.year` give a reference's DOI, its `https://doi.org/` link and

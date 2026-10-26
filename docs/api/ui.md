@@ -49,14 +49,14 @@ and why the search and filter definition lives in exactly one place
 
 ## `literature.ui.picker`
 
-The reference picker for a project's own forms. `ItemChoiceField` chooses one reference and draws
-its select with `ItemSearchSelect`, which holds only the chosen references and loads the rest from
-the search route as the reader types. `ItemMultipleChoiceField` chooses several and draws its
-select with `ItemSearchSelectMultiple`, which does the same and adds a button to remove each chosen
-reference. `SearchRestriction` turns a field's filtered queryset into the signed key its select
-carries and back into the queryset for the search route. `item_label` names a reference the same way in the select and
-in the search results: its title or citation key, its year and its first contributor. How to use it
-is in [How to choose a reference in your own form](../how-to/choosing-a-reference.md).
+The reference picker for a project's own forms. `ReferenceField` chooses one reference and
+`ReferenceMultipleField` chooses several. Both are django-tomselect model fields whose default
+configuration points at the catalogue's search route, `literature:item-search`; a `config` passed to
+either is merged over that default. They also refuse a chosen reference outside the configuration's
+constant `filter_by` and `exclude_by` conditions. `item_label` names a reference the same way in the
+control and in the search results: its title or citation key, its year and its first contributor.
+How to use them is in
+[How to choose a reference in your own form](../how-to/choosing-a-reference.md).
 
 ```{eval-rst}
 .. automodule:: literature.ui.picker
@@ -72,10 +72,10 @@ Either can back the catalogue route, chosen through the `LITERATURE` settings ke
 described in the README — see [ADR 0033](../adr/0033-the-catalogue-view-is-chosen-by-a-setting.md)
 for why the choice is made this way rather than by routing.
 
-`ItemSearchView` answers the reference picker's searches as JSON, at most `SEARCH_LIMIT` references
-at a time, under the route name `literature:item-search`. It is open to everyone, like the
-catalogue list. A `key` in the request limits the search to the queryset a restricted picker
-signed; a key that is not valid, or whose queryset is no longer cached, answers 404 with no results.
+`ReferenceAutocompleteView` is a django-tomselect `AutocompleteModelView` that answers the
+reference picker's searches as JSON, at most `SEARCH_LIMIT` references at a time, each with its `id`
+and `label`, under the route name `literature:item-search`. It is open to everyone, like the
+catalogue list. Text containing a NUL character answers 400, and no text answers no results.
 
 `CatalogueListMixin` carries the card configuration that `ItemListView` and
 `ContributorDetailView` share — the model, the card template, the page title and the

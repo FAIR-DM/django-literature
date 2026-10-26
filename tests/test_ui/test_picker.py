@@ -8,7 +8,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from django_tomselect.app_settings import Const, TomSelectConfig
+from django_tomselect.app_settings import Const, PluginRemoveButton, TomSelectConfig
 from django_tomselect.middleware import TomSelectMiddleware
 
 from literature.choices import DateType, NameRole
@@ -236,6 +236,15 @@ class TestReferenceField:
         assert field.config.max_items == 3
         assert field.config.url == "literature:item-search"
         assert field.config.label_field == "label"
+
+    def test_a_plugin_setting_merges_over_the_default(self):
+        field = ReferenceMultipleField(
+            config=TomSelectConfig(
+                plugin_remove_button=PluginRemoveButton(title="Drop")
+            )
+        )
+
+        assert field.config.plugin_remove_button.title == "Drop"
 
     def test_a_config_given_as_a_dict_merges_over_the_default(self):
         field = ReferenceField(config={"placeholder": "Find a source"})
