@@ -5,6 +5,7 @@ from collections import defaultdict
 from functools import cached_property
 
 from django.contrib import messages
+from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db.models import Prefetch
 from django.forms import MultiWidget
 from django.shortcuts import get_object_or_404, redirect, render
@@ -30,7 +31,7 @@ from literature.importers.results import Outcome
 from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups, stored_contributor_names
 from literature.ui.fieldgroups import TYPE_DATE_SLOTS, TYPE_ROLES, FieldGroups
-from literature.ui.fields import field_sections, issued_year
+from literature.ui.fields import field_sections
 from literature.ui.filters import ItemFilterSet, ItemTableFilterSet
 from literature.ui.formlayout import DATE_SLOTS, date_field_name
 from literature.ui.forms import (
@@ -41,9 +42,10 @@ from literature.ui.forms import (
 )
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import CONTRIBUTOR_INLINES, IdentifierInline
-from literature.ui.links import doi_url, web_url
+from literature.ui.links import web_url
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
+from literature.utils.doi import doi_url
 
 #: The three related-row sets composed on both the create and update pages.
 #: Declared once here so the two views and the page's own template use the
@@ -73,6 +75,28 @@ CRUD_VIEWS = {
     "delete": "literature:{model_name}-delete",
     "import": "literature:{model_name}-import",
 }
+
+#: The model permission each write page asks for. Importing creates
+#: references, so it asks for the same permission as adding one.
+ADD_PERMISSION = "literature.add_item"
+CHANGE_PERMISSION = "literature.change_item"
+DELETE_PERMISSION = "literature.delete_item"
+
+
+class HasPermission:
+    """A ``show_<action>_action`` flag that draws a link only for users holding *permission*.
+
+    django-mvp calls a callable flag with the request user. Hiding the link is
+    courtesy only: the page it points at checks the same permission itself.
+    """
+
+    def __init__(self, permission):
+        self.permission = permission
+
+    def __call__(self, user):
+        """Return whether *user* holds the permission."""
+        return user.has_perm(self.permission)
+
 
 #: Every ``ItemType`` value mapped to the group names its form shows by
 #: default, serialised once into every write page. Built at import time: the
@@ -219,7 +243,7 @@ class CatalogueListMixin:
     # create_form_class stays unset: a thirteen-group form does not belong in
     # the list component's modal, so it renders a plain link instead.
     directory: list[str] = ["create"]
-    show_create_action = True
+    show_create_action = HasPermission(ADD_PERMISSION)
     crud_views = CRUD_VIEWS
 
     def get_queryset(self):
@@ -254,7 +278,7 @@ class ItemListView(CatalogueListMixin, MVPListView):
     empty_state_message = _("References imported or created will appear here.")
 
     directory: list[str] = ["create", "import"]
-    show_import_action = True
+    show_import_action = HasPermission(ADD_PERMISSION)
 
     def get_url_kwargs(self, action):
         """Resolve "import" as collection-level, like the "list"/"create" default."""
@@ -290,8 +314,8 @@ class ItemTableView(MVPTableView):
     template_name = "literature/ui/item_table_page.html"
     toolbar_filters = ["q", "type", "issued_year", "language"]
     directory: list[str] = ["create", "import"]
-    show_create_action = True
-    show_import_action = True
+    show_create_action = HasPermission(ADD_PERMISSION)
+    show_import_action = HasPermission(ADD_PERMISSION)
     crud_views = CRUD_VIEWS
     filterset_class = ItemTableFilterSet
     # The filters are a drawer at every width, opened from the toolbar's
@@ -369,7 +393,7 @@ class ItemTableView(MVPTableView):
         return active
 
 
-class ItemCreateView(MVPCreateView):
+class ItemCreateView(PermissionRequiredMixin, MVPCreateView):
     """Enter a reference by hand (FS-008, #74).
 
     The reference's contributors, dates and identifiers are created in the
@@ -381,11 +405,9 @@ class ItemCreateView(MVPCreateView):
     form_class = ItemForm
     template_name = "literature/ui/item_form.html"
     inlines = ITEM_INLINES
+    permission_required = ADD_PERMISSION
 
-    # Item has no get_absolute_url(), so success_url is mandatory. The
-    # "detail" shorthand only resolves once show_detail_action is set, or
-    # get_success_url() falls through to the literal path "detail" and 404s.
-    success_url = "detail"
+    # No success_url: a saved reference lands on Item.get_absolute_url().
     show_list_action = True
     show_detail_action = True
     crud_views = CRUD_VIEWS
@@ -420,7 +442,7 @@ IMPORT_FORMAT_SESSION_KEY = "literature_import_format"
 IMPORT_PREVIEW_SESSION_KEY = "literature_import_preview"
 
 
-class ItemImportView(MVPFormView):
+class ItemImportView(PermissionRequiredMixin, MVPFormView):
     """Choose a format and a file (FS-011, #103).
 
     ``model = Item`` even though the form below is not a ``ModelForm``:
@@ -432,6 +454,7 @@ class ItemImportView(MVPFormView):
     model = Item
     form_class = ImportForm
     template_name = "literature/ui/import_form.html"
+    permission_required = ADD_PERMISSION
     list_view_title = CATALOGUE_TITLE
     show_list_action = True
     crud_views = CRUD_VIEWS
@@ -493,7 +516,7 @@ class ItemImportView(MVPFormView):
         return redirect("literature:item-import-preview")
 
 
-class ItemImportPreviewView(MVPFormView):
+class ItemImportPreviewView(PermissionRequiredMixin, MVPFormView):
     """Rebuild the preview from the staged file on every GET (FS-011, #103).
 
     A dry run, not a stored result: reloading this address re-reads the same
@@ -507,6 +530,7 @@ class ItemImportPreviewView(MVPFormView):
     model = Item
     form_class = ConfirmImportForm
     template_name = "literature/ui/import_preview.html"
+    permission_required = ADD_PERMISSION
     list_view_title = CATALOGUE_TITLE
     show_list_action = True
     crud_views = CRUD_VIEWS
@@ -561,8 +585,10 @@ class ItemImportPreviewView(MVPFormView):
         return self.render_to_response(context)
 
 
-class ItemImportRestartView(View):
+class ItemImportRestartView(PermissionRequiredMixin, View):
     """Discard the staged file and return to an empty import form (FS-011, #103)."""
+
+    permission_required = ADD_PERMISSION
 
     def post(self, request, *args, **kwargs):
         """Discard the session's staged file and redirect to a fresh import form."""
@@ -574,7 +600,7 @@ class ItemImportRestartView(View):
         return redirect("literature:item-import")
 
 
-class ItemImportConfirmView(View):
+class ItemImportConfirmView(PermissionRequiredMixin, View):
     """Carry out the import a preview described, then return to the catalogue.
 
     FS-011, #103. ``ConfirmImportForm`` declares no field of consequence: the
@@ -586,6 +612,8 @@ class ItemImportConfirmView(View):
     every per-entry detail was already on the preview the reader just read,
     and the message here confirms that, not a second report.
     """
+
+    permission_required = ADD_PERMISSION
 
     def get(self, request, *args, **kwargs):
         """Refuse a bare GET; confirming is a POST-only action."""
@@ -645,7 +673,7 @@ class ItemImportConfirmView(View):
         return redirect("literature:item-list")
 
 
-class ItemUpdateView(MVPUpdateView):
+class ItemUpdateView(PermissionRequiredMixin, MVPUpdateView):
     """Correct a reference that is wrong (FS-008, #74).
 
     The reference's contributors, dates and identifiers are saved in the
@@ -657,11 +685,9 @@ class ItemUpdateView(MVPUpdateView):
     form_class = ItemForm
     template_name = "literature/ui/item_form.html"
     inlines = ITEM_INLINES
+    permission_required = CHANGE_PERMISSION
 
-    # Same shorthand and reasoning as ItemCreateView: Item has no
-    # get_absolute_url(), so success_url is mandatory, and the "detail"
-    # shorthand only resolves once show_detail_action is set.
-    success_url = "detail"
+    # No success_url: a saved reference lands on Item.get_absolute_url().
     show_list_action = True
     show_detail_action = True
     crud_views = CRUD_VIEWS
@@ -683,9 +709,7 @@ class ItemUpdateView(MVPUpdateView):
             )
         )
         context.update(contributor_datalist_context())
-        context["cancel_url"] = reverse(
-            "literature:item-detail", kwargs={"pk": self.object.pk}
-        )
+        context["cancel_url"] = self.object.get_absolute_url()
         return context
 
 
@@ -710,8 +734,8 @@ class ItemDetailView(MVPDetailView):
     # existed — turning it on earlier would have turned every reference-page
     # request into a NoReverseMatch.
     directory: list[str] = ["update", "delete"]
-    show_update_action = True
-    show_delete_action = True
+    show_update_action = HasPermission(CHANGE_PERMISSION)
+    show_delete_action = HasPermission(DELETE_PERMISSION)
 
     crud_views = CRUD_VIEWS
 
@@ -732,7 +756,7 @@ class ItemDetailView(MVPDetailView):
         context = super().get_context_data(**kwargs)
         item = self.object
         context["field_sections"] = field_sections(item)
-        context["year"] = issued_year(item)
+        context["year"] = item.year
 
         # The first role group is the byline under the title, normally the
         # authors. Any further roles (editors, translators) sit beside it.
@@ -767,7 +791,7 @@ class ItemDetailView(MVPDetailView):
         return context
 
 
-class ItemDeleteView(MVPDeleteView):
+class ItemDeleteView(PermissionRequiredMixin, MVPDeleteView):
     """Remove a reference that does not belong (FS-008, #74)."""
 
     model = Item
@@ -776,9 +800,9 @@ class ItemDeleteView(MVPDeleteView):
     # reader commits. Name records are never listed: nothing points from
     # Item to Name directly, only ItemName rows do.
     show_related_objects = True
+    permission_required = DELETE_PERMISSION
 
-    # Item has no get_absolute_url(), so success_url is mandatory; the
-    # "list" shorthand only resolves once show_list_action is set.
+    # The "list" shorthand only resolves once show_list_action is set.
     # show_detail_action is what get_back_url() below needs for "detail".
     success_url = "list"
     show_list_action = True

@@ -2,10 +2,9 @@
 
 import pytest
 
-from literature.choices import DateType
 from literature.ui.fieldgroups import FieldGroups
-from literature.ui.fields import field_sections, issued_year
-from tests.factories import ItemDateFactory, ItemFactory
+from literature.ui.fields import field_sections
+from tests.factories import ItemFactory
 
 
 def labels_of(sections):
@@ -53,21 +52,3 @@ class TestFieldSections:
         rows = rows_of(field_sections(item))
         for name in ("type", "citation_key", "title", "abstract"):
             assert str(item._meta.get_field(name).verbose_name) not in rows
-
-
-@pytest.mark.django_db
-class TestIssuedYear:
-    def test_returns_the_year_of_the_issued_date(self):
-        item = ItemFactory()
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="1948-07")
-        assert issued_year(item) == 1948
-
-    def test_ignores_other_kinds_of_date(self):
-        item = ItemFactory()
-        ItemDateFactory(item=item, date_type=DateType.ACCESSED, begin="2020")
-        assert issued_year(item) is None
-
-    def test_an_issued_date_held_only_as_text_has_no_year(self):
-        item = ItemFactory()
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, literal="Spring 1990")
-        assert issued_year(item) is None

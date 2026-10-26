@@ -312,7 +312,7 @@ No new entity, no changed field and no migration. The report renders what the im
 ## Assumptions
 
 - The import contract returns everything the report needs — an outcome, a position, a citation key where one exists, a reason on every failure and the created reference — so this feature reads it rather than extending it. If something proves missing, it is raised as its own issue against the contract rather than changed here.
-- Nothing in the front end checks permissions, so the import page is reachable by whoever can reach the catalogue, matching what FS-008 settled for creating, editing and deleting references. Import is the most consequential write the front end offers, so this is stated rather than assumed silently.
+- The import page, its preview, restart and confirm each require `literature.add_item`, the same permission as adding one reference by hand (ADR-0036).
 - The package imposes no size limit of its own on the submitted file. The import runs in the request, so what bounds a large file is the host project's upload and request limits, and the documentation says so rather than the package inventing a number.
 - Background imports are a separate feature with their own specification. Nothing here is designed around a future move off the request, because the report is what a background import would have to reproduce and it is worth building once against the simple case first.
 - Duplicate detection stays refused. ADR 0009 and ADR 0023 both settled it, and a front end that quietly acquired it would contradict the documented behaviour of the same import run started from code.

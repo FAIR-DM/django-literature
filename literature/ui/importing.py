@@ -10,8 +10,6 @@ test is ``tests/test_ui/test_importing.py``.
 from dataclasses import dataclass
 from typing import cast
 
-from django.urls import reverse
-
 from literature.importers.results import EntryResult, ImportResult, Outcome
 from literature.models import Item
 
@@ -66,9 +64,7 @@ class ImportReport:
         # always an Item, without narrowing the contract's looser type.
         item_url = None
         if entry.item is not None:
-            item_url = reverse(
-                "literature:item-detail", kwargs={"pk": cast(Item, entry.item).pk}
-            )
+            item_url = cast(Item, entry.item).get_absolute_url()
         return ImportReportRow(
             position=entry.index + 1,
             outcome=entry.outcome,

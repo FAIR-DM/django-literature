@@ -125,6 +125,11 @@ TEMPLATES = [
 
 ROOT_URLCONF = "demo.urls"
 
+# The catalogue's write pages send a visitor who is not signed in here. The
+# demo has no sign-in page of its own, so it uses the admin's, which the
+# editor ``seed_demo`` creates can use.
+LOGIN_URL = "admin:login"
+
 # mvp/base.html loads the packaged stylesheet with {% static %} unconditionally,
 # so having django.contrib.staticfiles installed is not enough on its own
 # (README.md, tests/settings.py).
