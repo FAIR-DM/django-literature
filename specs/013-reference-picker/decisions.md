@@ -77,3 +77,19 @@ all eleven were cheap enough to apply to the plan rather than carry as watch ite
   showing its reference.
 
 **ADR:** none — local to this feature's implementation, recorded in `plan.md`.
+
+## D7 — A restricted picker keeps its query in the cache
+
+**Resolved in planning (plan P-5), refined at design review.** The shared search route learns a
+restricted picker's queryset from a signed key, and the query lives in Django's default cache. It
+is the first runtime reliance on a project's cache, which a consumer has to know about.
+
+**ADR:** docs/adr/0037-a-restricted-picker-keeps-its-query-in-the-cache.md
+
+## D8 — The script offers only what the last search returned
+
+**Found in the browser check at convergence.** A chosen reference stays an option of a single
+picker's control, so with every option scored alike it was offered again on a later search that
+did not match it. The script now offers only the values the last search returned.
+
+**ADR:** none — local to the picker's script.
