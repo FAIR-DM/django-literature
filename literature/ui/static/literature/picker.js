@@ -2,8 +2,9 @@
 // server as the reader types, in place of listing the whole catalogue.
 // django-mvp-forms starts the control and sends mvp-forms:tomselect with it,
 // and this gives it a load function that asks the search route. The select
-// holds only the chosen references, so there is nothing local to match: every
-// option the server returns is kept, in the order it returned them.
+// holds only the chosen references, so there is nothing local to match: the
+// options the last search returned are offered, in the order it returned them,
+// and a chosen reference the search did not return is not.
 (function () {
   "use strict";
   if (window.literaturePicker) return;
@@ -18,9 +19,13 @@
     settings.valueField = "value";
     settings.labelField = "text";
     settings.searchField = [];
+    // The values the last search returned. A chosen reference stays an option
+    // of the control after a later search that does not match it, so it is
+    // offered only when that search returned it.
+    let found = new Set();
     settings.score = function () {
-      return function () {
-        return 1;
+      return function (option) {
+        return found.has(String(option.value)) ? 1 : 0;
       };
     };
     settings.shouldLoad = function (text) {
@@ -41,9 +46,13 @@
           return response.json();
         })
         .then(function (data) {
+          found = new Set(data.results.map(function (result) {
+            return String(result.value);
+          }));
           callback(data.results);
         })
         .catch(function () {
+          found = new Set();
           callback();
         });
     };
