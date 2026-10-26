@@ -31,10 +31,12 @@
     settings.shouldLoad = function (text) {
       return text.length > 0;
     };
+    let latest = 0;
     settings.load = function (text, callback) {
       // Drop the matches of the last search but keep what is chosen, and let
       // an earlier search be typed again and loaded again.
       control.clearOptions();
+      const request = ++latest;
       const query = new URLSearchParams({ q: text });
       if (key) query.set("key", key);
       fetch(url + "?" + query.toString(), {
@@ -46,12 +48,15 @@
           return response.json();
         })
         .then(function (data) {
+          // A slower answer to text the reader has since typed past is dropped.
+          if (request !== latest) return callback();
           found = new Set(data.results.map(function (result) {
             return String(result.value);
           }));
           callback(data.results);
         })
         .catch(function () {
+          if (request !== latest) return callback();
           found = new Set();
           callback();
         });
