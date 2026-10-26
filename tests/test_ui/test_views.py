@@ -3603,6 +3603,20 @@ class TestItemSearchView:
 
         assert count_queries() == one
 
+    def test_text_containing_a_nul_character_is_refused_before_any_query(
+        self, anonymous_client
+    ):
+        ItemFactory(title="Deep Time")
+
+        with CaptureQueriesContext(connection) as queries:
+            response = anonymous_client.get(
+                reverse("literature:item-search"), {"q": "deep\x00time"}
+            )
+
+        assert response.status_code == 400
+        assert response.json() == {"results": []}
+        assert len(queries) == 0
+
 
 @pytest.fixture
 def restriction_cache(settings):

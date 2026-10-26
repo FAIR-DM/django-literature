@@ -934,6 +934,8 @@ class ItemSearchView(View):
             if catalogue is None:
                 return JsonResponse({"results": []}, status=404)
         text = request.GET.get("q", "").strip()
+        if "\x00" in text:
+            return JsonResponse({"results": []}, status=400)
         if not text:
             return JsonResponse({"results": []})
         items = (
