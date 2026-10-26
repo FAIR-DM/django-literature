@@ -20,6 +20,18 @@ def populated_item(db):
     return item
 
 
+@pytest.fixture
+def restriction_cache(settings):
+    """Give the restriction a cache of its own, empty for each test."""
+    settings.CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+    }
+    from django.core.cache import cache
+
+    cache.clear()
+    return cache
+
+
 #: The four fields that are on ``Item`` but never on ``ItemForm``, shared
 #: by ``test_fieldgroups.py`` (which checks the field-group partition against
 #: it) and ``test_forms.py`` (which checks ``ItemForm`` itself against it).

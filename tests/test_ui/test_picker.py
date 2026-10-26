@@ -509,18 +509,6 @@ class TestItemSearchSelectAddress:
         assert client.get("/refs/search/", {"q": "x"}).status_code == 200
 
 
-@pytest.fixture
-def locmem_cache(settings):
-    """Give the restriction a cache of its own, empty for each test."""
-    settings.CACHES = {
-        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
-    }
-    from django.core.cache import cache
-
-    cache.clear()
-    return cache
-
-
 def restricted_form(queryset, name="reference"):
     class RestrictedForm(forms.Form):
         reference = ItemChoiceField(queryset=queryset)
@@ -529,7 +517,7 @@ def restricted_form(queryset, name="reference"):
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("locmem_cache")
+@pytest.mark.usefixtures("restriction_cache")
 class TestSearchRestriction:
     def test_an_unrestricted_field_carries_no_search_key(self):
         assert "data-search-key" not in select_of(ReferenceForm())["attrs"]
@@ -596,12 +584,12 @@ class TestSearchRestriction:
         assert SearchRestriction.queryset_for("") is None
 
     def test_a_signed_key_missing_from_the_cache_resolves_to_nothing(
-        self, locmem_cache
+        self, restriction_cache
     ):
         key = select_of(restricted_form(Item.objects.filter(title="x"))())["attrs"][
             "data-search-key"
         ]
-        locmem_cache.clear()
+        restriction_cache.clear()
 
         assert SearchRestriction.queryset_for(key) is None
 

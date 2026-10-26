@@ -3642,18 +3642,6 @@ class TestItemSearchView:
         assert count_queries("a" * 10_000) == count_queries("a")
 
 
-@pytest.fixture
-def restriction_cache(settings):
-    """Give the restriction a cache of its own, empty for each test."""
-    settings.CACHES = {
-        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
-    }
-    from django.core.cache import cache
-
-    cache.clear()
-    return cache
-
-
 @pytest.mark.django_db
 @pytest.mark.usefixtures("restriction_cache")
 class TestItemSearchViewRestricted:
