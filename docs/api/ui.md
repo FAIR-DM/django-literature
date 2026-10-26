@@ -47,12 +47,31 @@ and why the search and filter definition lives in exactly one place
    :show-inheritance:
 ```
 
+## `literature.ui.picker`
+
+The reference picker for a project's own forms. `ItemChoiceField` chooses one reference and draws
+its select with `ItemSearchSelect`, which holds only the chosen references and loads the rest from
+the search route as the reader types. `item_label` names a reference the same way in the select and
+in the search results: its title or citation key, its year and its first contributor. How to use it
+is in [How to choose a reference in your own form](../how-to/choosing-a-reference.md).
+
+```{eval-rst}
+.. automodule:: literature.ui.picker
+   :members:
+   :undoc-members: False
+   :show-inheritance:
+```
+
 ## `literature.ui.views`
 
 `ItemTableView` serves the catalogue as a table and `ItemListView` serves it as cards.
 Either can back the catalogue route, chosen through the `LITERATURE` settings key
 described in the README — see [ADR 0033](../adr/0033-the-catalogue-view-is-chosen-by-a-setting.md)
 for why the choice is made this way rather than by routing.
+
+`ItemSearchView` answers the reference picker's searches as JSON, at most `SEARCH_LIMIT` references
+at a time, under the route name `literature:item-search`. It is open to everyone, like the
+catalogue list.
 
 `CatalogueListMixin` carries the card configuration that `ItemListView` and
 `ContributorDetailView` share — the model, the card template, the page title and the

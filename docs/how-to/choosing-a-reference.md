@@ -95,7 +95,6 @@ as its title (its citation key when it has no title), its year and its first aut
 
 The search follows the catalogue list's read access, which is open to everyone. A reference the
 search offers is already visible on the list, so it reveals nothing the list does not. To close it,
-close the catalogue's read routes together by guarding the include where you mount them, for
-example with a decorator applied to `include("literature.ui.urls")` such as
-`django-decorator-include`'s `decorate_include`. The search is closed along with the list and the
-reference pages, and the package has no separate setting for it.
+close the catalogue's read routes together by guarding the include where you mount them. The
+search is closed along with the list and the reference pages, and the package has no separate
+setting for it.
