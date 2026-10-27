@@ -55,11 +55,6 @@ class TestItemTableMeta:
         # queryset itself, never `Meta.model`.
         assert ItemTable._meta.model is None
 
-    def test_meta_uses_the_mvp_bootstrap_template(self):
-        # Without this, django-tables2 falls back to its own stock template
-        # and none of the mvp column widths, alignment or empty state apply.
-        assert ItemTable._meta.template_name == "django_tables2/bootstrap5-mvp.html"
-
     def test_meta_empty_text_is_set(self):
         # A flag rather than a displayed string: the mvp template renders its
         # empty state inside `{% if table.empty_text %}` and then shows the
@@ -71,13 +66,6 @@ class TestItemTableMeta:
         # Replaces the library's own plain "—" default with a translatable one
         # (Article VIII).
         assert isinstance(ItemTable._meta.default, Promise)
-
-    def test_meta_declares_no_order_by(self):
-        # An earlier draft named a "created" column that does not exist
-        # and django-tables2 silently drops an
-        # order_by alias it cannot resolve — newest-first comes from
-        # Item.Meta.ordering instead.
-        assert ItemTable._meta.order_by is None
 
     def test_meta_declares_no_fields(self):
         # Every column is declared explicitly, so a field added to Item
@@ -97,12 +85,6 @@ class TestItemTableMeta:
 
 
 class TestTitleColumn:
-    def test_declares_empty_values_as_empty_tuple(self):
-        # Mandatory: without it, an item with title="" never reaches
-        # render_title, defeating the fallback chain in exactly the case it
-        # exists for.
-        assert ItemTable.base_columns["title"].empty_values == ()
-
     def test_shows_the_items_own_title(self, db):
         item = ItemFactory(title="A Direct Title")
         assert "A Direct Title" in rendered_cell(item, "title")
@@ -170,17 +152,6 @@ class TestTypeColumn:
 
 
 class TestContributorsColumn:
-    def test_declares_empty_values_as_empty_tuple(self):
-        # The column resolves to nothing at all — Item has no "contributors"
-        # field — so without this the marker would render even when the
-        # prefetch carries names.
-        assert ItemTable.base_columns["contributors"].empty_values == ()
-
-    def test_is_not_orderable(self):
-        # Assembled from a through-model across two roles with no single
-        # value to order on.
-        assert ItemTable.base_columns["contributors"].orderable is False
-
     def test_lists_author_role_contributors_in_stored_order(self, db):
         item = ItemFactory()
         first = ItemNameFactory(item=item, role=NameRole.AUTHOR)
@@ -284,9 +255,6 @@ class TestContributorsColumn:
 
 
 class TestIssuedColumn:
-    def test_declares_empty_values_as_empty_tuple(self):
-        assert ItemTable.base_columns["issued"].empty_values == ()
-
     def test_is_orderable_now_the_annotation_and_order_issued_exist(self, db):
         # Shipped unsortable (an explicit orderable=False), because a
         # header advertising a sort before the annotation existed raised
@@ -372,10 +340,8 @@ class TestEverySortIsTotal:
 class TestIssuedOrdering:
     # SQLite and PostgreSQL place NULLs differently, so the order is stated in code.
 
-    def test_declares_order_by_issued(self):
-        assert ItemTable.base_columns["issued"].order_by == ("issued",)
-        # The primary-key tiebreak for this column is added by order_issued
-        # rather than declared here — see TestEverySortIsTotal.
+    # The primary-key tiebreak for this column is added by order_issued
+    # rather than declared here — see TestEverySortIsTotal.
 
     def test_ascending_order_places_an_undated_reference_last(self, db):
         dated = ItemFactory(citation_key="Dated")

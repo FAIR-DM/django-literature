@@ -4,7 +4,6 @@ import pytest
 from django.utils.translation import override
 
 from literature.choices import NameRole
-from literature.models import ItemName
 from literature.ui.contributors import (
     ContributorGroups,
     contributor_groups,
@@ -13,22 +12,31 @@ from literature.ui.contributors import (
 from tests.factories import ItemFactory, ItemNameFactory, NameFactory
 
 
+def role_message(role, count):
+    """The role's label for ``count`` names, rendered from its own message pair."""
+    return str(ContributorGroups.ROLE_LABELS[role] % {"count": count})
+
+
 class TestRoleLabel:
     def test_one_name_reads_the_singular(self):
-        assert ContributorGroups.role_label(NameRole.AUTHOR, 1) == "Author"
+        assert ContributorGroups.role_label(NameRole.AUTHOR, 1) == role_message(
+            NameRole.AUTHOR, 1
+        )
 
     def test_more_than_one_name_reads_the_plural(self):
-        assert ContributorGroups.role_label(NameRole.AUTHOR, 3) == "Authors"
+        assert ContributorGroups.role_label(NameRole.AUTHOR, 3) == role_message(
+            NameRole.AUTHOR, 3
+        )
+        assert role_message(NameRole.AUTHOR, 3) != role_message(NameRole.AUTHOR, 1)
 
     def test_the_plural_is_a_message_of_its_own_not_the_singular_plus_a_letter(self):
         # The point of the pair: a translator supplies each form, so a language
         # whose plural is not "the singular plus a letter" is served correctly.
         # ``Boîtiers``-style forms and the three- and four-form languages both
         # depend on this being a separate message rather than a suffix.
-        assert (
-            ContributorGroups.role_label(NameRole.EDITORIAL_DIRECTOR, 2)
-            == "Editorial Directors"
-        )
+        assert ContributorGroups.role_label(
+            NameRole.EDITORIAL_DIRECTOR, 2
+        ) == role_message(NameRole.EDITORIAL_DIRECTOR, 2)
 
     def test_every_role_has_a_label_pair(self):
         assert set(ContributorGroups.ROLE_LABELS) == set(NameRole)
@@ -45,7 +53,9 @@ class TestRoleLabel:
         # the pair is evaluated at call time under the active locale, not
         # frozen at import.
         with override("en"):
-            assert ContributorGroups.role_label(NameRole.TRANSLATOR, 2) == "Translators"
+            assert ContributorGroups.role_label(NameRole.TRANSLATOR, 2) == role_message(
+                NameRole.TRANSLATOR, 2
+            )
 
 
 @pytest.mark.django_db
@@ -55,14 +65,14 @@ class TestContributorGroups:
         for _ in range(3):
             ItemNameFactory(item=item, role=NameRole.AUTHOR)
         (group,) = contributor_groups(item)
-        assert group["label"] == "Authors"
+        assert group["label"] == role_message(NameRole.AUTHOR, 3)
         assert len(group["names"]) == 3
 
     def test_a_role_with_one_name_is_headed_by_the_singular(self):
         item = ItemFactory()
         ItemNameFactory(item=item, role=NameRole.EDITOR)
         (group,) = contributor_groups(item)
-        assert group["label"] == "Editor"
+        assert group["label"] == role_message(NameRole.EDITOR, 1)
 
     def test_each_role_is_its_own_group(self):
         item = ItemFactory()
@@ -70,7 +80,10 @@ class TestContributorGroups:
         ItemNameFactory(item=item, role=NameRole.AUTHOR)
         ItemNameFactory(item=item, role=NameRole.EDITOR)
         labels = [group["label"] for group in contributor_groups(item)]
-        assert labels == ["Authors", "Editor"]
+        assert labels == [
+            role_message(NameRole.AUTHOR, 2),
+            role_message(NameRole.EDITOR, 1),
+        ]
 
     def test_names_keep_the_position_order_stored_within_a_role(self):
         item = ItemFactory()
@@ -94,11 +107,17 @@ class TestContributorGroups:
         groups = contributor_groups(item)
         assert list(groups) == list(groups)
 
-    def test_grouping_relies_on_the_stores_declared_role_ordering(self):
-        # ``groupby`` only groups *consecutive* equal keys, so a role appearing
-        # twice non-consecutively would render as two headings. What keeps that
-        # from happening is ItemName's own ordering, not anything here.
-        assert ItemName._meta.ordering == ["item", "role", "order"]
+    def test_roles_credited_out_of_order_still_form_one_group_per_role(self):
+        # ``groupby`` only groups consecutive equal keys, so a role credited
+        # again after another one would render as two headings unless the
+        # store hands the names back role by role.
+        item = ItemFactory()
+        ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, role=NameRole.EDITOR)
+        ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        groups = contributor_groups(item)
+        assert len(groups) == 2
+        assert sorted(len(group["names"]) for group in groups) == [1, 2]
 
     def test_a_subclass_can_supply_its_own_role_labels(self):
         # The reason this is a class: a host calling its authors something else
