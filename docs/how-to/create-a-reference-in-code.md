@@ -1,8 +1,8 @@
-# How to create a reference in code
+# Create a reference in code
 
 Create a reference, its contributors, its dates and its identifiers directly through the models,
 as a data migration or a script would. To create one from a CSL JSON record instead, see
-[How to import CSL JSON](import-csl-json.md).
+[Import CSL JSON](import-csl-json.md).
 
 ## Steps
 

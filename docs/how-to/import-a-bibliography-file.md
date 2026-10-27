@@ -1,8 +1,8 @@
-# How to import a bibliography file
+# Import a bibliography file
 
 Turn a BibTeX or RIS file exported from another tool into references in the catalogue, from the
 front end. To import a file from code instead, see
-[How to import a bibliography file in code](import-a-bibliography-file-in-code.md).
+[Import a bibliography file in code](import-a-bibliography-file-in-code.md).
 
 ## Before you start
 

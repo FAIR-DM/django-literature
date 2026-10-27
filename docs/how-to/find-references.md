@@ -1,4 +1,4 @@
-# How to find references
+# Find references
 
 Find stored references by type, contributor, identifier or date with ordinary Django queries.
 Contributors, dates and identifiers are related records, so a query reaches them through

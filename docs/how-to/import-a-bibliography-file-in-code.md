@@ -1,8 +1,8 @@
-# How to import a bibliography file in code
+# Import a bibliography file in code
 
 Import a BibTeX or RIS file from a script, a management command or a view of your own. A project
 with the front end installed can also import from the catalogue, as in
-[How to import a bibliography file](import-a-bibliography-file.md).
+[Import a bibliography file](import-a-bibliography-file.md).
 
 ## Steps
 

@@ -1,8 +1,8 @@
-# How to import CSL JSON
+# Import CSL JSON
 
 Store a reference, or a list of them, from CSL JSON, the format citeproc-js, Pandoc and most
 reference managers exchange. To import a BibTeX or RIS file, see
-[How to import a bibliography file in code](import-a-bibliography-file-in-code.md).
+[Import a bibliography file in code](import-a-bibliography-file-in-code.md).
 
 ## Import one record
 
