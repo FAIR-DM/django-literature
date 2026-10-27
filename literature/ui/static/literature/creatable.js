@@ -1,7 +1,5 @@
-// Lets a Tom Select control marked data-create take a value typed in, beside
-// the choices it offers: a keyword not used before, an identifier type outside
-// the known six. django-mvp-forms starts the control and sends
-// mvp-forms:tomselect with it, and this turns its create setting on.
+// Turns Tom Select's create setting on for controls marked data-create (CreatableSelect
+// in literature/ui/forms.py), when django-mvp-forms sends mvp-forms:tomselect.
 (function () {
   "use strict";
   if (window.literatureCreatable) return;

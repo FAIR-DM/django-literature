@@ -1,9 +1,7 @@
 {% load i18n crispy_forms_filters mvp %}
 {% comment %}
-  One contributor row. Its first element is the row, because mvpFormset clones the empty row's
-  first element when a row is added, and no <template> may sit inside it, since mvpFormset finds
-  the set's own template with querySelector. The row's behaviour is literatureContributor, in
-  literature/ui/static/literature/item-form.js.
+  mvpFormset clones the empty row's first element, so that is the row, and no <template> may sit
+  inside it: mvpFormset finds the set's own with querySelector.
 {% endcomment %}
 <div data-contributor-row
      x-data="mvpFormsetRow({{ form.DELETE.value|yesno:'true,false,false' }})"

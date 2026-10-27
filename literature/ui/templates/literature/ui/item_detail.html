@@ -2,13 +2,11 @@
 {% load i18n %}
 {% block page.content %}
   <div class="flex flex-col gap-8">
-    {# What it is, who made it and where it appeared: read before anything else. #}
     <div class="flex flex-col gap-2">
       <div class="flex flex-wrap items-center gap-2">
         <c-badge variant="primary" soft text="{{ object.get_type_display }}" />
         {% if year %}<c-mvp.text size="sm" muted tight>{{ year }}</c-mvp.text>{% endif %}
       </div>
-      {# Built by the view so the role heading can pluralise — literature/ui/contributors.py. #}
       {% if byline %}
         <c-mvp.text size="lg" tight>
           {% for name in byline.names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}
@@ -54,7 +52,6 @@
                 <c-mvp.text size="sm" muted tight>{{ identifier.type }}</c-mvp.text>
               </th>
               <td class="break-words">
-                {# identifier.href is set by the view, and only for an allowlisted scheme or a DOI (FS-006). #}
                 {% if identifier.href %}
                   <c-link variant="primary" href="{{ identifier.href }}">{{ identifier.value }}</c-link>
                 {% else %}
@@ -86,7 +83,6 @@
       </c-mvp.section>
     {% endif %}
 
-    {# One section per field group, in the edit form's order; empty groups are left out. #}
     {% for section in field_sections %}
       <c-mvp.section title="{{ section.label }}" level="3">
         <c-table size="sm" aria-label="{{ section.label }}">

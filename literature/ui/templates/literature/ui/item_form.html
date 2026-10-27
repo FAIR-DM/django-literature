@@ -1,10 +1,8 @@
 {% extends "form_view.html" %}
 {% load i18n static crispy_forms_tags %}
 {% comment %}
-  The write form for one reference. ItemForm's helper (literature/ui/formlayout.py) draws the
-  three tabs and every field; the contributor, date and identifier sets are drawn inside the
-  Reference tab by the templates it includes. page.content is overridden in full so the error
-  summary sits above the form and the form's own buttons are this page's.
+  ItemForm's helper (literature/ui/formlayout.py) draws the four tabs and every field.
+  page.content is overridden in full so the error summary sits above the form.
 {% endcomment %}
 {% block head %}
   {{ block.super }}

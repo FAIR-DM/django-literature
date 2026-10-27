@@ -399,6 +399,9 @@ class Item(models.Model):
 
         Reads ``item_identifiers.all()``, so a queryset that prefetches
         ``item_identifiers`` answers it without a query per item.
+
+        Returns:
+            The DOI value, or ``None``.
         """
         for identifier in self.item_identifiers.all():
             if identifier.type == IdentifierType.DOI:
@@ -417,6 +420,9 @@ class Item(models.Model):
         An issued date held only as text, such as "in press", has no year.
         Reads ``item_dates.all()``, so a queryset that prefetches
         ``item_dates`` answers it without a query per item.
+
+        Returns:
+            The year, or ``None``.
         """
         for item_date in self.item_dates.all():
             if item_date.date_type == DateType.ISSUED and item_date.begin:

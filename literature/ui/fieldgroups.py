@@ -4,10 +4,9 @@ from django.utils.translation import gettext_lazy as _
 
 from literature.choices import DateType, ItemType, NameRole
 
-#: Field membership, one field in exactly one group (``TestFieldPartition``). CSL
-#: publishes no type-to-field mapping, so this one is authored against the criteria
-#: in specs/008-add-edit-remove-references/plan.md D-1. It lives in ``literature/ui/``
-#: because it governs presentation, never what can be stored.
+#: Field membership, one field in exactly one group. CSL publishes no type-to-field
+#: mapping, so this one follows specs/008-add-edit-remove-references/plan.md D-1; it
+#: governs presentation, never what can be stored.
 GROUPS: dict[str, tuple[str, ...]] = {
     "core": ("type", "citation_key", "title", "abstract"),
     "general": (
@@ -80,10 +79,9 @@ GROUP_LABELS = {
     "physical": _("Physical description"),
 }
 
-#: Groups each type shows beyond ``core`` and ``general``. The code beside each entry
-#: is the criterion that decided it, defined in
-#: specs/008-add-edit-remove-references/plan.md D-1. ``titles`` is never assigned: no
-#: criterion names it, so it is reached only through "Show every field".
+#: Groups each type shows beyond ``core`` and ``general``; the code beside each entry is
+#: the criterion that decided it (specs/008-add-edit-remove-references/plan.md D-1).
+#: ``titles`` is assigned to no type, so it is reached only through "Show every field".
 TYPE_GROUPS: dict[str, frozenset[str]] = {
     ItemType.ARTICLE: frozenset({"numbering"}),  # C4a
     ItemType.ARTICLE_JOURNAL: frozenset({"container", "numbering"}),  # C2 + C2a + C4a
@@ -138,10 +136,9 @@ TYPE_GROUPS: dict[str, frozenset[str]] = {
     ItemType.WEBPAGE: frozenset({"container"}),  # C1
 }
 
-#: Date slots that lead for each type beyond ``issued``, which is always on. The code
-#: beside each entry is the criterion that decided it, defined in
-#: specs/012-reference-contributors-dates/plan.md D-5. A sibling of ``TYPE_GROUPS`` rather than
-#: part of ``GROUPS``, because slots are ``ItemDate`` rows, not ``Item`` columns (D-5).
+#: Date slots that lead for each type beyond ``issued``, which is always on; the code
+#: beside each entry is the criterion that decided it. Both are defined in
+#: specs/012-reference-contributors-dates/plan.md D-5, which also says why this is not in ``GROUPS``.
 TYPE_DATE_SLOTS: dict[str, frozenset[str]] = {
     ItemType.ARTICLE: frozenset(),  # DC6
     ItemType.ARTICLE_JOURNAL: frozenset({DateType.AVAILABLE_DATE}),  # DC2
