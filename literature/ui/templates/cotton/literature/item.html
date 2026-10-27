@@ -19,11 +19,11 @@
   {% with authors=item.authors editors=item.editors %}
     {% if authors %}
       <c-mvp.text size="sm" tight only>
-        {% for name in authors|slice:":3" %}{% if link %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}" only>{{ name }}</c-link>{% else %}{{ name }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% if authors|length > 3 %} {% translate "et al." %}{% endif %}
+        {% for name in authors|slice:":10" %}{% if link %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}" only>{{ name }}</c-link>{% else %}{{ name }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% if authors|length > 10 %} {% translate "et al." %}{% endif %}
       </c-mvp.text>
     {% elif editors %}
       <c-mvp.text size="sm" tight only>
-        {% for name in editors|slice:":3" %}{% if link %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}" only>{{ name }}</c-link>{% else %}{{ name }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% if editors|length > 3 %} {% translate "et al." %}{% endif %}
+        {% for name in editors|slice:":10" %}{% if link %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}" only>{{ name }}</c-link>{% else %}{{ name }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% if editors|length > 10 %} {% translate "et al." %}{% endif %}
         {% blocktranslate count counter=editors|length %}(ed.){% plural %}(eds.){% endblocktranslate %}
       </c-mvp.text>
     {% endif %}

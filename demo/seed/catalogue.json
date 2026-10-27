@@ -975,5 +975,83 @@
         ]
       ]
     }
+  },
+  {
+    "citation-key": "Abbott2016",
+    "type": "article-journal",
+    "language": "en",
+    "title": "Observation of Gravitational Waves from a Binary Black Hole Merger",
+    "author": [
+      {
+        "family": "Abbott",
+        "given": "B. P."
+      },
+      {
+        "family": "Abbott",
+        "given": "R."
+      },
+      {
+        "family": "Abbott",
+        "given": "T. D."
+      },
+      {
+        "family": "Abernathy",
+        "given": "M. R."
+      },
+      {
+        "family": "Acernese",
+        "given": "F."
+      },
+      {
+        "family": "Ackley",
+        "given": "K."
+      },
+      {
+        "family": "Adams",
+        "given": "C."
+      },
+      {
+        "family": "Adams",
+        "given": "T."
+      },
+      {
+        "family": "Addesso",
+        "given": "P."
+      },
+      {
+        "family": "Adhikari",
+        "given": "R. X."
+      },
+      {
+        "family": "Adya",
+        "given": "V. B."
+      },
+      {
+        "family": "Affeldt",
+        "given": "C."
+      },
+      {
+        "family": "Agathos",
+        "given": "M."
+      },
+      {
+        "family": "Agatsuma",
+        "given": "K."
+      }
+    ],
+    "container-title": "Physical Review Letters",
+    "volume": "116",
+    "issue": "6",
+    "page": "061102",
+    "issued": {
+      "date-parts": [
+        [
+          2016,
+          2,
+          11
+        ]
+      ]
+    },
+    "DOI": "10.1103/PhysRevLett.116.061102"
   }
 ]
