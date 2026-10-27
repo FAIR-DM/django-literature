@@ -560,7 +560,7 @@ item = result.created[0].item
 print(item.custom["bibtex"])   # {'file': ':papers/curie1898.pdf:PDF', 'owner': 'sam', ...}
 ```
 
-[What maps to what](https://django-literature.readthedocs.io/en/latest/reference/bibtex-mapping.html) is
+[What maps to what](https://fair-dm.github.io/django-literature/reference/bibtex-mapping.html) is
 generated from the mapping tables themselves, so it cannot fall out of step with the code.
 
 #### Reading RIS
@@ -587,7 +587,7 @@ item = result.created[0].item
 print(item.custom["ris"])   # {'C7': 'e70142', 'N1': 'Funding: NIH grant R01-GM12345'}
 ```
 
-[What maps to what](https://django-literature.readthedocs.io/en/latest/reference/ris-mapping.html) is
+[What maps to what](https://fair-dm.github.io/django-literature/reference/ris-mapping.html) is
 generated from the mapping tables themselves too, the same way as BibTeX's own page.
 
 Adding a further format means writing a `BibFormat` subclass with a parser and a conversion to CSL

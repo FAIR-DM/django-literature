@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- **`upgrade_literature` no longer fails on PostgreSQL when a project's foreign key has a long
+  name.** It added the foreign key to `literature_item` before the one to the old table was gone,
+  and PostgreSQL cuts both constraint names to the same 63 characters, so the command stopped with
+  "constraint … already exists" and changed nothing. A table and column whose names together pass
+  31 characters, such as `dataset_datasetliteraturerelation.literature_item_id`, was enough. The
+  old constraint is now dropped first.
+- The README's links to the BibTeX and RIS mapping pages lead to the published documentation.
+
 ## [v0.3.0] - 2026-10-27
 
 ### Added

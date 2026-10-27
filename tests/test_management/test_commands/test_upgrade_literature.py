@@ -10,7 +10,7 @@ from literature.choices import DateType, IdentifierType, NameRole
 from literature.models import Item
 from tests.factories import CitationFactory, ItemFactory
 from tests.fixtures.legacy_schema import LEGACY_MIGRATIONS, LEGACY_TABLES
-from tests.host.models import Citation
+from tests.host.models import Citation, ReadingListEntry
 
 PAPER = {
     "id": "pollack1993",
@@ -100,6 +100,23 @@ class TestUpgradeLiterature:
         with connection.cursor() as cursor:
             constraints = connection.introspection.get_constraints(
                 cursor, Citation._meta.db_table
+            )
+        assert [
+            constraint["foreign_key"]
+            for constraint in constraints.values()
+            if constraint["columns"] == ["reference_id"] and constraint["foreign_key"]
+        ] == [("literature_item", "id")]
+
+    def test_points_a_host_foreign_key_with_a_shortened_name_at_the_current_table(
+        self, legacy_item
+    ):
+        legacy_item(**PAPER)
+
+        call_command("upgrade_literature")
+
+        with connection.cursor() as cursor:
+            constraints = connection.introspection.get_constraints(
+                cursor, ReadingListEntry._meta.db_table
             )
         assert [
             constraint["foreign_key"]

@@ -132,4 +132,20 @@ LEGACY_OPERATIONS = [
             ],
         ),
     ),
+    (
+        "host",
+        migrations.CreateModel(
+            name="ReadingListEntry",
+            fields=[
+                ("id", id_field()),
+                (
+                    "reference",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="literature.literatureitem",
+                    ),
+                ),
+            ],
+        ),
+    ),
 ]
