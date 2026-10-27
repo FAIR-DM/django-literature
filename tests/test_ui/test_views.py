@@ -400,10 +400,7 @@ class TestTheCardListStaysAvailable:
         # literature package itself, so a project routing at ItemListView
         # needs to write nothing of its own to get the card list.
         package_root = Path(literature.__file__).resolve().parent
-        for template_name in (
-            "literature/ui/item_list_item.html",
-            "literature/ui/contributor_item.html",
-        ):
+        for template_name in ("literature/ui/item_list_item.html",):
             origin = Path(get_template(template_name).origin.name).resolve()
             assert package_root in origin.parents, (
                 f"{template_name} resolved outside the package at {origin}"

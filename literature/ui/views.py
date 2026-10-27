@@ -1,7 +1,6 @@
 """Views for the opt-in front end."""
 
 import json
-from collections import defaultdict
 from functools import cached_property
 
 from django.contrib import messages
@@ -862,8 +861,6 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
     lists, which is the only thing here the base class does not already know.
     """
 
-    list_item_template = "literature/ui/contributor_item.html"
-
     empty_state_heading = _("Not credited on anything yet")
     empty_state_message = _(
         "This contributor has no credited references in the catalogue."
@@ -893,26 +890,6 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
             {"text": CATALOGUE_TITLE, "href": reverse("literature:item-list")},
             {"text": self.get_page_title()},
         ]
-
-    def get_context_data(self, **kwargs):
-        """Annotate each page item with the role(s) this contributor held on it."""
-        context = super().get_context_data(**kwargs)
-
-        # list() forces the page's queryset now, caching it in place, so the
-        # annotation below costs no extra query.
-        items_on_page = list(context["object_list"])
-
-        # The role(s) *this* contributor held on each item, from a single
-        # further query — not one per row.
-        roles_by_item = defaultdict(list)
-        for item_name in ItemName.objects.filter(
-            name=self.contributor, item__in=items_on_page
-        ):
-            roles_by_item[item_name.item_id].append(item_name.get_role_display())
-        for page_item in items_on_page:
-            page_item.credited_roles = roles_by_item[page_item.id]
-
-        return context
 
 
 class ReferenceAutocompleteView(AutocompleteModelView):

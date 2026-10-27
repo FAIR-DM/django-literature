@@ -1,11 +1,6 @@
 {% load i18n %}
 <c-mvp.card>
   <c-literature.item :item="object" abstract>
-    {% comment %}
-      The contributor page's credit row is this row plus its own roles line (FR-034), so it extends
-      this template and fills the block rather than restating the card.
-    {% endcomment %}
-    {% block credited_roles %}{% endblock %}
     <c-mvp.text size="xs" muted tight class="mt-1">{% translate "Cite key" %}: {{ object.citation_key }}</c-mvp.text>
   </c-literature.item>
 </c-mvp.card>
