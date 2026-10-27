@@ -75,3 +75,57 @@ def legacy_database(transactional_db):
     yield legacy_apps
     with connection.constraint_checks_disabled():
         restore_current_schema()
+
+
+@pytest.fixture
+def legacy_item(legacy_database):
+    """Return a function that stores a reference the way the old package did.
+
+    ``item`` is the reference's CSL JSON; its ``type`` and ``title`` are kept on the
+    row as well.
+    """
+
+    def create(citation_key="pollack1993", **item):
+        LiteratureItem = legacy_database.get_model("literature", "LiteratureItem")
+        return LiteratureItem.objects.create(
+            citation_key=citation_key,
+            type=item.get("type", "article-journal"),
+            title=item.get("title", ""),
+            item=item,
+        )
+
+    return create
+
+
+@pytest.fixture
+def legacy_tag(legacy_database):
+    """Return a function that stores an old-schema tag."""
+
+    def create(name):
+        return legacy_database.get_model("literature", "Tag").objects.create(name=name)
+
+    return create
+
+
+@pytest.fixture
+def legacy_collection(legacy_database):
+    """Return a function that stores an old-schema collection."""
+
+    def create(name):
+        return legacy_database.get_model("literature", "Collection").objects.create(
+            name=name
+        )
+
+    return create
+
+
+@pytest.fixture
+def legacy_citation(legacy_database):
+    """Return a function that stores a host record citing the old reference ``reference_id``."""
+
+    def create(reference_id):
+        return legacy_database.get_model("host", "Citation").objects.create(
+            reference_id=reference_id
+        )
+
+    return create
