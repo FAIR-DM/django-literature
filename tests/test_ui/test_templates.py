@@ -726,16 +726,6 @@ def render_reference(item, **attrs):
     )
 
 
-def credit(item, role, count):
-    """Credit ``count`` new names on ``item`` in ``role``, in order, and return them."""
-    return [
-        ItemNameFactory(
-            item=item, role=role, name=NameFactory(family=f"Family{n:02}")
-        ).name
-        for n in range(count)
-    ]
-
-
 @pytest.mark.django_db
 class TestReferenceComponent:
     def test_the_title_links_to_the_reference_page(self):
@@ -760,7 +750,7 @@ class TestReferenceComponent:
         assert f'href="{item.get_absolute_url()}"' not in html
 
     def test_without_links_it_renders_where_the_catalogue_is_not_mounted(
-        self, settings
+        self, credit, settings
     ):
         settings.ROOT_URLCONF = "tests.urls_core"
         item = ItemFactory(title="Unlinked Reference")
@@ -776,7 +766,7 @@ class TestReferenceComponent:
 
         assert "<h2" in html
 
-    def test_each_author_links_to_their_contributor_page(self):
+    def test_each_author_links_to_their_contributor_page(self, credit):
         item = ItemFactory()
         (author,) = credit(item, NameRole.AUTHOR, 1)
 
@@ -786,7 +776,7 @@ class TestReferenceComponent:
             reverse("literature:contributor-detail", kwargs={"pk": author.pk}) in html
         )
 
-    def test_ten_authors_are_named_in_full(self):
+    def test_ten_authors_are_named_in_full(self, credit):
         item = ItemFactory()
         authors = credit(item, NameRole.AUTHOR, 10)
 
@@ -795,7 +785,7 @@ class TestReferenceComponent:
         assert all(author.family in html for author in authors)
         assert "et al." not in html
 
-    def test_beyond_ten_authors_the_rest_are_et_al(self):
+    def test_beyond_ten_authors_the_rest_are_et_al(self, credit):
         item = ItemFactory()
         authors = credit(item, NameRole.AUTHOR, 11)
 
@@ -805,7 +795,7 @@ class TestReferenceComponent:
         assert authors[10].family not in html
         assert "et al." in html
 
-    def test_with_authors_the_editors_are_left_out(self):
+    def test_with_authors_the_editors_are_left_out(self, credit):
         item = ItemFactory()
         credit(item, NameRole.AUTHOR, 1)
         editor = ItemNameFactory(
@@ -817,7 +807,9 @@ class TestReferenceComponent:
         assert editor.family not in html
 
     @pytest.mark.parametrize(("count", "mark"), [(1, "(ed.)"), (2, "(eds.)")])
-    def test_without_authors_the_editors_stand_in_marked_as_editors(self, count, mark):
+    def test_without_authors_the_editors_stand_in_marked_as_editors(
+        self, credit, count, mark
+    ):
         item = ItemFactory()
         editors = credit(item, NameRole.EDITOR, count)
 
@@ -882,7 +874,7 @@ class TestReferenceComponent:
         assert "Extra line for the host" in html
 
     def test_a_prefetched_item_renders_without_querying(
-        self, django_assert_num_queries
+        self, credit, django_assert_num_queries
     ):
         item = ItemFactory()
         credit(item, NameRole.AUTHOR, 3)

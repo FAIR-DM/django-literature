@@ -13,6 +13,7 @@ from tests.factories import (
     ItemFactory,
     ItemIdentifierFactory,
     ItemNameFactory,
+    NameFactory,
 )
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -68,6 +69,24 @@ def add_items(db):
             ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=year)
 
     return add
+
+
+@pytest.fixture
+def credit(db):
+    """Return a function that credits ``count`` new names on an item in a role.
+
+    The names are returned in the order they were credited.
+    """
+
+    def credit_names(item, role, count):
+        return [
+            ItemNameFactory(
+                item=item, role=role, name=NameFactory(family=f"Family{n:02}")
+            ).name
+            for n in range(count)
+        ]
+
+    return credit_names
 
 
 @pytest.fixture
