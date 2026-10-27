@@ -27,7 +27,15 @@ INSTALLED_APPS = [
     "daisy_cotton",
     "crispy_forms",
     "mvp_forms",
+    "django_tomselect",
     "literature.ui",
+]
+
+# django-tomselect reads the request it is rendering for; django-mvp-forms
+# documents this setup.
+MIDDLEWARE = [
+    *MIDDLEWARE,  # noqa: F405
+    "django_tomselect.middleware.TomSelectMiddleware",
 ]
 
 # Both required together; see demo/settings.py for why (FS-008).

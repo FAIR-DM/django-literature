@@ -8,8 +8,10 @@ One module declares what the catalogue is searchable and filterable by, so both 
 table and the card presentation narrow to the same set of references.
 
 - `SEARCH_FIELDS` — the ORM paths a search matches: citation key, the three title
-  fields, container title, and every credited contributor's family, given and literal
-  name. `ItemFilterSet.q` searches them.
+  fields, container title, every credited contributor's family, given and literal
+  name, and every identifier's value. `ItemFilterSet.q` searches them with
+  `CatalogueSearchFilter`, django-mvp's `SearchFilter` reading each word as a DOI would be
+  stored. The catalogue and the reference picker's autocomplete view share it.
 - `ItemFilterSet` — the search and the three filters: item type, issued year and
   language. It lists every filter explicitly and pins `Meta.fields` to an empty list,
   so nothing is generated over fields the catalogue does not filter on. A contributor
@@ -47,12 +49,37 @@ and why the search and filter definition lives in exactly one place
    :show-inheritance:
 ```
 
+## `literature.ui.picker`
+
+The reference picker for a project's own forms. `ReferenceField` chooses one reference and
+`ReferenceMultipleField` chooses several. Both are django-tomselect model fields whose default
+configuration points at the catalogue's autocomplete route, `literature:item-autocomplete`. A `config` passed to
+either is merged over that default. Both inherit that default and the restriction check from
+`ReferencePickerMixin`, which is not used on its own. They also refuse a chosen reference outside the configuration's
+constant `filter_by` and `exclude_by` conditions. `item_label` names a reference the same way in the
+control and in the search results: its title or citation key, its year and its first contributor.
+How to use them is in
+[How to choose a reference in your own form](../how-to/choosing-a-reference.md).
+
+```{eval-rst}
+.. automodule:: literature.ui.picker
+   :members:
+   :undoc-members: False
+   :show-inheritance:
+```
+
 ## `literature.ui.views`
 
 `ItemTableView` serves the catalogue as a table and `ItemListView` serves it as cards.
 Either can back the catalogue route, chosen through the `LITERATURE` settings key
 described in the README — see [ADR 0033](../adr/0033-the-catalogue-view-is-chosen-by-a-setting.md)
 for why the choice is made this way rather than by routing.
+
+`ReferenceAutocompleteView` is a django-tomselect `AutocompleteModelView` that answers the
+reference picker's searches as JSON, at most `SEARCH_LIMIT` references at a time, each with its `id`
+and `label`, under the route name `literature:item-autocomplete`. It is open to everyone, like the
+catalogue list. Text containing a NUL character answers 400. No text answers the first page of
+the catalogue by title.
 
 `CatalogueListMixin` carries the card configuration that `ItemListView` and
 `ContributorDetailView` share — the model, the card template, the page title and the

@@ -19,11 +19,13 @@ from django_filters import fields as filter_fields
 from mvp.filters import SearchFilter
 
 from literature.choices import DateType, ItemType
+from literature.importers.normalizers import IdentifierNormalizer
 from literature.models import Item, ItemDate
 
 #: The ORM paths a catalogue search matches against: the item's own
-#: identity and title fields, plus every contributor's name parts regardless
-#: of role. Declared once here and read by ``ItemFilterSet.q``.
+#: identity and title fields, every contributor's name parts regardless of
+#: role, and its identifiers. Declared once here and read by
+#: ``ItemFilterSet.q``, which the catalogue and the reference picker share.
 SEARCH_FIELDS = [
     "citation_key",
     "title",
@@ -33,7 +35,24 @@ SEARCH_FIELDS = [
     "item_names__name__family",
     "item_names__name__given",
     "item_names__name__literal",
+    "item_identifiers__value",
 ]
+
+
+class CatalogueSearchFilter(SearchFilter):
+    """django-mvp's search, with each word read as a DOI would be stored.
+
+    A DOI pasted with its ``https://doi.org/`` address or a ``doi:`` label in
+    front finds the reference that stores the bare DOI. A word that is only
+    such a prefix searches nothing.
+    """
+
+    def filter(self, qs, value):
+        """Strip DOI prefixes from each word, then search as django-mvp does."""
+        words = (
+            IdentifierNormalizer.normalize_doi(word) for word in (value or "").split()
+        )
+        return super().filter(qs, " ".join(word for word in words if word))
 
 
 class LanguageFilter(django_filters.ChoiceFilter):
@@ -180,7 +199,7 @@ class ItemFilterSet(django_filters.FilterSet):
     Search covers contributor names, so there is no separate contributor filter.
     """
 
-    q = SearchFilter(fields=SEARCH_FIELDS)
+    q = CatalogueSearchFilter(fields=SEARCH_FIELDS)
 
     # MultipleChoiceFilter, not ChoiceFilter: this filter's own worked
     # example — "articles or chapters, from 2019" — widens type to either

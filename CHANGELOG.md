@@ -8,6 +8,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- `ReferenceField` in `literature.ui.picker` lets a project's own form choose one reference by
+  searching the catalogue, with a JSON search route, `literature:item-autocomplete`, behind it. It is a
+  django-tomselect field whose default points at that route, so any django-tomselect setting can be
+  passed in its `config`. Opening it shows the first references by title, and typing narrows them.
+  See
+  [How to choose a reference in your own form](docs/how-to/choosing-a-reference.md).
+- `ReferenceMultipleField` in `literature.ui.picker` lets a project's own form choose several
+  references the same way, for a plain form or a `ManyToManyField` to `Item`.
+- A reference field is restricted with django-tomselect's `filter_by` and `exclude_by`. A submission
+  naming a reference outside a constant condition is refused with `invalid_choice`.
+- `django-tomselect` joins the `ui` extra. Add `django_tomselect` to `INSTALLED_APPS` after
+  `mvp_forms`, and `django_tomselect.middleware.TomSelectMiddleware` to `MIDDLEWARE`.
 - `Item.get_absolute_url()` returns the reference's page in the catalogue, `literature:item-detail`.
   It resolves only where `literature.ui.urls` is mounted.
 - `Item.doi`, `Item.doi_url` and `Item.year` give a reference's DOI, its `https://doi.org/` link and
@@ -16,6 +28,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **The catalogue's search also matches identifiers.** A reference is found by its DOI, ISBN or any
+  other identifier, and a DOI is found with or without a `https://doi.org/` address or `doi:` label
+  in front. The reference picker uses the same search.
 - **The catalogue's write pages require Django's model permissions.** Adding a reference and every
   import page require `literature.add_item`, editing requires `literature.change_item`, and
   deleting requires `literature.delete_item`. A visitor who is not signed in is sent to

@@ -50,6 +50,11 @@ urlpatterns = [
         views.ItemImportConfirmView.as_view(),
         name="item-import-confirm",
     ),
+    path(
+        "autocomplete/",
+        views.ReferenceAutocompleteView.as_view(),
+        name="item-autocomplete",
+    ),
     path("<int:pk>/", views.ItemDetailView.as_view(), name="item-detail"),
     path("<int:pk>/update/", views.ItemUpdateView.as_view(), name="item-update"),
     path("<int:pk>/delete/", views.ItemDeleteView.as_view(), name="item-delete"),

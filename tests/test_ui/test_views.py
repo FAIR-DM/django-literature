@@ -20,12 +20,13 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 import literature
-from literature.choices import DateType, ItemType, NameRole
+from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.converters import from_csl_json, to_csl_json
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
 from literature.ui.fieldgroups import FieldGroups
 from literature.ui.formlayout import SECTION_ORDER
 from literature.ui.staging import StagedUpload
+from literature.ui.views import SEARCH_LIMIT
 from tests.factories import (
     ItemDateFactory,
     ItemFactory,
@@ -3425,3 +3426,247 @@ class TestWriteLinksFollowPermission:
 
         assert reverse("literature:item-update", kwargs={"pk": item.pk}) in content
         assert reverse("literature:item-delete", kwargs={"pk": item.pk}) in content
+
+
+@pytest.mark.django_db
+class TestReferenceAutocompleteView:
+    @staticmethod
+    def search(client, text):
+        response = client.get(reverse("literature:item-autocomplete"), {"q": text})
+        assert response.status_code == 200
+        return response.json()["results"]
+
+    @staticmethod
+    def values(results):
+        return [result["id"] for result in results]
+
+    def test_the_route_reverses_under_the_catalogue_prefix(self):
+        assert reverse("literature:item-autocomplete") == "/catalogue/autocomplete/"
+
+    def test_a_result_carries_the_pk_and_the_label(self, anonymous_client):
+        item = ItemFactory(title="Deep Time")
+
+        (result,) = self.search(anonymous_client, "deep")
+
+        assert result["id"] == item.pk
+        assert "Deep Time" in result["label"]
+
+    @pytest.mark.parametrize(
+        "field",
+        ["title", "citation_key"],
+    )
+    def test_matches_a_part_of_the_title_or_citation_key(self, anonymous_client, field):
+        item = ItemFactory(**{field: "xylophone-marker"})
+        ItemFactory()
+
+        results = self.search(anonymous_client, "LOPHONE-mar")
+
+        assert self.values(results) == [item.pk]
+
+    def test_matches_a_contributors_family_name(self, anonymous_client):
+        item = ItemFactory(title="Unrelated")
+        ItemNameFactory(item=item, name=NameFactory(family="Quillfeather"))
+        ItemFactory()
+
+        assert self.values(self.search(anonymous_client, "quillfea")) == [item.pk]
+
+    def test_matches_a_contributors_literal_name(self, anonymous_client):
+        item = ItemFactory(title="Unrelated")
+        organisation = NameFactory(family="", given="", literal="Bureau of Quillwork")
+        ItemNameFactory(item=item, name=organisation)
+        ItemFactory()
+
+        assert self.values(self.search(anonymous_client, "of quillwork")) == [item.pk]
+
+    @pytest.mark.parametrize(
+        "typed",
+        [
+            "10.5555/abc.123",
+            "10.5555/ABC.123",
+            "https://doi.org/10.5555/abc.123",
+            "http://dx.doi.org/10.5555/abc.123",
+            "https://dx.doi.org/10.5555/abc.123",
+            "doi:10.5555/abc.123",
+            "DOI:10.5555/abc.123",
+            "HTTPS://DOI.ORG/10.5555/ABC.123",
+        ],
+    )
+    def test_matches_a_doi_however_it_is_typed(self, anonymous_client, typed):
+        item = ItemFactory(title="Unrelated")
+        ItemIdentifierFactory(item=item, value="10.5555/abc.123")
+        ItemFactory()
+
+        assert self.values(self.search(anonymous_client, typed)) == [item.pk]
+
+    @pytest.mark.parametrize("typed", ["doi:", "https://doi.org/"])
+    def test_a_bare_doi_prefix_is_read_as_no_text(self, anonymous_client, typed):
+        item = ItemFactory(title="Deep time")
+        ItemIdentifierFactory(item=item, value="10.5555/abc.123")
+        ItemFactory(title="Ocean heat")
+
+        assert self.values(self.search(anonymous_client, typed)) == self.values(
+            self.search(anonymous_client, "")
+        )
+
+    def test_an_identifier_of_any_type_is_searched(self, anonymous_client):
+        item = ItemFactory()
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.ISBN, value="978-3-16-148410-0"
+        )
+        ItemFactory()
+
+        assert self.values(self.search(anonymous_client, "148410")) == [item.pk]
+
+    def test_empty_text_returns_the_first_page_by_title(self, anonymous_client):
+        second = ItemFactory(title="Ocean heat")
+        first = ItemFactory(title="Deep time")
+
+        for text in ("", "   "):
+            assert self.values(self.search(anonymous_client, text)) == [
+                first.pk,
+                second.pk,
+            ]
+
+    def test_a_missing_q_returns_the_first_page(self, anonymous_client):
+        item = ItemFactory(title="Deep time")
+
+        response = anonymous_client.get(reverse("literature:item-autocomplete"))
+
+        assert response.status_code == 200
+        assert self.values(response.json()["results"]) == [item.pk]
+
+    def test_empty_text_returns_at_most_one_page(self, anonymous_client):
+        for number in range(SEARCH_LIMIT + 5):
+            ItemFactory(title=f"Reference {number:02}")
+
+        assert len(self.search(anonymous_client, "")) == SEARCH_LIMIT
+
+    def test_no_match_returns_an_empty_list(self, anonymous_client):
+        ItemFactory(title="Deep Time")
+
+        assert self.search(anonymous_client, "zzzz") == []
+
+    @pytest.mark.parametrize(
+        ("title", "typed"),
+        [("100% sure", "100%"), ("snake_case", "e_c"), ("It's here", "it's")],
+    )
+    def test_wildcards_and_quotes_match_literally(self, anonymous_client, title, typed):
+        item = ItemFactory(title=title)
+        ItemFactory(title="100 percent sure")
+        ItemFactory(title="snakeXcase")
+
+        assert self.values(self.search(anonymous_client, typed)) == [item.pk]
+
+    def test_a_reference_matched_twice_appears_once(self, anonymous_client):
+        item = ItemFactory(title="Quill")
+        ItemNameFactory(item=item, name=NameFactory(family="Quillson"))
+        ItemNameFactory(item=item, name=NameFactory(family="Quillby"))
+        ItemIdentifierFactory(item=item, value="10.1234/quill")
+
+        assert self.values(self.search(anonymous_client, "quill")) == [item.pk]
+
+    def test_results_stop_at_the_search_limit(self, anonymous_client):
+        for number in range(SEARCH_LIMIT + 5):
+            ItemFactory(title=f"Common {number}")
+
+        assert len(self.search(anonymous_client, "common")) == SEARCH_LIMIT
+
+    def test_a_title_starting_with_the_text_ranks_first(self, anonymous_client):
+        containing = ItemFactory(title="About Quill")
+        starting = ItemFactory(title="Quill Work")
+
+        values = self.values(self.search(anonymous_client, "quill"))
+
+        assert values == [starting.pk, containing.pk]
+
+    def test_a_citation_key_starting_with_the_text_ranks_first(self, anonymous_client):
+        containing = ItemFactory(title="About Quill", citation_key="zz")
+        starting = ItemFactory(title="Other", citation_key="quill2020")
+
+        values = self.values(self.search(anonymous_client, "quill"))
+
+        assert values == [starting.pk, containing.pk]
+
+    def test_anonymous_clients_are_answered(self, anonymous_client):
+        ItemFactory(title="Deep Time")
+
+        response = anonymous_client.get(
+            reverse("literature:item-autocomplete"), {"q": "deep"}
+        )
+
+        assert response.status_code == 200
+
+    def test_only_get_is_answered(self, anonymous_client):
+        response = anonymous_client.post(
+            reverse("literature:item-autocomplete"), {"q": "x"}
+        )
+
+        assert response.status_code == 405
+
+    def test_query_count_does_not_grow_with_result_count(self, anonymous_client):
+        def add_items(count):
+            for _ in range(count):
+                item = ItemFactory(title="Common")
+                ItemNameFactory(item=item)
+                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+
+        def count_queries():
+            with CaptureQueriesContext(connection) as queries:
+                self.search(anonymous_client, "common")
+            return len(queries)
+
+        add_items(1)
+        one = count_queries()
+        add_items(6)
+
+        assert count_queries() == one
+
+    def test_text_containing_a_nul_character_is_refused_before_any_query(
+        self, anonymous_client
+    ):
+        ItemFactory(title="Deep Time")
+
+        with CaptureQueriesContext(connection) as queries:
+            response = anonymous_client.get(
+                reverse("literature:item-autocomplete"), {"q": "deep\x00time"}
+            )
+
+        assert response.status_code == 400
+        assert response.json() == {"results": []}
+        assert len(queries) == 0
+
+    def test_text_longer_than_the_limit_is_cut_and_still_finds_the_reference(
+        self, anonymous_client
+    ):
+        item = ItemFactory(title="a" * 200 + " and the rest of a long title")
+
+        response = anonymous_client.get(
+            reverse("literature:item-autocomplete"), {"q": "a" * 10_000}
+        )
+
+        assert response.status_code == 200
+        assert self.values(response.json()["results"]) == [item.pk]
+
+    def test_text_longer_than_the_limit_costs_the_queries_a_short_text_does(
+        self, anonymous_client
+    ):
+        ItemFactory(title="a" * 200)
+
+        def count_queries(text):
+            with CaptureQueriesContext(connection) as queries:
+                self.search(anonymous_client, text)
+            return len(queries)
+
+        assert count_queries("a" * 10_000) == count_queries("a")
+
+    def test_a_requested_page_size_cannot_exceed_the_search_limit(
+        self, anonymous_client
+    ):
+        for number in range(SEARCH_LIMIT + 5):
+            ItemFactory(title=f"Common {number}")
+
+        response = anonymous_client.get(
+            reverse("literature:item-autocomplete"), {"q": "common", "page_size": 100}
+        )
+
+        assert len(response.json()["results"]) == SEARCH_LIMIT

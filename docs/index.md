@@ -15,6 +15,7 @@ crediting-contributors
 dating-a-reference
 identifying-a-reference
 importing-through-the-interface
+how-to/choosing-a-reference
 ```
 
 ```{toctree}

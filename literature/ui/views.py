@@ -6,14 +6,16 @@ from functools import cached_property
 
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.db.models import Prefetch
+from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
 from django.forms import MultiWidget
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django.views import View
+from django_tomselect.autocompletes import AutocompleteModelView
 from mvp.integrations.django_tables.views import MVPTableView
 from mvp.views import (
     MVPCreateView,
@@ -43,9 +45,16 @@ from literature.ui.forms import (
 from literature.ui.importing import ImportReport
 from literature.ui.inlines import CONTRIBUTOR_INLINES, IdentifierInline
 from literature.ui.links import web_url
+from literature.ui.picker import item_label
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
 from literature.utils.doi import doi_url
+
+#: The most references one search answers with.
+SEARCH_LIMIT = 20
+
+#: The most characters of a search the view reads; the rest is dropped.
+SEARCH_TEXT_LIMIT = 200
 
 #: The three related-row sets composed on both the create and update pages.
 #: Declared once here so the two views and the page's own template use the
@@ -902,3 +911,89 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
             page_item.credited_roles = roles_by_item[page_item.id]
 
         return context
+
+
+class ReferenceAutocompleteView(AutocompleteModelView):
+    """Answer a reference picker's search with the references that match.
+
+    Matches the text against title, citation key, a contributor's family or
+    literal name and a DOI, ranking a title or citation key that starts with
+    the text first. Each result carries the reference's ``id`` and its
+    ``label``.
+
+    The route is open to everyone (ADR 0036): the catalogue list is, and this
+    search follows its read rule.
+    """
+
+    model = Item
+    page_size = SEARCH_LIMIT
+    value_fields = ["label"]
+    virtual_fields = ["label"]
+    allow_anonymous = True
+    skip_authorization = True
+
+    def setup(self, request, *args, **kwargs):
+        """Cut the text to ``SEARCH_TEXT_LIMIT`` and hold the page to ``SEARCH_LIMIT``."""
+        super().setup(request, *args, **kwargs)
+        self.query = self.query.strip()[:SEARCH_TEXT_LIMIT]
+        self.page_size = SEARCH_LIMIT
+
+    def get(self, request, *args, **kwargs):
+        """Refuse a NUL character before any query.
+
+        No text answers with the first page of the catalogue by title, which the
+        picker loads as soon as it is opened.
+        """
+        if "\x00" in self.query:
+            return JsonResponse({"results": []}, status=400)
+        return super().get(request, *args, **kwargs)
+
+    def search(self, queryset, query):
+        """Keep the references the catalogue's own search finds, and rank them.
+
+        The search is ``ItemFilterSet``'s, so the picker and the catalogue
+        agree on what a text finds (ADR 0025). The field validates a
+        submission against this view's queryset without any text, so no text
+        leaves the queryset whole.
+        """
+        if not query:
+            return queryset
+        return (
+            ItemFilterSet.base_filters["q"]
+            .filter(queryset, query)
+            .annotate(
+                rank=Case(
+                    When(
+                        Q(title__istartswith=query)
+                        | Q(citation_key__istartswith=query),
+                        then=Value(0),
+                    ),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            )
+        )
+
+    def order_queryset(self, queryset):
+        """Put a title or citation key that starts with the text first, then by title.
+
+        With no text, order by title alone.
+        """
+        if self.query:
+            return queryset.order_by("rank", "title", "pk")
+        return queryset.order_by("title", "pk")
+
+    @staticmethod
+    def prepare_label(item):
+        """Label a reference chosen in a field the way a search result is labelled."""
+        return item_label(item)
+
+    def hook_prepare_results(self, results):
+        """Label each result, reading the page's references once."""
+        items = Item.objects.prefetch_related("item_dates", "item_names__name").in_bulk(
+            [result["id"] for result in results]
+        )
+        return [
+            {"id": result["id"], "label": self.prepare_label(items[result["id"]])}
+            for result in results
+        ]

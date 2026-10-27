@@ -82,4 +82,5 @@ class TestNoDemoOnlyDependencyEntersTheBuild:
             "django-crispy-forms (>=2.7,<3) ; python_version >= '3.12'",
             "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
             "django-filter (>=26.1,<27) ; python_version >= '3.12'",
+            "django-tomselect (>=2026.6.2) ; python_version >= '3.12'",
         ]
