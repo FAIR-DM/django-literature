@@ -2196,26 +2196,21 @@ class TestItemImportViewRejects:
 
 
 class TestItemImportPreviewPage:
-    def _submit(self, client, filename="publication.bib", format_name="bibtex"):
-        with (DATA_DIR / filename).open("rb") as handle:
-            upload = SimpleUploadedFile(filename, handle.read())
-        return client.post(
-            reverse("literature:item-import"), {"format": format_name, "file": upload}
-        )
-
-    def test_submitting_the_form_redirects_to_the_preview_address(self, client, db):
-        response = self._submit(client)
+    def test_submitting_the_form_redirects_to_the_preview_address(
+        self, client, db, stage_import
+    ):
+        response = stage_import()
         assert response.status_code == 302
         assert response.url == reverse("literature:item-import-preview")
 
-    def test_the_redirect_imports_nothing(self, client, db):
-        self._submit(client)
+    def test_the_redirect_imports_nothing(self, client, db, stage_import):
+        stage_import()
         assert Item.objects.count() == 0
 
     def test_a_get_of_the_preview_rebuilds_the_report_from_the_staged_file(
-        self, client, db
+        self, client, db, stage_import
     ):
-        self._submit(client)
+        stage_import()
         response = client.get(reverse("literature:item-import-preview"))
         assert response.status_code == 200
         report = response.context["report"]
@@ -2225,13 +2220,13 @@ class TestItemImportPreviewPage:
         assert Item.objects.count() == 0
 
     def test_reloading_the_preview_shows_the_same_thing_and_imports_nothing(
-        self, client, db
+        self, client, db, stage_import
     ):
         # Not a raw content comparison: {% csrf_token %} mints a fresh masked
         # token on every render, so two otherwise-identical responses never
         # match byte for byte. The report itself is what "the same thing"
         # means here.
-        self._submit(client)
+        stage_import()
         first = client.get(reverse("literature:item-import-preview")).context["report"]
         second = client.get(reverse("literature:item-import-preview")).context["report"]
         assert [row.position for row in first.rows] == [
@@ -2244,13 +2239,17 @@ class TestItemImportPreviewPage:
         response = client.get(reverse("literature:item-import-preview"))
         assert response.status_code == 200
 
-    def test_the_session_holds_the_staged_token_and_format(self, client, db):
-        self._submit(client)
+    def test_the_session_holds_the_staged_token_and_format(
+        self, client, db, stage_import
+    ):
+        stage_import()
         assert client.session["literature_import_token"]
         assert client.session["literature_import_format"] == "bibtex"
 
-    def test_the_preview_page_does_not_contain_the_token(self, client, db):
-        self._submit(client)
+    def test_the_preview_page_does_not_contain_the_token(
+        self, client, db, stage_import
+    ):
+        stage_import()
         token = client.session["literature_import_token"]
         content = client.get(reverse("literature:item-import-preview")).content.decode()
         assert token not in content
@@ -2268,27 +2267,20 @@ class TestItemImportPreviewPage:
         assert report.created == 0
 
     def test_submitting_to_the_preview_address_is_refused_not_a_server_error(
-        self, client, db
+        self, client, db, stage_import
     ):
         # Nothing on the page submits here — confirm and restart each have
         # their own address — so a submission is a refusal, not a crash.
-        self._submit(client)
+        stage_import()
         response = client.post(reverse("literature:item-import-preview"), {})
         assert response.status_code == 405
 
 
 class TestItemImportRestart:
-    def _submit(self, client, filename="publication.bib", format_name="bibtex"):
-        with (DATA_DIR / filename).open("rb") as handle:
-            upload = SimpleUploadedFile(filename, handle.read())
-        return client.post(
-            reverse("literature:item-import"), {"format": format_name, "file": upload}
-        )
-
     def test_restarting_discards_the_staged_file_and_lands_on_an_empty_form(
-        self, client, db
+        self, client, db, stage_import
     ):
-        self._submit(client)
+        stage_import()
         token = client.session["literature_import_token"]
         response = client.post(reverse("literature:item-import-restart"))
         assert response.status_code == 302
@@ -2305,29 +2297,14 @@ class TestItemImportRestart:
 
 
 class TestItemImportConfirm:
-    def _preview(self, client, filename="publication.bib", format_name="bibtex"):
-        with (DATA_DIR / filename).open("rb") as handle:
-            upload = SimpleUploadedFile(filename, handle.read())
-        client.post(
-            reverse("literature:item-import"), {"format": format_name, "file": upload}
-        )
-        return client.get(reverse("literature:item-import-preview"))
-
-    def _preview_bytes(self, client, content, filename, format_name):
-        upload = SimpleUploadedFile(filename, content)
-        client.post(
-            reverse("literature:item-import"), {"format": format_name, "file": upload}
-        )
-        return client.get(reverse("literature:item-import-preview"))
-
     def _confirm_fields(self, preview):
         """What the preview page's own confirm control posts back."""
         content = preview.content.decode()
         confirm = content[content.index(reverse("literature:item-import-confirm")) :]
         return dict(re.findall(r'name="(preview)"[^>]*value="([^"]*)"', confirm))
 
-    def test_confirming_redirects_to_the_catalogue(self, client, db):
-        preview = self._preview(client)
+    def test_confirming_redirects_to_the_catalogue(self, client, db, preview_import):
+        preview = preview_import()
         response = client.post(
             reverse("literature:item-import-confirm"), self._confirm_fields(preview)
         )
@@ -2335,17 +2312,17 @@ class TestItemImportConfirm:
         assert response.url == reverse("literature:item-list")
 
     def test_confirming_imports_the_staged_file_and_matches_the_preview(
-        self, client, db
+        self, client, db, preview_import
     ):
-        preview = self._preview(client)
+        preview = preview_import()
         client.post(
             reverse("literature:item-import-confirm"), self._confirm_fields(preview)
         )
         assert Item.objects.filter(citation_key="10.1093/gji/ggz376").exists()
         assert Item.objects.count() == preview.context["report"].created
 
-    def test_confirming_leaves_one_success_message(self, client, db):
-        preview = self._preview(client)
+    def test_confirming_leaves_one_success_message(self, client, db, preview_import):
+        preview = preview_import()
         response = client.post(
             reverse("literature:item-import-confirm"),
             self._confirm_fields(preview),
@@ -2355,8 +2332,10 @@ class TestItemImportConfirm:
             messages.SUCCESS
         ]
 
-    def test_following_the_redirect_consumes_the_message(self, client, db):
-        preview = self._preview(client)
+    def test_following_the_redirect_consumes_the_message(
+        self, client, db, preview_import
+    ):
+        preview = preview_import()
         client.post(
             reverse("literature:item-import-confirm"),
             self._confirm_fields(preview),
@@ -2365,8 +2344,10 @@ class TestItemImportConfirm:
         second_visit = client.get(reverse("literature:item-list"))
         assert list(get_messages(second_visit.wsgi_request)) == []
 
-    def test_the_reader_is_not_asked_for_the_file_again(self, client, db):
-        preview = self._preview(client)
+    def test_the_reader_is_not_asked_for_the_file_again(
+        self, client, db, preview_import
+    ):
+        preview = preview_import()
         # No file and no format: what the confirm control posts back names
         # only which preview the page was showing, which reaches nothing on
         # its own.
@@ -2375,8 +2356,8 @@ class TestItemImportConfirm:
         client.post(reverse("literature:item-import-confirm"), fields)
         assert Item.objects.count() == 1
 
-    def test_the_staged_file_is_gone_afterwards(self, client, db):
-        preview = self._preview(client)
+    def test_the_staged_file_is_gone_afterwards(self, client, db, preview_import):
+        preview = preview_import()
         token = client.session["literature_import_token"]
         client.post(
             reverse("literature:item-import-confirm"), self._confirm_fields(preview)
@@ -2391,11 +2372,11 @@ class TestItemImportConfirm:
         assert Item.objects.count() == 0
 
     def test_a_confirmation_from_a_different_session_imports_nothing(
-        self, client, editor
+        self, client, editor, preview_import
     ):
         # A file staged by one session is not reachable through another, even
         # the same editor's.
-        self._preview(client)
+        preview_import()
         other_client = Client()
         other_client.force_login(editor)
         response = other_client.post(
@@ -2405,9 +2386,9 @@ class TestItemImportConfirm:
         assert Item.objects.count() == 0
 
     def test_a_confirmation_whose_staged_file_has_been_swept_imports_nothing(
-        self, client, db
+        self, client, db, preview_import
     ):
-        self._preview(client)
+        preview_import()
         token = client.session["literature_import_token"]
         # Simulate a sweep having already removed it, without waiting on
         # the retention window StagedUpload.sweep() itself is tested against
@@ -2419,13 +2400,15 @@ class TestItemImportConfirm:
         assert response.status_code == 200
         assert Item.objects.count() == 0
 
-    def test_confirming_a_superseded_preview_imports_nothing(self, client, db):
+    def test_confirming_a_superseded_preview_imports_nothing(
+        self, client, db, preview_import
+    ):
         # Two previews from one session — a second tab, or going back and
         # submitting again. The first tab still shows the first preview and
         # its confirm control. Following it must not import the second file:
         # what commits is what was previewed, or nothing.
-        stale = self._preview(client)
-        self._preview_bytes(client, RIS_ONE_GOOD_ENTRY.encode(), "second.ris", "ris")
+        stale = preview_import()
+        preview_import("second.ris", "ris", content=RIS_ONE_GOOD_ENTRY)
 
         response = client.post(
             reverse("literature:item-import-confirm"),
@@ -2436,16 +2419,20 @@ class TestItemImportConfirm:
         assert response.status_code == 200
         assert Item.objects.count() == 0
 
-    def test_a_superseded_previews_file_is_not_left_staged(self, client, db):
+    def test_a_superseded_previews_file_is_not_left_staged(
+        self, client, db, preview_import
+    ):
         # The reader can no longer reach it, so nothing should be holding it
         # on disk for the retention window.
-        self._preview(client)
+        preview_import()
         superseded = client.session["literature_import_token"]
-        self._preview_bytes(client, RIS_ONE_GOOD_ENTRY.encode(), "second.ris", "ris")
+        preview_import("second.ris", "ris", content=RIS_ONE_GOOD_ENTRY)
         assert StagedUpload().open(superseded) is None
 
-    def test_a_second_confirmation_of_the_same_token_imports_nothing(self, client, db):
-        preview = self._preview(client)
+    def test_a_second_confirmation_of_the_same_token_imports_nothing(
+        self, client, db, preview_import
+    ):
+        preview = preview_import()
         fields = self._confirm_fields(preview)
         client.post(reverse("literature:item-import-confirm"), fields)
         assert Item.objects.count() == 1
