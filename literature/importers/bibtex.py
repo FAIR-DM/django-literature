@@ -1,13 +1,8 @@
-"""Reading BibTeX files into the catalogue.
+"""Reading BibTeX files, classic and BibLaTeX, into the catalogue."""
 
-One format reads both classic BibTeX and BibLaTeX: they share a file syntax, and
-someone exporting a library cannot tell which they were given. Where a BibLaTeX
-field and its classic counterpart name the same CSL variable and disagree
-(``date`` over ``year``/``month``, ``journaltitle`` over ``journal``), the
-BibLaTeX field wins, since BibLaTeX's manual treats the classic one as legacy.
-``bibtexparser`` is imported here and nowhere else, which a test asserts, so the
-parser stays replaceable.
-"""
+# One format reads both dialects: they share a file syntax and an export does not say
+# which it is. Where a BibLaTeX field and its classic counterpart name the same CSL
+# variable, BibLaTeX wins. ``bibtexparser`` is imported here only, so it stays replaceable.
 
 import calendar
 import dataclasses
@@ -31,7 +26,7 @@ from literature.validators import validate_identifier
 
 @dataclasses.dataclass(frozen=True)
 class _Mapped:
-    """One table entry: the CSL name a source key maps to, and its dialect."""
+    """Map a source key to a CSL name, recording the dialect it belongs to."""
 
     csl: str
     dialect: str  # "classic" | "biblatex"
@@ -179,6 +174,14 @@ def _unescape_entities(value: str) -> str:
     """
 
     def replace(match: re.Match[str]) -> str:
+        """Return the character a matched entity or character reference stands for.
+
+        Args:
+            match: A match of ``_ENTITY_RE``.
+
+        Returns:
+            The character, or the matched text unchanged if the code point is invalid.
+        """
         name, decimal, hexadecimal = match.groups()
         if name:
             return _NAMED_ENTITIES[name]
@@ -576,7 +579,7 @@ _BIBTEX_BLOCK_RE = re.compile(r"@\s*[A-Za-z]+\s*[{(]")
 
 @dataclasses.dataclass(frozen=True)
 class _NonRecord:
-    """A ``@comment`` or ``@preamble`` block: recognised, but not an entry.
+    """Hold a ``@comment`` or ``@preamble`` block: recognised, but not an entry.
 
     ``bibtexparser`` collects both kinds as plain strings, so the kind is
     recorded here for :meth:`BibTeXFormat.to_csl_json` to name what it skipped.
@@ -620,26 +623,10 @@ class BibTeXFormat(BibFormat):
         return parser
 
     def parse(self, file) -> Iterator[dict[str, Any] | _NonRecord]:
-        """Yield this file's entries in source order, then its preambles and comments.
-
-        ``bibtexparser`` collects ``@comment`` and ``@preamble`` blocks into
-        separate lists, so their source position is lost. They are yielded
-        wrapped in :class:`_NonRecord`, and :meth:`to_csl_json` skips them.
-
-        Accepts a binary or a text handle, since a browser upload is always
-        bytes. Bytes are decoded as ``utf-8-sig``, so a byte-order mark is
-        absorbed, as :class:`~literature.importers.ris.RISParser` does.
-
-        Raises :class:`~literature.importers.exceptions.ParseError` when the
-        bytes cannot be decoded, when braces nest deeper than the parser's
-        recursion allows, or when the file has content but no ``@`` block.
-        ``bibtexparser`` reads anything as comments, so without that last check
-        an RIS file given the wrong format would import nothing and report one
-        skip. An empty file yields nothing.
-
-        A field repeated within one entry keeps its first occurrence. That is
-        ``bibtexparser``'s behaviour, stated here so it can be relied on.
-        """
+        """Yield the file's entries in source order, then its preambles and comments."""
+        # bibtexparser keeps @comment and @preamble in separate lists, so they come last,
+        # wrapped in _NonRecord. A repeated field within an entry keeps its first value.
+        # Bytes decode as utf-8-sig, absorbing a byte-order mark as RISParser does.
         raw = file.read()
         if isinstance(raw, bytes):
             try:
@@ -652,6 +639,8 @@ class BibTeXFormat(BibFormat):
                 ) from exc
         else:
             text = raw
+        # bibtexparser reads any text as comments, so without this check an RIS file
+        # given the wrong format would import nothing and report one skip.
         if text.strip() and not _BIBTEX_BLOCK_RE.search(text):
             raise ParseError(
                 _("No BibTeX entries found. Is this a BibTeX file?"),
@@ -667,27 +656,10 @@ class BibTeXFormat(BibFormat):
         yield from (_NonRecord("comment", text) for text in database.comments)
 
     def to_csl_json(self, raw: dict[str, Any] | _NonRecord) -> dict[str, Any]:
-        """Turn one parsed entry into CSL JSON.
-
-        An entry is mapped in a fixed order: type, fields, names, dates,
-        identifiers, then preservation, each value cleaned first. Where a
-        classic and a BibLaTeX field target the same CSL variable, the BibLaTeX
-        value wins.
-
-        Two things end up in ``custom``. An identifier that cleaning could not
-        rescue is kept under its own field name. Every field mapped nowhere is
-        gathered under one ``bibtex`` key, so it cannot be mistaken for an
-        identifier of the record.
-
-        Args:
-            raw: A parsed entry dict, or a :class:`_NonRecord`.
-
-        Returns:
-            The entry as CSL JSON.
-
-        Raises:
-            SkipEntry: ``raw`` is a comment or a preamble.
-        """
+        """Turn one parsed entry into CSL JSON, or skip a comment or preamble."""
+        # Mapped in a fixed order: type, fields, names, dates, identifiers, then the rest.
+        # An identifier that fails cleaning is kept in ``custom`` under its own name; every
+        # unmapped field goes under the single ``custom["bibtex"]`` key.
         if isinstance(raw, _NonRecord):
             if raw.kind == "preamble":
                 raise SkipEntry(
@@ -702,13 +674,10 @@ class BibTeXFormat(BibFormat):
             "citation-key": raw.get("ID", ""),
         }
 
-        # Classic first, then BibLaTeX, so a BibLaTeX value overwrites its
-        # classic counterpart for every pair the table carries.
+        # Classic first, then BibLaTeX, so a BibLaTeX value overwrites its classic counterpart.
         consumed: set[str] = set()
 
-        # The field that supplied each CSL variable. Another field naming the
-        # same variable is preserved rather than overwritten, and within a
-        # dialect the first in table order wins.
+        # The field that supplied each CSL variable; within a dialect the first in table order wins.
         claimed: dict[str, str] = {}
 
         for dialect in ("classic", "biblatex"):
