@@ -1,10 +1,4 @@
-"""Reading RIS files into the catalogue.
-
-One format reads EndNote, Web of Science and Scopus exports alike, with no producer detection:
-every tag is read by the tag itself, never by which tool wrote the file. The parser is hand-rolled
-because ``rispy`` silently resynchronises past a malformed entry, where the import contract reports
-what happened to every entry (``specs/005-import-references-ris/research.md``).
-"""
+"""Reading RIS files into the catalogue."""
 
 import dataclasses
 import re
@@ -78,6 +72,10 @@ class RISParser:
     Accepts a binary or a text handle. Bytes are decoded here as ``utf-8-sig``, so a byte-order
     mark is absorbed rather than becoming part of the first tag's value, and a decoding failure
     can name the encoding and byte offset. A text handle passes through unchanged.
+
+    The parser is hand-rolled because ``rispy`` silently resynchronises past a malformed
+    entry, where the import contract reports what happened to every entry
+    (docs/adr/0011-the-ris-parser-is-hand-rolled.md).
     """
 
     #: Tolerates the one- and two-space-before-dash variants real exports use alongside the
@@ -103,9 +101,17 @@ class RISParser:
         before the first entry, and :meth:`RISFormat.to_csl_json` skips it. A file with no header
         yields no such string.
 
-        Raises :class:`~literature.importers.exceptions.ParseError` when the file cannot be
-        decoded, carries RIS tag lines but no ``TY``, or carries no tag lines at all. An empty or
-        whitespace-only file yields nothing.
+        An empty or whitespace-only file yields nothing.
+
+        Args:
+            file: A binary or text handle.
+
+        Yields:
+            Each :class:`RISEntry`, preceded once by the header text as a ``str`` if the file has one.
+
+        Raises:
+            ParseError: The file cannot be decoded, carries RIS tag lines but no ``TY``, or
+                carries no tag lines at all.
         """
         raw = file.read()
         if isinstance(raw, bytes):
@@ -1162,7 +1168,11 @@ def _preserve(result: dict[str, Any], values: dict[str, Any]) -> None:
 
 
 class RISFormat(BibFormat):
-    """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike."""
+    """Reads ``.ris`` files, from EndNote, Web of Science and Scopus alike.
+
+    Every tag is read by the tag itself, never by which tool wrote the file, so
+    there is no producer detection.
+    """
 
     name = "ris"
     label = _("RIS")
