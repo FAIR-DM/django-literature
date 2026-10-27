@@ -1,11 +1,4 @@
-"""How the write form is arranged on the page: tabs, sections and the copy a person reads.
-
-Kept apart from ``forms.py`` so that the form stays the list of fields it
-saves, and this module the one place that says where each of them is drawn.
-Every field is placed exactly once, so a field the current item type does not
-use is still in the page, still posts the value it held, and a save that
-changed nothing changes nothing (FS-008).
-"""
+"""How the write form is arranged on the page: tabs, sections and the copy a person reads (FS-008)."""
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Column, Div, Layout, Row
@@ -16,9 +9,7 @@ from literature.choices import DateType, ItemType, NameRole
 from literature.ui.contributors import ContributorGroups
 from literature.ui.fieldgroups import GROUP_LABELS, GROUPS, ROLE_ORDER
 
-#: The 45 item types in eight groups a person scans by, rather than one
-#: alphabetical run where "Journal Article" sits between "Interview" and
-#: "Legal Case".
+#: The 45 item types in eight groups a person scans by, not one alphabetical run.
 TYPE_GROUPS_FOR_CHOOSING = (
     (
         _("Articles"),
@@ -160,9 +151,7 @@ FIELD_HELP = {
     "original_title": _("Its title in the original language, for a translation."),
 }
 
-#: The order the item-type sections take on the page, which is the order a
-#: citation reads them in: where it appeared, its volume and pages, who
-#: published it, and the rest after.
+#: The order the item-type sections take on the page: the order a citation reads them in.
 SECTION_ORDER = (
     "container",
     "numbering",
@@ -175,13 +164,11 @@ SECTION_ORDER = (
     "physical",
 )
 
-#: The numbering fields drawn without opening anything. The other nine are
-#: rarer and sit under "More numbering".
+#: The numbering fields drawn without opening anything; the rarer rest sit under "More numbering".
 LEADING_NUMBERING = ("volume", "issue", "page", "number")
 
 
-#: The six CSL date slots as they read on the form, in the order a reference's
-#: life runs.
+#: The six CSL date slots as they read on the form, in the order of a reference's life.
 DATE_SLOTS = (
     (DateType.SUBMITTED, _("Submitted")),
     (DateType.ISSUED, _("Published")),
@@ -193,13 +180,28 @@ DATE_SLOTS = (
 
 
 def date_field_name(slot, end=False):
-    """Return the form field name for a date slot's start, or its end."""
+    """Return the form field name for a date slot's start, or its end.
+
+    Args:
+        slot: A ``DateType`` value.
+        end: Whether to name the slot's end date field.
+
+    Returns:
+        The field name, such as ``date_issued`` or ``date_issued_end``.
+    """
     name = "date_" + slot.replace("-", "_")
     return name + "_end" if end else name
 
 
 def shown_when(group):
-    """Return the Alpine condition under which an item-type section is shown."""
+    """Return the Alpine condition under which an item-type section is shown.
+
+    Args:
+        group: A key of ``GROUPS``.
+
+    Returns:
+        The condition, as an Alpine expression.
+    """
     return (
         "form.showAll"
         f" || (form.forcedGroups || []).includes('{group}')"
@@ -208,7 +210,14 @@ def shown_when(group):
 
 
 def date_shown_when(slot):
-    """Return the Alpine condition under which a date slot is shown. Published always is."""
+    """Return the Alpine condition under which a date slot is shown. Published always is.
+
+    Args:
+        slot: A ``DateType`` value.
+
+    Returns:
+        The condition, as an Alpine expression.
+    """
     if slot == DateType.ISSUED:
         return "true"
     return (
@@ -219,7 +228,14 @@ def date_shown_when(slot):
 
 
 def role_shown_when(role):
-    """Return the Alpine condition under which a contributor role's set is shown. Authors always are."""
+    """Return the Alpine condition under which a contributor role's set is shown. Authors always are.
+
+    Args:
+        role: A ``NameRole`` value.
+
+    Returns:
+        The condition, as an Alpine expression.
+    """
     if role == NameRole.AUTHOR:
         return "true"
     return (
@@ -230,7 +246,15 @@ def role_shown_when(role):
 
 
 def rows_of(names, per_row):
-    """Lay ``names`` out ``per_row`` to a row, each in an equal column."""
+    """Lay ``names`` out ``per_row`` to a row, each in an equal column.
+
+    Args:
+        names: The field names to place.
+        per_row: How many columns each row holds.
+
+    Returns:
+        The crispy ``Row`` objects.
+    """
     names = list(names)
     return [
         Row(*(Column(name) for name in names[start : start + per_row]))
@@ -239,7 +263,14 @@ def rows_of(names, per_row):
 
 
 def include(template):
-    """Draw another template in place, with the page's own context."""
+    """Draw another template in place, with the page's own context.
+
+    Args:
+        template: The template path to include.
+
+    Returns:
+        A crispy ``HTML`` element holding the include tag.
+    """
     return HTML(f'{{% include "{template}" %}}')
 
 
@@ -248,18 +279,35 @@ class ItemFormLayout:
 
     Four tabs: the reference itself, its contributors, its identifiers, and
     notes with the fields most references never need.
+
+    Args:
+        form: The ``ItemForm`` instance to arrange.
     """
 
     def __init__(self, form):
         self.form = form
 
     def holds_value(self, name):
-        """Whether the field already holds something, on this form's own data."""
+        """Return whether the field already holds something, on this form's own data.
+
+        Args:
+            name: The form field name.
+
+        Returns:
+            ``True`` if its value is not empty.
+        """
         value = self.form[name].value()
         return value not in (None, "", False)
 
     def section(self, group):
-        """One item-type section: a fieldset shown when the chosen type uses it."""
+        """Build one item-type section: a fieldset shown when the chosen type uses it.
+
+        Args:
+            group: A key of ``GROUPS``.
+
+        Returns:
+            The fieldset.
+        """
         fields = GROUPS[group]
         if group == "numbering":
             rest = [name for name in fields if name not in LEADING_NUMBERING]
@@ -293,10 +341,13 @@ class ItemFormLayout:
         )
 
     def dates(self):
-        """One date field per CSL date slot, each shown when the type uses it.
+        """Build one date field per CSL date slot, each shown when the type uses it.
 
         An end date is offered for an event, whose dates are often a range,
         and for any slot that already holds one.
+
+        Returns:
+            The fieldset holding every slot.
         """
         slots = []
         for slot, _label in DATE_SLOTS:
@@ -322,7 +373,11 @@ class ItemFormLayout:
         )
 
     def reference_tab(self):
-        """What the reference is, in the order a citation reads it, then what it is about."""
+        """Build the tab for what the reference is, in the order a citation reads it.
+
+        Returns:
+            The reference tab.
+        """
         return Tab(
             _("Reference"),
             Row(Column("type"), Column("citation_key")),
@@ -343,7 +398,11 @@ class ItemFormLayout:
         )
 
     def contributors_tab(self):
-        """Who made it, in the order they are credited."""
+        """Build the tab for who made it, in the order they are credited.
+
+        Returns:
+            The contributors tab.
+        """
         sets = [
             Fieldset(
                 ContributorGroups.role_label(role, 2),
@@ -367,7 +426,11 @@ class ItemFormLayout:
         )
 
     def identifiers_tab(self):
-        """DOI, ISBN, URL and any other identifier."""
+        """Build the tab for DOI, ISBN, URL and any other identifier.
+
+        Returns:
+            The identifiers tab.
+        """
         return Tab(
             _("Identifiers"),
             include("literature/ui/item_form_identifiers.html"),
@@ -375,9 +438,22 @@ class ItemFormLayout:
         )
 
     def more_tab(self):
-        """Notes, and the fields most references never need, closed until they are."""
+        """Build the tab for notes and the fields most references never need, closed until they are.
+
+        Returns:
+            The more tab.
+        """
 
         def closed(name, fields):
+            """Build a fieldset that stays closed until one of its fields holds a value.
+
+            Args:
+                name: The fieldset's heading.
+                fields: The field names it holds.
+
+            Returns:
+                The collapsible fieldset.
+            """
             return Fieldset(
                 name,
                 *fields,
@@ -394,7 +470,11 @@ class ItemFormLayout:
         )
 
     def helper(self):
-        """Return the form helper that draws the whole arrangement."""
+        """Return the form helper that draws the whole arrangement.
+
+        Returns:
+            The crispy ``FormHelper``.
+        """
         helper = FormHelper(self.form)
         helper.form_tag = False
         helper.disable_csrf = True

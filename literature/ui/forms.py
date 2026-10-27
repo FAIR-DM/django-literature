@@ -1,13 +1,4 @@
-"""The one write form every create/update flow shares (FS-008, #74).
-
-Scoping by item type is the template's job, never the form's: ``ItemForm``
-declares every scalar field, always, so a group the current type does not use
-still renders (hidden by Alpine's ``x-show``, which leaves the element in the
-DOM) and still posts the value it already held. Building the form's field
-list from the type instead would make ``ModelForm.construct_instance()``
-write every omitted field as empty rather than leaving it alone — the
-opposite of the no-loss guarantee this feature exists for.
-"""
+"""The one write form every create and update flow shares (FS-008, #74)."""
 
 import re
 
@@ -31,19 +22,15 @@ from literature.ui.formlayout import (
     date_field_name,
 )
 
-#: Every field ``ItemForm`` declares: every scalar field of ``Item`` except
-#: ``categories``, ``custom``, ``created`` and ``modified``. Built from
-#: the field-group mapping's own partition rather than restated by hand, so
-#: the two artefacts cannot drift apart — ``fieldgroups.py`` already proves
-#: this set is exactly ``Item``'s form fields
-#: (``tests/test_ui/test_fieldgroups.py::TestFieldPartition``).
+#: Every scalar field of ``Item`` except ``categories``, ``custom``, ``created`` and
+#: ``modified``, built from the field-group mapping so the two cannot drift apart.
 FORM_FIELDS = tuple(sorted(name for fields in GROUPS.values() for name in fields))
 
 
 class CreatableSelect(TomSelect):
     """A Tom Select control that also takes a value typed in, beside the choices it offers.
 
-    ``literature/static/literature/creatable.js`` turns Tom Select's ``create``
+    ``literature/ui/static/literature/creatable.js`` turns Tom Select's ``create``
     setting on for every select marked ``data-create``, since django-mvp-forms'
     widget passes no such setting.
     """
@@ -79,10 +66,15 @@ class KeywordsField(forms.MultipleChoiceField):
 
     @staticmethod
     def split(value):
-        """Return the keywords a stored string holds, in order."""
+        """Return the keywords a stored string holds, in order.
+
+        Args:
+            value: A stored string, or a list of keywords.
+
+        Returns:
+            The keywords. Either a comma or a semicolon ends one, as sources use both.
+        """
         if isinstance(value, str):
-            # CSL JSON separates keywords with commas, and some sources use
-            # semicolons, so either one ends a keyword.
             return [part.strip() for part in re.split(r"[,;]", value) if part.strip()]
         return list(value or [])
 
@@ -102,10 +94,14 @@ class KeywordsField(forms.MultipleChoiceField):
 class ItemForm(forms.ModelForm):
     """Every scalar field of ``Item``, always, and one date field per CSL date slot.
 
-    The model's ``help_text`` records each field's CSL JSON name, which is
-    the developer's reference and means nothing to the person filling the
-    form in, so the form carries its own labels and help where the model's
-    would mislead (``FIELD_LABELS``, ``FIELD_HELP``) and none elsewhere.
+    Scoping by item type is the template's job: every field is declared, so a
+    group the type does not use is hidden by Alpine but still posts the value it
+    held. Building the field list from the type would blank every omitted field
+    on save.
+
+    The model's ``help_text`` records each field's CSL JSON name, which means
+    nothing to the person filling the form in, so the form carries its own labels
+    and help where the model's would mislead (``FIELD_LABELS``, ``FIELD_HELP``).
     The page's arrangement is ``ItemFormLayout``'s, built per instance.
 
     Each slot is a start and an end, written to that slot's ``ItemDate`` on
@@ -151,21 +147,19 @@ class ItemForm(forms.ModelForm):
                     year = begin.widget.widgets[0]
                     year.attrs["placeholder"] = unparsed
                     year.attrs["title"] = unparsed
-        # Django's CharField strips surrounding whitespace by default, which
-        # quietly rewrites a stored value on a save that changed nothing —
-        # an abstract ending in a newline loses it, a title stored with
-        # padding comes back trimmed. A save with no changes must leave the
-        # record byte-identical, and the CSL JSON import path does not
-        # strip, so such values do reach the store. Turning it off here is
-        # what makes that true of every value, not only the ones that
-        # happen not to have edges.
+        # Stripping would rewrite imported values with edge whitespace on a save that
+        # changed nothing, which must leave the record byte-identical.
         for field in self.fields.values():
             if isinstance(field, forms.CharField):
                 field.strip = False
         self.helper = ItemFormLayout(self).helper()
 
     def date_slots_holding_values(self):
-        """The slots with a stored date, of any kind, on the reference being edited."""
+        """Return the slots with a stored date, of any kind, on the reference being edited.
+
+        Returns:
+            The slot names.
+        """
         return frozenset(self.stored_dates)
 
     def clean_keyword(self):
@@ -223,14 +217,8 @@ class ItemForm(forms.ModelForm):
                 placeholder=_("Choose a type"),
                 attrs={
                     "x-model": "form.itemType",
-                    # cotton/form/index.html opens x-data="{form: {}}" on the
-                    # <form> element with an empty object, and this form is
-                    # rendered inside it — there is no seam that seeds the
-                    # scope from self.object.type. Without x-init, x-model
-                    # writes its own undefined state onto the select at
-                    # initialisation: the edit page would render with no
-                    # type selected, and saving would then fail validation
-                    # because type is required.
+                    # The form's x-data starts empty, so without x-init x-model blanks the
+                    # stored type and saving fails because type is required.
                     "x-init": "form.itemType = $el.value",
                 },
             ),
@@ -238,11 +226,16 @@ class ItemForm(forms.ModelForm):
 
 
 def keyword_choices(own):
-    """This reference's own keywords in their stored order, then every other keyword the catalogue uses.
+    """List a reference's own keywords in stored order, then every other keyword the catalogue uses.
 
-    Its own come first because a select sends its chosen options in the order
-    they are listed, and an unchanged save has to send them back in the order
-    they were stored.
+    Its own come first because a select sends its options in listed order, and an
+    unchanged save has to send them back in the order they were stored.
+
+    Args:
+        own: The reference's stored keyword string.
+
+    Returns:
+        ``(word, word)`` choice pairs.
     """
     mine = KeywordsField.split(own)
     others = set()
@@ -253,27 +246,25 @@ def keyword_choices(own):
     return [(word, word) for word in words]
 
 
-#: The id shared between the family-name input's ``list=`` attribute and the
-#: page-level ``<datalist>`` it references (FS-012, #117). Defined here
-#: rather than in ``views.py`` so the form and the context that supplies the
-#: datalist's own options cannot name two different ids.
+#: The id shared by the family-name input's ``list=`` attribute and the page-level
+#: ``<datalist>`` it references (FS-012, #117), so the two cannot name different ids.
 CONTRIBUTOR_NAMES_DATALIST_ID = "contributor-names-datalist"
 
 
 class NameForm(forms.ModelForm):
-    """A contributor row: an ``ItemName`` link whose form also carries the ``Name`` it points at (FS-012, #117).
+    """A contributor row: an ``ItemName`` link whose form also carries its ``Name`` (FS-012, #117).
 
-    ``ItemName`` carries ``item``, ``name``, ``role`` and ``order``; the
-    person types into ``Name``. This form declares none of ``ItemName``'s own
-    fields: the role is the set the row sits in, handed in as ``role`` and
-    written onto a new row, and ``order`` arrives through the formset's
-    ``can_order`` field. The name's own parts are fields of this form, unbound
-    to ``ItemName``, and ``save()`` turns them into a stored ``Name``.
+    The form declares none of ``ItemName``'s own fields: the role is the set the
+    row sits in, and ``order`` arrives through the formset's ``can_order`` field.
+    The name's parts are unbound fields built from ``Name``'s own via
+    ``formfield()``, and ``save()`` turns them into a stored ``Name``. The
+    citation-processor flags (``comma_suffix``, ``static_ordering``,
+    ``parse_names``) are never declared, so their stored values are preserved.
 
-    Each name-part field is built from ``Name``'s own field via
-    ``formfield()``. The three citation-processor flags — ``comma_suffix``,
-    ``static_ordering``, ``parse_names`` — are never declared, so nothing here
-    can write them and their stored values are preserved exactly.
+    Args:
+        *args: What ``ModelForm`` takes.
+        role: The role of the set the row sits in, written onto a new row.
+        **kwargs: What ``ModelForm`` takes.
     """
 
     class Meta:
@@ -289,9 +280,7 @@ class NameForm(forms.ModelForm):
     suffix = Name._meta.get_field("suffix").formfield()
     literal = Name._meta.get_field("literal").formfield()
 
-    #: The fields that make up a ``Name``, in the order ``save()`` compares
-    #: and writes them. Declared once so ``save()`` and ``__init__`` cannot
-    #: drift onto two different sets.
+    #: The fields that make up a ``Name``, in the order ``save()`` compares and writes them.
     NAME_FIELDS = (
         "family",
         "given",
@@ -303,14 +292,9 @@ class NameForm(forms.ModelForm):
 
     def __init__(self, *args, role=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # The role is the set's, never the row's: each role has a set of its
-        # own, so a row added to the editors is an editor.
         if not self.instance.pk:
             self.instance.role = role
-        # Seeding initial from the linked Name is what makes an unedited row
-        # round-trip unchanged: without it, every field would start from
-        # ModelForm's own blank default and a save that touched nothing
-        # would read as a submission clearing every name part.
+        # Without this, a save that touched nothing would read as clearing every name part.
         if self.instance.pk and self.instance.name_id:
             name = self.instance.name
             for field_name in self.NAME_FIELDS:
@@ -340,8 +324,6 @@ class NameForm(forms.ModelForm):
         """Require a family name or an unparsed name, unless the row is being deleted."""
         cleaned_data = super().clean()
         if cleaned_data.get("DELETE"):
-            # A row marked for removal carries whatever it last held; nothing
-            # about a name it is dropping needs to satisfy this rule.
             return cleaned_data
         family = cleaned_data.get("family", "")
         literal = cleaned_data.get("literal", "")
@@ -360,8 +342,7 @@ class NameForm(forms.ModelForm):
         }
 
         if item_name.name_id is None:
-            # A new link always creates a new Name — entry never reuses a
-            # stored record, even one identical to it.
+            # Entry never reuses a stored Name, even an identical one.
             item_name.name = self.create_name(submitted)
         else:
             linked_name = item_name.name
@@ -371,9 +352,7 @@ class NameForm(forms.ModelForm):
                     pk=item_name.pk
                 ).exists()
                 if shared_elsewhere:
-                    # Rewriting the linked Name in place would silently
-                    # rename it on every other reference holding it, so a
-                    # new one is created and the link is repointed instead.
+                    # Editing in place would rename it on every other reference holding it.
                     item_name.name = self.create_name(submitted)
                 else:
                     for field, value in submitted.items():
@@ -387,7 +366,14 @@ class NameForm(forms.ModelForm):
 
     @staticmethod
     def create_name(values):
-        """Create and return a new, fully validated ``Name`` from ``values``, one per :attr:`NAME_FIELDS`."""
+        """Create a new, fully validated ``Name``.
+
+        Args:
+            values: The name parts, one per :attr:`NAME_FIELDS`.
+
+        Returns:
+            The saved ``Name``.
+        """
         name = Name(**values)
         name.full_clean()
         name.save()
@@ -395,29 +381,17 @@ class NameForm(forms.ModelForm):
 
 
 class SetPolicedConstraintMixin:
-    """Leaves one named model constraint to the row's own formset, which is the only party that can judge it correctly (FS-012, #117).
+    """Leave one named model constraint to the row's own formset (FS-012, #117).
 
-    A row form validates its instance against the model's constraints on its
-    own, one row at a time, and against the database as it stands right now.
-    That is the wrong vantage point for a constraint the set polices across
-    all of its rows. Clearing one slot's value and adding another row naming
-    the same slot in the same submission is a replacement rather than a
-    collision, but the row doing the adding cannot see that the row holding
-    that slot is flagged for removal — the removal has not happened yet, so
-    the stored row is still there to be found, and the addition is refused
-    for colliding with a row that is on its way out.
+    A row form validates against the database as it stands, so it cannot see
+    that another row holding the same value is flagged for removal in this
+    submission. A replacement would be refused as a collision. Only the formset
+    can judge the rows being kept, so its ``clean()`` performs the check, and the
+    database constraint stays the final backstop.
 
-    Django's own cross-row check has the same shape and the same escape: it
-    skips forms flagged for deletion. Only the set can do that, so the set is
-    where this belongs. ``clean()`` on each formset below performs the check
-    over the rows actually being kept, reports it against the offending row
-    with a message naming what collided, and the database constraint stays as
-    the final backstop.
-
-    Named ``constraint_field`` rather than the constraint itself because
-    excluding any one of a constraint's fields skips that constraint and
-    leaves every other one on the model still validated, so a check
-    constraint added later is unaffected by this.
+    ``constraint_field`` names one field of the constraint rather than the
+    constraint itself: excluding any one of its fields skips exactly that
+    constraint and leaves the others validated.
     """
 
     #: A field of the constraint the set polices. Excluding it skips exactly
@@ -425,9 +399,8 @@ class SetPolicedConstraintMixin:
     constraint_field: str
 
     def validate_constraints(self):
-        """Mirror ``BaseModelForm.validate_constraints`` with the set-policed constraint's own field excluded."""
-        # Only Django 6.0+ calls this; 5.2 already excludes the constraint
-        # inside Model.full_clean(), so defining it there is harmless.
+        """Validate model constraints, leaving out the one the formset polices."""
+        # Only Django 6.0+ calls this; 5.2 excludes the constraint in Model.full_clean().
         exclude = self._get_validation_exclusions() | {self.constraint_field}
         try:
             self.instance.validate_constraints(exclude=exclude)
@@ -450,29 +423,20 @@ class StoredPartialDateField(PartialDateField):
 
 
 class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
-    """An identifier row: one ``ItemIdentifier`` reachable through the reference form's identifiers set (FS-012, #117).
+    """An identifier row: one ``ItemIdentifier`` in the reference form's identifiers set (FS-012, #117).
 
-    Declares ``type`` and ``value``, ``ItemIdentifier``'s only two fields besides the ``item``
-    foreign key the identifier set itself supplies. ``type`` carries no model-level
-    ``choices=`` — an unknown kind is stored and left unchecked by design
-    (``docs/adr/0002-open-identifier-types.md``) — so the six known kinds
-    (:class:`~literature.choices.IdentifierType`) are offered through
-    :class:`IdentifierKindWidget`'s completion list rather than restricted to them.
+    ``type`` carries no model-level ``choices``: an unknown kind is stored and
+    left unchecked by design (``docs/adr/0002-open-identifier-types.md``), so the
+    six known kinds (:class:`~literature.choices.IdentifierType`) are offered
+    through :class:`CreatableSelect` rather than enforced.
 
-    Normalization happens here, not in :func:`~literature.validators.validate_identifier`'s
-    dispatch dict: a typed kind matching one of the six known kinds other than by casing
-    is cleaned to its canonical acronym before it ever reaches the model, so ``isbn`` is checked
-    as ``ISBN``, while a kind matching none of them passes through untouched and
-    unchecked, exactly as it does today. Changing the dispatch dict instead would also
-    normalize the import path's own lookups, which this feature does not touch and must not
-    affect.
+    A typed kind matching a known one other than by casing is normalized to its
+    canonical acronym here, so ``isbn`` is checked as ``ISBN``. Changing the
+    validator's dispatch dict instead would also change the import path's lookups.
 
-    Format checking itself is not this form's own job: ``ItemIdentifier.clean()``/``save()``
-    already call ``validate_identifier(self.type, self.value)`` (``literature/models.py``),
-    which ``ModelForm._post_clean()`` runs through ``full_clean()``. That call raises a plain
-    ``ValidationError`` rather than one keyed by field, so a rejection surfaces as a non-field
-    error — the same shape :class:`ItemDateForm`'s span rejections take — carrying whichever
-    message ``literature/validators.py`` raised.
+    Format checking is not this form's job: ``ItemIdentifier.clean()`` calls
+    ``validate_identifier``, which raises a plain ``ValidationError``, so a
+    rejection surfaces as a non-field error.
     """
 
     constraint_field = "type"
@@ -485,9 +449,7 @@ class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # The six known types are the choices. Any other type is typed in and
-        # stored as it is (docs/adr/0002-open-identifier-types.md), and a
-        # stored one is offered back so the row shows what it holds.
+        # A stored type outside the six is offered back so the row shows what it holds.
         choices = [("", ""), *((kind, kind) for kind in IdentifierType.values)]
         stored = self.instance.type if self.instance.pk else ""
         if stored and stored not in IdentifierType.values:
@@ -499,10 +461,7 @@ class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
         )
 
     def clean_type(self):
-        """Normalize a typed kind matching a known one, other than by casing, to its canonical acronym.
-
-        A kind matching none of the six passes through exactly as typed.
-        """
+        """Normalize a kind matching a known one, other than by casing, to its canonical acronym."""
         value = self.cleaned_data["type"]
         for known in IdentifierType.values:
             if value.casefold() == known.casefold():
@@ -513,9 +472,8 @@ class ItemIdentifierForm(SetPolicedConstraintMixin, forms.ModelForm):
 class ImportForm(forms.Form):
     """Choose a configured format and a file to run it through (FS-011, #103).
 
-    Not a ``ModelForm``: nothing here maps to ``Item``, the format resolves
-    the file into entries and the entries into items, never this form — the
-    front end has no reading path of its own.
+    Not a ``ModelForm``: the format resolves the file into entries and items, as
+    the front end has no reading path of its own.
     """
 
     format = forms.ChoiceField(
@@ -535,10 +493,7 @@ class ImportForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Read at __init__ time, not declared on the class: a ChoiceField
-        # built from available_formats() at class-definition time would
-        # freeze the set at import time, and a format configured afterwards
-        # would never appear.
+        # Read here, not at class definition, so a format configured later appears.
         self.fields["format"].choices = [
             (name, format_class.label)
             for name, format_class in available_formats().items()
@@ -548,15 +503,10 @@ class ImportForm(forms.Form):
 class ConfirmImportForm(forms.Form):
     """Carry out the import a preview described (FS-011, #103).
 
-    The staged file's token and the format it was staged as both live in the
-    reader's own session, never in this form — the whole point is that
-    nothing on this page can name someone else's staged upload.
-
-    The one field it does declare names which preview the page was showing.
-    That is not the same thing: on its own it reaches nothing, because the
-    view checks it against the confirming session's own value and imports
-    only where the two agree. What it prevents is a page still showing an
-    earlier preview carrying out a later one.
+    The staged file's token and format live in the reader's own session, so
+    nothing on the page can name someone else's upload. The one field names which
+    preview the page showed; the view imports only where it matches the session's
+    value, which stops a stale page from carrying out a later preview.
     """
 
     preview = forms.CharField(widget=forms.HiddenInput, required=False)
