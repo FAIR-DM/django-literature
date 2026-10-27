@@ -34,11 +34,10 @@ def _public_methods(cls, module_prefix):
 
 def _gather_symbols():
     """Return list of (label, obj) for all public symbols in literature.*."""
-    from literature import choices, converters, importers, models
-    from literature.utils import date as date_utils
+    from literature import choices, converters, importers, models, utils
 
     symbols = []
-    for mod in (models, converters, choices, date_utils, importers):
+    for mod in (models, converters, choices, utils, importers):
         prefix = "literature"
         for label, obj in _public_classes_and_functions(mod):
             symbols.append((label, obj))

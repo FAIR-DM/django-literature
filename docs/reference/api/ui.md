@@ -183,7 +183,7 @@ in a section.
 
 `web_url` returns a stored identifier as a link target only when it is an `http` or
 `https` address, so a value such as `javascript:` is shown as text and never followed. A
-DOI stored without its resolver is linked through `literature.utils.doi.doi_url` instead.
+DOI stored without its resolver is linked through `literature.utils.doi_url` instead.
 
 ```{eval-rst}
 .. automodule:: literature.ui.fields

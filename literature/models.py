@@ -8,7 +8,7 @@ from partial_date import PartialDate
 from partial_date.fields import PartialDateField
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
-from literature.utils.doi import doi_url
+from literature.utils import doi_url
 from literature.validators import validate_identifier
 
 
