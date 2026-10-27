@@ -9,7 +9,7 @@ from tests.factories import ItemDateFactory, ItemFactory, ItemNameFactory, NameF
 
 
 class TestSearchFields:
-    def test_is_exactly_the_eight_declared_paths(self):
+    def test_is_exactly_the_nine_declared_paths(self):
         assert SEARCH_FIELDS == [
             "citation_key",
             "title",
@@ -19,6 +19,7 @@ class TestSearchFields:
             "item_names__name__family",
             "item_names__name__given",
             "item_names__name__literal",
+            "item_identifiers__value",
         ]
 
     @pytest.mark.parametrize("path", SEARCH_FIELDS)

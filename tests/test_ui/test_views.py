@@ -3432,7 +3432,7 @@ class TestWriteLinksFollowPermission:
 class TestReferenceAutocompleteView:
     @staticmethod
     def search(client, text):
-        response = client.get(reverse("literature:item-search"), {"q": text})
+        response = client.get(reverse("literature:item-autocomplete"), {"q": text})
         assert response.status_code == 200
         return response.json()["results"]
 
@@ -3441,7 +3441,7 @@ class TestReferenceAutocompleteView:
         return [result["id"] for result in results]
 
     def test_the_route_reverses_under_the_catalogue_prefix(self):
-        assert reverse("literature:item-search") == "/catalogue/search/"
+        assert reverse("literature:item-autocomplete") == "/catalogue/autocomplete/"
 
     def test_a_result_carries_the_pk_and_the_label(self, anonymous_client):
         item = ItemFactory(title="Deep Time")
@@ -3499,17 +3499,23 @@ class TestReferenceAutocompleteView:
         assert self.values(self.search(anonymous_client, typed)) == [item.pk]
 
     @pytest.mark.parametrize("typed", ["doi:", "https://doi.org/"])
-    def test_a_bare_doi_prefix_matches_nothing_through_the_doi_clause(
-        self, anonymous_client, typed
-    ):
-        ItemIdentifierFactory(value="10.5555/abc.123")
+    def test_a_bare_doi_prefix_is_read_as_no_text(self, anonymous_client, typed):
+        item = ItemFactory(title="Deep time")
+        ItemIdentifierFactory(item=item, value="10.5555/abc.123")
+        ItemFactory(title="Ocean heat")
 
-        assert self.search(anonymous_client, typed) == []
+        assert self.values(self.search(anonymous_client, typed)) == self.values(
+            self.search(anonymous_client, "")
+        )
 
-    def test_a_non_doi_identifier_is_not_searched(self, anonymous_client):
-        ItemIdentifierFactory(type=IdentifierType.ISBN, value="978-3-16-148410-0")
+    def test_an_identifier_of_any_type_is_searched(self, anonymous_client):
+        item = ItemFactory()
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.ISBN, value="978-3-16-148410-0"
+        )
+        ItemFactory()
 
-        assert self.search(anonymous_client, "148410") == []
+        assert self.values(self.search(anonymous_client, "148410")) == [item.pk]
 
     def test_empty_text_returns_the_first_page_by_title(self, anonymous_client):
         second = ItemFactory(title="Ocean heat")
@@ -3524,7 +3530,7 @@ class TestReferenceAutocompleteView:
     def test_a_missing_q_returns_the_first_page(self, anonymous_client):
         item = ItemFactory(title="Deep time")
 
-        response = anonymous_client.get(reverse("literature:item-search"))
+        response = anonymous_client.get(reverse("literature:item-autocomplete"))
 
         assert response.status_code == 200
         assert self.values(response.json()["results"]) == [item.pk]
@@ -3585,13 +3591,15 @@ class TestReferenceAutocompleteView:
         ItemFactory(title="Deep Time")
 
         response = anonymous_client.get(
-            reverse("literature:item-search"), {"q": "deep"}
+            reverse("literature:item-autocomplete"), {"q": "deep"}
         )
 
         assert response.status_code == 200
 
     def test_only_get_is_answered(self, anonymous_client):
-        response = anonymous_client.post(reverse("literature:item-search"), {"q": "x"})
+        response = anonymous_client.post(
+            reverse("literature:item-autocomplete"), {"q": "x"}
+        )
 
         assert response.status_code == 405
 
@@ -3620,7 +3628,7 @@ class TestReferenceAutocompleteView:
 
         with CaptureQueriesContext(connection) as queries:
             response = anonymous_client.get(
-                reverse("literature:item-search"), {"q": "deep\x00time"}
+                reverse("literature:item-autocomplete"), {"q": "deep\x00time"}
             )
 
         assert response.status_code == 400
@@ -3633,7 +3641,7 @@ class TestReferenceAutocompleteView:
         item = ItemFactory(title="a" * 200 + " and the rest of a long title")
 
         response = anonymous_client.get(
-            reverse("literature:item-search"), {"q": "a" * 10_000}
+            reverse("literature:item-autocomplete"), {"q": "a" * 10_000}
         )
 
         assert response.status_code == 200
@@ -3658,7 +3666,7 @@ class TestReferenceAutocompleteView:
             ItemFactory(title=f"Common {number}")
 
         response = anonymous_client.get(
-            reverse("literature:item-search"), {"q": "common", "page_size": 100}
+            reverse("literature:item-autocomplete"), {"q": "common", "page_size": 100}
         )
 
         assert len(response.json()["results"]) == SEARCH_LIMIT

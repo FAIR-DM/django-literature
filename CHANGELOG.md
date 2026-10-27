@@ -9,7 +9,7 @@ All notable changes to this project are documented in this file. The format foll
 ### Added
 
 - `ReferenceField` in `literature.ui.picker` lets a project's own form choose one reference by
-  searching the catalogue, with a JSON search route, `literature:item-search`, behind it. It is a
+  searching the catalogue, with a JSON search route, `literature:item-autocomplete`, behind it. It is a
   django-tomselect field whose default points at that route, so any django-tomselect setting can be
   passed in its `config`. Opening it shows the first references by title, and typing narrows them.
   See
@@ -28,6 +28,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **The catalogue's search also matches identifiers.** A reference is found by its DOI, ISBN or any
+  other identifier, and a DOI is found with or without a `https://doi.org/` address or `doi:` label
+  in front. The reference picker uses the same search.
 - **The catalogue's write pages require Django's model permissions.** Adding a reference and every
   import page require `literature.add_item`, editing requires `literature.change_item`, and
   deleting requires `literature.delete_item`. A visitor who is not signed in is sent to

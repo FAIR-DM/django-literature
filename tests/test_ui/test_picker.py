@@ -181,14 +181,14 @@ class TestReferenceField:
     def test_the_control_points_at_the_search_route_by_name(self):
         html = drawn(ReferenceForm())
 
-        assert reverse("literature:item-search") in html
+        assert reverse("literature:item-autocomplete") in html
 
     @pytest.mark.urls("tests.urls_refs")
     def test_the_control_follows_where_the_front_end_is_mounted(self):
         html = drawn(ReferenceForm())
 
-        assert "/refs/search/" in html
-        assert "/catalogue/search/" not in html
+        assert "/refs/autocomplete/" in html
+        assert "/catalogue/autocomplete/" not in html
 
     def test_a_chosen_reference_is_drawn_labelled_by_item_label(self):
         chosen = ItemFactory(title="Chosen Title")
@@ -234,7 +234,7 @@ class TestReferenceField:
 
         assert field.config.placeholder == "Find a source"
         assert field.config.max_items == 3
-        assert field.config.url == "literature:item-search"
+        assert field.config.url == "literature:item-autocomplete"
         assert field.config.label_field == "label"
 
     def test_a_plugin_setting_merges_over_the_default(self):
@@ -250,7 +250,7 @@ class TestReferenceField:
         field = ReferenceField(config={"placeholder": "Find a source"})
 
         assert field.config.placeholder == "Find a source"
-        assert field.config.url == "literature:item-search"
+        assert field.config.url == "literature:item-autocomplete"
 
     def test_a_config_can_name_another_search_route(self):
         field = ReferenceField(config=TomSelectConfig(url="literature:item-list"))
@@ -325,7 +325,7 @@ class TestReferenceMultipleField:
         class Form(forms.Form):
             references = ReferenceMultipleField()
 
-        assert reverse("literature:item-search") in drawn(Form(), "references")
+        assert reverse("literature:item-autocomplete") in drawn(Form(), "references")
 
     def test_several_pks_clean_to_the_items(self):
         class Form(forms.Form):

@@ -116,3 +116,21 @@ conditions, and its own script. So:
   and docs use for an item. `Item` stays the model's name.
 
 **ADR:** docs/adr/0037-the-reference-picker-is-a-django-tomselect-field.md
+
+## D10 — The picker searches with the catalogue's filter set
+
+**Decided at the merge gate, 2026-10-27, at the maintainer's direction.** The autocomplete view had
+its own matching code beside `ItemFilterSet`, which ADR 0025 says must be the one definition of what
+the catalogue is searchable by. The view now searches with `ItemFilterSet.q`, and what the picker
+needed that the catalogue lacked was added there, so both gain it:
+
+- identifiers are searched (`item_identifiers__value`), so a DOI or an ISBN finds its reference
+- `CatalogueSearchFilter` reads each word as a DOI would be stored, so a pasted resolver address
+  or `doi:` label still matches
+
+The search now follows the catalogue's rule that any word typed may match, rather than the whole
+text. Ranking a title or citation key that starts with the whole text first stays in the view,
+because it is ordering, not filtering. The route moved to `autocomplete/`, named
+`literature:item-autocomplete`.
+
+**ADR:** none — applies ADR 0025, which already records the rule.

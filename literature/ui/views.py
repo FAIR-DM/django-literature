@@ -27,11 +27,10 @@ from mvp.views import (
     PageWidth,
 )
 
-from literature.choices import IdentifierType, ItemType, NameRole
+from literature.choices import ItemType, NameRole
 from literature.importers import get_format
-from literature.importers.normalizers import IdentifierNormalizer
 from literature.importers.results import Outcome
-from literature.models import Item, ItemIdentifier, ItemName, Name
+from literature.models import Item, ItemName, Name
 from literature.ui.contributors import contributor_groups, stored_contributor_names
 from literature.ui.fieldgroups import TYPE_DATE_SLOTS, TYPE_ROLES, FieldGroups
 from literature.ui.fields import field_sections
@@ -950,21 +949,28 @@ class ReferenceAutocompleteView(AutocompleteModelView):
         return super().get(request, *args, **kwargs)
 
     def search(self, queryset, query):
-        """Keep the references ``query`` finds and rank them.
+        """Keep the references the catalogue's own search finds, and rank them.
 
-        The field validates a submission against this view's queryset without
-        any text, so no text must leave the queryset whole.
+        The search is ``ItemFilterSet``'s, so the picker and the catalogue
+        agree on what a text finds (ADR 0025). The field validates a
+        submission against this view's queryset without any text, so no text
+        leaves the queryset whole.
         """
         if not query:
             return queryset
-        return queryset.filter(self.matches(query)).annotate(
-            rank=Case(
-                When(
-                    Q(title__istartswith=query) | Q(citation_key__istartswith=query),
-                    then=Value(0),
-                ),
-                default=Value(1),
-                output_field=IntegerField(),
+        return (
+            ItemFilterSet.base_filters["q"]
+            .filter(queryset, query)
+            .annotate(
+                rank=Case(
+                    When(
+                        Q(title__istartswith=query)
+                        | Q(citation_key__istartswith=query),
+                        then=Value(0),
+                    ),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
             )
         )
 
@@ -991,32 +997,3 @@ class ReferenceAutocompleteView(AutocompleteModelView):
             {"id": result["id"], "label": self.prepare_label(items[result["id"]])}
             for result in results
         ]
-
-    @staticmethod
-    def matches(text):
-        """Return the condition a reference meets when ``text`` finds it.
-
-        Args:
-            text: What the reader typed, stripped and not empty.
-
-        Returns:
-            A ``Q`` object. Contributor and DOI matches go through subqueries so
-            a reference matched twice is one row.
-        """
-        condition = (
-            Q(title__icontains=text)
-            | Q(citation_key__icontains=text)
-            | Q(
-                pk__in=ItemName.objects.filter(
-                    Q(name__family__icontains=text) | Q(name__literal__icontains=text)
-                ).values("item")
-            )
-        )
-        doi = IdentifierNormalizer.normalize_doi(text)
-        if doi:
-            condition |= Q(
-                pk__in=ItemIdentifier.objects.filter(
-                    type=IdentifierType.DOI, value__icontains=doi
-                ).values("item")
-            )
-        return condition

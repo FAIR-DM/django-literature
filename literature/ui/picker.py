@@ -52,7 +52,7 @@ class ReferencePickerMixin:
     """
 
     default_config = TomSelectConfig(
-        url="literature:item-search",
+        url="literature:item-autocomplete",
         value_field="id",
         label_field="label",
         minimum_query_length=1,

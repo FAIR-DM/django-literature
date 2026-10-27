@@ -179,20 +179,21 @@ view decides what is offered, and `filter_by` and `exclude_by` narrow it.
 
 ## What the search matches
 
-Typing narrows the choices to the references where the text appears in any one of:
+The picker searches exactly as the catalogue's own search box does. A reference is offered when
+any word typed appears in any one of:
 
-- the title, anywhere in it
-- the citation key, anywhere in it
-- a contributor's family name, or the literal name of an organisation
-- the DOI, with or without a `https://doi.org/` address or a `doi:` label in front, in any letter
-  case
+- its titles, including the short, original and container titles
+- its citation key
+- a contributor's family or given name, or the literal name of an organisation
+- any of its identifiers, such as a DOI or an ISBN. A DOI is found with or without a
+  `https://doi.org/` address or a `doi:` label in front, in any letter case.
 
 Opening the picker shows the first references in the catalogue, by title, before anything is
 typed. Typing narrows them from the first character.
 
 Case does not matter. Typing `%`, `_` or a quotation mark matches those characters and nothing
 else. A reference that matches in several ways is offered once. A title or citation key that
-starts with the text comes first, and at most 20 references are offered at a time, with more loaded
+starts with the whole text comes first, and at most 20 references are offered at a time, with more loaded
 as the list is scrolled. Each is shown as its title (its citation key when it has no title), its
 year and its first contributor, preferring an author when it has one. Text of more than 200
 characters is cut to 200, and text containing a NUL character is refused.
