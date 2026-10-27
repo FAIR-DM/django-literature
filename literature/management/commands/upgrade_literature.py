@@ -132,6 +132,12 @@ class Command(BaseCommand):
 
         The row's own citation key and type win over the stored JSON's, because
         the old package kept the row's values authoritative.
+
+        Args:
+            cursor: A cursor on the database holding the old tables.
+
+        Returns:
+            A list of ``(primary key, CSL JSON dict)`` pairs, in primary key order.
         """
         cursor.execute(
             "SELECT k.literatureitem_id, t.name FROM literature_literatureitem_keyword k"
@@ -156,7 +162,15 @@ class Command(BaseCommand):
         return references
 
     def merge_keywords(self, keyword, tags):
-        """Return the stored keyword string with every tag not already in it appended."""
+        """Return the stored keyword string with every tag not already in it appended.
+
+        Args:
+            keyword: The JSON's ``keyword`` value, if it held one.
+            tags: The names of the reference's tags, in the order they were added.
+
+        Returns:
+            The keywords as one comma-separated string.
+        """
         keywords = []
         if isinstance(keyword, str):
             # CSL JSON separates keywords with commas, and some sources use semicolons.
@@ -167,7 +181,15 @@ class Command(BaseCommand):
         return ", ".join(keywords)
 
     def read_unconverted(self, cursor):
-        """Return the citation keys of references holding what the current models cannot."""
+        """Return the citation keys of references holding what the current models cannot.
+
+        Args:
+            cursor: A cursor on the database holding the old tables.
+
+        Returns:
+            The citation keys of references in a collection, with supplementary
+            material, or with a file attached.
+        """
         cursor.execute(
             "SELECT citation_key FROM literature_literatureitem WHERE"
             " (file IS NOT NULL AND file <> '')"
@@ -177,7 +199,16 @@ class Command(BaseCommand):
         return {citation_key for (citation_key,) in cursor.fetchall()}
 
     def convert(self, references, database):
-        """Create an ``Item`` for each reference, returning a line for each that fails."""
+        """Create an ``Item`` for each reference, each in its own savepoint.
+
+        Args:
+            references: The ``(primary key, CSL JSON dict)`` pairs to convert.
+            database: The alias of the database to write to.
+
+        Returns:
+            One line per reference that could not be converted, naming its
+            citation key and the reason.
+        """
         failures = []
         for pk, data in references:
             try:
@@ -190,7 +221,11 @@ class Command(BaseCommand):
         return failures
 
     def carry_timestamps(self, cursor):
-        """Give each new ``Item`` the created and modified times of its old row."""
+        """Give each new ``Item`` the created and modified times of its old row.
+
+        Args:
+            cursor: A cursor on the database holding both tables.
+        """
         cursor.execute(
             "UPDATE literature_item SET"
             " created = (SELECT created FROM literature_literatureitem old"
@@ -206,6 +241,13 @@ class Command(BaseCommand):
         database constraint still names the old table. Altering the field from no
         constraint to one creates the constraint against ``literature_item``. The
         old constraint goes with the old table, which is dropped afterwards.
+
+        Args:
+            editor: The schema editor to alter the host tables with.
+            database: The alias of the database being upgraded.
+
+        Returns:
+            The ``app_label.Model.field`` label of each field it pointed at ``Item``.
         """
         repointed = []
         for model in apps.get_models(include_auto_created=True):

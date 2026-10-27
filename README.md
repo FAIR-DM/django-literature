@@ -640,6 +640,10 @@ See the [data model documentation](https://github.com/FAIR-DM/django-literature/
 
 Full documentation is available in [docs/](https://github.com/FAIR-DM/django-literature/tree/main/docs).
 
+A database still on the old `LiteratureItem` schema is moved to the current models with
+`python manage.py upgrade_literature`. See
+[How to upgrade a database from the `LiteratureItem` schema](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/upgrading-from-literatureitem.md).
+
 To build locally:
 
 ```bash
