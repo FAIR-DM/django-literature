@@ -62,10 +62,19 @@ source = ["literature"]
 [tool.ruff]
 extend = "ruff-base.toml"
 
+[tool.ruff.lint]
+# Docstrings follow docs/contributing/standards/code-documentation.md: Google
+# style, imperative summaries, constructor arguments on the class, nothing on Meta.
+extend-select = ["D", "D401"]
+extend-ignore = ["D106", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ruff.lint.per-file-ignores]
 # Tests: asserts, hardcoded test passwords, blind-exception asserts, nested-with
-# and unused variables — style rules that don't pay for themselves in tests.
-"tests/*" = ["S101", "S105", "B017", "F841", "SIM117"]
+# unused variables and docstrings — rules that don't pay for themselves in tests.
+"tests/*" = ["S101", "S105", "B017", "F841", "SIM117", "D"]
 # The bundled demo project ships a throwaway dev SECRET_KEY by design.
 "demo/settings.py" = ["S105"]
 
