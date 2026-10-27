@@ -1044,10 +1044,13 @@ class TestPublishedMapping:
         from literature.importers.bibtex import _mapping_document
 
         published = (
-            Path(__file__).parent.parent.parent / "docs" / "bibtex-mapping.md"
+            Path(__file__).parent.parent.parent
+            / "docs"
+            / "reference"
+            / "bibtex-mapping.md"
         ).read_text(encoding="utf-8")
         assert published == _mapping_document(), (
-            "docs/bibtex-mapping.md is stale — regenerate it from literature.importers.bibtex._mapping_document()"
+            "docs/reference/bibtex-mapping.md is stale — regenerate it from literature.importers.bibtex._mapping_document()"
         )
 
     def test_every_table_row_appears(self):

@@ -38,9 +38,9 @@ To change what a project's catalogue filters on, subclass `ItemFilterSet` and
 subclass as the view's `filterset_class`.
 
 Two decisions behind this module are recorded as ADRs: why the searched fields carry
-no database index ([ADR 0024](../adr/0024-the-catalogue-search-adds-no-index.md)),
+no database index ([ADR 0024](../../adr/0024-the-catalogue-search-adds-no-index.md)),
 and why the search and filter definition lives in exactly one place
-([ADR 0025](../adr/0025-one-definition-of-what-the-catalogue-narrows-by.md)).
+([ADR 0025](../../adr/0025-one-definition-of-what-the-catalogue-narrows-by.md)).
 
 ```{eval-rst}
 .. automodule:: literature.ui.filters
@@ -59,7 +59,7 @@ either is merged over that default. Both inherit that default and the restrictio
 constant `filter_by` and `exclude_by` conditions. `item_label` names a reference the same way in the
 control and in the search results: its title or citation key, its year and its first contributor.
 How to use them is in
-[How to choose a reference in your own form](../how-to/choosing-a-reference.md).
+[How to choose a reference in your own form](../../how-to/choose-a-reference-in-your-own-form.md).
 
 ```{eval-rst}
 .. automodule:: literature.ui.picker
@@ -71,8 +71,8 @@ How to use them is in
 ## `literature.ui.views`
 
 `ItemTableView` serves the catalogue as a table and `ItemListView` serves it as cards.
-Either can back the catalogue route, chosen through the `LITERATURE` settings key
-described in the README — see [ADR 0033](../adr/0033-the-catalogue-view-is-chosen-by-a-setting.md)
+Either can back the catalogue route, chosen through the
+[`CATALOGUE_VIEW` setting](../settings.md) — see [ADR 0033](../../adr/0033-the-catalogue-view-is-chosen-by-a-setting.md)
 for why the choice is made this way rather than by routing.
 
 `ReferenceAutocompleteView` is a django-tomselect `AutocompleteModelView` that answers the
@@ -128,14 +128,14 @@ The routes these views are reachable at, all within the `literature` namespace:
 - `literature:item-import-restart` — discard the staged file and start again.
 - `literature:item-import-confirm` — carry out the previewed import.
 
-See [Importing a bibliography file](../importing-through-the-interface.md) for what a
+See [Importing a bibliography file](../import-pages.md) for what a
 reader sees.
 
 ### Permissions
 
 Every view that changes the catalogue uses Django's `PermissionRequiredMixin`, with
 `permission_required` set to one of three module constants
-([ADR 0036](../adr/0036-writing-asks-for-a-model-permission.md)):
+([ADR 0036](../../adr/0036-writing-asks-for-a-model-permission.md)):
 
 | Views | Constant | Permission |
 |---|---|---|
@@ -175,7 +175,7 @@ The reference page, `ItemDetailView`, reads its content from two small modules, 
 `Item.year` and `Item.doi_url` on the model.
 
 `field_sections` returns the fields a reference carries, grouped under the same headings
-the edit form uses (see [Field groups](../field-groups.md)), in the same order. Each
+the edit form uses (see [Field groups](../../explanation/field-groups.md)), in the same order. Each
 section is a dict of `label` and `rows`, a row being a label and value pair. A field
 holding nothing is left out, and so is a group left with no rows. The four fields the
 page shows in its header, the type, citation key, title and abstract, are never repeated

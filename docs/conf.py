@@ -47,7 +47,13 @@ source_suffix = {
 }
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+# docs/agents/ configures tooling for automated contributors and is not part of the site.
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "agents"]
+
+# A ``type[BibFormat]`` annotation names the builtin ``type``, which Sphinx also matches against
+# the ``type`` fields of ``Item`` and ``ItemIdentifier`` and reports as ambiguous. The builtin is
+# what every such annotation means, so the warning carries nothing to fix.
+suppress_warnings = ["ref.python"]
 
 # ---------------------------------------------------------------------------
 # MyST-Parser options
@@ -74,7 +80,6 @@ html_theme_options = {
     "fixed_sidebar": True,
 }
 
-html_static_path = ["_static"]
 
 # ---------------------------------------------------------------------------
 # autodoc options
