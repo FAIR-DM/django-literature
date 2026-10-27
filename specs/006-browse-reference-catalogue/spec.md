@@ -45,7 +45,7 @@ Someone has a project with references already in it — imported from a BibTeX o
 
 **Acceptance Scenarios**:
 
-1. **Given** a project with the core and the interface installed and the URLs included, **When** a reader opens the catalogue page, **Then** the references are listed, most recently added first, showing title, item type, contributors, issued date and citation key.
+1. **Given** a project with the core and the interface installed and the URLs included, **When** a reader opens the catalogue page, **Then** the references are listed, most recently added first, each showing its title, item type, authors (or editors when it has no authors), issued year, DOI where it has one, the start of its abstract and its citation key.
 2. **Given** a catalogue holding more references than fit on one page, **When** the reader opens the catalogue, **Then** one page of results is rendered with a statement of where in the catalogue they are and a way to move through the rest.
 3. **Given** a catalogue holding no references, **When** the reader opens the catalogue, **Then** the page renders and states that there is nothing stored.
 4. **Given** a listed reference, **When** the reader follows it, **Then** they arrive at that reference's own page.
@@ -89,21 +89,40 @@ A project that only wants somewhere to keep references installs the core, and th
 
 ### User Story 4 - Follow a contributor to everything they worked on (Priority: P4)
 
-A reader looking at a reference recognises one of its authors and wants to know what else by that person the catalogue holds. The contributor's name on the reference page is a link, and following it opens that contributor's own page: the name as the catalogue stores it, and the items they contributed to, each showing the role they held on it. The list is paginated in the same order as the catalogue, so a prolific contributor stays as usable as a large library. Because contributors are stored once and shared across items, this is the catalogue's own answer rather than a search built on top of it.
+A reader looking at a reference recognises one of its authors and wants to know what else by that person the catalogue holds. The contributor's name on the reference page is a link, and following it opens that contributor's own page: the name as the catalogue stores it, and the items they contributed to, each shown as the catalogue shows it. The list is paginated in the same order as the catalogue, so a prolific contributor stays as usable as a large library. Because contributors are stored once and shared across items, this is the catalogue's own answer rather than a search built on top of it.
 
 **Why this priority**: It is the newest addition and the one the other three do not depend on, so it is the last to be built and the safest to be interrupted. It is the second most-asked thing of a reference catalogue after the reference itself, and having it here means a reader gets there by browsing rather than by constructing a query.
 
-**Independent Test**: Open a stored contributor's page directly and confirm it lists the items they contributed to, with roles, paginated, and that it is reachable from a reference page carrying that contributor.
+**Independent Test**: Open a stored contributor's page directly and confirm it lists the items they contributed to, paginated, and that it is reachable from a reference page carrying that contributor.
 
 **Acceptance Scenarios**:
 
 1. **Given** a reference with contributors, **When** a reader opens its page, **Then** each contributor's name is a link to that contributor's own page.
-2. **Given** a contributor credited on several items, **When** a reader opens their page, **Then** the items they contributed to are listed, each showing the role they held on it.
-3. **Given** a contributor holding more than one role on the same item, **When** a reader opens their page, **Then** the item appears once, carrying every role they held on it.
+2. **Given** a contributor credited on several items, **When** a reader opens their page, **Then** the items they contributed to are listed, each entry the same as the catalogue's.
+3. **Given** a contributor holding more than one role on the same item, **When** a reader opens their page, **Then** the item appears once.
 4. **Given** a contributor credited on more items than fit on one page, **When** a reader opens their page, **Then** the list is paginated in the same order and with the same navigation as the catalogue.
 5. **Given** a contributor stored as an unparsed or institutional name, **When** a reader opens their page, **Then** the name is shown as the store holds it.
 6. **Given** a contributor credited on nothing, **When** a reader opens their page, **Then** the page renders and states that there is nothing stored against them.
 7. **Given** a contributor that does not exist, **When** a reader requests their page, **Then** the response is a not-found, not an error.
+
+---
+
+### User Story 5 - Show a reference on a project's own page (Priority: P5)
+
+A developer building a project on the package has pages of their own that mention references: the publications related to a record, say, or the paper a record was published in. They want each reference shown the way the catalogue shows it, without copying the catalogue's markup or knowing how its views prepare a row. They pass one reference to a component and get its title, who made it, what it is, when and where it appeared, and its DOI, linked to the catalogue where the catalogue is mounted.
+
+**Why this priority**: The catalogue's pages answer a reader inside the catalogue. This answers the same reader on every other page of the project, which is where most references are met. It is last because it reuses what the first four stories built.
+
+**Independent Test**: Render the component for a stored reference in a template of the project's own, with nothing but the item passed in, and confirm it shows the reference and links to its catalogue page.
+
+**Acceptance Scenarios**:
+
+1. **Given** a stored reference, **When** a developer renders the component with only that item, **Then** it shows the title linking to the reference page, the authors linking to their contributor pages, the item type, the issued year, where it appeared and its DOI linking to `https://doi.org/`.
+2. **Given** a reference with no authors and one or more editors, **When** it is rendered, **Then** the editors are shown, marked as editors.
+3. **Given** a reference with more than ten authors, **When** it is rendered, **Then** the first ten are named and the rest are shortened to "et al.".
+4. **Given** a reference holding only a title, **When** it is rendered, **Then** only the title is shown, with no empty labels or separators.
+5. **Given** a project that does not mount the catalogue's URLs, **When** the developer renders the component with links turned off, **Then** it renders with no links and no error.
+6. **Given** a page listing many references prefetched as documented, **When** it renders, **Then** the component adds no query per reference.
 
 ---
 
@@ -135,7 +154,7 @@ A reader looking at a reference recognises one of its authors and wants to know 
 
 **The design system**
 
-- **FR-008**: Every visual element on both pages MUST be composed from django-mvp's own components and design system. The app MUST NOT ship a stylesheet of its own and MUST NOT define components of its own.
+- **FR-008**: Every visual element on both pages MUST be composed from django-mvp's own components and design system. The app MUST NOT ship a stylesheet of its own and MUST NOT define design components of its own, such as buttons, cards or badges. A component that composes django-mvp's components to show the package's own records, as the reference component (FR-039) does, is not a design component.
 - **FR-009**: Where django-mvp carries no component for something these pages need, the need MUST be raised before anything is built, and a genuine gap MUST be filed as a request against django-mvp. A local implementation MAY stand in until a django-mvp release carries the component, and MUST be recorded in the specification's *Component gaps* section so that it is removed when the release lands.
 - **FR-010**: The interface MUST NOT adopt or blend into the host project's styling.
 - **FR-011**: The package MUST depend on a django-mvp release that carries the list, table, form and inline-row views these pages compose, and the `ui` extra declares that release as its floor. The shared development toolchain the package already pins is at its own current release and needs no move.
@@ -143,7 +162,7 @@ A reader looking at a reference recognises one of its authors and wants to know 
 **The catalogue list**
 
 - **FR-012**: The app MUST offer a page listing the references in the catalogue.
-- **FR-013**: Each entry MUST carry the reference's title, its item type, its contributors in the roles and order stored, its issued date at the precision stored, and its citation key. Where an item has no title, the entry MUST fall back to the store's own fallback handle rather than rendering empty. *(Amended by issue #65: an entry also carries a truncated snippet of the abstract where the item holds one, and nothing where it does not. The list above remains the minimum, not the maximum.)*
+- **FR-013**: Each entry MUST be the reference component (FR-039) in a card, showing the start of the abstract where the item holds one, followed by the citation key. Where an item has no title, the entry MUST fall back to its citation key rather than rendering empty.
 - **FR-014**: The list MUST be paginated, and MUST NOT render the whole catalogue on one page at any catalogue size.
 - **FR-015**: The list MUST use one fixed order — most recently added first, the catalogue's declared default. Offering a choice of order is out of scope.
 - **FR-016**: Each entry MUST link to that reference's own page.
@@ -165,11 +184,19 @@ A reader looking at a reference recognises one of its authors and wants to know 
 
 - **FR-032**: The app MUST offer a page for one contributor, addressed by the contributor record's primary key. A stored name is not unique and carries no other stable handle, so nothing else can address the page.
 - **FR-033**: The page MUST show the contributor's name as the store holds it, including an unparsed or institutional name, without splitting it into parts it does not have.
-- **FR-034**: The page MUST list the items the contributor is credited on, each entry carrying what a catalogue entry carries under FR-013 and linking to that reference's page.
-- **FR-035**: Each entry MUST show the role or roles the contributor held on that item. An item on which they held more than one role MUST appear once, carrying every role.
+- **FR-034**: The page MUST list the items the contributor is credited on, each entry the catalogue's entry under FR-013, linking to that reference's page.
+- **FR-035**: An item on which the contributor held more than one role MUST appear once.
 - **FR-036**: The list MUST be paginated and ordered exactly as the catalogue list is under FR-014, FR-015 and FR-017.
 - **FR-037**: A contributor credited on nothing MUST render the page with a stated empty result, and a request for a contributor that does not exist MUST produce a not-found.
 - **FR-038**: Two contributor records holding identical names MUST keep separate pages. The interface MUST NOT merge them or attempt to decide that two stored names are the same person.
+
+**Showing a reference on a project's page**
+
+- **FR-039**: The app MUST ship a component, `<c-literature.item>`, that shows one reference from the item alone: its title, its authors in their stored order (or, when it has none, its editors, marked as editors), its item type, its issued year, its container with volume, issue and pages or else its publisher, and its DOI as a `https://doi.org/` link. A part the item does not hold MUST be left out.
+- **FR-040**: The component MUST name at most ten people and shorten the rest to "et al.".
+- **FR-041**: The title MUST link to the reference page and each name to its contributor page. A caller MUST be able to give the title a different address, and to turn every link off for a project that does not mount the catalogue's URLs.
+- **FR-042**: The caller MUST be able to set the title's heading level, show the start of the abstract, and add content of their own under the reference.
+- **FR-043**: Rendered from an item whose names, dates and identifiers are prefetched, the component MUST issue no query.
 
 **The boundary**
 
@@ -185,6 +212,7 @@ A reader looking at a reference recognises one of its authors and wants to know 
 - **User Story 2** carries FR-019 through FR-026, and rests on the same three.
 - **User Story 3** carries FR-002 and FR-006, and is what FR-001's separation exists for.
 - **User Story 4** carries FR-032 through FR-038, and depends on FR-022 for the link that reaches it and on FR-013 for what its entries carry.
+- **User Story 5** carries FR-039 through FR-043, and FR-013 makes the catalogue's own entries use the same component.
 - **FR-004, FR-005, FR-007, FR-010 and FR-011** constrain the feature as a whole and every story's acceptance is judged against them.
 - **FR-009** is a process requirement covering the run, verified by the presence or absence of entries under *Component gaps*.
 - **FR-027 through FR-031** are boundary and documentation requirements, verified by inspection.
@@ -196,7 +224,8 @@ This feature persists nothing and adds no model. The entities it introduces are 
 - **UI app** (`literature.ui`): the opt-in Django app carrying the interface. Installed alongside the core, never required by it.
 - **Catalogue list**: the page listing stored items, paginated, in the store's declared default order.
 - **Reference page**: the page showing one item's whole record — its scalar fields, and its contributors, dates and identifiers.
-- **Contributor page**: the page for one stored contributor, showing the name as held and the items they are credited on with the role they held on each.
+- **Contributor page**: the page for one stored contributor, showing the name as held and the items they are credited on, each shown as the catalogue shows it.
+- **Reference component** (`<c-literature.item>`): one reference shown from the item alone, used by the catalogue's entries and by a project's own pages.
 
 ### Component gaps
 
@@ -218,11 +247,11 @@ django-mvp's table page offers no block in the toolbar row under the title, so t
 - **SC-004**: A reader can tell two references apart from their list entries and reach either one's page in a single step.
 - **SC-005**: For any stored item, every scalar field it carries appears on its page and no field it does not carry appears at all.
 - **SC-006**: Contributors appear in the roles and order the catalogue stores, dates at the precision they were stored with, and identifiers with their type — so the pages report the store rather than reinterpreting it.
-- **SC-007**: The app ships no stylesheet and defines no component of its own, or every exception is listed under *Component gaps* with the upstream request that will retire it.
+- **SC-007**: The app ships no stylesheet and defines no design component of its own, or every exception is listed under *Component gaps* with the upstream request that will retire it.
 - **SC-008**: Every one of the catalogue's item types renders on the catalogue list and the reference page, including an item carrying no contributors, no dates and no identifiers, and no reference produces an unhandled error.
 - **SC-009**: The core's existing behaviour is unchanged: its test suite passes with the interface app absent.
 - **SC-010**: A reader who recognises a name on a reference page reaches everything else that contributor is credited on in one step, without typing a query.
-- **SC-011**: A contributor's page reports the roles the catalogue stores, so a person credited as an author on one item and an editor on another is shown as both, and an item they hold two roles on appears once.
+- **SC-011**: A contributor's page lists every item they are credited on, in any role, and an item they hold two roles on appears once.
 - **SC-012**: A contributor credited on thousands of items opens no more slowly than one credited on a handful, and the rendered page does not grow with the count.
 
 ## Assumptions
@@ -231,6 +260,6 @@ django-mvp's table page offers no block in the toolbar row under the title, so t
 - **The demo project is a separate feature.** Issue #46 builds it and depends on this one. Verification here does not wait for it and does not assume it.
 - **django-mvp's component set is taken as it stands at its current release.** Whether it covers these two pages is settled during planning, not assumed here; FR-009 is what handles the answer being no.
 - **Contributors are not de-duplicated.** Two stored names that look identical are two records, and the contributor page reports the store rather than reconciling it. Deciding when two names are one person is a problem of its own, and nothing here forecloses it.
-- **Templates are resolvable by Django's standard mechanism**, so a host can override one, but this feature promises no override contract and defines no extension points. A stable theming surface is a separate question.
+- **Templates are resolvable by Django's standard mechanism**, so a host can override one. The catalogue's card, `literature/ui/item_list_item.html`, is documented as the template to override for a different card. No other template is promised as an extension point, and a stable theming surface is a separate question.
 - **Access control is a later specification.** The pages are open, and a host restricts them at the point it includes the URLs.
 - **The store's existing limits are inherited.** One identifier per type per item, one date per slot, batch-scoped citation-key de-duplication, and partial-date fallbacks all apply as they do today. The interface displays them and does not widen them.

@@ -64,10 +64,13 @@ def paginate_by():
 
 @pytest.fixture(scope="module")
 def snippet_words():
-    source = (UI_TEMPLATES / "item_list_item.html").read_text(encoding="utf-8")
+    # The card shows the abstract through the reference component.
+    source = (
+        UI_TEMPLATES.parents[1] / "cotton" / "literature" / "item.html"
+    ).read_text(encoding="utf-8")
     match = re.search(r"abstract\|truncatewords:(\d+)", source)
     assert match, (
-        "the catalogue row no longer truncates the abstract with truncatewords"
+        "the reference component no longer truncates the abstract with truncatewords"
     )
     return int(match.group(1))
 

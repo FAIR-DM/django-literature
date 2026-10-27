@@ -1,4 +1,4 @@
-"""Contributor grouping for the catalogue row and the reference page.
+"""Contributor grouping for the reference page.
 
 Lives beside its callers' views rather than in ``literature/utils/``, on the
 same reasoning as :mod:`literature.ui.fields`: the core stays free of a helper
@@ -107,8 +107,8 @@ class ContributorGroups:
 
         Reads ``item.item_names`` as given, so an item drawn through
         ``prefetch_related("item_names__name")`` costs no further query. A list
-        rather than a generator: the catalogue row reads this off an
-        annotation, which more than one template may iterate.
+        rather than a generator, so the reference page can split it into the
+        byline and the other roles.
         """
         groups = []
         for role, group in groupby(self.item.item_names.all(), key=attrgetter("role")):
@@ -123,7 +123,7 @@ class ContributorGroups:
 
 
 def contributor_groups(item):
-    """``ContributorGroups(item).groups()`` — the form the two views call."""
+    """``ContributorGroups(item).groups()`` — the form the reference page calls."""
     return ContributorGroups(item).groups()
 
 

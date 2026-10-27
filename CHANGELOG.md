@@ -25,9 +25,22 @@ All notable changes to this project are documented in this file. The format foll
 - `Item.doi`, `Item.doi_url` and `Item.year` give a reference's DOI, its `https://doi.org/` link and
   the year of its issued date, or `None`. They read prefetched `item_identifiers` and `item_dates`
   when a queryset has them.
+- `<c-literature.item :item="reference" />` shows one reference on a project's own page: its
+  title, its authors (or its editors when it has none), its type, year and where it appeared, and
+  its DOI. It takes `level`, `href`, `link` and `abstract`, and anything between its tags is shown
+  under the reference. See
+  [How to show a reference on your own page](docs/how-to/showing-a-reference.md).
+- `Item.authors`, `Item.editors` and `Item.names_in_role(role)` give the names credited in a role,
+  in their stored order. They read prefetched `item_names__name` when a queryset has it.
 
 ### Changed
 
+- **The catalogue card is the reference component in a card**, with the abstract and the citation
+  key. It names up to ten authors, or the editors when there are no authors, and the year, where it
+  used to list every contributor role and the issued date in full. The type is text beside the year
+  rather than a badge.
+- **The contributor page lists the same card as the catalogue.** It no longer shows the roles the
+  contributor held on each reference. `literature/ui/contributor_item.html` is removed.
 - **The catalogue's search also matches identifiers.** A reference is found by its DOI, ISBN or any
   other identifier, and a DOI is found with or without a `https://doi.org/` address or `doi:` label
   in front. The reference picker uses the same search.

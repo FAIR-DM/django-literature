@@ -16,6 +16,7 @@ dating-a-reference
 identifying-a-reference
 importing-through-the-interface
 how-to/choosing-a-reference
+how-to/showing-a-reference
 ```
 
 ```{toctree}

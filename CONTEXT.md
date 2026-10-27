@@ -252,6 +252,13 @@ rather than listing every item: `ReferenceField` (one) or `ReferenceMultipleFiel
 package's search view. It matches title, **citation key**, a contributor's name and DOI, and it only
 chooses, never creates. Part of the **UI app**.
 
+### reference component
+
+The Cotton component that shows one **Item** the way a reference list does, from the item alone:
+`<c-literature.item :item="…" />`. It shows the title, the authors (or editors), the type, year and
+container, and the DOI. The catalogue's card list wraps it in a card, and a project uses it on its
+own pages. Part of the **UI app**.
+
 ## Synonyms to avoid
 
 - **`Reference` / `Publication` / `Record`** for an item — the canonical term is **`Item`**
