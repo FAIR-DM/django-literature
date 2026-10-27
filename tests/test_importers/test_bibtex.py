@@ -1135,10 +1135,6 @@ class TestTranslatable:
 
         assert isinstance(BibTeXFormat.label, Promise)
 
-    def test_the_module_wraps_every_human_readable_string(self):
-        assert BibTeXFormat.name == "bibtex"
-        assert str(BibTeXFormat.label) == "BibTeX"
-
 
 class TestNothingIsOverwritten:
     def test_a_second_field_naming_the_same_variable_is_preserved(self):

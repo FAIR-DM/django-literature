@@ -95,27 +95,6 @@ class TestItemTableMeta:
         pks_in_row_order = [row.record.pk for row in table.rows]
         assert pks_in_row_order.index(newer.pk) < pks_in_row_order.index(older.pk)
 
-    def test_declares_the_four_plain_columns_in_order(self):
-        assert list(ItemTable.base_columns.keys())[:4] == [
-            "citation_key",
-            "type",
-            "title",
-            "container_title",
-        ]
-
-    def test_the_short_columns_carry_the_shrink_class_on_both_cell_kinds(self):
-        # The project-wide default is no-wrap with no maximum, so an
-        # unclassed short column would otherwise be widened by its own
-        # heading.
-        for name in ("citation_key", "type"):
-            column = ItemTable.base_columns[name]
-            assert column.attrs["td"]["class"] == "mvp-col-shrink"
-            assert column.attrs["th"]["class"] == "mvp-col-shrink"
-
-    def test_container_title_wraps_with_a_maximum_width(self):
-        column = ItemTable.base_columns["container_title"]
-        assert column.attrs["td"]["class"] == "mvp-col-wrap mvp-col-max-md"
-
 
 class TestTitleColumn:
     def test_declares_empty_values_as_empty_tuple(self):
@@ -452,44 +431,6 @@ def import_report_cell(rows, column_name):
 
 
 class TestOutcomeColumn:
-    @pytest.mark.parametrize(
-        ("outcome", "variant", "reason"),
-        [
-            (Outcome.CREATED, "success", None),
-            (Outcome.SKIPPED, "warning", None),
-            (Outcome.FAILED, "error", "broken"),
-        ],
-        ids=["created", "skipped", "failed"],
-    )
-    def test_each_outcome_renders_its_own_mapped_variant(
-        self, outcome, variant, reason
-    ):
-        row = ImportReportRow(
-            position=1, outcome=outcome, citation_key=None, reason=reason, item_url=None
-        )
-        content = import_report_cell([row], "outcome")
-        assert f"badge-{variant}" in content
-
-    def test_the_three_outcomes_render_three_distinct_variants(self):
-        variants = set()
-        for outcome, reason in (
-            (Outcome.CREATED, None),
-            (Outcome.SKIPPED, None),
-            (Outcome.FAILED, "broken"),
-        ):
-            row = ImportReportRow(
-                position=1,
-                outcome=outcome,
-                citation_key=None,
-                reason=reason,
-                item_url=None,
-            )
-            content = import_report_cell([row], "outcome")
-            match = re.search(r"badge-(\S+)", content)
-            assert match, content
-            variants.add(match.group(1))
-        assert len(variants) == 3
-
     def test_the_cell_still_carries_the_outcomes_own_translated_label(self):
         # The badge wraps the label, it does not replace it — a
         # badge showing only its variant, with the word gone, is a

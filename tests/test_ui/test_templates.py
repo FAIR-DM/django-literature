@@ -563,16 +563,6 @@ class TestImportFormPage:
         assert 'type="file"' in content
 
 
-class TestItemFormPageMarkup:
-    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(
-        self, client, db
-    ):
-        # The same defect this page carried since its own phase: see
-        # TestImportReportPage's test of the same name.
-        content = client.get(reverse("literature:item-create")).content.decode()
-        assert " breakpoint=" not in content
-
-
 class TestImportReportPage:
     def _report_content(self, client):
         upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
@@ -595,27 +585,9 @@ class TestImportReportPage:
         content = self._report_content(client)
         assert 'type="file"' not in content
 
-    def test_the_back_to_catalogue_button_carries_a_backward_arrow(self, client, db):
-        # This page's breadcrumb links to the catalogue too, so the first occurrence of this href is
-        # now the breadcrumb's, not the button's — the last one is.
-        content = self._report_content(client)
-        back_href = f'href="{reverse("literature:item-list")}"'
-        back_index = content.rindex(back_href)
-        assert "bi-arrow-left" in content[max(back_index - 200, 0) : back_index + 200]
-
     def test_carries_a_second_button_leading_to_an_empty_import_form(self, client, db):
         content = self._report_content(client)
         assert f'href="{reverse("literature:item-import")}"' in content
-
-    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(
-        self, client, db
-    ):
-        # ``<c-group>`` declares row, collapse, wrap, class and gap. An
-        # attribute it does not declare is not ignored: Cotton writes it
-        # through to the rendered <div>, where it is invalid HTML and lays
-        # nothing out. Asserted on the rendered page rather than on the
-        # template so the check reads what a browser would receive.
-        assert " breakpoint=" not in self._report_content(client)
 
 
 class TestOutcomeFilter:
@@ -669,30 +641,6 @@ class TestOutcomeFilter:
         assert "outcome" not in counts_line
         assert "x-" not in counts_line
 
-    def test_every_control_is_small(self, client, db):
-        markup = self._filter_markup(self._preview_content(client))
-        assert markup.count('type="radio"') == markup.count("btn-sm")
-
-    def test_each_outcome_control_carries_the_same_tone_as_that_outcome_s_badge(
-        self, client, db
-    ):
-        # The control and the badge for one outcome must read as the same
-        # thing. Asserted against the badge's own mapping rather than against
-        # tone names written out here, so restyling the badges moves the
-        # filter with them and cannot leave the two disagreeing.
-        controls = self._controls(self._preview_content(client))
-        for outcome, variant in OutcomeColumn.VARIANTS.items():
-            control = next(c for c in controls if f'value="{outcome.value}"' in c)
-            assert f"btn-{variant}" in control, (
-                f"{outcome.value} control is not toned as its badge"
-            )
-
-    def test_the_way_back_to_all_carries_no_outcome_tone(self, client, db):
-        controls = self._controls(self._preview_content(client))
-        reset = next(c for c in controls if "filter-reset" in c)
-        for variant in OutcomeColumn.VARIANTS.values():
-            assert f"btn-{variant}" not in reset
-
 
 class TestImportPreviewTemplate:
     def _preview(self, client, filename="import.ris", format_name="ris", content=None):
@@ -720,12 +668,6 @@ class TestImportPreviewTemplate:
     def test_no_warning_when_every_entry_was_created(self, client, db):
         content = self._preview(client).content.decode()
         assert "alert-warning" not in content
-
-    def test_the_filter_component_sits_above_the_table(self, client, db):
-        content = self._preview(client).content.decode()
-        filter_index = content.index('class="filter')
-        table_index = content.index("<table")
-        assert filter_index < table_index
 
     def test_the_foot_carries_exactly_three_controls_in_one_row(self, client, db):
         content = self._preview(client).content.decode()

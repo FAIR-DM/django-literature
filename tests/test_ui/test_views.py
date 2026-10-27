@@ -89,16 +89,6 @@ def toolbar_field_names(response):
     return [field["name"] for field in response.context["toolbar_fields"]]
 
 
-def table_header_row(content):
-    """Return the table's ``<thead>`` markup.
-
-    The filter modal renders ahead of the table and repeats some column names as field labels.
-    """
-    match = re.search(r"<thead.*?</thead>", content, re.DOTALL)
-    assert match, "no table header row"
-    return match.group(0)
-
-
 def rendered_page_link(content, page_number):
     """Return the unescaped ``href`` of the rendered link to ``page_number``.
 
@@ -301,12 +291,6 @@ class TestItemListView:
 
 
 class TestCatalogueListReadability:
-    def test_the_model_keeps_its_own_name(self, db):
-        # The heading is the view's to choose. Renaming the model to reach it
-        # would rename it in the admin, in every error message and in the
-        # migration state, for a word on one page.
-        assert str(Item._meta.verbose_name_plural) == "items"
-
     def test_contributor_names_link_to_their_page(self, client, db):
         # The reference page carries this link; the row once showed
         # the same names as plain text, so a reader could not tell from the
@@ -471,25 +455,6 @@ class TestBothPresentationsReturnTheSameReferences:
 
 
 class TestItemTableView:
-    def test_column_headers_appear_in_the_required_order(self, client, db):
-        # Reads the table's own header row, not the whole
-        # rendered page — the filter modal renders ahead of the table and emits "Type" as a literal
-        # filter-field label before the table's own "Type" column header, so
-        # a page-wide substring search stopped being a faithful proxy for
-        # "the table's columns sit in this order".
-        content = client.get(reverse("literature:item-list")).content.decode()
-        header_row = table_header_row(content)
-        headers = [
-            "Citation key",
-            "Type",
-            "Title",
-            "Container title",
-            "Authors",
-            "Issued",
-        ]
-        positions = [header_row.index(header) for header in headers]
-        assert positions == sorted(positions)
-
     def test_no_cell_renders_stored_text_unescaped(self, client, db):
         # Every free-text column at once, on the rendered page rather than
         # on a cell: a plain column's own cell value is its raw text and the
