@@ -234,9 +234,11 @@ class Command(BaseCommand):
         """Point every host foreign key to ``Item`` at its table, returning their labels.
 
         Primary keys are kept, so the stored values are already right. Only the
-        database constraint still names the old table. Altering the field from no
-        constraint to one creates the constraint against ``literature_item``. The
-        old constraint goes with the old table, which is dropped afterwards.
+        database constraint still names the old table. Altering the field to no
+        constraint drops it, and altering it back creates the constraint against
+        ``literature_item``. The old constraint is dropped first because both get
+        the same name where the database shortens a long one, as PostgreSQL does
+        past 63 characters.
 
         Args:
             editor: The schema editor to alter the host tables with.
@@ -257,6 +259,7 @@ class Command(BaseCommand):
                 if field.related_model is Item and field.db_constraint:
                     unconstrained = copy.copy(field)
                     unconstrained.db_constraint = False
+                    editor.alter_field(model, field, unconstrained)
                     editor.alter_field(model, unconstrained, field)
                     repointed.append(f"{model._meta.label}.{field.name}")
         return repointed

@@ -21,4 +21,11 @@ class Migration(migrations.Migration):
                 ('reference', models.ForeignKey(help_text='The reference this record cites.', on_delete=django.db.models.deletion.CASCADE, to='literature.item', verbose_name='reference')),
             ],
         ),
+        migrations.CreateModel(
+            name='ReadingListEntry',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('reference', models.ForeignKey(help_text='The reference on the reading list.', on_delete=django.db.models.deletion.CASCADE, to='literature.item', verbose_name='reference')),
+            ],
+        ),
     ]
