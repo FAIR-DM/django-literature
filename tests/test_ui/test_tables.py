@@ -408,7 +408,7 @@ class TestOutcomeColumn:
             item_url=None,
         )
         content = import_report_cell([row], "outcome")
-        assert "Failed" in content
+        assert str(Outcome.FAILED.label) in content
 
 
 class TestImportReportTable:
@@ -444,8 +444,8 @@ class TestImportReportTable:
             item_url=None,
         )
         content = import_report_cell([row], "outcome")
-        assert "Failed" in content
-        assert "failed" not in content  # the stored value, not the label
+        assert str(Outcome.FAILED.label) in content
+        assert Outcome.FAILED.value not in content  # the stored value, not the label
 
     def test_a_failure_reason_containing_markup_is_escaped(self):
         row = ImportReportRow(
