@@ -7,68 +7,20 @@ can be imported from CSL JSON, BibTeX or RIS and exported again to any CSL proce
 front end adds a catalogue, pages to add and edit references, and a reference picker for your own
 forms.
 
-```{toctree}
-:maxdepth: 1
-:caption: How-to guides
+- [How-to guides](how-to/index.md) take you through one task.
+- [Reference](reference/index.md) describes the models, settings, pages and Python API.
+- [Explanation](explanation/index.md) covers why the package works the way it does.
 
-how-to/install-django-literature
-how-to/add-a-translation
-how-to/create-a-reference-in-code
-how-to/import-csl-json
-how-to/export-a-reference-as-csl-json
-how-to/find-references
-how-to/link-to-a-reference-and-cite-its-doi
-how-to/import-a-bibliography-file
-how-to/import-a-bibliography-file-in-code
-how-to/add-an-import-format
-how-to/choose-a-reference-in-your-own-form
-how-to/show-a-reference-on-your-own-page
-how-to/upgrade-a-database-from-the-literatureitem-schema
-```
+The [decision records](adr/index.md), the [roadmap](ROADMAP.md) and the
+[contributing standards](contributing/index.md) are for the package's maintainers.
 
 ```{toctree}
-:maxdepth: 1
-:caption: Reference
+:hidden:
 
-reference/data-model
-reference/settings
-reference/add-and-edit-form
-reference/import-pages
-reference/bibtex-mapping
-reference/ris-mapping
-reference/api/index
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Explanation
-
-explanation/citation-keys
-explanation/round-trip-fidelity
-explanation/contributor-records
-explanation/field-groups
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Decision records
-
+how-to/index
+reference/index
+explanation/index
 adr/index
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Roadmap
-
 ROADMAP
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Contributing
-
-contributing/standards/testing
-contributing/standards/code-documentation
-contributing/standards/django
-contributing/standards/documentation
+contributing/index
 ```

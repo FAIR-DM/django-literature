@@ -24,8 +24,11 @@ dev = [
 # Same marker as above: docs tooling needs 3.12 but never ships to consumers, so
 # it must not drag the package's own 3.11 floor up with it.
 docs = [
-    "fairdm-docs[sphinx_book_theme] ; python_version >= '3.12'",
+    "fairdm-docs[pydata-sphinx-theme] ; python_version >= '3.12'",
 ]
+
+[tool.fairdm.docs]
+theme = "pydata-sphinx-theme"
 
 [tool.uv.sources]
 mvp-shared = { git = "https://github.com/django-mvp/shared.git", tag = "v0.6.0" }
