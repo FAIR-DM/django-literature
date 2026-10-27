@@ -392,7 +392,7 @@ A project whose own model points at a reference can add a searchable picker to i
 field, `ReferenceField` from `literature.ui.picker` (`ReferenceMultipleField` for several). It is a
 django-tomselect field whose default points at the catalogue's search. People find the reference by
 typing part of its title, a contributor's name, its citation key or its DOI. See
-[How to choose a reference in your own form](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/choose-a-reference-in-your-own-form.md).
+[Choose a reference in your own form](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/choose-a-reference-in-your-own-form.md).
 
 ### Try it: the demo project
 
@@ -641,14 +641,17 @@ Full documentation is available in [docs/](https://github.com/FAIR-DM/django-lit
 
 A database still on the old `LiteratureItem` schema is moved to the current models with
 `python manage.py upgrade_literature`. See
-[How to upgrade a database from the `LiteratureItem` schema](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/upgrade-a-database-from-the-literatureitem-schema.md).
+[Upgrade a database from the `LiteratureItem` schema](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/upgrade-a-database-from-the-literatureitem-schema.md).
 
-To build locally:
+The site is built with [fairdm-docs](https://github.com/FAIR-DM/fairdm-docs). To build it locally:
 
 ```bash
 uv sync --group docs
-uv run sphinx-build -b html docs docs/_build/html
+uv run fairdm-docs build
 ```
+
+The pages are written to `docs/_build/html`. `uv run fairdm-docs build --live` serves them and
+rebuilds on every change.
 
 ---
 

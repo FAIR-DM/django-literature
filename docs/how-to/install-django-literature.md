@@ -1,4 +1,4 @@
-# How to install django-literature
+# Install django-literature
 
 Add django-literature's models to a Django project, so it can store references and convert them
 to and from CSL JSON. The pages for browsing and editing references are a separate, optional app,
@@ -55,5 +55,5 @@ The database has five new tables, one for each model in the [data model](../refe
 | `literature_itemidentifier` | `ItemIdentifier` |
 
 A database that already holds the old `LiteratureItem` tables is moved over with
-[How to upgrade a database from the `LiteratureItem` schema](upgrade-a-database-from-the-literatureitem-schema.md)
+[Upgrade a database from the `LiteratureItem` schema](upgrade-a-database-from-the-literatureitem-schema.md)
 instead.

@@ -1,8 +1,8 @@
-# How to link to a reference and cite its DOI
+# Link to a reference and cite its DOI
 
 Link to a reference's page in the catalogue, and show its DOI and year, on a page of your own. To
 show the whole reference, see
-[How to show a reference on your own page](show-a-reference-on-your-own-page.md).
+[Show a reference on your own page](show-a-reference-on-your-own-page.md).
 
 ## Steps
 

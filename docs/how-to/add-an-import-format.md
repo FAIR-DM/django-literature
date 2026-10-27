@@ -1,4 +1,4 @@
-# How to add an import format
+# Add an import format
 
 Teach the importer a file format it does not read yet, so the format can be used from code and
 from the front end's import form alongside BibTeX and RIS.

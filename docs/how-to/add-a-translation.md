@@ -1,4 +1,4 @@
-# How to add a translation
+# Add a translation
 
 Translate the package's labels, help text and messages into another language. The package ships
 an English `django.po` catalog in `literature/locale/en/LC_MESSAGES/` to translate from.
