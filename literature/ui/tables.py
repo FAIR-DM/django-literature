@@ -1,10 +1,4 @@
-"""The catalogue as a table (FS-009, #87).
-
-New module rather than an addition to ``views.py``: a table class is
-neither a view nor a form, and ``views.py`` is already long. Its mirror
-test is ``tests/test_ui/test_tables.py``, one module split by
-``Test<Column>`` classes per the testing standard (§4).
-"""
+"""The catalogue as a table (FS-009, #87)."""
 
 import django_tables2 as tables
 from django.db.models import F
@@ -17,17 +11,12 @@ from literature.importers.results import Outcome
 class ContributorsColumn(tables.TemplateColumn):
     """The credited-names cell.
 
-    Selects the values only — reading the ``contributors`` attribute
-    ``ItemTableView.get_queryset()`` prefetches onto the record (a
-    ``Prefetch(..., to_attr="contributors")``), author-role names if the
-    item has any, else editor-role names, first three plus the count of the
-    rest — and leaves building the markup to the template (Article V): a
-    contributor's name is free text entered through this package's own open
-    write pages, and nothing here is passed through ``mark_safe``.
-    ``getattr(record, "contributors", [])`` reads the prefetch defensively,
-    so a record drawn through a plain ``SingleTableView`` with no prefetch
-    degrades to the empty-value marker rather than raising — and never
-    touches the manager, which would cost one query per row.
+    Selects the values only: the author-role names the view prefetched onto the
+    record as ``contributors`` (editor-role names if there are no authors), the
+    first three plus a count of the rest. The template builds the markup, as a
+    name is free text and nothing here is passed through ``mark_safe``. A record
+    with no prefetch degrades to the empty-value marker rather than querying
+    once per row.
     """
 
     def get_context_data(self, record, **kwargs):
@@ -52,13 +41,9 @@ class ContributorsColumn(tables.TemplateColumn):
 class IssuedColumn(tables.TemplateColumn):
     """The issued-date cell.
 
-    Picks the ``issued`` date slot off the record's prefetched
-    ``item_dates`` and hands it to ``date_value.html`` under the name it
-    expects, so the precision-and-range rule stays in that one shared
-    partial rather than forking into a second Python implementation.
-    ``.all()`` on a prefetched relation reads the cache rather than issuing
-    a query, exactly as ``item_list_item.html`` already relies on for the
-    same relation.
+    Picks the ``issued`` slot off the record's prefetched ``item_dates`` and hands
+    it to ``date_value.html``, so the precision-and-range rule lives in that one
+    partial.
     """
 
     def get_context_data(self, record, **kwargs):
@@ -78,24 +63,16 @@ class IssuedColumn(tables.TemplateColumn):
 class ItemTable(tables.Table):
     """The catalogue, one row per reference.
 
-    A row's ``contributors`` and ``issued`` cells each read something the
-    plain queryset does not carry on its own: ``item.contributors``, a
-    ``Prefetch(..., to_attr="contributors")`` restricted to author- and
-    editor-role ``ItemName`` rows, and ``item.item_dates``, an ordinary
-    prefetch. ``ItemTableView.get_queryset()`` supplies both; a consumer
-    pairing this table with a plain ``SingleTableView`` of their own must
-    supply them too, or pay one query per row for each.
+    The ``contributors`` and ``issued`` cells read two prefetches that
+    ``ItemTableView.get_queryset()`` supplies: ``contributors`` (author- and
+    editor-role ``ItemName`` rows) and ``item_dates``. A view of a consumer's own
+    must supply them too, or pay one query per row for each.
     """
 
     citation_key = tables.Column(
         verbose_name=_("Citation key"),
-        # Every sortable column names ``pk`` as its last key. django-tables2
-        # hands the accessor list straight to ``QuerySet.order_by()``, which
-        # replaces ``Item.Meta.ordering`` rather than extending it, so
-        # without a tiebreak a sort with ties has no total order — and the
-        # catalogue is paginated, so two pages are two independent queries.
-        # On PostgreSQL a tied reference can then appear on both pages, or
-        # on neither.
+        # Every sortable column ends on ``pk``: without a tiebreak, tied rows have no
+        # total order and a reference can appear on two pages or none (PostgreSQL).
         order_by=("citation_key", "pk"),
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
@@ -103,16 +80,11 @@ class ItemTable(tables.Table):
         verbose_name=_("Type"),
         order_by=("type", "pk"),
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
-        # No renderer, deliberately: django-tables2 resolves a choice field
-        # through get_FOO_display() before any renderer runs (rows.py), so
-        # the translated label arrives on its own while order_by above keeps
-        # ordering on the stored value. A render_type here would only
-        # restate what the library already does — do not add one back.
+        # No render_type: django-tables2 already shows get_type_display().
     )
     title = tables.Column(
         verbose_name=_("Title"),
-        # Mandatory: without it, an item whose title resolves to "" never
-        # reaches render_title, defeating the fallback chain it exists for.
+        # Without this, an empty title never reaches render_title and its fallback chain.
         empty_values=(),
         order_by=("title", "pk"),
         linkify=True,
@@ -132,53 +104,38 @@ class ItemTable(tables.Table):
         empty_values=(),
         # A through-model across two roles has no single value to order on.
         orderable=False,
-        # Stated, not inherited: django-mvp centres any column it cannot
-        # resolve to a field and which is not orderable, on the reasoning
-        # that such a column holds controls. This one holds the widest free
-        # text on the row after the title, and a reader runs their eye down
-        # it, so it takes the same left-aligned wrapping treatment as the
-        # other text columns.
+        # django-mvp centres a non-orderable column it cannot resolve to a field; this is
+        # free text, so it is left-aligned like the other text columns.
         attrs={"td": {"class": "text-start mvp-col-wrap mvp-col-max-md"}},
     )
     issued = IssuedColumn(
         verbose_name=_("Issued"),
         template_name="literature/ui/table_issued.html",
         empty_values=(),
-        # order_by names the "issued" annotation ItemTableView.get_queryset()
-        # supplies — orderable is no longer forced off now that
-        # order_issued (below) can resolve the sort.
+        # Names the "issued" annotation that ItemTableView.get_queryset() supplies.
         order_by="issued",
         attrs={"td": {"class": "mvp-col-shrink"}, "th": {"class": "mvp-col-shrink"}},
     )
 
     class Meta:
-        # No model: with one set and no `fields`, django-tables2 generates a
-        # column for every field on the model in addition to the ones
-        # declared here — exactly the silent-column problem `fields` being
-        # unset is meant to avoid. Column alignment still infers correctly
-        # (mvp/templatetags/mvp.py's `column_alignment_class` reads
-        # `table.data.model`, off the queryset itself, not `Meta.model`).
+        # No model or fields: with a model, django-tables2 adds a column for every field.
         template_name = "django_tables2/bootstrap5-mvp.html"
-        # A flag, not displayed text — the mvp template renders its empty
-        # state inside `{% if table.empty_text %}` and shows the view's own
-        # empty_state_heading/message instead.
+        # A flag only: django-mvp's template shows the view's own empty-state text instead.
         empty_text = _("Nothing to show.")
-        # A translatable empty-value marker, replacing the library's own
-        # plain "—" default (Article VIII).
         default = _("—")
-        # No order_by: an alias naming a column that does not exist (e.g.
-        # "created") is silently dropped by django-tables2, and no "created"
-        # column exists to name. Newest-first comes from Item.Meta.ordering,
-        # exactly as ItemListView already relies on.
-        # No fields: every column is declared explicitly, so a field added
-        # to Item later never silently becomes a column.
+        # No order_by: newest-first comes from Item.Meta.ordering.
 
     def render_title(self, record):
-        """The first value the reference carries down its title chain.
+        """Return the first value the reference carries down its title chain.
 
-        Ends at the citation key, which is also its own column — a link
-        whose text is the empty-value marker cannot be read or clicked with
-        confidence, so a title-less reference duplicates its key instead.
+        The chain ends at the citation key, so a title-less reference shows its key
+        rather than an empty-value marker as link text.
+
+        Args:
+            record: The ``Item`` being rendered.
+
+        Returns:
+            The text for the title cell.
         """
         return (
             record.title
@@ -191,13 +148,16 @@ class ItemTable(tables.Table):
     def order_issued(self, queryset, is_descending):
         """Sort by the ``issued`` annotation, undated references last either way.
 
-        django-tables2 hands ordering straight to ``QuerySet.order_by()`` and
-        does nothing about NULLs on its own, and SQLite and PostgreSQL place
-        them differently — both of which this package supports — so
-        ``nulls_last=True`` is stated explicitly in both directions rather
-        than left to whichever the database defaults to. Returning ``True``
-        tells django-tables2 the queryset is already ordered, so it does not
-        also try `"issued"` as a plain field name.
+        SQLite and PostgreSQL place NULLs differently, so ``nulls_last=True`` is
+        stated in both directions.
+
+        Args:
+            queryset: The queryset to order.
+            is_descending: Whether the sort is descending.
+
+        Returns:
+            The ordered queryset and ``True``, which tells django-tables2 the
+            queryset is already ordered.
         """
         issued = F("issued")
         ordering = (
@@ -205,23 +165,18 @@ class ItemTable(tables.Table):
             if is_descending
             else issued.asc(nulls_last=True)
         )
-        # ``pk`` last, same tiebreak reason as citation_key above.
+        # ``pk`` last, as the column ordering above.
         return queryset.order_by(ordering, "pk"), True
 
 
 class OutcomeColumn(tables.TemplateColumn):
     """The outcome cell (FS-011, #103).
 
-    Renders django-mvp's ``<c-badge>`` around the outcome's own translated
-    label — the badge wraps the label, it does not replace it, so a failed
-    entry stays distinguishable by the word itself and not only by colour.
-    The variant mapping is settled and not re-litigated here: created =
-    success, skipped = warning, failed = error. Skipped is a warning rather
-    than a neutral tone because a skipped entry may now carry a reason,
-    which is worth the reader's eye. Built as a ``TemplateColumn``, the same
-    way ``ContributorsColumn`` and ``IssuedColumn`` are, so the template —
-    not a ``mark_safe``/``format_html`` call here — is what escapes the
-    label.
+    Renders django-mvp's ``<c-badge>`` around the outcome's translated label, so a
+    failed entry is told apart by the word and not only by colour. Skipped is a
+    warning rather than neutral because a skipped entry may carry a reason
+    (docs/adr/0027-a-skipped-entry-may-carry-a-reason.md). The template, not
+    ``mark_safe``, escapes the label.
     """
 
     VARIANTS = {
@@ -242,11 +197,8 @@ class ImportReportTable(tables.Table):
     """The import report, one row per entry the format found (FS-011, #103).
 
     Built over a plain list of :class:`~literature.ui.importing.ImportReportRow`,
-    never a queryset — the report has no model behind it. The position
-    column is the only link: a created row's citation key may be absent
-    (``EntryResult.handle`` is ``None`` by default, never invented for an
-    entry whose source carried none), but its position never is, so the
-    link hangs there rather than on the key.
+    as the report has no model behind it. The position column carries the link
+    because a created row's citation key may be absent and its position never is.
     """
 
     position = tables.Column(
@@ -266,6 +218,5 @@ class ImportReportTable(tables.Table):
         template_name = "django_tables2/bootstrap5-mvp.html"
         empty_text = _("Nothing to show.")
         default = _("—")
-        # Fixed source order — nothing here is sortable, so no header
-        # advertises a control that would not do anything.
+        # Fixed source order, so no header advertises a sort control.
         orderable = False

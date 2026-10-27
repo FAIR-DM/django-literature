@@ -1,14 +1,4 @@
-"""Search and filter definitions for the catalogue (FS-010, #96).
-
-One module, imported by both presentations, so what is searchable and
-filterable is declared once rather than restated per view.
-
-``ItemFilterSet`` declares every filter explicitly and pins ``Meta.fields``
-to an empty list. django-filter's own default — leaving ``fields`` unset —
-generates a filterset over every field of the model, including ``Item``'s
-two ``JSONField``s, which django-filter has no filter for and raises on.
-Never lean on that default anywhere in this module.
-"""
+"""Search and filter definitions for the catalogue, shared by both presentations (FS-010, #96)."""
 
 import django_filters
 from django import forms
@@ -22,10 +12,8 @@ from literature.choices import DateType, ItemType
 from literature.importers.normalizers import IdentifierNormalizer
 from literature.models import Item, ItemDate
 
-#: The ORM paths a catalogue search matches against: the item's own
-#: identity and title fields, every contributor's name parts regardless of
-#: role, and its identifiers. Declared once here and read by
-#: ``ItemFilterSet.q``, which the catalogue and the reference picker share.
+#: The ORM paths a catalogue search matches: the item's identity and title fields,
+#: every contributor's name parts whatever the role, and its identifiers.
 SEARCH_FIELDS = [
     "citation_key",
     "title",
@@ -58,13 +46,9 @@ class CatalogueSearchFilter(SearchFilter):
 class LanguageFilter(django_filters.ChoiceFilter):
     """The distinct language values the catalogue holds, as stored.
 
-    Not django-filter's own ``AllValuesFilter`` (the same idiom this
-    subclasses): that offers every stored value including the empty string,
-    and ``language`` is free text and blank on most references today.
-    ``self.model`` is assigned by ``BaseFilterSet.__init__`` on every filter
-    instance, so this is safe to read without the class declaring it itself,
-    and it is recomputed on every request — a new ``ItemFilterSet`` instance
-    each time — rather than once at import time.
+    Not django-filter's ``AllValuesFilter``, which also offers the empty string,
+    and ``language`` is blank on most references. The choices are recomputed per
+    request, as each request builds a new ``ItemFilterSet``.
     """
 
     @property
@@ -83,21 +67,17 @@ class LanguageFilter(django_filters.ChoiceFilter):
 def annotate_issued(queryset):
     """Annotate ``issued`` from the ``issued`` date slot's ``begin``.
 
-    The same ``Subquery`` FS-009 wrote inline in ``ItemTableView.get_queryset()``
-    for the table's own sort column, moved here so it is declared once. A
-    ``Subquery`` rather than a join: a join multiplies a row for an item
-    carrying more than one ``ItemDate``, corrupting a paginator's count.
+    A ``Subquery`` rather than a join, as a join multiplies the rows of an item
+    carrying more than one ``ItemDate`` and corrupts a paginator's count.
 
-    ``output_field=DateTimeField()`` is stated explicitly rather than left to
-    infer ``ItemDate.begin``'s own ``PartialDateField``: Django registers the
-    ``year`` transform ``filter_issued_year`` below needs on ``DateField``/
-    ``DateTimeField`` specifically, and a third-party field that only
-    overrides ``get_internal_type()`` to report ``"DateTimeField"`` (for the
-    database column) does not inherit it — confirmed directly,
-    ``issued__year`` otherwise raises ``FieldError: Unsupported lookup
-    'year'``. Ordering (``ItemTable.order_issued``) is unaffected either way,
-    since it sorts on the raw column value, not through a lookup.
+    Args:
+        queryset: The ``Item`` queryset to annotate.
+
+    Returns:
+        The queryset with an ``issued`` annotation.
     """
+    # output_field is explicit because the ``year`` transform that ``issued__year`` needs is
+    # registered on DateTimeField, which ItemDate.begin's PartialDateField does not inherit.
     issued_begin = ItemDate.objects.filter(
         item=OuterRef("pk"), date_type=DateType.ISSUED
     ).values("begin")[:1]
@@ -109,25 +89,11 @@ def annotate_issued(queryset):
 class ScalarOrListSelectMultiple(forms.SelectMultiple):
     """Accept a bare stored value as well as a list of them, and drop blanks.
 
-    ``SelectMultiple.value_from_datadict`` reads ``data.getlist(name)`` for
-    a real ``QueryDict`` — an HTTP GET's own multi-value form, where even
-    one chosen option arrives as a one-item list — but falls back to plain
-    ``data.get(name)`` for an ordinary ``dict``, returning a bare value.
-    ``ItemFilterSet`` is also constructed directly with a plain ``dict`` and
-    a bare stored value (``tests/test_ui/test_filters.py``), the same call
-    the single-value ``ChoiceFilter`` this replaces took; wrapping a bare
-    value in a list here keeps that call narrowing to one type exactly as
-    it always did, rather than requiring every direct construction to know
-    this filter now also widens.
-
-    A blank entry is dropped rather than passed through: the single-value
-    ``ChoiceFilter`` this replaces treated ``?type=`` as no value at all
-    (``Filter.filter()``'s own ``EMPTY_VALUES`` no-op), where
-    ``MultipleChoiceField.validate()`` has no such allowance and would
-    reject a list holding an empty string as not a valid choice — turning a
-    cleared filter into an invalid one and, under ``strict``, an empty
-    catalogue instead of the unfiltered one clearing it must restore. An
-    actually-invalid value is a separate case this does not govern.
+    ``SelectMultiple`` reads a list from a ``QueryDict`` but a bare value from a
+    plain ``dict``, and ``ItemFilterSet`` is also built directly from a ``dict``.
+    A blank entry is dropped because ``?type=`` must mean no filter:
+    ``MultipleChoiceField`` would reject a list holding an empty string and
+    turn a cleared filter into an empty catalogue.
     """
 
     def value_from_datadict(self, data, files, name):
@@ -141,9 +107,8 @@ class ScalarOrListSelectMultiple(forms.SelectMultiple):
 class TypeChoiceField(filter_fields.MultipleChoiceField):
     """A multiple choice field whose own widget accepts a bare value.
 
-    Declared as the field's default widget, not passed per filter, so
-    django-mvp's toolbar recognises the filter as a plain multiple choice and
-    draws its own dropdown for it.
+    The widget is the field's default, not passed per filter, so django-mvp's
+    toolbar recognises a plain multiple choice and draws its own dropdown.
     """
 
     widget = ScalarOrListSelectMultiple
@@ -166,7 +131,14 @@ class YearChoiceField(filter_fields.ChoiceField):
     """
 
     def valid_value(self, value):
-        """Accept a listed year or any other year a date can hold."""
+        """Accept a listed year or any other year a date can hold.
+
+        Args:
+            value: The submitted year.
+
+        Returns:
+            ``True`` if the value is a valid choice.
+        """
         value = str(value)
         return (value.isdigit() and 1 <= int(value) <= 9999) or super().valid_value(
             value
@@ -201,11 +173,8 @@ class ItemFilterSet(django_filters.FilterSet):
 
     q = CatalogueSearchFilter(fields=SEARCH_FIELDS)
 
-    # MultipleChoiceFilter, not ChoiceFilter: this filter's own worked
-    # example — "articles or chapters, from 2019" — widens type to either
-    # value while year narrows what that widened set returns.
-    # MultipleChoiceFilter.filter() ORs the chosen values by default
-    # (``conjoined=False``), which is exactly that widening.
+    # A multiple-choice filter so "articles or chapters, from 2019" widens the
+    # type while the year narrows it.
     type = TypeFilter(choices=ItemType.choices, label=_("Type"))
     issued_year = YearFilter(method="filter_issued_year", label=_("Year"))
     language = LanguageFilter(label=_("Language"))
@@ -217,25 +186,24 @@ class ItemFilterSet(django_filters.FilterSet):
     def filter_issued_year(self, queryset, name, value):
         """Match a year-only date and a range beginning in it; no ``issued`` row excludes.
 
-        Narrows on the ``issued`` annotation ``filter_queryset()`` always
-        applies first, so this runs whether ``annotate_issued()`` was called
-        by a caller already or not. A reference with no ``issued`` row
-        annotates to ``NULL``, and ``__year`` against ``NULL`` never matches
-        — no separate exclusion is written for it.
+        Narrows on the ``issued`` annotation that ``filter_queryset()`` applies
+        first. A reference with no ``issued`` row annotates to ``NULL``, which
+        ``__year`` never matches.
+
+        Args:
+            queryset: The queryset to narrow.
+            name: The filter's name. Unused.
+            value: The chosen year.
+
+        Returns:
+            The queryset of references issued in that year.
         """
         return queryset.filter(issued__year=value)
 
     def filter_queryset(self, queryset):
-        """Annotate ``issued`` and return each match once, however many of its rows matched.
-
-        ``annotate_issued()`` runs first and unconditionally — not only when
-        the year filter has a value — so the ``issued`` column is present
-        for a consumer that sorts on it (``ItemTable.order_issued``)
-        regardless of whether a year was requested. Three of the eight
-        search paths traverse ``item_names``, so a join can multiply a
-        reference's rows; ``.distinct()`` lives here, once, rather than in
-        each view.
-        """
+        """Annotate ``issued`` and return each match once."""
+        # Annotated unconditionally so ItemTable.order_issued can always sort on it, and
+        # distinct() here because the search paths through item_names can multiply rows.
         queryset = annotate_issued(queryset)
         return super().filter_queryset(queryset).distinct()
 
@@ -256,5 +224,14 @@ class ItemTableFilterSet(ItemFilterSet):
     )
 
     def filter_sort(self, queryset, name, value):
-        """No-op: ``sort`` only round-trips django-tables2's own ordering through this form."""
+        """Leave the queryset alone; ``sort`` only round-trips the table's ordering.
+
+        Args:
+            queryset: The queryset, returned unchanged.
+            name: The filter's name. Unused.
+            value: The chosen column order. Unused.
+
+        Returns:
+            The queryset.
+        """
         return queryset
