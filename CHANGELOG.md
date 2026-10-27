@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [v0.3.1] - 2026-10-27
+
 ### Fixed
 
 - **`upgrade_literature` no longer fails on PostgreSQL when a project's foreign key has a long
