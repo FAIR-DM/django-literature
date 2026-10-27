@@ -205,11 +205,11 @@ class TestToCslJson:
 @pytest.mark.django_db
 class TestFromCslJson:
     def test_missing_type_raises(self):
-        with pytest.raises(ValidationError, match="type"):
+        with pytest.raises(ValidationError, match="'type'"):
             from_csl_json({"citation-key": "Test2024"})
 
     def test_unknown_type_raises(self):
-        with pytest.raises(ValidationError, match="Unknown"):
+        with pytest.raises(ValidationError, match="not-a-real-type"):
             from_csl_json({"citation-key": "Test2024", "type": "not-a-real-type"})
 
     def test_missing_both_keys_raises(self):
@@ -563,7 +563,6 @@ class TestFromCslJsonListStillWarns:
 
         assert len(items) == 1
         assert items[0].citation_key == "Kept"
-        assert any(
-            "Skipping invalid CSL JSON item" in record.message
-            for record in caplog.records
-        )
+        (record,) = caplog.records
+        assert record.levelno == logging.WARNING
+        assert record.name == "literature.converters"
