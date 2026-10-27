@@ -55,26 +55,19 @@ SEARCH_LIMIT = 20
 #: The most characters of a search the view reads; the rest is dropped.
 SEARCH_TEXT_LIMIT = 200
 
-#: The three related-row sets composed on both the create and update pages.
-#: Declared once here so the two views and the page's own template use the
-#: same list rather than three independent ones getting out of step.
+#: The related-row sets composed on both the create and update pages.
 ITEM_INLINES = [*CONTRIBUTOR_INLINES, IdentifierInline]
 
-#: What the catalogue calls itself, everywhere a reader is shown its name.
-#: "Item" is the model's name and reads as the store's vocabulary rather than
-#: the reader's, but renaming the model would also rename it in the admin and
-#: the migration state, so the name is set here instead.
+#: What the catalogue calls itself wherever a reader is shown its name. Set here
+#: because renaming the model would also rename it in the admin and migrations.
 CATALOGUE_TITLE = _("Publications")
 
-#: The same word used mid-sentence, as its own message rather than
-#: ``CATALOGUE_TITLE.lower()``: lowercasing is an English habit and a
-#: language that capitalises its nouns would be served the wrong form.
+#: The same word mid-sentence, a message of its own because lowercasing is wrong
+#: for languages that capitalise their nouns.
 CATALOGUE_NAME_PLURAL = _("publications")
 
-#: One shared CRUD-action to namespaced-URL-name map for every view in this
-#: app. Under this app's ``app_name = "literature"``, a bare
-#: ``reverse("item-list")`` raises ``NoReverseMatch``, so every view carries
-#: this dict rather than a partial per-view override.
+#: CRUD action to namespaced URL name, shared by every view: under this app's
+#: ``app_name`` a bare ``reverse("item-list")`` raises ``NoReverseMatch``.
 CRUD_VIEWS = {
     "list": "literature:{model_name}-list",
     "detail": "literature:{model_name}-detail",
@@ -96,20 +89,28 @@ class HasPermission:
 
     django-mvp calls a callable flag with the request user. Hiding the link is
     courtesy only: the page it points at checks the same permission itself.
+
+    Args:
+        permission: The permission to check, such as ``"literature.add_item"``.
     """
 
     def __init__(self, permission):
         self.permission = permission
 
     def __call__(self, user):
-        """Return whether *user* holds the permission."""
+        """Return whether *user* holds the permission.
+
+        Args:
+            user: The signed-in user.
+
+        Returns:
+            ``True`` if the user holds the permission.
+        """
         return user.has_perm(self.permission)
 
 
-#: Every ``ItemType`` value mapped to the group names its form shows by
-#: default, serialised once into every write page. Built at import time: the
-#: mapping is a module-level constant (``literature/ui/fieldgroups.py``), so
-#: there is nothing request-specific to recompute.
+#: Every ``ItemType`` value mapped to the group names its form shows by default,
+#: serialised once into every write page.
 TYPE_GROUPS_JSON = json.dumps(
     {
         item_type: sorted(FieldGroups.groups_for(item_type))
@@ -131,10 +132,17 @@ TYPE_ROLES_JSON = json.dumps(
 def field_group_context(form, inlines, forced_groups=frozenset()):
     """Build the write form's template context.
 
-    ``forced_groups`` is the set of groups already holding a value on the
-    object being edited (``FieldGroups.groups_holding_values``), shown whatever
-    the item type. A group holding a field with an error joins it, so an error
-    is never drawn inside a section the page has hidden.
+    A group holding a field with an error joins the forced groups, so an error is
+    never drawn inside a section the page has hidden.
+
+    Args:
+        form: The bound or unbound ``ItemForm``.
+        inlines: The contributor sets followed by the identifier set.
+        forced_groups: Groups already holding a value on the object being edited
+            (``FieldGroups.groups_holding_values``), shown whatever the item type.
+
+    Returns:
+        The context entries the write form's template reads.
     """
     with_errors = {
         group
@@ -142,8 +150,7 @@ def field_group_context(form, inlines, forced_groups=frozenset()):
         if any(name in form.errors for name in names)
     }
     *contributor_sets, identifier_set = inlines
-    # The identifier set fills a tab of its own, whose label already names
-    # it, so it draws no heading of its own.
+    # The identifier set fills a tab whose label already names it, so it draws no heading.
     identifier_set.is_whole_page = True
     dates_with_errors = {
         slot
@@ -172,10 +179,18 @@ def field_group_context(form, inlines, forced_groups=frozenset()):
 
 
 def form_problems(form, inlines):
-    """Every error on the page, in page order, each with the id of the field to fix.
+    """Collect every error on the page, in page order, each with the id of the field to fix.
 
     Drawn as one summary above the form, since an error may sit in a tab the
     person is not looking at.
+
+    Args:
+        form: The bound ``ItemForm``.
+        inlines: The contributor sets followed by the identifier set.
+
+    Returns:
+        A list of ``{"message", "target"}`` dicts; ``target`` is empty for an
+        error that belongs to no field.
     """
     problems = []
     for message in form.non_field_errors():
@@ -216,10 +231,8 @@ def form_problems(form, inlines):
 def contributor_datalist_context():
     """Build the stored-name suggestions a contributor row's input reads via ``list=``.
 
-    Shared by both write views rather than computed on a common base: the
-    two do not otherwise share a base beyond django-mvp's inline mixin, and
-    one dict built the same way both times is simpler than a mixin neither
-    view needs for anything else.
+    Returns:
+        The datalist id and the family names to offer.
     """
     return {
         "contributor_names_datalist_id": CONTRIBUTOR_NAMES_DATALIST_ID,
@@ -230,26 +243,17 @@ def contributor_datalist_context():
 class CatalogueListMixin:
     """The card-list configuration ``ItemListView`` and ``ContributorDetailView`` share.
 
-    No base class of its own: each of the two concrete views exists today and
-    each composes this with its own base, so this is not a speculative base
-    class under Article III. Subclassing ``ItemListView`` directly would hand
-    the contributor page a search box and filters it must not have.
+    Subclassing ``ItemListView`` directly would hand the contributor page a
+    search box and filters it must not have.
     """
 
     model = Item
     page_title = CATALOGUE_TITLE
-    # No ``template_name``: the page renders through django-mvp's own
-    # ``list_view.html``. Only the card is ours.
-    #
-    # The card is the reference component in a card, so the catalogue and a
-    # project's own pages show a reference the same way.
+    # The reference component in a card, so a project's own pages show a reference the same way.
     list_item_template = "literature/ui/item_list_item.html"
 
-    # "create" alone in directory shows nothing without the matching
-    # show_create_action flag — CRUDDirectoryMixin defaults every
-    # show_<action>_action to False and drops the entry silently.
-    # create_form_class stays unset: a thirteen-group form does not belong in
-    # the list component's modal, so it renders a plain link instead.
+    # A directory entry shows nothing without its show_<action>_action flag. No
+    # create_form_class, so Add renders a plain link rather than a modal.
     directory: list[str] = ["create"]
     show_create_action = HasPermission(ADD_PERMISSION)
     crud_views = CRUD_VIEWS
@@ -275,8 +279,7 @@ class ItemListView(CatalogueListMixin, MVPListView):
 
     filterset_class = ItemFilterSet
     toolbar_filters = ["q"]
-    # The filters are a drawer at every width, opened from the toolbar's
-    # Filters button, never a column beside the list.
+    # The filters are a drawer at every width, never a column beside the list.
     filter_panel_attrs = {"position": "end", "breakpoint": False}
 
     empty_state_heading = _("Nothing in the catalogue yet")
@@ -287,9 +290,7 @@ class ItemListView(CatalogueListMixin, MVPListView):
 
     def get_url_kwargs(self, action):
         """Resolve "import" as collection-level, like the "list"/"create" default."""
-        # Without this, a list view's always-empty self.kwargs makes
-        # directory.import_url never resolve. ItemTableView carries the
-        # same override; edit the two together.
+        # A list view's empty self.kwargs would otherwise leave directory.import_url unresolved.
         if action == "import":
             return {}
         return super().get_url_kwargs(action)
@@ -298,19 +299,14 @@ class ItemListView(CatalogueListMixin, MVPListView):
 class ItemTableView(MVPTableView):
     """The catalogue as a table (FS-009, #87).
 
-    ``ItemListView`` keeps its name, its card template and its behaviour
-    unchanged; this is a new, sibling view, and ``urls.py`` points the
-    ``item-list`` route at it. ``ContributorDetailView`` stays on cards
-    through ``CatalogueListMixin``, the configuration it shares with
-    ``ItemListView`` rather than an inheritance from it, so it is unaffected
-    either way.
+    ``urls.py`` points the ``item-list`` route at it by default
+    (docs/adr/0033-the-catalogue-view-is-chosen-by-a-setting.md).
     """
 
     model = Item
     table_class = ItemTable
 
-    # Without a page size the table renders every row and no pager.
-    # 24 matches the card list's own page size.
+    # 24 matches the card list; with no page size the table renders every row.
     paginate_by = 24
 
     page_title = CATALOGUE_TITLE
@@ -323,16 +319,12 @@ class ItemTableView(MVPTableView):
     show_import_action = HasPermission(ADD_PERMISSION)
     crud_views = CRUD_VIEWS
     filterset_class = ItemTableFilterSet
-    # The filters are a drawer at every width, opened from the toolbar's
-    # Filters button, never a column beside the table.
     filter_panel_attrs = {"position": "end", "breakpoint": False}
 
-    # No order_by: MVPTableViewMixin raises ImproperlyConfigured at
-    # instantiation if it finds one — ordering lives on the table class.
+    # No order_by: MVPTableViewMixin raises ImproperlyConfigured if it finds one.
 
     def get_url_kwargs(self, action):
         """Resolve "import" as collection-level, like the "list"/"create" default."""
-        # Same reasoning as ItemListView.get_url_kwargs(); edit the two together.
         if action == "import":
             return {}
         return super().get_url_kwargs(action)
@@ -342,9 +334,7 @@ class ItemTableView(MVPTableView):
 
     def get_queryset(self):
         """Prefetch what the credited-names and issued cells read."""
-        # No "issued" annotation here: ItemFilterSet.filter_queryset()
-        # (literature/ui/filters.py) already annotates it on every request,
-        # so annotating it again would double-annotate the same alias.
+        # No "issued" annotation: ItemFilterSet.filter_queryset() already adds it.
         return (
             super()
             .get_queryset()
@@ -368,14 +358,10 @@ class ItemTableView(MVPTableView):
         }
 
     def get_context_data(self, **kwargs):
-        """Leave out empty choices, and draw the hidden ``sort`` field in the toolbar's form.
-
-        Every visible filter is in the toolbar, so a panel holding only the
-        hidden field would put a Filters button on the page that opens nothing.
-        """
+        """Leave out empty choices, and draw the hidden ``sort`` field in the toolbar's form."""
         context = super().get_context_data(**kwargs)
-        # A choice the catalogue holds no values for, such as Language when
-        # no reference records one, offers nothing to pick, so it is left out.
+        # A choice with no stored values (Language, say) offers nothing to pick. A panel
+        # holding only the hidden field would add a Filters button that opens nothing.
         if "toolbar_fields" in context:
             context["toolbar_fields"] = [
                 f
@@ -401,9 +387,8 @@ class ItemTableView(MVPTableView):
 class ItemCreateView(PermissionRequiredMixin, MVPCreateView):
     """Enter a reference by hand (FS-008, #74).
 
-    The reference's contributors, dates and identifiers are created in the
-    same transaction as the reference itself through ``inlines`` — no save
-    path of its own.
+    The reference's contributors and identifiers are created in the same
+    transaction as the reference itself through ``inlines``.
     """
 
     model = Item
@@ -417,8 +402,7 @@ class ItemCreateView(PermissionRequiredMixin, MVPCreateView):
     show_detail_action = True
     crud_views = CRUD_VIEWS
 
-    # The breadcrumb's own text — left unset, get_list_title() falls through
-    # to the model's verbose_name_plural ("Items") instead.
+    # Otherwise the breadcrumb falls back to the model's verbose_name_plural ("Items").
     list_view_title = CATALOGUE_TITLE
 
     page_title = _("Add %(verbose_name)s")
@@ -433,27 +417,22 @@ class ItemCreateView(PermissionRequiredMixin, MVPCreateView):
         return context
 
 
-#: The two session keys carrying a staged file's identity across the preview
-#: to confirm round trip. Never in the page, never in ``ConfirmImportForm`` —
-#: a request can only confirm what its own session staged, because this is
-#: the only place the token is ever written down.
+#: The session keys carrying a staged file's identity from preview to confirm. They
+#: never reach the page, so a request can only confirm what its own session staged.
 IMPORT_TOKEN_SESSION_KEY = "literature_import_token"  # noqa: S105 — a session key name, not a secret
 IMPORT_FORMAT_SESSION_KEY = "literature_import_format"
 
-#: Which preview a confirmation is confirming. A session stages one file at a
-#: time, so previewing again supersedes whatever came before, and a
-#: confirmation is carried out only where the page and the session agree.
-#: Unlike the token this is safe to render: alone it authorises nothing.
+#: Which preview a confirmation is confirming; previewing again supersedes it. Unlike
+#: the token this is safe to render, as alone it authorises nothing.
 IMPORT_PREVIEW_SESSION_KEY = "literature_import_preview"
 
 
 class ItemImportView(PermissionRequiredMixin, MVPFormView):
     """Choose a format and a file (FS-011, #103).
 
-    ``model = Item`` even though the form below is not a ``ModelForm``:
-    ``MVPFormView``'s context machinery raises ``ImproperlyConfigured`` on
-    first render with no model at all, and the page's breadcrumb genuinely
-    belongs under the catalogue.
+    ``model = Item`` although the form is not a ``ModelForm``: ``MVPFormView``
+    raises ``ImproperlyConfigured`` with no model, and the breadcrumb belongs
+    under the catalogue.
     """
 
     model = Item
@@ -473,9 +452,11 @@ class ItemImportView(PermissionRequiredMixin, MVPFormView):
     def discard_staging(self):
         """Drop whatever this session had staged, and return the staging.
 
-        Both submission paths supersede an earlier preview: this session can
-        no longer reach it, so nothing should hold its file for the rest of
-        the retention window.
+        Both submission paths supersede an earlier preview, which this session
+        can no longer reach, so nothing should hold its file any longer.
+
+        Returns:
+            The ``StagedUpload`` used, ready to stage the next file.
         """
         staging = StagedUpload()
         superseded = self.request.session.get(IMPORT_TOKEN_SESSION_KEY)
@@ -495,18 +476,14 @@ class ItemImportView(PermissionRequiredMixin, MVPFormView):
         format_class = get_format(format_name)
 
         if form.cleaned_data["skip_preview"]:
-            # Discarding here supersedes an earlier preview exactly as
-            # previewing again would — otherwise it would still be reachable
-            # and offering to confirm a second, unwanted import.
+            # Otherwise an earlier preview would stay confirmable.
             self.discard_staging()
             result = format_class().import_file(form.cleaned_data["file"])
             context = self.get_context_data(form=form)
             report = ImportReport(result)
             context["report"] = report
             context["table"] = ImportReportTable(report.rows)
-            # Rendered directly, never through get_success_url()/redirect:
-            # the reader must have read the report before anything written
-            # by it can be assumed.
+            # Rendered directly, not redirected to, so the reader sees the report.
             return render(self.request, "literature/ui/import_report.html", context)
 
         staging = self.discard_staging()
@@ -516,20 +493,15 @@ class ItemImportView(PermissionRequiredMixin, MVPFormView):
         self.request.session[IMPORT_TOKEN_SESSION_KEY] = token
         self.request.session[IMPORT_FORMAT_SESSION_KEY] = format_name
         self.request.session[IMPORT_PREVIEW_SESSION_KEY] = preview_id
-        # Safe to redirect: the staged file, not anything carried in the
-        # URL, is what ItemImportPreviewView's own GET re-reads.
         return redirect("literature:item-import-preview")
 
 
 class ItemImportPreviewView(PermissionRequiredMixin, MVPFormView):
     """Rebuild the preview from the staged file on every GET (FS-011, #103).
 
-    A dry run, not a stored result: reloading this address re-reads the same
-    staged file and re-runs the same dry run, which reports the same outcomes
-    and changes nothing. ``form_class`` is set for the same reason
-    ``ItemImportView`` sets ``model`` — ``MVPFormView``'s context machinery
-    wants one even though this view's own GET never binds it; the confirm
-    control's hidden field is built separately, from the session.
+    A dry run, not a stored result: reloading re-reads the staged file and
+    changes nothing. ``form_class`` is set only because ``MVPFormView`` wants
+    one; the confirm control's hidden field is built from the session.
     """
 
     model = Item
@@ -543,9 +515,7 @@ class ItemImportPreviewView(PermissionRequiredMixin, MVPFormView):
     page_subtitle = _(
         "What importing this file would do. Nothing has been imported yet."
     )
-    # This page reads; it never writes. Without this, the form base class
-    # answers a POST by looking for a success address this view has no
-    # reason to define, and the reader takes a server error, not a refusal.
+    # Read-only: a POST would otherwise fail on the missing success address with a server error.
     http_method_names = ["get", "head", "options"]
 
     def get(self, request, *args, **kwargs):
@@ -557,8 +527,7 @@ class ItemImportPreviewView(PermissionRequiredMixin, MVPFormView):
         handle = staging.open(token) if token else None
 
         if handle is None:
-            # A direct visit, a restarted or already confirmed session, or
-            # one swept in the meantime.
+            # A direct visit, a restarted or confirmed session, or a swept file.
             context["nothing_staged"] = True
             return self.render_to_response(context)
 
@@ -567,9 +536,7 @@ class ItemImportPreviewView(PermissionRequiredMixin, MVPFormView):
 
         report = ImportReport(result)
         context["report"] = report
-        # The outcome filter narrows these rows client-side, so each one
-        # carries its own outcome as an Alpine expression rather than the
-        # view building a JSON payload for a request that never happens.
+        # The outcome filter narrows rows client-side, so each carries its outcome as an Alpine expression.
         context["table"] = ImportReportTable(
             report.rows,
             row_attrs={
@@ -578,9 +545,7 @@ class ItemImportPreviewView(PermissionRequiredMixin, MVPFormView):
                 )
             },
         )
-        # Value, label and the tone that outcome's badge already uses, so the
-        # control and the badge for one outcome read as the same thing and
-        # restyling the badges moves the filter with them.
+        # The tone is the outcome badge's own, so the control and the badge match.
         context["outcome_choices"] = [
             (outcome.value, outcome.label, OutcomeColumn.VARIANTS[outcome])
             for outcome in Outcome
@@ -608,14 +573,9 @@ class ItemImportRestartView(PermissionRequiredMixin, View):
 class ItemImportConfirmView(PermissionRequiredMixin, View):
     """Carry out the import a preview described, then return to the catalogue.
 
-    FS-011, #103. ``ConfirmImportForm`` declares no field of consequence: the
-    staged file's token and the format it was staged as both come from the
-    reader's own session, never from this page. Nothing here renders a
-    template of its own — every outcome, including one with nothing to
-    confirm, is carried back to the catalogue through the messages framework
-    the interface already renders. There is no success page of its own:
-    every per-entry detail was already on the preview the reader just read,
-    and the message here confirms that, not a second report.
+    FS-011, #103. The staged file's token and format come from the reader's own
+    session, never from the page. Every outcome, including one with nothing to
+    confirm, returns to the catalogue through the messages framework.
     """
 
     permission_required = ADD_PERMISSION
@@ -632,9 +592,7 @@ class ItemImportConfirmView(PermissionRequiredMixin, View):
 
         expected = request.session.get(IMPORT_PREVIEW_SESSION_KEY)
         if not expected or submitted_preview != expected:
-            # A page describing a preview this session has since replaced.
-            # Nothing is popped or discarded: a stale tab must not take the
-            # reader's current preview away from them.
+            # A stale tab: leave the session's current preview in place.
             messages.warning(
                 request,
                 _(
@@ -651,8 +609,7 @@ class ItemImportConfirmView(PermissionRequiredMixin, View):
         handle = staging.open(token) if token else None
 
         if handle is None:
-            # Nothing this session staged, or it has already been confirmed
-            # or swept — either way there is nothing to import.
+            # Nothing staged, or already confirmed or swept.
             messages.warning(
                 request,
                 _(
@@ -681,9 +638,8 @@ class ItemImportConfirmView(PermissionRequiredMixin, View):
 class ItemUpdateView(PermissionRequiredMixin, MVPUpdateView):
     """Correct a reference that is wrong (FS-008, #74).
 
-    The reference's contributors, dates and identifiers are saved in the
-    same transaction as the reference itself through ``inlines`` — no save
-    path of its own.
+    The reference's contributors and identifiers are saved in the same
+    transaction as the reference itself through ``inlines``.
     """
 
     model = Item
@@ -692,7 +648,6 @@ class ItemUpdateView(PermissionRequiredMixin, MVPUpdateView):
     inlines = ITEM_INLINES
     permission_required = CHANGE_PERMISSION
 
-    # No success_url: a saved reference lands on Item.get_absolute_url().
     show_list_action = True
     show_detail_action = True
     crud_views = CRUD_VIEWS
@@ -703,9 +658,6 @@ class ItemUpdateView(PermissionRequiredMixin, MVPUpdateView):
     def get_context_data(self, **kwargs):
         """Add the same context as create, plus this page's forced-visible groups."""
         context = super().get_context_data(**kwargs)
-        # groups_holding_values(self.object) is the forced-visible set: a
-        # group the stored type would not otherwise show still renders when
-        # a value already lives in it.
         context.update(
             field_group_context(
                 context["form"],
@@ -725,19 +677,11 @@ class ItemDetailView(MVPDetailView):
     template_name = "literature/ui/item_detail.html"
     page_width = PageWidth.MEDIUM
 
-    # The breadcrumb's own text, which otherwise derives from the model's
-    # verbose_name_plural and would read "Items" beside a page titled
-    # "Publications".
     list_view_title = CATALOGUE_TITLE
 
-    # Reverses the breadcrumb's list link. The default False leaves it
-    # href-less: PageObjectMixin.get_breadcrumbs() calls resolve_crud_url("list")
-    # regardless, and show_list_action gates whether that call is even attempted.
+    # Without this the breadcrumb's list link has no href.
     show_list_action = True
 
-    # show_delete_action stayed unset until ItemDeleteView and its route
-    # existed — turning it on earlier would have turned every reference-page
-    # request into a NoReverseMatch.
     directory: list[str] = ["update", "delete"]
     show_update_action = HasPermission(CHANGE_PERMISSION)
     show_delete_action = HasPermission(DELETE_PERMISSION)
@@ -763,14 +707,10 @@ class ItemDetailView(MVPDetailView):
         context["field_sections"] = field_sections(item)
         context["year"] = item.year
 
-        # The first role group is the byline under the title, normally the
-        # authors. Any further roles (editors, translators) sit beside it.
         groups = contributor_groups(item)
         context["byline"] = groups[0] if groups else None
         context["other_contributors"] = groups[1:]
 
-        # Where the work appeared, as one line: the container with its
-        # volume, issue and pages, or the publisher with its place.
         numbering = []
         if item.volume:
             numbering.append(_("vol. %(volume)s") % {"volume": item.volume})
@@ -783,10 +723,8 @@ class ItemDetailView(MVPDetailView):
             value for value in (item.publisher, item.publisher_place) if value
         )
 
-        # Whether an identifier may be rendered as a link is decided here,
-        # against a scheme allowlist, never in the template: a template can
-        # only ask whether the value *looks* like a URL, and
-        # ``javascript://x`` passes that test.
+        # Decided here against a scheme allowlist: a template can only test that a value
+        # looks like a URL, and ``javascript://x`` passes.
         identifiers = list(item.item_identifiers.all())
         for identifier in identifiers:
             identifier.href = web_url(identifier.value)
@@ -801,14 +739,11 @@ class ItemDeleteView(PermissionRequiredMixin, MVPDeleteView):
 
     model = Item
 
-    # Lists what cascades (ItemName/ItemDate/ItemIdentifier rows) before the
-    # reader commits. Name records are never listed: nothing points from
-    # Item to Name directly, only ItemName rows do.
+    # Lists the cascading ItemName, ItemDate and ItemIdentifier rows before the reader commits.
     show_related_objects = True
     permission_required = DELETE_PERMISSION
 
-    # The "list" shorthand only resolves once show_list_action is set.
-    # show_detail_action is what get_back_url() below needs for "detail".
+    # The "list" and "detail" shorthands only resolve with their show_*_action flags set.
     success_url = "list"
     show_list_action = True
     show_detail_action = True
@@ -818,20 +753,10 @@ class ItemDeleteView(PermissionRequiredMixin, MVPDeleteView):
     success_message = _("%(verbose_name)s deleted.")
 
     def get_back_url(self) -> str:
-        """Decline and land back on the reference, not the catalogue.
-
-        ``MVPDeleteView.get_back_url()`` honours a validated ``?back`` from
-        the query string and otherwise falls back to the catalogue list. The
-        reference page's own delete link carries no ``?back`` (only the
-        update page's does), so that fallback would strand a decline on the
-        catalogue instead of the reference it was considering removing.
-        Overridden to fall through to the ``detail`` shorthand instead — the
-        object still exists at GET time, so its own URL is always resolvable.
-        """
-        # Explicit annotations, not just style: MVPDeleteView ships no
-        # py.typed, so every attribute reached through it (self.request,
-        # resolve_crud_url(), super().get_back_url()) resolves to Any —
-        # mypy's warn_return_any would otherwise flag a plain "-> str" here.
+        """Decline and land back on the reference, not the catalogue."""
+        # The reference page's delete link carries no ?back, so the base fallback would
+        # strand a decline on the catalogue. The explicit annotations below keep
+        # mypy's warn_return_any quiet: MVPDeleteView ships no py.typed.
         candidate: str | None = self.request.GET.get("back")
         if candidate and url_has_allowed_host_and_scheme(
             url=candidate,
@@ -847,13 +772,9 @@ class ItemDeleteView(PermissionRequiredMixin, MVPDeleteView):
 class ContributorDetailView(CatalogueListMixin, MVPListView):
     """The contributor page (FS-006, #55).
 
-    A contributor's page is the catalogue filtered to what they are credited
-    on, so it *is* a list view: it composes ``CatalogueListMixin`` rather
-    than reproducing the card list's configuration. Pagination, the page
-    size, the empty state, the grid configuration and the not-found on an
-    out-of-range page all arrive with ``MVPListView``. It declares no
-    filterset, so this page carries no search box and no filter. The contributor is the page's subject, not the object it
-    lists, which is the only thing here the base class does not already know.
+    A contributor's page is the catalogue filtered to what they are credited on,
+    so it composes ``CatalogueListMixin``. It declares no filterset, so it has no
+    search box or filter.
     """
 
     empty_state_heading = _("Not credited on anything yet")
@@ -863,14 +784,12 @@ class ContributorDetailView(CatalogueListMixin, MVPListView):
 
     @cached_property
     def contributor(self):
-        """Resolve the contributor once per request, before the queryset is built."""
+        """Return the contributor, resolved once per request before the queryset is built."""
         return get_object_or_404(Name, pk=self.kwargs["pk"])
 
     def get_queryset(self):
         """Filter the catalogue to items crediting this contributor, deduplicated."""
-        # .distinct() is load-bearing: a contributor holding two roles on one
-        # item has two ItemName rows, and without it the item would appear
-        # twice.
+        # distinct(): a contributor with two roles on one item has two ItemName rows.
         return (
             super().get_queryset().filter(item_names__name=self.contributor).distinct()
         )
@@ -895,8 +814,8 @@ class ReferenceAutocompleteView(AutocompleteModelView):
     the text first. Each result carries the reference's ``id`` and its
     ``label``.
 
-    The route is open to everyone (ADR 0036): the catalogue list is, and this
-    search follows its read rule.
+    The route is open to everyone, as the catalogue list is
+    (docs/adr/0022-the-front-ends-pages-are-open.md).
     """
 
     model = Item
@@ -913,23 +832,15 @@ class ReferenceAutocompleteView(AutocompleteModelView):
         self.page_size = SEARCH_LIMIT
 
     def get(self, request, *args, **kwargs):
-        """Refuse a NUL character before any query.
-
-        No text answers with the first page of the catalogue by title, which the
-        picker loads as soon as it is opened.
-        """
+        """Refuse a NUL character before any query."""
         if "\x00" in self.query:
             return JsonResponse({"results": []}, status=400)
         return super().get(request, *args, **kwargs)
 
     def search(self, queryset, query):
-        """Keep the references the catalogue's own search finds, and rank them.
-
-        The search is ``ItemFilterSet``'s, so the picker and the catalogue
-        agree on what a text finds (ADR 0025). The field validates a
-        submission against this view's queryset without any text, so no text
-        leaves the queryset whole.
-        """
+        """Keep the references the catalogue's own search finds, and rank them."""
+        # The search is ItemFilterSet's, so picker and catalogue agree on what a text finds
+        # (docs/adr/0025-one-definition-of-what-the-catalogue-narrows-by.md).
         if not query:
             return queryset
         return (
@@ -949,10 +860,7 @@ class ReferenceAutocompleteView(AutocompleteModelView):
         )
 
     def order_queryset(self, queryset):
-        """Put a title or citation key that starts with the text first, then by title.
-
-        With no text, order by title alone.
-        """
+        """Put a title or citation key that starts with the text first, then by title."""
         if self.query:
             return queryset.order_by("rank", "title", "pk")
         return queryset.order_by("title", "pk")

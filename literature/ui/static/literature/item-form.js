@@ -1,8 +1,6 @@
-// The write form's own behaviour, beside the Alpine components django-mvp
-// ships: contributor rows that switch between a person and an organisation and
-// move up and down, and the error summary's links into closed tabs and panels.
-// Registered on alpine:init, so this file runs before Alpine does: a plain
-// script at the foot of the page runs ahead of every deferred one.
+// The write form's own behaviour: contributor rows that switch between a person and an
+// organisation and move up and down, and error links that open closed tabs and panels.
+// Registered on alpine:init: a plain script at the foot of the page runs before deferred ones.
 (function () {
   "use strict";
   if (window.literatureItemForm) return;
@@ -16,7 +14,6 @@
     });
   }
 
-  // Renumbers a contributor set as its form is sent.
   window.literatureWatchOrder = function (set) {
     set.closest("form").addEventListener("submit", function () {
       renumber(set);
@@ -46,10 +43,8 @@
         hasDetails: false,
         init() {
           this.readDetails();
-          // A row switched between person and organisation sends only the
-          // inputs it shows, so a family name typed before the switch is not
-          // stored beside the organisation. A row nobody switched sends what
-          // it held, so saving it unchanged changes nothing.
+          // A switched row sends only the inputs it shows; an unswitched one sends what it
+          // held, so saving it unchanged changes nothing.
           const row = this.$el;
           this.$el.closest("form").addEventListener("submit", () => {
             if (!this.switched) return;

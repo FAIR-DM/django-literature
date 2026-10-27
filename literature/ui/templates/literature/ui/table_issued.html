@@ -1,2 +1,1 @@
-{# A thin wrapper: reuses date_value.html so the precision-and-range rule stays in one place (FS-009). #}
 {% if item_date %}{% include "literature/ui/date_value.html" %}{% else %}{{ default }}{% endif %}

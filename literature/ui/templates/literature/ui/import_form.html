@@ -1,10 +1,5 @@
 {% extends "form_view.html" %}
 {% load i18n %}
-{% comment %}
-  Overrides only before_form (the repeat-import warning) and actions (a single submit
-  control) — the packaged form chrome, multipart handling and field rendering are untouched
-  (FS-011).
-{% endcomment %}
 {% block before_form %}
   <c-alert variant="info" class="mb-4">
     <p>

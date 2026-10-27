@@ -1,17 +1,4 @@
-"""Django models for the literature app.
-
-Provides a normalized representation of the CSL JSON 1.0.2 bibliographic
-data format as relational database tables.
-
-Models:
-    Item          — CSL JSON top-level item object (all scalar fields)
-    Name          — CSL JSON name-variable definition (name parts)
-    ItemName      — Ordered through-model linking Name to Item with a role
-    ItemDate      — CSL JSON date-variable instance per item
-    ItemIdentifier — Typed identifier (DOI, ISBN, etc.) per item
-
-Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
-"""
+"""Django models: a relational form of the CSL JSON 1.0.2 bibliographic data format."""
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -32,8 +19,8 @@ class Item(models.Model):
     Name-variables, date-variables, and identifiers are stored in
     related models (ItemName, ItemDate, ItemIdentifier).
 
-    CSL JSON mapping: top-level item object
-    Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
+    Maps to the top-level item object of the CSL JSON schema
+    (https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json).
     """
 
     citation_key = models.CharField(
@@ -403,12 +390,7 @@ class Item(models.Model):
         return self.citation_key
 
     def get_absolute_url(self) -> str:
-        """Return the reference's page in the catalogue.
-
-        The page belongs to the opt-in front end, so this resolves only in a
-        project that mounts ``literature.ui.urls``. Anywhere else it raises
-        ``NoReverseMatch``.
-        """
+        """Return the reference's page in the opt-in front end, or raise ``NoReverseMatch`` without it."""
         return reverse("literature:item-detail", kwargs={"pk": self.pk})
 
     @property
@@ -417,6 +399,9 @@ class Item(models.Model):
 
         Reads ``item_identifiers.all()``, so a queryset that prefetches
         ``item_identifiers`` answers it without a query per item.
+
+        Returns:
+            The DOI value, or ``None``.
         """
         for identifier in self.item_identifiers.all():
             if identifier.type == IdentifierType.DOI:
@@ -435,6 +420,9 @@ class Item(models.Model):
         An issued date held only as text, such as "in press", has no year.
         Reads ``item_dates.all()``, so a queryset that prefetches
         ``item_dates`` answers it without a query per item.
+
+        Returns:
+            The year, or ``None``.
         """
         for item_date in self.item_dates.all():
             if item_date.date_type == DateType.ISSUED and item_date.begin:
@@ -447,6 +435,12 @@ class Item(models.Model):
 
         Reads ``item_names.all()``, so a queryset that prefetches
         ``item_names__name`` answers it without a query per item.
+
+        Args:
+            role: A ``NameRole`` value.
+
+        Returns:
+            The names, in order.
         """
         return [
             item_name.name
@@ -471,9 +465,7 @@ class Name(models.Model):
     Stores all constituent parts of a personal or institutional name as
     defined in the CSL JSON 1.0.2 name-variable schema. Names are
     shared across items; the ItemName through-model records the role
-    and ordered position.
-
-    CSL JSON mapping: name-variable object
+    and ordered position. Maps to the CSL JSON name-variable object.
     """
 
     family = models.CharField(
@@ -554,8 +546,8 @@ class ItemName(models.Model):
     reordering one role never disturbs another. The position is assigned in
     :meth:`save` on first insert. See ADR-0005.
 
-    CSL JSON mapping: name-variable array entries on a bibliographic item
-    (e.g. author array, editor array).
+    Maps to the name-variable array entries of a CSL JSON item, such as its
+    author and editor arrays.
     """
 
     item = models.ForeignKey(
@@ -602,12 +594,7 @@ class ItemName(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        """Assign a role-scoped position on first insert.
-
-        ``order`` is numbered per ``(item, role)`` group, so the contributor
-        list for each role is ordered independently. A new row is appended to
-        the end of its own role's sequence; existing rows keep their position.
-        """
+        """Append a new row to the end of its ``(item, role)`` sequence."""
         if self._state.adding and self.order is None:
             last = (
                 ItemName.objects.filter(item=self.item, role=self.role)
@@ -629,8 +616,8 @@ class ItemDate(models.Model):
     supporting year-only, year-month, and full-date precision. Date ranges
     are represented by setting both begin and end.
 
-    CSL JSON mapping: date-variable object keyed by date-variable slot name
-    (e.g. 'issued', 'accessed', 'event-date').
+    Maps to a CSL JSON date-variable object keyed by slot name, such as
+    ``issued``, ``accessed`` or ``event-date``.
     """
 
     item = models.ForeignKey(
@@ -724,10 +711,9 @@ class ItemDate(models.Model):
         return self.date_type
 
     def clean(self) -> None:
-        """Enforce that ``end``, if set, does not precede ``begin`` and requires a ``begin`` (FS-012)."""
-        # begin/end may still be a raw "" or YYYY[-MM[-DD]] string here (a
-        # blank ModelForm field, or a caller that skipped full_clean()), so
-        # normalize both before comparing .date below.
+        """Require a ``begin`` for any ``end``, and an ``end`` no earlier than it (FS-012)."""
+        # begin and end may still be a raw string here (a blank form field, or a
+        # caller that skipped full_clean()), so normalize before comparing.
         begin = (
             PartialDate(self.begin)
             if isinstance(self.begin, str) and self.begin
@@ -766,12 +752,11 @@ class ItemIdentifier(models.Model):
     The IdentifierType enum provides known values for lookup and
     documentation only.
 
-    Design note: the (item, type) uniqueness constraint means each item
-    stores at most one identifier per type. Multiple ISBNs (ISBN-10 +
-    ISBN-13) are out of scope for this feature.
+    The (item, type) uniqueness constraint means each item stores at most one
+    identifier per type, so two ISBNs (ISBN-10 and ISBN-13) are not supported.
 
-    CSL JSON mapping: DOI, ISBN, ISSN, PMID, PMCID, URL top-level fields;
-    unknown types placed in the custom object on export.
+    Maps to the DOI, ISBN, ISSN, PMID, PMCID and URL top-level CSL JSON fields;
+    unknown types are placed in the custom object on export.
     """
 
     item = models.ForeignKey(

@@ -1,14 +1,4 @@
-"""CSL JSON choices enumerations for the literature app.
-
-Provides TextChoices enums for:
-- ItemType: all 45 CSL JSON 1.0.2 item type values
-- NameRole: all 26 CSL name-variable role fields
-- DateType: all 6 CSL date-variable slot names
-- IdentifierType: 6 known CSL identifier field names
-
-References:
-- https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
-"""
+"""CSL JSON choices enumerations for item types, name roles, date types and identifier types."""
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -21,7 +11,8 @@ class ItemType(models.TextChoices):
     (legal_case, motion_picture, musical_score, personal_communication)
     and are stored with underscores. All other types use hyphens.
 
-    Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
+    References:
+        https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
     """
 
     ARTICLE = "article", _("Article")
@@ -77,7 +68,8 @@ class NameRole(models.TextChoices):
     Covers all 26 CSL name-variable fields that identify contributors
     to a bibliographic item and their role.
 
-    Reference: CSL JSON 1.0.2 schema name-variable fields.
+    References:
+        CSL JSON 1.0.2 schema name-variable fields.
     """
 
     AUTHOR = "author", _("Author")
@@ -114,7 +106,8 @@ class DateType(models.TextChoices):
     Maps to the CSL JSON date-variable field names that can appear
     on a bibliographic item object.
 
-    Reference: CSL JSON 1.0.2 schema date-variable fields.
+    References:
+        CSL JSON 1.0.2 schema date-variable fields.
     """
 
     ACCESSED = "accessed", _("Accessed")

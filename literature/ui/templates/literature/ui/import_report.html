@@ -1,10 +1,6 @@
 {% extends "page_view.html" %}
 {% load i18n %}
-{% comment %}
-  Renders only the skip-preview path (FS-011): the preview now has its own address, and a
-  confirmed import redirects to the catalogue with a message instead. The upload form and Retry
-  state this page once carried were dropped for the same reason — the preview carries neither.
-{% endcomment %}
+{# Renders only the skip-preview path (FS-011); the preview has its own page. #}
 {% block page.content %}
   <c-mvp.text class="mb-4">
     {% blocktranslate with created=report.created skipped=report.skipped failed=report.failed %}

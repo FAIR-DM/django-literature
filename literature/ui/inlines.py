@@ -1,13 +1,4 @@
-"""The related-row set declarations the reference form composes.
-
-One contributor set per role (``CONTRIBUTOR_INLINES``), each over ``ItemName``
-with a prefix of its own, ``contributors-<role>``, and one identifier set over
-``ItemIdentifier``. Dates are not a set: each date slot is a field of
-``ItemForm`` (docs/adr/0034-a-date-slot-is-a-field-of-the-form.md).
-
-Each row's own form does the work particular to its relation: ``NameForm`` and
-the position column for contributors, ``ItemIdentifierForm`` for identifiers.
-"""
+"""The related-row set declarations the reference form composes."""
 
 from collections import defaultdict
 
@@ -24,21 +15,20 @@ from literature.ui.forms import ItemIdentifierForm, NameForm
 
 
 class ContributorFormSet(BaseInlineFormSet):
-    """Renumbers ``ItemName.order`` to a coherent ``(item, role)`` sequence on save.
+    """Renumber ``ItemName.order`` to a coherent ``(item, role)`` sequence on save.
 
-    ``can_order=True`` (below) adds an ``ORDER`` field to every row, reached
-    at ``cleaned_data["ORDER"]``; ``ItemName.order`` is ``editable=False``,
-    so no ``ModelForm`` ever writes it — this is the one place that does,
-    after every row is otherwise saved, so a submission of 1, 1, 3 within
-    one role becomes a coherent 0, 1, 2 rather than being rejected.
+    ``can_order=True`` adds an ``ORDER`` field to every row, reached at
+    ``cleaned_data["ORDER"]``. ``ItemName.order`` is ``editable=False``, so no
+    ``ModelForm`` writes it; this is the one place that does, after every row
+    is saved, so a submission of 1, 1, 3 within one role becomes 0, 1, 2
+    rather than being rejected.
     """
 
     def add_fields(self, form, index):
         """Seed the position control from the row's own role-scoped order."""
         super().add_fields(form, index)
-        # Not BaseFormSet's own default — a row's position in the *whole*
-        # rendered set, which disagrees with its role-scoped order the
-        # moment a page holds more than one role.
+        # The default is the row's position in the whole set, which disagrees with
+        # its role-scoped order once a page holds more than one role.
         if form.instance.pk:
             form.initial.setdefault("ORDER", form.instance.order)
 
@@ -49,13 +39,11 @@ class ContributorFormSet(BaseInlineFormSet):
         return saved
 
     def renumber(self):
-        """Group every surviving row by role and renumber each group's positions to a coherent 0-based sequence.
+        """Renumber each role's surviving rows to a coherent 0-based sequence.
 
         Positions follow the order the submitted ``ORDER`` values place them in.
-
-        "Surviving" excludes a row flagged for deletion and one that was
-        never filled in (an extra row with no saved instance) — neither
-        holds a position to renumber.
+        A row flagged for deletion, or an extra row with no saved instance,
+        holds no position and is left out.
         """
         by_role = defaultdict(list)
         for form in self.forms:
@@ -78,8 +66,9 @@ class ContributorFormSet(BaseInlineFormSet):
 class ContributorInline(InlineFormSet):
     """A reference's contributors in one role, one row per ``ItemName`` link.
 
-    One set per role (``CONTRIBUTOR_INLINES`` below), so a row's role is the
-    set it sits in, and its position is its place in that set.
+    One set per role (``CONTRIBUTOR_INLINES``), so a row's role is the set it
+    sits in and its position is its place in that set. ``NameForm`` and the
+    position column do the work particular to contributors.
     """
 
     model = ItemName
@@ -92,9 +81,6 @@ class ContributorInline(InlineFormSet):
     #: The role every row of this set holds. Set by each subclass.
     role = ""
 
-    # Django's own escape hatch: can_order adds an ORDER field to every row,
-    # which the page writes from the row's place on screen. ItemName.order
-    # itself stays editable=False and is never in the form's own Meta.fields.
     factory_kwargs = {"can_order": True}
 
     def get_title(self):
@@ -146,27 +132,18 @@ CONTRIBUTOR_INLINES = [
 
 
 class ItemIdentifierFormSet(BaseInlineFormSet):
-    """Refuses two rows of one set claiming the same identifier kind, before the database's own ``unique_identifier_type_per_item`` constraint can fire inside the save transaction.
+    """Refuse two rows claiming the same identifier kind, before the database constraint can.
 
-    A row flagged for deletion is excluded from the check: removing one identifier and adding
-    a corrected one of the same kind in the same submission is a replacement, not a collision.
-
-    Does not call ``super().clean()``, for the same reason :class:`ItemDateFormSet` does not
-    (see its own docstring): ``BaseModelFormSet.clean()``'s own ``validate_unique()`` already
-    catches this exact collision against ``ItemIdentifier``'s ``unique_identifier_type_per_item``
-    constraint before this method would even run, reporting it as a bare "Please correct the
-    duplicate values below" on the row's ``__all__`` and deleting ``type`` from its
-    ``cleaned_data`` in the process — both the wrong message (this feature wants one naming the
-    limit) and something that would leave nothing here to detect a second time. This replaces
-    that check entirely rather than running alongside it.
+    A row flagged for deletion is excluded: removing one identifier and adding a
+    corrected one of the same kind in one submission is a replacement.
     """
 
     def clean(self):
         """Report a row naming an identifier kind another surviving row already claims."""
+        # Deliberately no super().clean(): its validate_unique() would report this collision
+        # as a bare "duplicate values" error and drop ``type`` from cleaned_data.
         if any(self.errors):
-            # A row with a field error of its own has nothing reliable in
-            # cleaned_data to compare — the same guard BaseModelFormSet's
-            # own uniqueness check uses.
+            # A row with its own field error has nothing reliable in cleaned_data to compare.
             return
         seen_by_kind = {}
         for form in self.forms:

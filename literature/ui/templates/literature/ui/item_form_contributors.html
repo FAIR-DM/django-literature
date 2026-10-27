@@ -1,11 +1,8 @@
 {% load i18n l10n %}
 {% comment %}
-  One role's contributor set, drawn here rather than by <c-mvp.form.formset> because a row holds
-  more than the packaged row can: a person-or-organisation switch, the rarer name parts in a
-  dialog, and buttons that move a row up or down. Adding and removing rows is the packaged
-  behaviour, through the same mvpFormset and mvpFormsetRow components, so a removed row is hidden
-  and still posts its DELETE flag. A row's position is its place in the list: every ORDER input is
-  rewritten from the order on screen whenever a row moves, and again as the form is sent.
+  Drawn here, not by <c-mvp.form.formset>, because a row holds more than the packaged row can.
+  Rows are added and removed by the packaged mvpFormset, so a removed row still posts its DELETE
+  flag. Every ORDER input is rewritten from the order on screen when a row moves and on submit.
 {% endcomment %}
 <div class="flex flex-col gap-4"
      x-data="mvpFormset({{ formset.total_form_count|unlocalize }}, {{ formset.max_num|unlocalize }})"

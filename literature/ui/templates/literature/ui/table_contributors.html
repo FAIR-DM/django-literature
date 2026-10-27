@@ -1,6 +1,3 @@
 {% load i18n %}
-{% comment %}
-  The credited-names cell (FS-009). The markup is built here, never in Python, because a
-  contributor's name is free text entered through this package's own open write pages (Article V).
-{% endcomment %}
+{# The credited-names cell (FS-009), built here so autoescaping covers the free-text names. #}
 {% if names %}{% for name in names %}<c-link hover href="{% url 'literature:contributor-detail' pk=name.pk %}">{{ name }}</c-link>{% if not forloop.last %}, {% endif %}{% endfor %}{% if hidden_count %}, {% blocktranslate count counter=hidden_count %}and {{ counter }} other{% plural %}and {{ counter }} others{% endblocktranslate %}{% endif %}{% else %}{{ default }}{% endif %}

@@ -1,27 +1,4 @@
-"""Which view serves the catalogue route, and how a project changes it.
-
-The route is ``literature:item-list`` and it serves the table (FS-009, #87). A
-project that prefers the card presentation names ``ItemListView`` under the
-namespaced ``LITERATURE`` setting the package already uses for its format
-registry::
-
-    LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.ItemListView"}
-
-A dotted path rather than a two-value switch, for the same reason
-``BIB_FORMATS`` takes one: a project that has subclassed either view to add
-a column or change a page size can name its own class and keep every other
-route, breadcrumb and redirect pointing at ``literature:item-list``
-unchanged.
-
-Resolved per request rather than at import time. Every route in this app is
-registered through one ``include()`` under one namespace, so a second
-``include()`` overriding a single route breaks ``reverse()`` for the rest of
-them — the route has to stay where it is and choose its view behind the
-name. Reading the setting when the request arrives is also what makes the
-choice testable with ``override_settings`` and independent of whether the
-host's ``urls.py`` imported this module before or after it configured
-settings.
-"""
+"""Which view serves the catalogue route, and how a project changes it."""
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -33,15 +10,27 @@ DEFAULT_CATALOGUE_VIEW = "literature.ui.views.ItemTableView"
 
 
 def catalogue_view_class():
-    """The view class the catalogue route serves.
+    """Return the view class the catalogue route serves (FS-009, #87).
 
-    Raises :class:`~django.core.exceptions.ImproperlyConfigured`, naming the
-    setting, for a path that does not import or that imports to something
-    which cannot serve a request — checked here rather than surfacing later
-    as a raw ``AttributeError`` from inside URL resolution, a long way from
-    the setting that caused it. Same grounds as
-    ``literature.importers.config``, which validates the shape of the
-    ``LITERATURE`` dict identically.
+    The route is ``literature:item-list`` and serves the table by default. A
+    project names ``ItemListView`` or a subclass of either view as a dotted
+    path under ``LITERATURE["CATALOGUE_VIEW"]``::
+
+        LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.ItemListView"}
+
+    The setting is read per request, not at import time. All routes share one
+    ``include()`` and namespace, so overriding one route would break
+    ``reverse()`` for the rest; the view is chosen behind the name instead,
+    which also keeps it testable with ``override_settings``.
+
+    Returns:
+        The configured view class, or the table view when none is configured.
+
+    Raises:
+        ImproperlyConfigured: ``LITERATURE`` is not a dict, or the path is not
+            a string, does not import, or is not a class-based view. Raised
+            here so the setting is named, not as an ``AttributeError`` from
+            inside URL resolution.
     """
     configured = getattr(settings, "LITERATURE", {})
     if not isinstance(configured, dict):
@@ -75,5 +64,14 @@ def catalogue_view_class():
 
 
 def catalogue(request, *args, **kwargs):
-    """Serve the catalogue route through whichever view is configured."""
+    """Serve the catalogue route through whichever view is configured.
+
+    Args:
+        request: The incoming request.
+        *args: Positional URL arguments, passed to the view.
+        **kwargs: Keyword URL arguments, passed to the view.
+
+    Returns:
+        The configured view's response.
+    """
     return catalogue_view_class().as_view()(request, *args, **kwargs)

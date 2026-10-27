@@ -3,9 +3,7 @@
 {# @prop outcomes:text | description:"Iterable of (value, label, variant) tuples — one radio control per outcome, plus a reset to all of them." #}
 {# @prop class:text | description:"Extra CSS classes merged onto the filter container." #}
 {% comment %}
-No `x-data` of its own: `x-model="outcome"` reads and writes the ambient
-Alpine scope the page wraps this component in (see cotton/form/index.html
-for the same idiom) — a fresh `x-data` here would shadow it instead.
+No `x-data` of its own: `x-model="outcome"` uses the ambient Alpine scope, which a fresh one would shadow.
 {% endcomment %}
 <c-vars outcomes class />
 <div class="filter {{ class }}" {{ attrs }}>

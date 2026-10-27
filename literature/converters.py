@@ -1,16 +1,4 @@
-"""CSL JSON serialization and deserialization for the literature app.
-
-Provides bidirectional conversion between Django ``Item`` model instances
-(with related ``ItemName``, ``ItemDate``, ``ItemIdentifier`` records) and
-CSL JSON 1.0.2 Python dicts.
-
-Public API:
-    to_csl_json(item)         — serialize Item → CSL JSON dict
-    from_csl_json(data)       — deserialize CSL JSON dict → saved Item
-    from_csl_json_list(data)  — batch version of from_csl_json
-
-Reference: https://resource.citationstyles.org/schema/v1.0/input/json/csl-data.json
-"""
+"""CSL JSON serialization and deserialization between ``Item`` instances and CSL JSON 1.0.2 dicts."""
 
 from __future__ import annotations
 
@@ -93,8 +81,8 @@ def _csl_key_to_django_field(csl_key: str) -> str | None:
         csl_key: The CSL JSON field name to convert.
 
     Returns:
-        str | None: The Django field name, or None if the key should not be
-        mapped to a scalar Item field.
+        The Django field name, or None if the key should not be mapped to a
+        scalar Item field.
     """
     if csl_key in _CSL_TO_DJANGO:
         return _CSL_TO_DJANGO[csl_key]
@@ -109,7 +97,7 @@ def _django_field_to_csl_key(field_name: str) -> str:
         field_name: The Django model field name to convert.
 
     Returns:
-        str: The corresponding CSL JSON key.
+        The corresponding CSL JSON key.
     """
     if field_name in _DJANGO_TO_CSL:
         return _DJANGO_TO_CSL[field_name]
@@ -123,8 +111,8 @@ def _partial_date_to_parts(pd: Any) -> list[int]:
         pd: The PartialDate (or object exposing ``.date``/``.precision``) to convert.
 
     Returns:
-        list[int]: 1-3 integers based on the PartialDate's precision —
-        ``[year]``, ``[year, month]``, or ``[year, month, day]``.
+        1-3 integers based on the PartialDate's precision: ``[year]``,
+        ``[year, month]``, or ``[year, month, day]``.
     """
     from partial_date import PartialDate
 
@@ -146,7 +134,7 @@ def _name_to_dict(name: Any) -> dict[str, Any]:
         name: The Name instance to convert.
 
     Returns:
-        dict[str, Any]: The CSL JSON name object.
+        The CSL JSON name object.
     """
     result: dict[str, Any] = {}
     if name.family:
@@ -177,8 +165,7 @@ def to_csl_json(item: Any) -> dict[str, Any]:
         item: A saved ``Item`` model instance (must have a primary key).
 
     Returns:
-        dict[str, Any]: A dict conforming to the CSL JSON 1.0.2 schema.
-        Always contains ``"id"`` (= ``item.citation_key``) and ``"type"``,
+        A dict conforming to the CSL JSON 1.0.2 schema. Always contains ``"id"`` (= ``item.citation_key``) and ``"type"``,
         omits blank/null optional fields, orders name arrays by
         ``ItemName.order`` within each role, places known identifier types
         (DOI, ISBN, ISSN, PMID, PMCID, URL) as top-level keys and unknown
@@ -266,15 +253,16 @@ def to_csl_json(item: Any) -> dict[str, Any]:
 
 
 def _citation_key(data: dict) -> str:
-    """The citation key a CSL JSON dict carries: ``citation-key``, falling back to ``id``.
+    """Return the citation key a CSL JSON dict carries: ``citation-key``, falling back to ``id``.
 
-    Stored exactly as given, whether or not the store already holds it (ADR 0023).
+    Stored exactly as given, whether or not the store already holds it
+    (docs/adr/0023-citation-key-uniqueness-is-the-readers-concern.md).
 
     Args:
         data: The CSL JSON item dict to read a citation key from.
 
     Returns:
-        str: The citation key.
+        The citation key.
 
     Raises:
         ValidationError: Both ``citation-key`` and ``id`` are absent or empty.
@@ -372,8 +360,8 @@ def from_csl_json(data: dict, *, pk: int | None = None) -> Any:
     """Deserialize a CSL JSON dict into a new saved Item with all related records.
 
     Validates ``type``, reads the citation key (``citation-key`` falling back
-    to ``id``, stored exactly as given — a key the store already holds is not
-    rewritten, per ADR 0023), maps scalar fields, and creates the related
+    to ``id``, stored exactly as given; a key the store already holds is not
+    rewritten, per docs/adr/0023-citation-key-uniqueness-is-the-readers-concern.md), maps scalar fields, and creates the related
     Name/ItemName, ItemDate and ItemIdentifier records. Every model instance
     is validated with ``full_clean()`` before saving.
 
@@ -384,7 +372,7 @@ def from_csl_json(data: dict, *, pk: int | None = None) -> Any:
             database assigns one.
 
     Returns:
-        Any: A saved ``Item`` instance with all related ``ItemName``,
+        A saved ``Item`` instance with all related ``ItemName``,
         ``ItemDate``, and ``ItemIdentifier`` records created.
 
     Raises:
@@ -488,8 +476,8 @@ def from_csl_json_list(data: list[dict]) -> list[Any]:
         data: A Python list of CSL JSON dicts (one per bibliographic item).
 
     Returns:
-        list[Any]: The saved ``Item`` instances for all successfully
-        imported items, in input order.
+        The saved ``Item`` instances for all successfully imported items, in
+        input order.
     """
     results = []
     for item_data in data:

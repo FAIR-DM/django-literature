@@ -1,14 +1,4 @@
-"""Move a database from the ``LiteratureItem`` schema to the current models.
-
-Before its current models, ``literature`` shipped a different schema under the
-same app label, with migrations ``0001_initial`` to
-``0004_alter_literatureitem_options``. Two of those migration names are reused by
-the current history, so ``migrate`` takes a database on the old schema to be
-part-way through the new one and fails. This command makes the move instead: it
-builds the current tables, converts every ``LiteratureItem`` from the CSL JSON it
-stored, keeping its primary key, and points the host project's foreign keys at
-the new table. See ``docs/how-to/upgrading-from-literatureitem.md``.
-"""
+"""Move a database from the ``LiteratureItem`` schema to the current models."""
 
 import copy
 import json
@@ -42,7 +32,16 @@ LEGACY_TABLES = (
 
 
 class Command(BaseCommand):
-    """Upgrade a database from the ``LiteratureItem`` schema to the current models."""
+    """Upgrade a database from the ``LiteratureItem`` schema to the current models.
+
+    Before its current models, ``literature`` shipped a different schema under the
+    same app label, with migrations ``0001_initial`` to
+    ``0004_alter_literatureitem_options``. Two of those names are reused by the
+    current history, so ``migrate`` fails on a database on the old schema. This
+    command builds the current tables, converts every ``LiteratureItem`` from the
+    CSL JSON it stored, keeping its primary key, and points the host project's
+    foreign keys at the new table. See ``docs/how-to/upgrading-from-literatureitem.md``.
+    """
 
     help = (
         "Move a database from the LiteratureItem schema to the current models, "
@@ -93,10 +92,8 @@ class Command(BaseCommand):
         ):
             recorder.migration_qs.filter(app="literature").delete()
             executor = MigrationExecutor(connection)
-            # Start from an empty state. The default, the state of every applied
-            # migration, holds the host's migrations, whose foreign keys to Item
-            # cannot resolve while literature's are unapplied. Literature's own
-            # migrations depend on no other app, so nothing else is needed.
+            # Start from an empty state: the default would load the host's migrations, whose
+            # foreign keys to Item cannot resolve while literature's are unapplied.
             executor.migrate(
                 executor.loader.graph.leaf_nodes("literature"), state=ProjectState()
             )
@@ -173,7 +170,6 @@ class Command(BaseCommand):
         """
         keywords = []
         if isinstance(keyword, str):
-            # CSL JSON separates keywords with commas, and some sources use semicolons.
             keywords = [
                 part.strip() for part in re.split(r"[,;]", keyword) if part.strip()
             ]

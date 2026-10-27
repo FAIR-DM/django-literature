@@ -1,11 +1,4 @@
-"""Format-specific validators for the literature app's known identifier types.
-
-Each function follows the Django validator protocol — raises
-``django.core.exceptions.ValidationError`` for invalid values and returns
-``None`` for valid ones. :func:`validate_identifier` dispatches on identifier
-type and is the single entry point both ``ItemIdentifier.clean()`` and
-``ItemIdentifier.save()`` use, so every write path applies the same rules.
-"""
+"""Format-specific validators for the known identifier types, dispatched by ``validate_identifier``."""
 
 from __future__ import annotations
 
@@ -23,6 +16,11 @@ _DOI_RE = re.compile(r"^10\.\d{4,}/\S+$")
 
 def validate_doi(value: str) -> None:
     """Validate a DOI string.
+
+    Every validator here raises ``ValidationError`` for an invalid value and returns
+    ``None`` for a valid one. :func:`validate_identifier` is the single entry point
+    ``ItemIdentifier.clean()`` and ``save()`` use, so every write path applies the
+    same rules.
 
     A valid DOI starts with ``10.`` followed by at least four digits, a
     forward slash, and at least one non-whitespace character.
@@ -51,11 +49,10 @@ def _isbn10_valid(digits: str) -> bool | None:
         digits: The candidate ISBN-10 with hyphens and spaces already stripped.
 
     Returns:
-        bool | None: ``True`` if *digits* is a valid ISBN-10, ``False`` if it
-        has ISBN-10's shape but the wrong check digit, ``None`` if it does
-        not have ISBN-10's shape at all — the three-way return lets
-        :func:`validate_isbn` tell "malformed" from "one mistyped digit"
-        apart (FS-012).
+        ``True`` if *digits* is a valid ISBN-10, ``False`` if it has ISBN-10's
+        shape but the wrong check digit, ``None`` if it does not have ISBN-10's
+        shape at all. The three-way return lets :func:`validate_isbn` tell
+        "malformed" from "one mistyped digit" apart (FS-012).
     """
     if not re.match(r"^\d{9}[\dX]$", digits, re.IGNORECASE):
         return None
@@ -70,10 +67,9 @@ def _isbn13_valid(digits: str) -> bool | None:
         digits: The candidate ISBN-13 with hyphens and spaces already stripped.
 
     Returns:
-        bool | None: ``True`` if valid, ``False`` if it has ISBN-13's shape
-        but the wrong check digit, ``None`` if it does not have ISBN-13's
-        shape at all. See :func:`_isbn10_valid` for why the return is
-        three-way rather than a plain bool.
+        ``True`` if valid, ``False`` if it has ISBN-13's shape but the wrong
+        check digit, ``None`` if it does not have ISBN-13's shape at all. See
+        :func:`_isbn10_valid` for why the return is three-way.
     """
     if not re.match(r"^\d{13}$", digits):
         return None
@@ -127,10 +123,9 @@ def _issn_valid(value: str) -> bool | None:
         value: The candidate ISSN string.
 
     Returns:
-        bool | None: ``True`` if valid, ``False`` if it has ISSN's shape but
-        the wrong check digit, ``None`` if it does not have ISSN's shape at
-        all. Mirrors :func:`_isbn10_valid`'s three-way return for the same
-        reason (#118).
+        ``True`` if valid, ``False`` if it has ISSN's shape but the wrong check
+        digit, ``None`` if it does not have ISSN's shape at all. Mirrors
+        :func:`_isbn10_valid`'s three-way return (#118).
     """
     if not _ISSN_RE.match(value):
         return None
@@ -258,6 +253,9 @@ def validate_identifier(identifier_type: str, value: str) -> None:
     Args:
         identifier_type: The identifier type to look up a validator for.
         value: The identifier value to validate.
+
+    Raises:
+        ValidationError: The matching validator rejected a malformed value.
     """
     validator = _IDENTIFIER_VALIDATORS.get(identifier_type)
     if validator is not None:
