@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-10-27
+
 ### Added
 
 - `python manage.py upgrade_literature` moves a database from the old `LiteratureItem` schema
