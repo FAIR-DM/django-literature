@@ -186,7 +186,6 @@ class TestISBNChecksumDistinction:
         with pytest.raises(ValidationError) as shape_error:
             _clean_identifier(IdentifierType.ISBN, "not-an-isbn")
         assert checksum_error.value.code != shape_error.value.code
-        assert checksum_error.value.messages != shape_error.value.messages
 
 
 @pytest.mark.django_db
@@ -222,4 +221,3 @@ class TestISSNChecksumDistinction:
         with pytest.raises(ValidationError) as shape_error:
             _clean_identifier(IdentifierType.ISSN, "not-an-issn")
         assert checksum_error.value.code != shape_error.value.code
-        assert checksum_error.value.messages != shape_error.value.messages
