@@ -1,16 +1,4 @@
-"""Contributor grouping for the reference page.
-
-Lives beside its callers' views rather than in ``literature/utils/``, on the
-same reasoning as :mod:`literature.ui.fields`: the core stays free of a helper
-an optional app is the sole consumer of, which is also why this is not
-a method on ``Item``.
-
-A role heading has to agree with the number of names under it — "Authors" over
-three, "Author" over one. The plural is a message of its own per role rather
-than a letter appended in the template, because the roles are translatable and
-a language may declare more than two plural forms; only ``ngettext`` can pick
-between them.
-"""
+"""Contributor grouping for the reference page."""
 
 from itertools import groupby
 from operator import attrgetter
@@ -24,17 +12,17 @@ from literature.models import Name
 class ContributorGroups:
     """One item's contributors, grouped by role and headed by that role's name.
 
-    A class rather than a pair of functions per Article XIV: the labels are the
-    part of this a host project is most likely to want its own version of — a
-    repository that calls its authors "Creators", say — and a subclass
-    overriding :attr:`ROLE_LABELS` or :meth:`role_label` is a supported way to
-    do that, where monkey-patching a module function is not.
+    A subclass overriding :attr:`ROLE_LABELS` or :meth:`role_label` is the
+    supported way for a host project to rename a role, for example "Creators".
+    This lives in ``literature/ui/`` rather than the core, which stays free of
+    helpers only the optional app uses.
+
+    Args:
+        item: The item whose contributors to group.
     """
 
-    #: One deferred-number message pair per role, keyed by the stored role
-    #: value. The third argument names the key :meth:`role_label` supplies the
-    #: count under, so the form is chosen at render time under the reader's
-    #: active language rather than fixed at import.
+    #: One ngettext message pair per role, keyed by the stored role value, so the
+    #: heading agrees in number with the names under it in every language.
     ROLE_LABELS = {
         NameRole.AUTHOR: ngettext_lazy("Author", "Authors", "count"),
         NameRole.CHAIR: ngettext_lazy("Chair", "Chairs", "count"),
@@ -85,13 +73,18 @@ class ContributorGroups:
 
     @classmethod
     def role_label(cls, role, count):
-        """Return ``role``'s heading in the plural form ``count`` names call for.
+        """Return ``role``'s heading in the plural form ``count`` calls for.
 
-        A role the enumeration does not name is returned as stored, which is
-        what ``ItemName.get_role_display()`` does with the same value: the
-        store accepts role values outside
-        :class:`~literature.choices.NameRole`, and the interface reports what
-        it holds rather than refusing to render the row.
+        A role the enumeration does not name is returned as stored, as
+        ``ItemName.get_role_display()`` does: the store accepts values outside
+        :class:`~literature.choices.NameRole`.
+
+        Args:
+            role: The stored role value.
+            count: How many names sit under the heading.
+
+        Returns:
+            The translated heading.
         """
         label = cls.ROLE_LABELS.get(role)
         if label is None:
@@ -106,9 +99,11 @@ class ContributorGroups:
         are the store's rather than this class's.
 
         Reads ``item.item_names`` as given, so an item drawn through
-        ``prefetch_related("item_names__name")`` costs no further query. A list
-        rather than a generator, so the reference page can split it into the
-        byline and the other roles.
+        ``prefetch_related("item_names__name")`` costs no further query.
+
+        Returns:
+            A list rather than a generator, so the reference page can split it
+            into the byline and the other roles.
         """
         groups = []
         for role, group in groupby(self.item.item_names.all(), key=attrgetter("role")):
@@ -123,18 +118,26 @@ class ContributorGroups:
 
 
 def contributor_groups(item):
-    """``ContributorGroups(item).groups()`` — the form the reference page calls."""
+    """Return ``ContributorGroups(item).groups()``, the form the reference page calls.
+
+    Args:
+        item: The item whose contributors to group.
+
+    Returns:
+        One ``{"label", "names"}`` group per role.
+    """
     return ContributorGroups(item).groups()
 
 
 def stored_contributor_names():
-    """Distinct, non-empty family names the catalogue already holds.
+    """Return the distinct, non-empty family names the catalogue already holds.
 
-    Read once per page and offered as ``<datalist>`` suggestions to every
-    contributor row's family-name input — a spelling aid only. Accepting a
-    suggestion writes its text and links the reference to nothing; an
-    unparsed organizational name has no family part to suggest, so it is
-    excluded here rather than offering an empty option.
+    Offered as ``<datalist>`` suggestions on every contributor row's family-name
+    input, a spelling aid only: accepting one links the reference to nothing.
+    An unparsed organizational name has no family part, so it is excluded.
+
+    Returns:
+        The family names, sorted.
     """
     return list(
         Name.objects.exclude(family="")

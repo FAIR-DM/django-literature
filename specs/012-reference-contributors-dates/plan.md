@@ -200,6 +200,22 @@ CSL's own appendices.
 `accessed` for a webpage, `event-date` for a conference paper, `original-date` for a translated or
 reissued work.
 
+**Criteria.** Each entry names the criterion that decided it, against CSL's Appendix III (types) and
+Appendix IV (date variables) alone:
+
+- **DC1**: `accessed`, where Appendix III's own definition of the type uses the word "online".
+- **DC2**: `available-date`, where Appendix IV's definition of `available-date` names the type by example
+  (a journal article's online date; a treaty made available for signing).
+- **DC3**: `event-date`, where the type already carries `event` in `TYPE_GROUPS`.
+- **DC4**: `original-date`, where the type already carries `original` in `TYPE_GROUPS`.
+- **DC5**: `submitted`, where Appendix IV's definition of `submitted` names the type by example (a manuscript).
+- **DC6**: otherwise `issued` alone.
+
+DC1 is the narrowest. Of the 45 type definitions, only `webpage` ("intrinsically online") and `post`
+("a online forum") use the word. `post-weblog`'s one-line definition ("A blog post") does not, so under a
+criteria-only mapping it stays at the baseline rather than borrowing its relative's evidence, the same
+discipline `TYPE_GROUPS` applies to `titles`.
+
 ### D-6 — the no-loss guarantee moves into the view, as ADR-0021 said it would
 
 ADR-0021's guarantee is that the server never builds a narrower form, so a hidden field keeps and

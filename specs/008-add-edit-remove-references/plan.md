@@ -137,6 +137,26 @@ Each type's entry carries a one-line note naming which criterion decided it. Set
 plausibility check against Zotero's counts (`research.md` §1: median 24 CSL variables per type,
 range 16–35) — not a source to copy, and 13 types it does not cover at all.
 
+**Sub-cases of C4.** C4a: a periodical article, published with a volume, issue and page of its own.
+C4b: a type embedded in a paginated host (chapter, entry, paper, review), paired with C2a: the host is
+named through `container`, the position within it through `numbering`. C4c: a document identified by an
+official or report number.
+
+**Recorded outcomes.** `titles` is assigned to no type: none of the criteria names it, so it is reached
+only through the "Show every field" toggle. CSL's bare `article` is the generic variant, with no host
+named, so it stays at `numbering` alone. Thirteen of the 45 types are outside Zotero's coverage and rest
+on the criteria alone: classic, collection, entry, event, figure, musical_score, pamphlet, performance,
+periodical, regulation, review, review-book, treaty. Of the rest, `book` alone resolves above Zotero's
+35-field ceiling (36), because CSL's text names `number-of-volumes` for book directly and Zotero has no
+matching field. Several Zotero-covered types sit below the 16-field floor, each for a stated reason:
+
+- dataset, document, interview, post and post-weblog match no criterion (C6). A dataset's identifying
+  variables are outside the scalar-field set, and an interview's distinguishing detail is a name variable.
+  `musical_score` and `periodical` also match none.
+- manuscript and personal_communication take `archive` and nothing else is evidenced; a communication
+  never formally issued has no publication or numbering to record.
+- map takes `physical` only: no language ties it to an atlas or series, however common in practice.
+
 **ADR:** to be decided at S5 against the ADR bar. This is durable, cross-cutting and non-obvious, so
 it very likely graduates.
 
