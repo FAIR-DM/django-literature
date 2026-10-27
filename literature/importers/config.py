@@ -1,10 +1,4 @@
-"""The formats an installation can read, declared in Django settings.
-
-``LITERATURE = {"BIB_FORMATS": [...]}`` lists dotted import paths. The list is
-resolved on first read and cached: not at import time, so nothing here runs
-before the app registry is ready, and not per call, so enumerating twice does
-not re-import every configured module.
-"""
+"""The formats an installation can read, declared in Django settings."""
 
 from types import MappingProxyType
 from typing import Any
@@ -95,7 +89,10 @@ def _resolve() -> dict[str, type[BibFormat]]:
 def available_formats() -> MappingProxyType[str, type[BibFormat]]:
     """Return every configured format, keyed by name.
 
-    Read-only: nothing but a setting change can alter it.
+    ``LITERATURE = {"BIB_FORMATS": [...]}`` lists dotted import paths. They are
+    resolved on first read and cached, so nothing runs before the app registry
+    is ready and enumerating twice does not re-import every module. The mapping
+    is read-only: nothing but a setting change can alter it.
 
     Returns:
         A read-only mapping of name to format class.
@@ -118,6 +115,17 @@ def get_format(name: str) -> type[BibFormat]:
     Raises:
         UnknownFormat: Nothing is configured under ``name``. The message names
             the formats that are.
+
+    Example:
+        ::
+
+            from literature.importers import get_format
+
+            with open("library.bib") as handle:
+                result = get_format("bibtex")().import_file(handle)
+
+            for entry in result.failed:
+                print(entry.index, entry.handle, entry.reason)
     """
     formats = available_formats()
     try:

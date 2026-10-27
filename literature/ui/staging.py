@@ -1,12 +1,4 @@
-"""Hold an uploaded file on disk between a preview and its confirmation.
-
-New module rather than an addition to ``views.py`` (Article XIV): saving,
-reading, discarding and sweeping a staged file share one subject — the file
-itself — and none of it is a view or a form. What is deliberately *not*
-here is any notion of which reader staged which file: that scoping is the
-session's job, held by the view that calls this class, never carried into
-the token itself (see ``views.py``, FS-011, #103).
-"""
+"""Hold an uploaded file on disk between a preview and its confirmation."""
 
 from datetime import timedelta
 
@@ -14,13 +6,8 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
-#: How long a staged file survives an import that never confirmed it,
-#: before ``sweep()`` removes it. No requirement names a figure, only that
-#: abandoned staging eventually go away, so this is a judgement call: long
-#: enough that a reader who previews a file and is called away mid-read can
-#: still come back the same working day, short enough that an
-#: unauthenticated, unbounded upload endpoint does not accumulate disk use
-#: indefinitely.
+#: How long a staged file survives an import that never confirmed it, before
+#: ``sweep()`` removes it: long enough to come back the same working day.
 RETENTION_WINDOW = timedelta(hours=24)
 
 
@@ -32,47 +19,61 @@ class StagedUpload:
     configuring remote storage gets staging on it for free. Every staged
     file lives under :attr:`directory`, named by a random token that carries
     no relationship to the file's own name or contents — the token is only
-    ever useful to whoever was handed it (FS-011, #103).
+    ever useful to whoever was handed it (FS-011, #103). Which reader staged which
+    file is the session's concern, held by the calling view, never the token's.
+
+    Args:
+        storage: The Django storage to stage on. Defaults to ``default_storage``.
     """
 
-    #: The storage sub-path staged files are kept under. Never the storage
-    #: root — a project's own media may share the same storage backend, and
-    #: this keeps a stale token from ever resolving to something the reader
-    #: did not stage.
+    #: The storage sub-path staged files are kept under, never the storage root,
+    #: so a stale token cannot resolve to a project's own media.
     directory = "literature-imports"
 
     def __init__(self, storage=None):
         self.storage = storage or default_storage
 
     def _name(self, token: str) -> str:
+        """Return the storage name a token's file is kept under.
+
+        Args:
+            token: The token issued by :meth:`save`.
+
+        Returns:
+            The path under :attr:`directory`.
+        """
         return f"{self.directory}/{token}"
 
     def save(self, file) -> str:
         """Stage ``file`` and return the token that reads it back.
 
         The token is random (``get_random_string``, Django's own CSPRNG-backed
-        helper), never derived from ``file``'s name or content — two
-        uploads sharing both still get different tokens. The name actually
-        used is whatever the storage backend reports back from ``save()``:
-        on the vanishingly unlikely chance the token it was asked to save
-        under collides with one already on disk, the storage layer picks a
-        variant on it, and that is the name returned here, not the one
-        requested.
+        helper), never derived from ``file``'s name or content. If the storage
+        backend renames the file to avoid a collision, the token returned is
+        the name it actually used.
+
+        Args:
+            file: The uploaded file to stage.
+
+        Returns:
+            The token that reads the file back.
         """
         token = get_random_string(43)
-        # str(): the storage backend's own return type is untyped from here
-        # (self.storage carries no narrower annotation than Any), not
-        # because the value itself is ever anything but the str name save()
-        # always returns.
+        # str(): the storage attribute is untyped, so mypy sees Any here.
         saved_name = str(self.storage.save(self._name(token), file))
         return saved_name.rsplit("/", 1)[-1]
 
     def open(self, token):
-        """The staged file's own reader, or ``None`` if ``token`` names nothing staged.
+        """Open the staged file for reading.
 
-        A token nobody issued, or one whose file has already been discarded
-        or swept, is indistinguishable here — either way there is nothing
-        to confirm.
+        A token nobody issued, or one whose file has been discarded or swept,
+        is indistinguishable here: either way there is nothing to confirm.
+
+        Args:
+            token: The token issued by :meth:`save`.
+
+        Returns:
+            A binary file object, or ``None`` if ``token`` names nothing staged.
         """
         name = self._name(token)
         if not self.storage.exists(name):
@@ -82,9 +83,11 @@ class StagedUpload:
     def discard(self, token) -> None:
         """Remove the staged file for ``token``, if it is still there.
 
-        Never raises for a token already gone — carrying out a confirm and
-        then discarding is the ordinary path, and a caller should not have
-        to check first.
+        Never raises for a token already gone: discarding after a confirm is the
+        ordinary path, so a caller need not check first.
+
+        Args:
+            token: The token issued by :meth:`save`.
         """
         name = self._name(token)
         if self.storage.exists(name):
@@ -108,9 +111,6 @@ class StagedUpload:
                 if self.storage.get_modified_time(full_name) < cutoff:
                     self.storage.delete(full_name)
             except OSError:
-                # Every entry to the import page sweeps, so two readers
-                # arriving at once both walk this listing, and a confirm
-                # discards from under it. A name that stopped resolving
-                # between the listing and the check has already had done to
-                # it exactly what this loop was about to do.
+                # Concurrent sweeps and confirms delete from under this listing;
+                # a name that stopped resolving is already gone.
                 continue

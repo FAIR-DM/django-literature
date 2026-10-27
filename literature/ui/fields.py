@@ -1,9 +1,4 @@
-"""Field sections for the reference page.
-
-Lives beside its only caller, ``item_detail.html``'s view, rather than in
-``literature/utils/``: the core stays free of a helper an optional app is
-the sole consumer of (FS-006, #55).
-"""
+"""Field sections for the reference page."""
 
 from literature.ui.fieldgroups import FieldGroups
 
@@ -20,6 +15,15 @@ def field_sections(item):
     the page header already shows.
 
     A value of ``None``, an empty string or ``False`` counts as not carried.
+    This lives here rather than in ``literature/utils/`` so the core carries no
+    helper that only the optional app uses (FS-006, #55).
+
+    Args:
+        item: The item whose fields to group.
+
+    Returns:
+        One ``{"label": ..., "rows": [(verbose_name, value), ...]}`` dict per
+        non-empty group.
     """
     sections = []
     for group, names in FieldGroups.GROUPS.items():

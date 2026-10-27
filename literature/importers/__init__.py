@@ -1,30 +1,8 @@
-"""Reading bibliographic files into the catalogue.
+"""Reading bibliographic files into the catalogue: the import contract's public names (FS-003)."""
 
-``import_file`` is a method on every :class:`~literature.importers.base.BibFormat`,
-so running one starts from the format itself:
-
-.. code-block:: python
-
-    from literature.importers import get_format
-
-    with open("library.bib") as handle:
-        result = get_format("bibtex")().import_file(handle)
-
-    for entry in result.failed:
-        print(entry.index, entry.handle, entry.reason)
-
-Every public name in the import contract (FS-003) is reached from here, so a
-caller never imports a submodule. ``literature/__init__.py`` stays empty: a
-Django app's top-level ``__init__`` is imported before the app registry is
-ready, and re-exporting anything that reaches the models would raise
-``AppRegistryNotReady`` at startup.
-
-Ships with BibTeX (:class:`~literature.importers.bibtex.BibTeXFormat`) and RIS
-(:class:`~literature.importers.ris.RISFormat`). Which formats an installation
-can read is declared in the ``LITERATURE`` setting — see
-:mod:`literature.importers.config`. The full contract is
-``specs/003-import-contract/contracts/importers.md``.
-"""
+# Re-exported here so callers never import a submodule. ``literature/__init__.py`` stays
+# empty: it loads before the app registry is ready, and a re-export reaching the models
+# would raise AppRegistryNotReady at startup.
 
 from literature.importers.base import BibFormat
 from literature.importers.bibtex import BibTeXFormat

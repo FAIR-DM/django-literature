@@ -1,10 +1,4 @@
-"""What an import reports back.
-
-One :class:`EntryResult` per entry the format found, collected into one
-:class:`ImportResult`. This is the whole reporting surface: a caller learns what
-happened to every entry by reading these objects, never by comparing a count of
-inputs against a count of stored items and never by reading the log.
-"""
+"""What an import reports back: one ``EntryResult`` per entry, collected into an ``ImportResult``."""
 
 from dataclasses import dataclass, field
 
@@ -70,6 +64,9 @@ class EntryResult:
 class ImportResult:
     """The report from one import run.
 
+    A caller learns what happened to every entry by reading this object, never
+    by comparing input counts with stored items or reading the log.
+
     Attributes:
         entries: One result per entry the format found, in the order they occur
             in the source file, each appearing exactly once.
@@ -90,6 +87,14 @@ class ImportResult:
         return len(self.entries)
 
     def _with_outcome(self, outcome):
+        """Return the entries with the given outcome, in source order.
+
+        Args:
+            outcome: The ``Outcome`` to select.
+
+        Returns:
+            The matching ``EntryResult`` objects.
+        """
         return [entry for entry in self.entries if entry.outcome == outcome]
 
     @property

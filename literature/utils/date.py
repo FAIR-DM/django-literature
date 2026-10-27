@@ -1,15 +1,4 @@
-"""Convert CSL JSON ``date-parts`` arrays to ``PartialDate`` objects.
-
-A ``date-parts`` array contains one or two date arrays. Each date array
-contains 1-3 integers: ``[year]``, ``[year, month]``, or
-``[year, month, day]``. Month is 1-based (1=January).
-
-Examples:
-    ``[[2019]]``            → year-only
-    ``[[2019, 8]]``         → year + month
-    ``[[2019, 8, 16]]``     → full date
-    ``[[2019, 8, 12], [2019, 8, 16]]``  → date range
-"""
+"""Convert CSL JSON ``date-parts`` arrays to ``PartialDate`` objects."""
 
 from __future__ import annotations
 
@@ -19,12 +8,15 @@ from partial_date import PartialDate
 def parse_date_parts(date_parts: list) -> PartialDate | None:
     """Convert a single CSL JSON date-parts entry to a PartialDate.
 
+    A ``date-parts`` array holds one or two date arrays of 1-3 integers:
+    ``[year]``, ``[year, month]`` or ``[year, month, day]``. Month is 1-based.
+
     Args:
         date_parts: A single date array from CSL JSON ``date-parts``,
             e.g. ``[2019]``, ``[2019, 8]``, or ``[2019, 8, 16]``.
 
     Returns:
-        PartialDate | None: A date with precision matching the number of
+        A date with precision matching the number of
         components provided, or ``None`` if parsing fails (empty list,
         invalid values, etc.).
 

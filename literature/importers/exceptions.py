@@ -1,23 +1,18 @@
-"""Exceptions used by the import contract.
-
-Two audiences, deliberately separated:
-
-- ``SkipEntry``, ``EntryError`` and ``ParseError`` are how a format talks to its
-  own workflow methods about one entry or one file. The workflow turns each into
-  an outcome, and none of them reaches the caller of
-  :meth:`~literature.importers.base.BibFormat.import_file`.
-- ``UnknownFormat`` is programmer error rather than anything to do with file
-  content, so it does reach the caller.
-
-Keeping them in one hierarchy but on separate branches is what stops a caller's
-``except`` clause around an import from swallowing an entry-level signal.
-"""
+"""Exceptions used by the import contract."""
 
 from django.utils.translation import gettext_lazy as _
 
 
 class ImporterError(Exception):
-    """Root of every exception raised by the import contract."""
+    """Root of every exception raised by the import contract.
+
+    ``SkipEntry``, ``EntryError`` and ``ParseError`` are how a format signals one
+    entry or one file to its own workflow, which turns each into an outcome. None
+    reaches the caller of :meth:`~literature.importers.base.BibFormat.import_file`.
+    ``UnknownFormat`` is programmer error, so it does. They sit on separate
+    branches so a caller's ``except`` around an import cannot swallow an
+    entry-level signal.
+    """
 
 
 class SkipEntry(ImporterError):
@@ -53,8 +48,11 @@ class UnknownFormat(ImporterError):
     """No format is configured under the requested name.
 
     The message names the formats that *are* configured, because the useful
-    reply to "bibtex is not a format" is the list of things that are. Takes the
-    requested ``name`` and the ``available`` configured names.
+    reply to "bibtex is not a format" is the list of things that are.
+
+    Args:
+        name: The requested format name.
+        available: The configured format names.
     """
 
     def __init__(self, name, available=()):

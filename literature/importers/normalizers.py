@@ -1,10 +1,4 @@
-"""Identifier normalization shared by the BibTeX and RIS formats.
-
-Only DOI and ISBN recovery is shared. The LaTeX and XML unescaping in
-``bibtex.py`` stays there: RIS has no such escape layer, and running that
-decoder over an RIS value would rewrite genuine content, such as a DOI or URL
-containing ``~``, ``_``, ``^``, ``%`` or braces.
-"""
+"""Identifier normalization shared by the BibTeX and RIS formats."""
 
 import re
 
@@ -12,8 +6,9 @@ import re
 class IdentifierNormalizer:
     """Normalization for identifier values recoverable into a form the catalogue accepts.
 
-    Both methods clean one identifier value ahead of validation, so they share a
-    class rather than sitting as two module-level functions.
+    Only DOI and ISBN recovery is shared. The LaTeX and XML unescaping stays in
+    ``bibtex.py``: running it over an RIS value would rewrite genuine content,
+    such as a DOI containing ``~``, ``_``, ``^``, ``%`` or braces.
     """
 
     #: A DOI written with its resolver URL prefix.
@@ -39,9 +34,8 @@ class IdentifierNormalizer:
             The bare DOI, or the stripped input if nothing was recognised.
         """
         text = value.strip()
-        # A `doi:` label in front of a resolver URL is common in hand-maintained
-        # files, so both wrappers are stripped in any order. Bounded, since each
-        # pass must remove something for the next to run.
+        # Hand-maintained files put a `doi:` label before a resolver URL, so both
+        # wrappers are stripped in any order.
         for _pass in range(4):
             stripped = cls._DOI_LABEL_RE.sub("", cls._DOI_URL_RE.sub("", text)).strip()
             if stripped == text:

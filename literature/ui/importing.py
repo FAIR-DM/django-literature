@@ -1,11 +1,4 @@
-"""The import report: turning one ``ImportResult`` into what a page renders.
-
-New module rather than an addition to ``forms.py``, ``tables.py`` or
-``views.py``: a presentation row built from an ``ImportResult`` is neither a
-view nor a form, and Article XIV wants the row-building grouped on a class
-rather than scattered across module functions (FS-011, #103). Its mirror
-test is ``tests/test_ui/test_importing.py``.
-"""
+"""The import report: turning one ``ImportResult`` into what a page renders (FS-011, #103)."""
 
 from dataclasses import dataclass
 from typing import cast
@@ -58,10 +51,15 @@ class ImportReport:
         return [self._row(entry) for entry in self.result]
 
     def _row(self, entry: EntryResult) -> ImportReportRow:
-        # entry.item is untyped by the import contract
-        # (specs/003-import-contract/contracts/importers.md); the cast
-        # documents BibFormat's own guarantee that a created entry's item is
-        # always an Item, without narrowing the contract's looser type.
+        """Build the report row for one entry result.
+
+        Args:
+            entry: The entry result to render.
+
+        Returns:
+            The row, with a link to the created reference when there is one.
+        """
+        # The import contract leaves ``entry.item`` untyped; a created entry's item is always an Item.
         item_url = None
         if entry.item is not None:
             item_url = cast(Item, entry.item).get_absolute_url()

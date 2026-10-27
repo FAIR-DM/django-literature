@@ -49,6 +49,12 @@ class ReferencePickerMixin:
     the config's constant ``filter_by`` and ``exclude_by`` conditions. A
     condition that takes its value from another form field is left to
     django-tomselect.
+
+    Args:
+        *args: What the django-tomselect field takes.
+        config: A ``TomSelectConfig`` or a dict of its settings, merged over
+            :attr:`default_config`.
+        **kwargs: What the django-tomselect field takes.
     """
 
     default_config = TomSelectConfig(
@@ -59,13 +65,6 @@ class ReferencePickerMixin:
     )
 
     def __init__(self, *args, config=None, **kwargs):
-        """Merge the developer's config over the default.
-
-        Args:
-            *args: What the django-tomselect field takes.
-            config: A ``TomSelectConfig`` or a dict of its settings.
-            **kwargs: What the django-tomselect field takes.
-        """
         if config is not None and not isinstance(config, TomSelectConfig):
             config = TomSelectConfig(**config)
         super().__init__(
@@ -85,7 +84,14 @@ class ReferencePickerMixin:
         return cleaned
 
     def within_restriction(self, pks):
-        """Return whether every pk meets the constant conditions."""
+        """Return whether every pk meets the constant conditions.
+
+        Args:
+            pks: The primary keys of the chosen references.
+
+        Returns:
+            ``True`` if all of them satisfy the config's constant conditions.
+        """
         queryset = Item.objects.filter(pk__in=pks)
         for spec in self.config.get_normalized_filters():
             if spec.source_type == "const":
@@ -97,7 +103,14 @@ class ReferencePickerMixin:
 
     @staticmethod
     def constant_value(spec):
-        """Return a constant condition's value, split when its lookup takes a list."""
+        """Return a constant condition's value, split when its lookup takes a list.
+
+        Args:
+            spec: A normalized ``filter_by`` or ``exclude_by`` condition.
+
+        Returns:
+            The condition's value.
+        """
         if spec.lookup.rsplit("__", 1)[-1] in ("in", "range"):
             return spec.source.split(",")
         return spec.source
