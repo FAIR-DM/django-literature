@@ -1,5 +1,9 @@
 <!--
 Sync Impact Report
+- Version change: 6.0.0 → 6.1.0 (MINOR: a pointer added). Article VI points at
+  docs/contributing/standards/documentation.md, which sets how the pages under `docs/` are sorted
+  by type and what the README's quickstart covers.
+
 - Version change: 5.1.0 → 6.0.0 (MAJOR: a guarantee narrowed). Article IX's round-trip fidelity,
   and the CSL JSON line of the quality bar, now cover the variables that describe a reference. The
   five a citation processor assigns while formatting one document (`citation-label`,
@@ -86,7 +90,9 @@ in the package and kept current, and destructive schema changes carry a data-mig
 ### Article VI — Documentation
 Public API changes ship their docs in the same PR: README + CHANGELOG updated, docstrings on public
 surfaces, and the built docs stay clean. Docstrings, component annotations and code comments
-follow [`docs/contributing/standards/code-documentation.md`](docs/contributing/standards/code-documentation.md). Every public model field, setting key, template tag, and
+follow [`docs/contributing/standards/code-documentation.md`](docs/contributing/standards/code-documentation.md). The pages under
+`docs/` and the README's quickstart follow
+[`docs/contributing/standards/documentation.md`](docs/contributing/standards/documentation.md). Every public model field, setting key, template tag, and
 public API is documented with at least one working usage example. Breaking changes ship a migration
 guide. As a package, the README follows the shared documentation standard, including a mandatory
 `## Scope & philosophy` section.
@@ -270,4 +276,4 @@ This constitution supersedes ad-hoc practice when they conflict. It covers the c
 - Final authority currently rests with the original author, leaving room for a broader governance
   model as more maintainers join.
 
-**Version**: 6.0.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-10-25
+**Version**: 6.1.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-10-27
