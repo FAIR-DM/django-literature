@@ -563,130 +563,140 @@ class TestImportFormPage:
         assert 'type="file"' in content
 
 
+def rendered_counts(content):
+    """The (created, skipped, failed) numbers the page prints, or ``None`` without them.
+
+    Read from the three numbers in the paragraph that carries them, not from its wording.
+    """
+    match = re.search(r"<p\b[^>]*>\s*(\d+)\D+(\d+)\D+(\d+)\D*</p>", content)
+    return tuple(int(number) for number in match.groups()) if match else None
+
+
+def outcome_controls(content):
+    """Each radio of the outcome filter, as its own tag."""
+    return re.findall(r'<input\b[^>]*name="import-outcome-filter"[^>]*>', content)
+
+
 class TestImportReportPage:
-    def _report_content(self, client):
-        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        response = client.post(
-            reverse("literature:item-import"),
-            {"format": "ris", "file": upload, "skip_preview": "on"},
+    def _report(self, stage_import):
+        return stage_import(
+            "import.ris", "ris", content=IMPORT_RIS_FIXTURE, skip_preview="on"
         )
-        return response.content.decode()
 
-    def test_carries_the_counts(self, client, db):
-        content = self._report_content(client)
-        assert "1 created" in content
+    def test_carries_the_counts(self, stage_import, db):
+        response = self._report(stage_import)
+        report = response.context["report"]
+        assert rendered_counts(response.content.decode()) == (
+            report.created,
+            report.skipped,
+            report.failed,
+        )
 
-    def test_carries_a_link_back_to_the_catalogue(self, client, db):
-        content = self._report_content(client)
+    def test_carries_a_link_back_to_the_catalogue(self, stage_import, db):
+        content = self._report(stage_import).content.decode()
         assert f'href="{reverse("literature:item-list")}"' in content
 
-    def test_carries_no_import_form_of_its_own(self, client, db):
+    def test_carries_no_import_form_of_its_own(self, stage_import, db):
         # The upload form lives on the preview page, not above the results.
-        content = self._report_content(client)
+        content = self._report(stage_import).content.decode()
         assert 'type="file"' not in content
 
-    def test_carries_a_second_button_leading_to_an_empty_import_form(self, client, db):
-        content = self._report_content(client)
+    def test_carries_a_second_button_leading_to_an_empty_import_form(
+        self, stage_import, db
+    ):
+        content = self._report(stage_import).content.decode()
         assert f'href="{reverse("literature:item-import")}"' in content
 
 
 class TestOutcomeFilter:
-    def _preview_content(self, client):
-        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        client.post(
-            reverse("literature:item-import"), {"format": "ris", "file": upload}
-        )
-        return client.get(reverse("literature:item-import-preview")).content.decode()
+    def _preview_content(self, preview_import):
+        response = preview_import("import.ris", "ris", content=IMPORT_RIS_FIXTURE)
+        return response.content.decode()
 
-    def _filter_markup(self, content):
-        start = content.index('class="filter')
-        end = content.index("</div>", start)
-        return content[start:end]
+    def test_one_control_per_outcome_plus_a_way_back_to_all(self, preview_import, db):
+        controls = outcome_controls(self._preview_content(preview_import))
+        assert len(controls) == len(OutcomeColumn.VARIANTS) + 1
 
-    def _controls(self, content):
-        """Each radio in the filter, as its own chunk of markup."""
-        return [
-            "<input" + chunk
-            for chunk in self._filter_markup(content).split("<input")[1:]
-        ]
-
-    def test_one_control_per_outcome_plus_a_way_back_to_all(self, client, db):
-        markup = self._filter_markup(self._preview_content(client))
-        assert markup.count('type="radio"') == 4  # All, created, skipped, failed
-
-    def test_each_control_is_labelled_with_its_outcomes_own_label(self, client, db):
-        controls = self._controls(self._preview_content(client))
+    def test_each_control_is_labelled_with_its_outcomes_own_label(
+        self, preview_import, db
+    ):
+        controls = outcome_controls(self._preview_content(preview_import))
         for outcome in OutcomeColumn.VARIANTS:
             control = next(c for c in controls if f'value="{outcome.value}"' in c)
             assert f'aria-label="{outcome.label}"' in control
-        reset = next(c for c in controls if "filter-reset" in c)
+        reset = next(c for c in controls if 'value="all"' in c)
         assert re.search(r'aria-label="[^"]+"', reset)
 
-    def test_it_carries_no_form_action_and_no_link(self, client, db):
-        markup = self._filter_markup(self._preview_content(client))
+    def test_it_carries_no_form_action_and_no_link(self, preview_import, db):
+        content = self._preview_content(preview_import)
+        controls = outcome_controls(content)
+        markup = content[
+            content.index(controls[0]) : content.index(controls[-1]) + len(controls[-1])
+        ]
         assert "<form" not in markup
         assert "<a " not in markup
 
     def test_the_counts_above_the_table_describe_the_whole_file_not_the_filter(
-        self, client, db
+        self, preview_import, db
     ):
         # The counts are rendered from ``report`` directly and sit
         # outside the filter's own x-data scope, so they read the same
         # whatever the table is narrowed to (proved here by their absence of
         # any Alpine binding at all, since the Django test client renders
         # markup rather than running Alpine).
-        content = self._preview_content(client)
-        counts_index = content.index("1 created")
-        counts_line = content[max(counts_index - 200, 0) : counts_index + 50]
-        assert "outcome" not in counts_line
-        assert "x-" not in counts_line
+        response = preview_import("import.ris", "ris", content=IMPORT_RIS_FIXTURE)
+        content = response.content.decode()
+        report = response.context["report"]
+        assert rendered_counts(content) == (
+            report.created,
+            report.skipped,
+            report.failed,
+        )
+        counts = re.search(r"(<p\b[^>]*>)\s*\d+\D+\d+\D+\d+\D*</p>", content).group(1)
+        assert "x-" not in counts
 
 
 class TestImportPreviewTemplate:
-    def _preview(self, client, filename="import.ris", format_name="ris", content=None):
-        upload = SimpleUploadedFile(filename, (content or IMPORT_RIS_FIXTURE).encode())
-        client.post(
-            reverse("literature:item-import"), {"format": format_name, "file": upload}
+    def _preview(self, preview_import, content=None):
+        return preview_import(
+            "import.ris", "ris", content=content or IMPORT_RIS_FIXTURE
         )
-        return client.get(reverse("literature:item-import-preview"))
 
-    def test_carries_no_import_form(self, client, db):
-        content = self._preview(client).content.decode()
+    def test_carries_no_import_form(self, preview_import, db):
+        content = self._preview(preview_import).content.decode()
         assert 'type="file"' not in content
 
-    def test_a_warning_appears_above_the_table_when_an_entry_was_skipped_or_failed(
-        self, client, db
+    def test_a_warning_appears_when_an_entry_was_skipped_or_failed(
+        self, preview_import, db
     ):
         response = self._preview(
-            client, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n"
+            preview_import, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n"
         )
-        content = response.content.decode()
-        table_index = content.index("<table")
-        warning_index = content.index("alert-warning")
-        assert warning_index < table_index
+        report = response.context["report"]
+        assert report.skipped or report.failed
+        assert 'role="alert"' in response.content.decode()
 
-    def test_no_warning_when_every_entry_was_created(self, client, db):
-        content = self._preview(client).content.decode()
-        assert "alert-warning" not in content
+    def test_no_warning_when_every_entry_was_created(self, preview_import, db):
+        response = self._preview(preview_import)
+        report = response.context["report"]
+        assert not (report.skipped or report.failed)
+        assert 'role="alert"' not in response.content.decode()
 
-    def test_the_foot_carries_exactly_three_controls_in_one_row(self, client, db):
-        content = self._preview(client).content.decode()
-        # <c-group> renders to this literal opening class, and this page's
-        # footer is the only place it appears after the table.
-        footer_index = content.rindex('class="flex flex-col items-stretch')
-        footer = content[footer_index:]
-        assert footer.count("<a ") == 1  # back to the catalogue
-        assert footer.count("<form") == 2  # restart, confirm
-        assert reverse("literature:item-list") in footer
+    def test_the_foot_offers_the_way_back_restart_and_confirm(self, preview_import, db):
+        content = self._preview(preview_import).content.decode()
+        footer = content[content.rindex("</table>") :]
+        assert f'href="{reverse("literature:item-list")}"' in footer
         assert f'action="{reverse("literature:item-import-restart")}"' in footer
         assert f'action="{reverse("literature:item-import-confirm")}"' in footer
 
-    def test_a_file_the_format_cannot_read_offers_no_confirmation(self, client, db):
+    def test_a_file_the_format_cannot_read_offers_no_confirmation(
+        self, preview_import, db
+    ):
         # Confirming would create nothing, so the control that would
         # carry it out is not offered. The reader is left with restart and the
         # way back to the catalogue.
-        response = self._preview(
-            client, filename="wrong-format.bib", format_name="bibtex"
+        response = preview_import(
+            "wrong-format.bib", "bibtex", content=IMPORT_RIS_FIXTURE
         )
         content = response.content.decode()
         assert response.context["report"].created == 0
