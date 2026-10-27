@@ -1,11 +1,4 @@
-"""The base class every bibliographic file format plugs in as.
-
-A format supplies only the file-to-entries and entry-to-CSL-JSON stages. Looping
-over entries, storing each one and building the report are ordinary, overridable
-methods here, so a format with an unusual need may replace any of them. The base
-class does not police what a subclass does with them. The full contract is
-``specs/003-import-contract/contracts/importers.md``.
-"""
+"""The base class every bibliographic file format plugs in as."""
 
 import abc
 import contextlib
@@ -79,7 +72,9 @@ class BibFormat(abc.ABC):
     :func:`~literature.importers.config.get_format` once listed in the
     ``LITERATURE`` setting. A subclass supplies :meth:`parse` and
     :meth:`to_csl_json`, and optionally :meth:`handle_for`. Every other method
-    drives the workflow those stages plug into and may be overridden.
+    drives the workflow those stages plug into and may be overridden; the base
+    class does not police what a subclass does with them. The full contract is
+    ``specs/003-import-contract/contracts/importers.md``.
     """
 
     #: The name a caller runs an import under, and the key the ``LITERATURE``
@@ -93,11 +88,19 @@ class BibFormat(abc.ABC):
     def parse(self, file) -> Iterator[Any]:
         """Yield the raw entries in ``file``, one at a time, in source order.
 
-        ``file`` is the handle passed to :meth:`import_file`. An iterator, not a
+        An iterator, not a
         list, so a caller can consume entries without the whole file being
         converted first. Each entry is in whatever shape :meth:`to_csl_json`
-        accepts. Raise :class:`~literature.importers.exceptions.ParseError` for
-        a file that cannot be read at all.
+        accepts.
+
+        Args:
+            file: The handle passed to :meth:`import_file`.
+
+        Yields:
+            One raw entry at a time.
+
+        Raises:
+            ParseError: The file cannot be read at all.
         """
         raise NotImplementedError
 
@@ -150,7 +153,7 @@ class BibFormat(abc.ABC):
             file: An open file object in text or binary mode, or anything with a
                 ``read()`` returning ``str`` or ``bytes``. Never opened as a path
                 and never decoded here, since decoding is the format's job
-                (ADR-0012).
+                (docs/adr/0012-a-format-owns-its-own-decoding.md).
             dry_run: Run every stage and report every outcome, then roll the
                 catalogue back to exactly how it was.
 
@@ -187,6 +190,12 @@ class BibFormat(abc.ABC):
         Yielding through this generator moves the call inside
         :meth:`import_entries`'s ``try``, so an unreadable file is reported the
         same way whichever shape ``parse`` has.
+
+        Args:
+            file: The handle passed to :meth:`import_file`.
+
+        Yields:
+            The raw entries :meth:`parse` yields.
         """
         yield from self.parse(file)
 
