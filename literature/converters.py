@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
-from literature.utils.date import parse_date_parts
+from literature.utils import parse_date_parts
 
 logger = logging.getLogger(__name__)
 

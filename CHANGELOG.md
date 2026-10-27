@@ -67,8 +67,10 @@ All notable changes to this project are documented in this file. The format foll
   that maintain your catalogue. The read pages stay open.
 - The demo's `seed_demo` creates an `editor.user` account, password `password`, which signs in
   through the admin and holds the three permissions.
-- `doi_url` moved from `literature.ui.links` to `literature.utils.doi`, and
+- `doi_url` moved from `literature.ui.links` to `literature.utils`, and
   `literature.ui.fields.issued_year` is removed in favour of `Item.year`.
+- `literature.utils` is a module rather than a package. Import `parse_date_parts` from
+  `literature.utils` instead of `literature.utils.date`.
 
 ## [v0.2.0] - 2026-10-25
 

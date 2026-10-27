@@ -47,7 +47,7 @@ from literature.ui.links import web_url
 from literature.ui.picker import item_label
 from literature.ui.staging import StagedUpload
 from literature.ui.tables import ImportReportTable, ItemTable, OutcomeColumn
-from literature.utils.doi import doi_url
+from literature.utils import doi_url
 
 #: The most references one search answers with.
 SEARCH_LIMIT = 20
