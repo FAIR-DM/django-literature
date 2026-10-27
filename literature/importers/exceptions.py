@@ -16,7 +16,7 @@ class ImporterError(Exception):
 
 
 class SkipEntry(ImporterError):
-    """This element is recognised but is not a bibliographic record.
+    """An element that is recognised but is not a bibliographic record.
 
     Raised from a format's ``to_csl_json`` for things like a BibTeX ``@comment``
     or an RIS header line. Nothing is stored and nothing is wrong, so the entry
@@ -26,7 +26,7 @@ class SkipEntry(ImporterError):
 
 
 class EntryError(ImporterError):
-    """This entry cannot be imported, for the reason given.
+    """An entry that cannot be imported, for the reason given.
 
     Raised from a format's ``parse`` or ``to_csl_json``. The message becomes the
     entry result's reason, so it is read by whoever has to fix the source file
