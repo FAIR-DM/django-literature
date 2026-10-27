@@ -11,7 +11,8 @@ All notable changes to this project are documented in this file. The format foll
 - `ReferenceField` in `literature.ui.picker` lets a project's own form choose one reference by
   searching the catalogue, with a JSON search route, `literature:item-search`, behind it. It is a
   django-tomselect field whose default points at that route, so any django-tomselect setting can be
-  passed in its `config`. See
+  passed in its `config`. Opening it shows the first references by title, and typing narrows them.
+  See
   [How to choose a reference in your own form](docs/how-to/choosing-a-reference.md).
 - `ReferenceMultipleField` in `literature.ui.picker` lets a project's own form choose several
   references the same way, for a plain form or a `ManyToManyField` to `Item`.

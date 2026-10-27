@@ -3511,19 +3511,29 @@ class TestReferenceAutocompleteView:
 
         assert self.search(anonymous_client, "148410") == []
 
-    def test_empty_text_returns_no_results(self, anonymous_client):
-        ItemFactory(title="Deep Time")
+    def test_empty_text_returns_the_first_page_by_title(self, anonymous_client):
+        second = ItemFactory(title="Ocean heat")
+        first = ItemFactory(title="Deep time")
 
-        assert self.search(anonymous_client, "") == []
-        assert self.search(anonymous_client, "   ") == []
+        for text in ("", "   "):
+            assert self.values(self.search(anonymous_client, text)) == [
+                first.pk,
+                second.pk,
+            ]
 
-    def test_a_missing_q_returns_no_results(self, anonymous_client):
-        ItemFactory(title="Deep Time")
+    def test_a_missing_q_returns_the_first_page(self, anonymous_client):
+        item = ItemFactory(title="Deep time")
 
         response = anonymous_client.get(reverse("literature:item-search"))
 
         assert response.status_code == 200
-        assert response.json()["results"] == []
+        assert self.values(response.json()["results"]) == [item.pk]
+
+    def test_empty_text_returns_at_most_one_page(self, anonymous_client):
+        for number in range(SEARCH_LIMIT + 5):
+            ItemFactory(title=f"Reference {number:02}")
+
+        assert len(self.search(anonymous_client, "")) == SEARCH_LIMIT
 
     def test_no_match_returns_an_empty_list(self, anonymous_client):
         ItemFactory(title="Deep Time")

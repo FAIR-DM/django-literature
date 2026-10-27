@@ -187,6 +187,9 @@ Typing narrows the choices to the references where the text appears in any one o
 - the DOI, with or without a `https://doi.org/` address or a `doi:` label in front, in any letter
   case
 
+Opening the picker shows the first references in the catalogue, by title, before anything is
+typed. Typing narrows them from the first character.
+
 Case does not matter. Typing `%`, `_` or a quotation mark matches those characters and nothing
 else. A reference that matches in several ways is offered once. A title or citation key that
 starts with the text comes first, and at most 20 references are offered at a time, with more loaded

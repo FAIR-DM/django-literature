@@ -76,7 +76,8 @@ for why the choice is made this way rather than by routing.
 `ReferenceAutocompleteView` is a django-tomselect `AutocompleteModelView` that answers the
 reference picker's searches as JSON, at most `SEARCH_LIMIT` references at a time, each with its `id`
 and `label`, under the route name `literature:item-search`. It is open to everyone, like the
-catalogue list. Text containing a NUL character answers 400, and no text answers no results.
+catalogue list. Text containing a NUL character answers 400. No text answers the first page of
+the catalogue by title.
 
 `CatalogueListMixin` carries the card configuration that `ItemListView` and
 `ContributorDetailView` share — the model, the card template, the page title and the

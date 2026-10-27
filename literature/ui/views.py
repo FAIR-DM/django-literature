@@ -940,11 +940,13 @@ class ReferenceAutocompleteView(AutocompleteModelView):
         self.page_size = SEARCH_LIMIT
 
     def get(self, request, *args, **kwargs):
-        """Answer no text with no results and refuse a NUL character before any query."""
+        """Refuse a NUL character before any query.
+
+        No text answers with the first page of the catalogue by title, which the
+        picker loads as soon as it is opened.
+        """
         if "\x00" in self.query:
             return JsonResponse({"results": []}, status=400)
-        if not self.query:
-            return JsonResponse({"results": [], "page": 1, "has_more": False})
         return super().get(request, *args, **kwargs)
 
     def search(self, queryset, query):
@@ -967,8 +969,13 @@ class ReferenceAutocompleteView(AutocompleteModelView):
         )
 
     def order_queryset(self, queryset):
-        """Put a title or citation key that starts with the text first, then by title."""
-        return queryset.order_by("rank", "title", "pk") if self.query else queryset
+        """Put a title or citation key that starts with the text first, then by title.
+
+        With no text, order by title alone.
+        """
+        if self.query:
+            return queryset.order_by("rank", "title", "pk")
+        return queryset.order_by("title", "pk")
 
     @staticmethod
     def prepare_label(item):

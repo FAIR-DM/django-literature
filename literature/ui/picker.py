@@ -52,7 +52,10 @@ class ReferencePickerMixin:
     """
 
     default_config = TomSelectConfig(
-        url="literature:item-search", value_field="id", label_field="label"
+        url="literature:item-search",
+        value_field="id",
+        label_field="label",
+        minimum_query_length=1,
     )
 
     def __init__(self, *args, config=None, **kwargs):
