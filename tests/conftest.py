@@ -18,6 +18,7 @@ from tests.factories import (
     ItemIdentifierFactory,
     ItemNameFactory,
     NameFactory,
+    UserFactory,
 )
 
 
@@ -34,8 +35,8 @@ EDITOR_PERMISSIONS = ("add_item", "change_item", "delete_item")
 
 
 @pytest.fixture
-def editor(db, django_user_model):
-    user = django_user_model.objects.create_user("editor.user")
+def editor(db):
+    user = UserFactory(username="editor.user")
     user.user_permissions.set(
         Permission.objects.filter(
             content_type__app_label="literature", codename__in=EDITOR_PERMISSIONS
@@ -51,8 +52,8 @@ def client(client, editor):
 
 
 @pytest.fixture
-def reader_client(db, django_user_model):
-    reader = django_user_model.objects.create_user("regular.user")
+def reader_client(db):
+    reader = UserFactory(username="regular.user")
     reader_client = Client()
     reader_client.force_login(reader)
     return reader_client

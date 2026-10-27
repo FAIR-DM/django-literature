@@ -5,9 +5,11 @@ complete row.
 """
 
 import factory
+from django.conf import settings
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
+from tests.host.models import Citation
 
 
 class ItemFactory(factory.django.DjangoModelFactory):
@@ -23,6 +25,24 @@ class ItemFactory(factory.django.DjangoModelFactory):
 
     citation_key = factory.Sequence(lambda n: f"Item{n}")
     type = ItemType.ARTICLE_JOURNAL
+
+
+class UserFactory(factory.django.DjangoModelFactory):
+    """Build a saved user with a batch-unique username and no permissions."""
+
+    class Meta:
+        model = settings.AUTH_USER_MODEL
+
+    username = factory.Sequence(lambda n: f"user{n}")
+
+
+class CitationFactory(factory.django.DjangoModelFactory):
+    """Build a saved host-app :class:`Citation`, auto-creating the item it cites."""
+
+    class Meta:
+        model = Citation
+
+    reference = factory.SubFactory(ItemFactory)
 
 
 class NameFactory(factory.django.DjangoModelFactory):

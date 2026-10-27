@@ -31,6 +31,7 @@ from tests.factories import (
     ItemIdentifierFactory,
     ItemNameFactory,
     NameFactory,
+    UserFactory,
 )
 
 #: Real, single-entry fixtures rather than hand-rolled minimal ones — one
@@ -3227,9 +3228,9 @@ class TestWritePagesRequirePermission:
         ],
     )
     def test_each_page_opens_for_a_user_holding_only_its_own_permission(
-        self, django_user_model, route_name, permission
+        self, route_name, permission, db
     ):
-        user = django_user_model.objects.create_user("editor.user2")
+        user = UserFactory()
         user.user_permissions.add(
             Permission.objects.get(
                 content_type__app_label="literature", codename=permission
