@@ -17,10 +17,8 @@ DEFAULT_SEED_PATH = (
 )
 
 
-#: The demo's one account. Browsing needs none, but adding, editing, removing
-#: and importing a reference each ask for a permission, so the seed leaves a
-#: user holding all of them. ``is_staff`` lets it sign in through the admin's
-#: login page, the demo's only one.
+#: The demo's one account: holds every write permission, and ``is_staff`` lets it sign in
+#: through the admin's login page, the demo's only one.
 EDITOR_USERNAME = "editor.user"
 EDITOR_PASSWORD = "password"  # noqa: S105 — a published demo login, not a secret
 EDITOR_PERMISSIONS = ("add_item", "change_item", "delete_item")
@@ -42,7 +40,14 @@ def seed_editor():
 
 
 def key_of(entry):
-    """The citation key a loaded Item would carry, as the converter reads it."""
+    """Return the citation key a loaded Item would carry, as the converter reads it.
+
+    Args:
+        entry: A CSL JSON item dict.
+
+    Returns:
+        ``citation-key``, falling back to ``id``.
+    """
     return entry.get("citation-key") or entry.get("id")
 
 
@@ -59,34 +64,24 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Run the delete-and-reload as one operation."""
-        # The delete and the load are one operation. The converter skips an invalid
-        # entry rather than raising, so the count check below is the only thing that
-        # notices a partial load — and by then the previous catalogue is already
-        # deleted. Without this, the failure the command exists to report would leave
-        # the database at neither the old state nor the new one.
+        # Atomic so a partial load, which only the count check below notices, rolls back
+        # the delete and leaves the previous catalogue in place.
         with transaction.atomic():
-            # Name is shared between items and is not reachable from Item's cascade, and
-            # the converter reuses rows with get_or_create — deleting Item alone would
-            # leave every contributor ever loaded behind (FS-007).
+            # Name is not reachable from Item's cascade; deleting Item alone would leave
+            # every loaded contributor behind (FS-007).
             Item.objects.all().delete()
             Name.objects.all().delete()
 
             seed_path = Path(os.environ.get("DEMO_SEED_PATH", str(DEFAULT_SEED_PATH)))
-            # encoding="utf-8" is not optional here. Without it Python uses the
-            # locale's preferred encoding, so the same file loads differently on
-            # different machines: the catalogue holds a German thesis title, Gödel
-            # and Françoise Sagan, and on a cp1252 locale every one of those arrives
-            # as mojibake ("GÃ¶del") and is stored that way. JSON is UTF-8 by
-            # specification (RFC 8259 §8.1), so the file's encoding is a fact about
-            # the format rather than a property of whoever opens it.
+            # JSON is UTF-8 (RFC 8259 §8.1); the locale's encoding would turn "Gödel" into
+            # mojibake on a cp1252 machine.
             with seed_path.open(encoding="utf-8") as f:
                 entries = json.load(f)
 
             loaded = from_csl_json_list(entries)
 
             if len(loaded) != len(entries):
-                # from_csl_json_list skips an invalid entry with a warning rather than
-                # raising, so a half-loaded catalogue must be caught here (FS-007).
+                # from_csl_json_list skips invalid entries rather than raising (FS-007).
                 loaded_keys = {item.citation_key for item in loaded}
                 missing = [
                     key_of(entry) or "<unidentified entry>"

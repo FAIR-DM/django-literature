@@ -6,11 +6,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# django.setup() imports every INSTALLED_APPS entry before any management command
-# runs (django.core.management.ManagementUtility.execute() calls it ahead of
-# fetch_command()), so a missing 'ui' extra dependency has to be caught here, at
-# settings-module load, or it surfaces as a raw traceback from deep inside
-# whichever of mvp/django_cotton/etc. is missing (FS-007).
+# django.setup() imports every INSTALLED_APPS entry before any command runs, so a missing
+# 'ui' extra is caught here rather than as a traceback from deep inside mvp or django_cotton (FS-007).
 try:
     import mvp  # noqa: F401
 except ImportError:
@@ -27,9 +24,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
-# DEMO_DB_PATH lets a test run point the destructive seed_demo command at a
-# scratch file instead of the developer's real demo database (FS-007).
-# With no variable set, the documented start path is unchanged.
+# DEMO_DB_PATH points the destructive seed_demo command at a scratch file in a test run (FS-007).
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -44,22 +39,18 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "demo",
-    # The front end, wired exactly as README.md documents at lines 93-245 (FS-007).
+    # The front end, wired as the README's "Installing the front end" section documents (FS-007).
     "literature",
     "django.contrib.sites",
     "django.contrib.staticfiles",
     "django_cotton",
     "easy_icons",
     "flex_menu",
-    # The tabular catalogue renders through django-tables2, which ships the
-    # templatetag library the table component loads (README.md).
+    # Ships the templatetag library the table component loads (README, "The catalogue").
     "django_tables2",
-    # The catalogue's search and filter controls render through
-    # django-filter, reached through django-mvp's own guarded integration
-    # (README.md).
+    # The search and filter controls, reached through django-mvp's integration (README).
     "django_filters",
-    # Your own apps go above ``mvp`` so their templates win; ``daisy_cotton``
-    # goes directly below it (django-mvp's getting-started guide).
+    # Your own apps go above ``mvp`` so their templates win; ``daisy_cotton`` goes below it.
     "mvp",
     "daisy_cotton",
     "crispy_forms",
@@ -68,10 +59,8 @@ INSTALLED_APPS = [
     "literature.ui",
 ]
 
-# Live reload while developing: django-watchfiles is the faster file watcher
-# behind runserver's autoreload, and django-browser-reload refreshes the open
-# page after a change. Both come with the dev dependency group, not the `ui`
-# extra, so the demo still starts without them.
+# Live reload while developing. Both packages come with the dev dependency group, not
+# the `ui` extra, so the demo still starts without them.
 try:
     import django_browser_reload  # noqa: F401
     import django_watchfiles  # noqa: F401
@@ -81,15 +70,11 @@ else:
     LIVE_RELOAD = True
     INSTALLED_APPS += ["django_watchfiles", "django_browser_reload"]
 
-# crispy-forms 2.7's get_template_pack() is getattr(settings, "CRISPY_TEMPLATE_PACK")
-# with no default, so leaving this unset is an AttributeError on the first form
-# render rather than a fallback to another pack (FS-008). Shared with tests/settings.py.
+# crispy-forms has no default pack: leaving this unset is an AttributeError on the first
+# form render (FS-008). Shared with tests/settings.py.
 CRISPY_TEMPLATE_PACK = "daisyui"
 
-# The allowlist has to name the pack too: the {% crispy %} tag validates it at
-# template-compile time against CRISPY_ALLOWED_TEMPLATE_PACKS, whose default is
-# ("uni_form", "bootstrap3", "bootstrap4"), so every template carrying the tag
-# would fail to compile without this (FS-008).
+# The {% crispy %} tag checks the pack against this allowlist at template-compile time (FS-008).
 CRISPY_ALLOWED_TEMPLATE_PACKS = ["daisyui"]
 
 MIDDLEWARE = [
@@ -127,24 +112,18 @@ TEMPLATES = [
 
 ROOT_URLCONF = "demo.urls"
 
-# The catalogue's write pages send a visitor who is not signed in here. The
-# demo has no sign-in page of its own, so it uses the admin's, which the
-# editor ``seed_demo`` creates can use.
+# The demo has no sign-in page of its own, so visitors who are not signed in go to the admin's.
 LOGIN_URL = "admin:login"
 
-# mvp/base.html loads the packaged stylesheet with {% static %} unconditionally,
-# so having django.contrib.staticfiles installed is not enough on its own
-# (README.md, tests/settings.py).
+# mvp/base.html loads its stylesheet with {% static %}, so this must be set (README, tests/settings.py).
 STATIC_URL = "static/"
 
-# Where a preview's staged upload lives (FS-011, literature/ui/staging.py).
-# Django's default falls back to the working directory, which left a stray
-# literature-imports/ directory at the repository root the first time this ran by hand.
+# Where a preview's staged upload lives (FS-011, literature/ui/staging.py); the default
+# would be the working directory.
 MEDIA_ROOT = BASE_DIR / "demo" / "media"
 
-# Every icon the shell renders resolves through django-easy-icons; without a
-# "default" renderer configured, opening any page in the UI app raises
-# ImproperlyConfigured (README.md, tests/settings.py).
+# Without a "default" icon renderer, any page in the UI app raises ImproperlyConfigured
+# (README, tests/settings.py).
 EASY_ICONS = {
     "default": {
         "renderer": "easy_icons.renderers.ProviderRenderer",
@@ -153,9 +132,7 @@ EASY_ICONS = {
     },
 }
 
-# The shell's sidebar and mobile navigation are rendered by django-flex-menus,
-# which raises ValueError at render time without these renderers configured
-# (README.md, tests/settings.py).
+# django-flex-menus raises ValueError at render time without these renderers (README, tests/settings.py).
 FLEX_MENUS = {
     "renderers": {
         "sidebar": "mvp.renderers.SidebarRenderer",
