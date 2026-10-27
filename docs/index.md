@@ -1,39 +1,70 @@
 # django-literature
 
-A Django app for storing, managing, and converting bibliographic references using the
-[CSL JSON 1.0.2](https://citeproc-js.readthedocs.io/en/latest/csl-json/markup.html) standard.
-
----
+A Django app for storing, managing, and converting bibliographic references. Its models are a
+direct relational translation of
+[CSL JSON 1.0.2](https://citeproc-js.readthedocs.io/en/latest/csl-json/markup.html), so a reference
+can be imported from CSL JSON, BibTeX or RIS and exported again to any CSL processor. An optional
+front end adds a catalogue, pages to add and edit references, and a reference picker for your own
+forms.
 
 ```{toctree}
-:maxdepth: 2
-:caption: Getting Started
+:maxdepth: 1
+:caption: How-to guides
 
-installation
-usage
-crediting-contributors
-dating-a-reference
-identifying-a-reference
-importing-through-the-interface
-how-to/choosing-a-reference
-how-to/showing-a-reference
-how-to/upgrading-from-literatureitem
+how-to/install-django-literature
+how-to/add-a-translation
+how-to/create-a-reference-in-code
+how-to/import-csl-json
+how-to/export-a-reference-as-csl-json
+how-to/find-references
+how-to/link-to-a-reference-and-cite-its-doi
+how-to/import-a-bibliography-file
+how-to/import-a-bibliography-file-in-code
+how-to/add-an-import-format
+how-to/choose-a-reference-in-your-own-form
+how-to/show-a-reference-on-your-own-page
+how-to/upgrade-a-database-from-the-literatureitem-schema
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: Reference
 
-data-model
-field-groups
-bibtex-mapping
-ris-mapping
-api/index
+reference/data-model
+reference/settings
+reference/add-and-edit-form
+reference/import-pages
+reference/bibtex-mapping
+reference/ris-mapping
+reference/api/index
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Explanation
+
+explanation/citation-keys
+explanation/round-trip-fidelity
+explanation/contributor-records
+explanation/field-groups
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Decision records
+
 adr/index
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
+:caption: Roadmap
+
+ROADMAP
+```
+
+```{toctree}
+:maxdepth: 1
 :caption: Contributing
 
 contributing/standards/testing
@@ -41,34 +72,3 @@ contributing/standards/code-documentation
 contributing/standards/django
 contributing/standards/documentation
 ```
-
----
-
-## Overview
-
-**django-literature** provides a normalized relational data model for bibliographic data
-modelled directly on the [CSL JSON 1.0.2 specification](https://github.com/citation-style-language/schema).
-It is designed to be dropped into any Django project as a reusable app.
-
-### Key capabilities
-
-::::{grid} 2
-:::{grid-item-card} CSL JSON conversion
-Import a list of references from a CSL JSON file or API response in a single call.
-Export any stored item back to a standards-compliant CSL JSON dict for use with
-citeproc-js, Pandoc, or any other CSL processor.
-:::
-:::{grid-item-card} Complete data model
-All 45 CSL item types, 26 name roles, and 6 date-variable slots are supported.
-Partial dates (year-only, year-month, full date, date ranges) are preserved with
-full precision.
-:::
-:::{grid-item-card} Identifier validation
-Model-layer validators enforce correct format for DOI, ISBN, ISSN, URL, PMID, and
-PMCID values so invalid identifiers are never silently stored.
-:::
-:::{grid-item-card} Ordered contributors
-Author, editor, and translator ordering is preserved independently within each
-role on an item.
-:::
-::::

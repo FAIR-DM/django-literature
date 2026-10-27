@@ -996,10 +996,10 @@ def _mapping_document() -> str:
     """Render the RIS mapping as a Markdown document.
 
     Private, because a documentation generator does not belong in the import contract's public
-    surface. Regenerate ``docs/ris-mapping.md`` after changing any table above::
+    surface. Regenerate ``docs/reference/ris-mapping.md`` after changing any table above::
 
         uv run python -c "from literature.importers.ris import _mapping_document; \
-            open('docs/ris-mapping.md','w').write(_mapping_document())"
+            open('docs/reference/ris-mapping.md','w').write(_mapping_document())"
 
     A test asserts the file on disk still matches.
 

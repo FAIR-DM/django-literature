@@ -392,7 +392,7 @@ A project whose own model points at a reference can add a searchable picker to i
 field, `ReferenceField` from `literature.ui.picker` (`ReferenceMultipleField` for several). It is a
 django-tomselect field whose default points at the catalogue's search. People find the reference by
 typing part of its title, a contributor's name, its citation key or its DOI. See
-[How to choose a reference in your own form](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/choosing-a-reference.md).
+[How to choose a reference in your own form](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/choose-a-reference-in-your-own-form.md).
 
 ### Try it: the demo project
 
@@ -415,8 +415,7 @@ and Import actions then appear, so you can enter, correct, remove and import ref
 way a host project's own users would. The Add and Edit forms carry the reference's
 contributors, dates and identifiers as part of the same page, so crediting a contributor, dating a
 reference and identifying it are all things you can try there too — see
-[Crediting contributors](https://github.com/FAIR-DM/django-literature/blob/main/docs/crediting-contributors.md), [Dating a reference](https://github.com/FAIR-DM/django-literature/blob/main/docs/dating-a-reference.md)
-and [Identifying a reference](https://github.com/FAIR-DM/django-literature/blob/main/docs/identifying-a-reference.md) for what each of those does.
+[Add and edit form](https://github.com/FAIR-DM/django-literature/blob/main/docs/reference/add-and-edit-form.md) for what each of those does.
 `demo/seed/import-sample.bib` is there to import: it holds entries that convert and one that does
 not, so the report has something to show.
 
@@ -561,7 +560,7 @@ item = result.created[0].item
 print(item.custom["bibtex"])   # {'file': ':papers/curie1898.pdf:PDF', 'owner': 'sam', ...}
 ```
 
-[What maps to what](https://django-literature.readthedocs.io/en/latest/bibtex-mapping.html) is
+[What maps to what](https://django-literature.readthedocs.io/en/latest/reference/bibtex-mapping.html) is
 generated from the mapping tables themselves, so it cannot fall out of step with the code.
 
 #### Reading RIS
@@ -588,7 +587,7 @@ item = result.created[0].item
 print(item.custom["ris"])   # {'C7': 'e70142', 'N1': 'Funding: NIH grant R01-GM12345'}
 ```
 
-[What maps to what](https://django-literature.readthedocs.io/en/latest/ris-mapping.html) is
+[What maps to what](https://django-literature.readthedocs.io/en/latest/reference/ris-mapping.html) is
 generated from the mapping tables themselves too, the same way as BibTeX's own page.
 
 Adding a further format means writing a `BibFormat` subclass with a parser and a conversion to CSL
@@ -632,7 +631,7 @@ Item ──< ItemName >── Name
 | `ItemDate` | Structured date per CSL date-variable slot | Date-variable object |
 | `ItemIdentifier` | Typed identifier (DOI, ISBN, etc.) | Top-level string fields |
 
-See the [data model documentation](https://github.com/FAIR-DM/django-literature/blob/main/docs/data-model.md) for the full field reference.
+See the [data model documentation](https://github.com/FAIR-DM/django-literature/blob/main/docs/reference/data-model.md) for the full field reference.
 
 ---
 
@@ -642,7 +641,7 @@ Full documentation is available in [docs/](https://github.com/FAIR-DM/django-lit
 
 A database still on the old `LiteratureItem` schema is moved to the current models with
 `python manage.py upgrade_literature`. See
-[How to upgrade a database from the `LiteratureItem` schema](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/upgrading-from-literatureitem.md).
+[How to upgrade a database from the `LiteratureItem` schema](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/upgrade-a-database-from-the-literatureitem-schema.md).
 
 To build locally:
 

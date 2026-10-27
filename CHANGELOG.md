@@ -12,14 +12,14 @@ All notable changes to this project are documented in this file. The format foll
   (migrations `0001_initial` to `0004_alter_literatureitem_options`) to the current models in one
   transaction. Every reference keeps its primary key, its tags join its keywords, and the host
   project's foreign keys to `Item` are pointed at the new table. See
-  [How to upgrade a database from the `LiteratureItem` schema](docs/how-to/upgrading-from-literatureitem.md).
+  [How to upgrade a database from the `LiteratureItem` schema](docs/how-to/upgrade-a-database-from-the-literatureitem-schema.md).
 - `from_csl_json()` takes a keyword-only `pk`, the primary key to give the new `Item`.
 - `ReferenceField` in `literature.ui.picker` lets a project's own form choose one reference by
   searching the catalogue, with a JSON search route, `literature:item-autocomplete`, behind it. It is a
   django-tomselect field whose default points at that route, so any django-tomselect setting can be
   passed in its `config`. Opening it shows the first references by title, and typing narrows them.
   See
-  [How to choose a reference in your own form](docs/how-to/choosing-a-reference.md).
+  [How to choose a reference in your own form](docs/how-to/choose-a-reference-in-your-own-form.md).
 - `ReferenceMultipleField` in `literature.ui.picker` lets a project's own form choose several
   references the same way, for a plain form or a `ManyToManyField` to `Item`.
 - A reference field is restricted with django-tomselect's `filter_by` and `exclude_by`. A submission
@@ -35,12 +35,17 @@ All notable changes to this project are documented in this file. The format foll
   title, its authors (or its editors when it has none), its type, year and where it appeared, and
   its DOI. It takes `level`, `href`, `link` and `abstract`, and anything between its tags is shown
   under the reference. See
-  [How to show a reference on your own page](docs/how-to/showing-a-reference.md).
+  [How to show a reference on your own page](docs/how-to/show-a-reference-on-your-own-page.md).
 - `Item.authors`, `Item.editors` and `Item.names_in_role(role)` give the names credited in a role,
   in their stored order. They read prefetched `item_names__name` when a queryset has it.
 
 ### Changed
 
+- **The documentation is filed by type**, under `docs/how-to/`, `docs/reference/` and
+  `docs/explanation/`, and the index lists the pages under those headings. The usage guide is
+  split into one how-to guide per task, the three pages on the add and edit form are one reference
+  page, and the import page is a how-to guide and a reference page. Every page has a new address.
+  The section on the Django admin, which the package no longer ships, is gone.
 - **The catalogue card is the reference component in a card**, with the abstract and the citation
   key. It names up to ten authors, or the editors when there are no authors, and the year, where it
   used to list every contributor role and the issued date in full. The type is text beside the year

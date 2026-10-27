@@ -1,4 +1,4 @@
-# Data Model
+# Data model
 
 The data model is a direct relational translation of the
 [CSL JSON 1.0.2 specification](https://github.com/citation-style-language/schema).
@@ -48,7 +48,7 @@ Date variables are stored in `ItemDate`. Identifiers are stored in `ItemIdentifi
 Five CSL JSON variables are not stored: `citation-label`, `citation-number`,
 `first-reference-note-number`, `locator` and `year-suffix`. A citation processor assigns them for
 one citation in one document, so they describe no reference. An import drops them, and an export
-never writes them ([ADR 0035](adr/0035-citation-processor-variables-are-not-stored.md)).
+never writes them ([ADR 0035](../adr/0035-citation-processor-variables-are-not-stored.md)).
 
 Every other scalar CSL JSON field is represented. See the
 [full field listing](api/index.md) in the API reference.
@@ -56,9 +56,8 @@ Every other scalar CSL JSON field is represented. See the
 ### Citation key uniqueness
 
 `citation_key` is **not** declared with `unique=True`, and nothing in the package keeps keys
-distinct. `from_csl_json()`, the import path and the interface's forms all store a key exactly as
-given, so two references may carry the same key. Keeping keys distinct is the reader's business,
-as in any other reference manager ([ADR 0023](adr/0023-citation-key-uniqueness-is-the-readers-concern.md)).
+distinct, so two references may carry the same key. See
+[Citation keys](../explanation/citation-keys.md).
 
 ---
 

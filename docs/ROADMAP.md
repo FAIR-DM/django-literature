@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-10
 
-This document was designed against [GOALS.md](../GOALS.md). See also [CONTEXT.md](../CONTEXT.md) for domain terminology and [CONSTITUTION.md](../CONSTITUTION.md) for project standards.
+This document was designed against [GOALS.md](https://github.com/FAIR-DM/django-literature/blob/main/GOALS.md). See also [CONTEXT.md](https://github.com/FAIR-DM/django-literature/blob/main/CONTEXT.md) for domain terminology and [CONSTITUTION.md](https://github.com/FAIR-DM/django-literature/blob/main/CONSTITUTION.md) for project standards.
 
 ## Versioning
 

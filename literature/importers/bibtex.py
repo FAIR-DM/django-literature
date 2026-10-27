@@ -510,11 +510,11 @@ def _mapping_document() -> str:
     """Render the field and entry-type mapping as a Markdown document.
 
     Private, because a documentation generator does not belong in the import
-    contract's public surface. Regenerate ``docs/bibtex-mapping.md`` after
+    contract's public surface. Regenerate ``docs/reference/bibtex-mapping.md`` after
     changing any table above::
 
         uv run python -c "from literature.importers.bibtex import _mapping_document; \
-            open('docs/bibtex-mapping.md','w').write(_mapping_document())"
+            open('docs/reference/bibtex-mapping.md','w').write(_mapping_document())"
 
     A test asserts the file on disk still matches.
 
