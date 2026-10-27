@@ -3,10 +3,9 @@
 import pytest
 from django import forms
 from django.contrib.auth.models import AnonymousUser
-from django.db import connection, models
+from django.db import models
 from django.http import HttpResponse
 from django.test import RequestFactory
-from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django_tomselect.app_settings import Const, PluginRemoveButton, TomSelectConfig
 from django_tomselect.middleware import TomSelectMiddleware
@@ -124,7 +123,9 @@ class TestItemLabel:
 
         assert "Editorson" in item_label(loaded)
 
-    def test_labelling_prefetched_items_issues_no_queries(self):
+    def test_labelling_prefetched_items_issues_no_queries(
+        self, django_assert_num_queries
+    ):
         items = []
         for number in range(3):
             item = ItemFactory(title=f"Title {number}")
@@ -133,11 +134,10 @@ class TestItemLabel:
             items.append(item)
         loaded = prefetched(*items)
 
-        with CaptureQueriesContext(connection) as queries:
+        with django_assert_num_queries(0):
             labels = [item_label(item) for item in loaded]
 
         assert len(labels) == 3
-        assert len(queries) == 0
 
 
 def drawn(form, name="reference"):

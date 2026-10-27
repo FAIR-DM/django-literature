@@ -12,11 +12,9 @@ from django.contrib import messages
 from django.contrib.auth.models import Permission
 from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import connection
 from django.forms import MultiWidget
 from django.template.loader import get_template
 from django.test import Client
-from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 import literature
@@ -63,6 +61,13 @@ AU  - Roe, Jan
 T1  - A Record With No Reference Type
 ER  -
 """
+
+
+#: What each list page costs in queries, whatever the number of rows it shows.
+CARD_LIST_QUERIES = 12
+TABLE_QUERIES = 10
+CONTRIBUTOR_PAGE_QUERIES = 11
+AUTOCOMPLETE_QUERIES = 6
 
 
 def toolbar_field(response, name):
@@ -255,26 +260,18 @@ class TestItemListView:
         assert "2020" in content
         assert str(item_name.name) in content
 
-    def test_query_count_does_not_grow_with_row_count(self, client, db):
-        def add_items(n):
-            for _ in range(n):
-                item = ItemFactory()
-                ItemNameFactory(item=item)
-                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
-
+    def test_query_count_does_not_grow_with_row_count(
+        self, client, add_items, django_assert_num_queries
+    ):
         add_items(3)
-        with CaptureQueriesContext(connection) as small_catalogue:
+        with django_assert_num_queries(CARD_LIST_QUERIES):
             response = client.get(reverse("item-list-cards"))
         assert response.status_code == 200
 
         add_items(15)
-        with CaptureQueriesContext(connection) as large_catalogue:
+        with django_assert_num_queries(CARD_LIST_QUERIES):
             response = client.get(reverse("item-list-cards"))
         assert response.status_code == 200
-
-        assert len(large_catalogue.captured_queries) == len(
-            small_catalogue.captured_queries
-        )
 
 
 class TestCatalogueListReadability:
@@ -481,7 +478,9 @@ class TestItemTableView:
         # assertion above for why object_list no longer means this here.
         assert len(response.context["table"].page.object_list) == 6
 
-    def test_query_count_does_not_grow_with_row_count(self, client, db):
+    def test_query_count_does_not_grow_with_row_count(
+        self, client, add_items, django_assert_num_queries
+    ):
         # Proves the view's prefetches are actually being read, rather
         # than the manager: the credited-names cell filtering
         # record.item_names.filter(...) would cost one query per row.
@@ -491,36 +490,24 @@ class TestItemTableView:
         # matching the whole catalogue as it grows, and the query count under
         # search is compared against itself at two sizes exactly as the
         # unfiltered count is above.
-        def add_items(n):
-            for _ in range(n):
-                item = ItemFactory(title="Whale Reference")
-                ItemNameFactory(item=item)
-                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
-
-        add_items(3)
-        with CaptureQueriesContext(connection) as small_catalogue:
+        add_items(3, title="Whale Reference")
+        with django_assert_num_queries(TABLE_QUERIES):
             response = client.get(reverse("literature:item-list"))
         assert response.status_code == 200
 
-        add_items(15)
-        with CaptureQueriesContext(connection) as large_catalogue:
+        add_items(15, title="Whale Reference")
+        with django_assert_num_queries(TABLE_QUERIES):
             response = client.get(reverse("literature:item-list"))
         assert response.status_code == 200
 
-        assert len(large_catalogue.captured_queries) == len(
-            small_catalogue.captured_queries
-        )
-
-        with CaptureQueriesContext(connection) as small_search:
+        with django_assert_num_queries(TABLE_QUERIES):
             response = client.get(reverse("literature:item-list"), {"q": "whale"})
         assert response.status_code == 200
 
-        add_items(15)
-        with CaptureQueriesContext(connection) as large_search:
+        add_items(15, title="Whale Reference")
+        with django_assert_num_queries(TABLE_QUERIES):
             response = client.get(reverse("literature:item-list"), {"q": "whale"})
         assert response.status_code == 200
-
-        assert len(large_search.captured_queries) == len(small_search.captured_queries)
 
     def test_carries_search_and_every_filter_in_its_toolbar(self, client, db):
         # Asserted against the rendered page and closed in both directions, so
@@ -3018,32 +3005,21 @@ class TestContributorDetailView:
         assert "Second Smiths Work" in second_content
         assert "First Smiths Work" not in second_content
 
-    def test_query_count_does_not_grow_with_credit_count(self, client, db):
+    def test_query_count_does_not_grow_with_credit_count(
+        self, client, add_items, django_assert_num_queries
+    ):
         contributor = NameFactory()
+        url = reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
 
-        def add_credits(n):
-            for _ in range(n):
-                item = ItemFactory()
-                ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
-                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2021")
-
-        add_credits(3)
-        with CaptureQueriesContext(connection) as small_credit_list:
-            response = client.get(
-                reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
-            )
+        add_items(3, name=contributor)
+        with django_assert_num_queries(CONTRIBUTOR_PAGE_QUERIES):
+            response = client.get(url)
         assert response.status_code == 200
 
-        add_credits(15)
-        with CaptureQueriesContext(connection) as large_credit_list:
-            response = client.get(
-                reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
-            )
+        add_items(15, name=contributor)
+        with django_assert_num_queries(CONTRIBUTOR_PAGE_QUERIES):
+            response = client.get(url)
         assert response.status_code == 200
-
-        assert len(large_credit_list.captured_queries) == len(
-            small_credit_list.captured_queries
-        )
 
 
 class TestCSLRoundTrip:
@@ -3492,37 +3468,29 @@ class TestReferenceAutocompleteView:
 
         assert response.status_code == 405
 
-    def test_query_count_does_not_grow_with_result_count(self, anonymous_client):
-        def add_items(count):
-            for _ in range(count):
-                item = ItemFactory(title="Common")
-                ItemNameFactory(item=item)
-                ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2020")
+    def test_query_count_does_not_grow_with_result_count(
+        self, anonymous_client, add_items, django_assert_num_queries
+    ):
+        add_items(1, title="Common", year="2020")
+        with django_assert_num_queries(AUTOCOMPLETE_QUERIES):
+            self.search(anonymous_client, "common")
 
-        def count_queries():
-            with CaptureQueriesContext(connection) as queries:
-                self.search(anonymous_client, "common")
-            return len(queries)
-
-        add_items(1)
-        one = count_queries()
-        add_items(6)
-
-        assert count_queries() == one
+        add_items(6, title="Common", year="2020")
+        with django_assert_num_queries(AUTOCOMPLETE_QUERIES):
+            self.search(anonymous_client, "common")
 
     def test_text_containing_a_nul_character_is_refused_before_any_query(
-        self, anonymous_client
+        self, anonymous_client, django_assert_num_queries
     ):
         ItemFactory(title="Deep Time")
 
-        with CaptureQueriesContext(connection) as queries:
+        with django_assert_num_queries(0):
             response = anonymous_client.get(
                 reverse("literature:item-autocomplete"), {"q": "deep\x00time"}
             )
 
         assert response.status_code == 400
         assert response.json() == {"results": []}
-        assert len(queries) == 0
 
     def test_text_longer_than_the_limit_is_cut_and_still_finds_the_reference(
         self, anonymous_client
@@ -3537,16 +3505,14 @@ class TestReferenceAutocompleteView:
         assert self.values(response.json()["results"]) == [item.pk]
 
     def test_text_longer_than_the_limit_costs_the_queries_a_short_text_does(
-        self, anonymous_client
+        self, anonymous_client, add_items, django_assert_num_queries
     ):
-        ItemFactory(title="a" * 200)
+        add_items(1, title="a" * 200)
 
-        def count_queries(text):
-            with CaptureQueriesContext(connection) as queries:
-                self.search(anonymous_client, text)
-            return len(queries)
-
-        assert count_queries("a" * 10_000) == count_queries("a")
+        with django_assert_num_queries(AUTOCOMPLETE_QUERIES):
+            self.search(anonymous_client, "a")
+        with django_assert_num_queries(AUTOCOMPLETE_QUERIES):
+            self.search(anonymous_client, "a" * 10_000)
 
     def test_a_requested_page_size_cannot_exceed_the_search_limit(
         self, anonymous_client

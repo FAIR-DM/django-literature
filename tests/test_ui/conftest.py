@@ -6,6 +6,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
+from literature.choices import DateType, NameRole
 from literature.models import Item
 from tests.factories import (
     ItemDateFactory,
@@ -48,6 +49,25 @@ def preview_import(client, stage_import):
         return client.get(reverse("literature:item-import-preview"))
 
     return preview
+
+
+@pytest.fixture
+def add_items(db):
+    """Return a function that adds ``count`` items, each credited and dated.
+
+    Every item gets one name and an issued date. Pass ``name`` to credit the same name as
+    author on all of them, ``year`` to choose the issued year, and any other keyword
+    argument to set it on each item.
+    """
+
+    def add(count, *, name=None, year="2021", **fields):
+        credit = {} if name is None else {"name": name, "role": NameRole.AUTHOR}
+        for _ in range(count):
+            item = ItemFactory(**fields)
+            ItemNameFactory(item=item, **credit)
+            ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=year)
+
+    return add
 
 
 @pytest.fixture

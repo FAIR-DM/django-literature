@@ -245,13 +245,12 @@ class TestContributorsColumn:
         content = rendered_cell(item, "contributors")
         assert "—" in content
 
-    def test_never_touches_the_manager(self, db):
+    def test_never_touches_the_manager(self, db, django_assert_num_queries):
         item = ItemFactory()
         ItemNameFactory(item=item, role=NameRole.AUTHOR)
         item.contributors = []
-        with CaptureQueriesContext(connection) as queries:
+        with django_assert_num_queries(0):
             rendered_cell_from_record(item, "contributors")
-        assert len(queries.captured_queries) == 0
 
 
 class TestIssuedColumn:
