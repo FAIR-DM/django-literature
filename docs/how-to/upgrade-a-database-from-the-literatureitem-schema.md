@@ -56,7 +56,7 @@ class Dataset(models.Model):
 ```
 
 Then update the code that read the old model. `Item` stores the CSL JSON variables as fields and
-related records rather than in one `item` dictionary. See [Data model](../data-model.md) and, for
+related records rather than in one `item` dictionary. See [Data model](../reference/data-model.md) and, for
 the DOI and year, `Item.doi` and `Item.year`.
 
 ## 2. Rewrite your migrations' references to the old schema

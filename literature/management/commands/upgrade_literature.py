@@ -40,7 +40,7 @@ class Command(BaseCommand):
     current history, so ``migrate`` fails on a database on the old schema. This
     command builds the current tables, converts every ``LiteratureItem`` from the
     CSL JSON it stored, keeping its primary key, and points the host project's
-    foreign keys at the new table. See ``docs/how-to/upgrading-from-literatureitem.md``.
+    foreign keys at the new table. See ``docs/how-to/upgrade-a-database-from-the-literatureitem-schema.md``.
     """
 
     help = (
