@@ -368,7 +368,7 @@ def _import_date_variable(data: dict, item: Any, date_type: str) -> None:
     item_date.save()
 
 
-def from_csl_json(data: dict) -> Any:
+def from_csl_json(data: dict, *, pk: int | None = None) -> Any:
     """Deserialize a CSL JSON dict into a new saved Item with all related records.
 
     Validates ``type``, reads the citation key (``citation-key`` falling back
@@ -379,6 +379,9 @@ def from_csl_json(data: dict) -> Any:
 
     Args:
         data: A Python dict containing CSL JSON data for a single bibliographic item.
+        pk: The primary key to give the new ``Item``, when it has to keep one it
+            already had elsewhere, as ``upgrade_literature`` does. Left out, the
+            database assigns one.
 
     Returns:
         Any: A saved ``Item`` instance with all related ``ItemName``,
@@ -439,7 +442,7 @@ def from_csl_json(data: dict) -> Any:
     if "event" in data and "event_title" not in item_fields:
         item_fields["event_title"] = data["event"]
 
-    item = Item(**item_fields)
+    item = Item(pk=pk, **item_fields)
     item.full_clean()
     item.save()
 

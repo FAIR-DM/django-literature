@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "literature",
+    # A stand-in for a host project's app with a foreign key to ``Item``.
+    "tests.host",
 ]
 
 MIDDLEWARE = [

@@ -114,6 +114,13 @@ item = from_csl_json(csl)
 `ItemDate`, and `ItemIdentifier` records atomically, and calls `full_clean()` on every model
 object before saving.
 
+Pass `pk` to give the new item a primary key it already had elsewhere, as when moving references
+from another store:
+
+```python
+item = from_csl_json(csl, pk=42)
+```
+
 ### Validation errors
 
 `from_csl_json()` raises `django.core.exceptions.ValidationError` if the dict is

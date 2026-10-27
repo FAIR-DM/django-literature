@@ -17,6 +17,7 @@ identifying-a-reference
 importing-through-the-interface
 how-to/choosing-a-reference
 how-to/showing-a-reference
+how-to/upgrading-from-literatureitem
 ```
 
 ```{toctree}
