@@ -42,12 +42,12 @@ All notable changes to this project are documented in this file. The format foll
 ### Changed
 
 - **The documentation is filed by type**, under `docs/how-to/`, `docs/reference/` and
-  `docs/explanation/`, and the index lists the pages under those headings. The usage guide is
+  `docs/explanation/`, each with its own index, and the site's navbar leads to the three. The usage guide is
   split into one how-to guide per task, the three pages on the add and edit form are one reference
   page, and the import page is a how-to guide and a reference page. Every page has a new address.
   The section on the Django admin, which the package no longer ships, is gone. A how-to guide is
   titled with its verb, "Import CSL JSON" rather than "How to import CSL JSON".
-- **The documentation is built with fairdm-docs**, in the Sphinx Book Theme, and builds locally with
+- **The documentation is built with fairdm-docs**, in the PyData Sphinx Theme, and builds locally with
   `uv run fairdm-docs build`.
 - **The catalogue card is the reference component in a card**, with the abstract and the citation
   key. It names up to ten authors, or the editors when there are no authors, and the year, where it

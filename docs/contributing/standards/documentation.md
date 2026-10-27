@@ -63,9 +63,13 @@ docs/
 └── explanation/
 ```
 
-- **`index.md`** says in one paragraph what the package is for, then lists the pages under one
-  heading for each type, in the order Tutorial, How-to guides, Reference, Explanation. The
-  maintainers' material from section 1 follows under headings of its own.
+- **`index.md`** says in one paragraph what the package is for, then links to each type, in the
+  order Tutorial, How-to guides, Reference, Explanation. The maintainers' material from section 1
+  follows.
+- **Each type directory has its own `index.md`**, titled with the type, "How-to guides",
+  "Reference" or "Explanation", which says in one sentence what its pages are for and lists them.
+  Where the documentation is built, these are the site's top-level navigation, so a reader picks
+  the type first.
 - **A directory is created when its first page arrives.** None of them is set up in advance, and
   none is left empty.
 - **A tutorial longer than one page** becomes a `tutorial/` directory, its pages numbered in
@@ -232,4 +236,4 @@ describes how something works is fine. A list of things to do is a how-to guide.
 
 ---
 
-**Version**: 1.2.0
+**Version**: 1.3.0
