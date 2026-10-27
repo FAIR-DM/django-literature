@@ -8,6 +8,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- `python manage.py upgrade_literature` moves a database from the old `LiteratureItem` schema
+  (migrations `0001_initial` to `0004_alter_literatureitem_options`) to the current models in one
+  transaction. Every reference keeps its primary key, its tags join its keywords, and the host
+  project's foreign keys to `Item` are pointed at the new table. See
+  [How to upgrade a database from the `LiteratureItem` schema](docs/how-to/upgrading-from-literatureitem.md).
+- `from_csl_json()` takes a keyword-only `pk`, the primary key to give the new `Item`.
 - `ReferenceField` in `literature.ui.picker` lets a project's own form choose one reference by
   searching the catalogue, with a JSON search route, `literature:item-autocomplete`, behind it. It is a
   django-tomselect field whose default points at that route, so any django-tomselect setting can be

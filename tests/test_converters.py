@@ -230,6 +230,15 @@ class TestFromCslJson:
         item = from_csl_json({"type": "article-journal", "id": "FallbackId2024"})
         assert item.citation_key == "FallbackId2024"
 
+    def test_gives_the_item_the_primary_key_asked_for(self):
+        item = from_csl_json(
+            {"type": "book", "citation-key": "Kept2024", "author": [{"family": "Ng"}]},
+            pk=4711,
+        )
+
+        assert Item.objects.get(pk=4711) == item
+        assert item.item_names.get().name.family == "Ng"
+
     def test_a_key_already_in_the_store_is_stored_again_as_given(self):
         ItemFactory(citation_key="Smith2009", type=ItemType.ARTICLE)
 

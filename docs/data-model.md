@@ -55,11 +55,10 @@ Every other scalar CSL JSON field is represented. See the
 
 ### Citation key uniqueness
 
-`citation_key` is **not** declared with `unique=True` in the database schema. Uniqueness is
-enforced at the application level so that the same key can coexist in different library
-scopes (e.g. multi-tenant deployments). The `from_csl_json()` importer automatically appends
-a letter suffix (``Smith2009`` → ``Smith2009b`` → ``Smith2009c`` … → ``Smith2009z`` →
-``Smith2009aa``) when a conflict is detected.
+`citation_key` is **not** declared with `unique=True`, and nothing in the package keeps keys
+distinct. `from_csl_json()`, the import path and the interface's forms all store a key exactly as
+given, so two references may carry the same key. Keeping keys distinct is the reader's business,
+as in any other reference manager ([ADR 0023](adr/0023-citation-key-uniqueness-is-the-readers-concern.md)).
 
 ---
 
