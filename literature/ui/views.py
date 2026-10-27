@@ -241,8 +241,8 @@ class CatalogueListMixin:
     # No ``template_name``: the page renders through django-mvp's own
     # ``list_view.html``. Only the card is ours.
     #
-    # ``ItemListView``'s own default — ``ContributorDetailView`` overrides
-    # it back to its own template, the same as it does today.
+    # The card is the reference component in a card, so the catalogue and a
+    # project's own pages show a reference the same way.
     list_item_template = "literature/ui/item_list_item.html"
 
     # "create" alone in directory shows nothing without the matching
@@ -255,9 +255,11 @@ class CatalogueListMixin:
     crud_views = CRUD_VIEWS
 
     def get_queryset(self):
-        """Prefetch what a row needs so a page costs a constant number of queries."""
-        return super().get_queryset().prefetch_related(
-            "item_names__name", "item_dates", "item_identifiers"
+        """Prefetch what the reference component reads, for a constant query count."""
+        return (
+            super()
+            .get_queryset()
+            .prefetch_related("item_names__name", "item_dates", "item_identifiers")
         )
 
     def get_model_info(self):
@@ -266,13 +268,6 @@ class CatalogueListMixin:
             **super().get_model_info(),
             "verbose_name_plural": CATALOGUE_NAME_PLURAL,
         }
-
-    def get_context_data(self, **kwargs):
-        """Group each row's contributors by role, from the queryset's prefetch."""
-        context = super().get_context_data(**kwargs)
-        for page_item in context["object_list"]:
-            page_item.contributor_groups = contributor_groups(page_item)
-        return context
 
 
 class ItemListView(CatalogueListMixin, MVPListView):

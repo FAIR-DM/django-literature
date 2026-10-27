@@ -278,22 +278,6 @@ class TestItemListView:
         assert "2020" in content
         assert str(item_name.name) in content
 
-    def test_row_shows_a_ranged_issued_date_at_both_ends(self, client, db):
-        # A range's precision is both ends — the row used to drop everything after ``begin`` while the
-        # reference page rendered the same date correctly.
-        item = ItemFactory()
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin="2019", end="2021")
-        content = client.get(reverse("item-list-cards")).content.decode()
-        assert "2019" in content
-        assert "2021" in content
-
-    def test_row_falls_back_to_a_free_text_date(self, client, db):
-        item = ItemFactory()
-        ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=None, literal="in press"
-        )
-        assert "in press" in client.get(reverse("item-list-cards")).content.decode()
-
     def test_query_count_does_not_grow_with_row_count(self, client, db):
         def add_items(n):
             for _ in range(n):
@@ -2998,21 +2982,21 @@ class TestContributorDetailView:
         assert 'name="q"' not in content
         assert 'id="filters"' not in content
 
-    def test_credits_listed_with_roles(self, client, db):
+    def test_lists_the_items_the_contributor_is_credited_on(self, client, db):
         contributor = NameFactory()
         item = ItemFactory(title="Credited Work")
         ItemNameFactory(item=item, name=contributor, role=NameRole.EDITOR)
+        ItemFactory(title="Somebody Else's Work")
         response = client.get(
             reverse("literature:contributor-detail", kwargs={"pk": contributor.pk})
         )
         content = response.content.decode()
         assert "Credited Work" in content
-        assert str(NameRole.EDITOR.label) in content
+        assert "Somebody Else's Work" not in content
 
     def test_credit_row_carries_what_a_catalogue_row_carries(self, client, db):
-        # A credit row carries what a catalogue row does, so the row shows
-        # the item's own contributors as well as the role this contributor
-        # held on it — the roles are additional, not a replacement.
+        # A credit row is the catalogue's card, so it shows the item's own
+        # authors, not only the contributor whose page this is.
         contributor = NameFactory(family="Rowe", given="A")
         coauthor = NameFactory(family="Peralta", given="B")
         item = ItemFactory(title="Jointly Written Work", citation_key="rowe2021joint")
@@ -3027,7 +3011,6 @@ class TestContributorDetailView:
 
         assert "Jointly Written Work" in content
         assert str(coauthor) in content
-        assert str(NameRole.AUTHOR.label) in content
         assert "rowe2021joint" in content
         assert "2021" in content
         assert str(item.get_type_display()) in content
@@ -3041,7 +3024,7 @@ class TestContributorDetailView:
         )
         assert f'href="{reverse("literature:item-list")}"' in response.content.decode()
 
-    def test_item_held_under_two_roles_appears_once_carrying_both(self, client, db):
+    def test_item_held_under_two_roles_appears_once(self, client, db):
         contributor = NameFactory()
         item = ItemFactory(title="Dual Role Work")
         ItemNameFactory(item=item, name=contributor, role=NameRole.AUTHOR)
@@ -3051,8 +3034,6 @@ class TestContributorDetailView:
         )
         content = response.content.decode()
         assert content.count("Dual Role Work") == 1
-        assert str(NameRole.AUTHOR.label) in content
-        assert str(NameRole.EDITOR.label) in content
 
     def test_list_paginates_in_the_catalogues_order(self, client, db):
         contributor = NameFactory()

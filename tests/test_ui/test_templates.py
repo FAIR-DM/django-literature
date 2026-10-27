@@ -5,9 +5,21 @@ from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import RequestFactory
 from django.urls import reverse
+from django_cotton import render_component
+from partial_date import PartialDate
 
+from literature.choices import DateType, IdentifierType, NameRole
+from literature.models import Item
 from literature.ui.tables import OutcomeColumn
+from tests.factories import (
+    ItemDateFactory,
+    ItemFactory,
+    ItemIdentifierFactory,
+    ItemNameFactory,
+    NameFactory,
+)
 
 APP_TEMPLATES_DIR = (
     Path(__file__).resolve().parents[2] / "literature" / "ui" / "templates"
@@ -16,8 +28,12 @@ TEMPLATES_DIR = APP_TEMPLATES_DIR / "literature" / "ui"
 #: Included so the i18n and utility-class guards below also reach the toolbar
 #: action components, which live outside ``TEMPLATES_DIR``.
 COTTON_ACTIONS_DIR = APP_TEMPLATES_DIR / "cotton" / "page" / "list" / "actions"
-TEMPLATE_PATHS = sorted(TEMPLATES_DIR.glob("*.html")) + sorted(
-    COTTON_ACTIONS_DIR.glob("*.html")
+#: The components a project uses on its own pages.
+COTTON_LITERATURE_DIR = APP_TEMPLATES_DIR / "cotton" / "literature"
+TEMPLATE_PATHS = (
+    sorted(TEMPLATES_DIR.glob("*.html"))
+    + sorted(COTTON_ACTIONS_DIR.glob("*.html"))
+    + sorted(COTTON_LITERATURE_DIR.glob("*.html"))
 )
 PASSTHROUGH_BASE = APP_TEMPLATES_DIR / "base.html"
 
@@ -749,3 +765,182 @@ class TestImportFormPageFieldErrors:
             reverse("literature:item-import"), {"file": upload}
         ).content.decode()
         assert 'id="id_format_error"' in content
+
+
+def render_reference(item, **attrs):
+    """Render ``<c-literature.item>`` for ``item`` with ``attrs``, as a project would."""
+    return render_component(
+        RequestFactory().get("/"), "literature.item", item=item, **attrs
+    )
+
+
+def credit(item, role, count):
+    """Credit ``count`` new names on ``item`` in ``role``, in order, and return them."""
+    return [
+        ItemNameFactory(
+            item=item, role=role, name=NameFactory(family=f"Family{n:02}")
+        ).name
+        for n in range(count)
+    ]
+
+
+@pytest.mark.django_db
+class TestReferenceComponent:
+    def test_the_title_links_to_the_reference_page(self):
+        item = ItemFactory(title="A Linked Reference")
+
+        html = render_reference(item)
+
+        assert f'href="{item.get_absolute_url()}"' in html
+        assert "A Linked Reference" in html
+
+    def test_an_item_with_no_title_shows_its_citation_key(self):
+        html = render_reference(ItemFactory(title="", citation_key="Untitled2026"))
+
+        assert "Untitled2026" in html
+
+    def test_href_replaces_the_title_link(self):
+        item = ItemFactory()
+
+        html = render_reference(item, href="/datasets/7/")
+
+        assert 'href="/datasets/7/"' in html
+        assert f'href="{item.get_absolute_url()}"' not in html
+
+    def test_without_links_it_renders_where_the_catalogue_is_not_mounted(
+        self, settings
+    ):
+        settings.ROOT_URLCONF = "tests.urls_core"
+        item = ItemFactory(title="Unlinked Reference")
+        credit(item, NameRole.AUTHOR, 1)
+
+        html = render_reference(item, link=False)
+
+        assert "Unlinked Reference" in html
+        assert "<a " not in html
+
+    def test_the_title_heading_level_follows_the_level_attribute(self):
+        html = render_reference(ItemFactory(), level=2)
+
+        assert "<h2" in html
+
+    def test_each_author_links_to_their_contributor_page(self):
+        item = ItemFactory()
+        (author,) = credit(item, NameRole.AUTHOR, 1)
+
+        html = render_reference(item)
+
+        assert (
+            reverse("literature:contributor-detail", kwargs={"pk": author.pk}) in html
+        )
+
+    def test_ten_authors_are_named_in_full(self):
+        item = ItemFactory()
+        authors = credit(item, NameRole.AUTHOR, 10)
+
+        html = render_reference(item)
+
+        assert all(author.family in html for author in authors)
+        assert "et al." not in html
+
+    def test_beyond_ten_authors_the_rest_are_et_al(self):
+        item = ItemFactory()
+        authors = credit(item, NameRole.AUTHOR, 11)
+
+        html = render_reference(item)
+
+        assert authors[9].family in html
+        assert authors[10].family not in html
+        assert "et al." in html
+
+    def test_with_authors_the_editors_are_left_out(self):
+        item = ItemFactory()
+        credit(item, NameRole.AUTHOR, 1)
+        editor = ItemNameFactory(
+            item=item, role=NameRole.EDITOR, name=NameFactory(family="Editorson")
+        ).name
+
+        html = render_reference(item)
+
+        assert editor.family not in html
+
+    @pytest.mark.parametrize(("count", "mark"), [(1, "(ed.)"), (2, "(eds.)")])
+    def test_without_authors_the_editors_stand_in_marked_as_editors(self, count, mark):
+        item = ItemFactory()
+        editors = credit(item, NameRole.EDITOR, count)
+
+        html = render_reference(item)
+
+        assert all(editor.family in html for editor in editors)
+        assert mark in html
+
+    def test_a_journal_article_shows_its_type_year_and_where_it_appeared(self):
+        item = ItemFactory(
+            type="article-journal",
+            container_title="Journal of Tests",
+            volume="27",
+            issue="3",
+            page="379-423",
+        )
+        ItemDateFactory(
+            item=item, date_type=DateType.ISSUED, begin=PartialDate("1948-07")
+        )
+
+        html = render_reference(item)
+
+        assert str(item.get_type_display()) in html
+        assert "1948" in html
+        assert "Journal of Tests" in html
+        assert "vol. 27" in html
+        assert "no. 3" in html
+        assert "pp. 379-423" in html
+
+    def test_without_a_container_the_publisher_is_shown(self):
+        item = ItemFactory(type="book", container_title="", publisher="Test Press")
+
+        assert "Test Press" in render_reference(item)
+
+    def test_the_doi_links_to_doi_org(self):
+        item = ItemFactory()
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1000/xyz123"
+        )
+
+        html = render_reference(item)
+
+        assert 'href="https://doi.org/10.1000/xyz123"' in html
+
+    def test_a_reference_with_nothing_but_a_title_renders(self):
+        html = render_reference(
+            ItemFactory(title="Beowulf", container_title="", publisher="")
+        )
+
+        assert "Beowulf" in html
+        assert "doi.org" not in html
+
+    def test_the_abstract_is_shown_only_when_asked_for(self):
+        item = ItemFactory(abstract="A short abstract of the work.")
+
+        assert "A short abstract" not in render_reference(item)
+        assert "A short abstract" in render_reference(item, abstract=True)
+
+    def test_the_default_slot_renders_under_the_reference(self):
+        html = render_reference(ItemFactory(), slot="Extra line for the host")
+
+        assert "Extra line for the host" in html
+
+    def test_a_prefetched_item_renders_without_querying(
+        self, django_assert_num_queries
+    ):
+        item = ItemFactory()
+        credit(item, NameRole.AUTHOR, 3)
+        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2020"))
+        ItemIdentifierFactory(
+            item=item, type=IdentifierType.DOI, value="10.1000/xyz123"
+        )
+        prefetched = Item.objects.prefetch_related(
+            "item_names__name", "item_dates", "item_identifiers"
+        ).get(pk=item.pk)
+
+        with django_assert_num_queries(0):
+            render_reference(prefetched)

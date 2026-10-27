@@ -32,7 +32,7 @@
     {{ item.get_type_display }}{% if item.year %} <span aria-hidden="true">&middot;</span> {{ item.year }}{% endif %}{% if item.container_title %} <span aria-hidden="true">&middot;</span> <span class="italic">{{ item.container_title }}</span>{% if item.volume %}, {% blocktranslate with volume=item.volume %}vol. {{ volume }}{% endblocktranslate %}{% endif %}{% if item.issue %}, {% blocktranslate with issue=item.issue %}no. {{ issue }}{% endblocktranslate %}{% endif %}{% if item.page %}, {% blocktranslate with page=item.page %}pp. {{ page }}{% endblocktranslate %}{% endif %}{% elif item.publisher %} <span aria-hidden="true">&middot;</span> {{ item.publisher }}{% endif %}
   </c-mvp.text>
   {% if item.doi_url %}
-    <c-mvp.text size="sm" tight class="break-all" only>
+    <c-mvp.text size="sm" tight class="break-words" only>
       <c-link variant="primary" href="{{ item.doi_url }}" only>{{ item.doi_url }}</c-link>
     </c-mvp.text>
   {% endif %}

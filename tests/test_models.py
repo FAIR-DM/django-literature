@@ -172,6 +172,38 @@ class TestItemAddressAndCitationFacts:
         with django_assert_num_queries(0):
             assert (prefetched.doi, prefetched.year) == ("10.1000/xyz123", 2019)
 
+    def test_authors_are_the_author_credits_in_their_stored_order(self):
+        item = ItemFactory()
+        second = ItemNameFactory(item=item, role=NameRole.AUTHOR, order=1).name
+        first = ItemNameFactory(item=item, role=NameRole.AUTHOR, order=0).name
+        ItemNameFactory(item=item, role=NameRole.EDITOR)
+
+        assert item.authors == [first, second]
+
+    def test_editors_are_the_editor_credits_only(self):
+        item = ItemFactory()
+        ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        editor = ItemNameFactory(item=item, role=NameRole.EDITOR).name
+
+        assert item.editors == [editor]
+
+    def test_names_in_role_is_empty_for_a_role_nobody_holds(self):
+        item = ItemFactory()
+        ItemNameFactory(item=item, role=NameRole.AUTHOR)
+
+        assert item.names_in_role(NameRole.TRANSLATOR) == []
+
+    def test_authors_and_editors_read_prefetched_rows_without_querying(
+        self, django_assert_num_queries
+    ):
+        item = ItemFactory()
+        ItemNameFactory(item=item, role=NameRole.AUTHOR)
+        ItemNameFactory(item=item, role=NameRole.EDITOR)
+        prefetched = Item.objects.prefetch_related("item_names__name").get(pk=item.pk)
+
+        with django_assert_num_queries(0):
+            assert len(prefetched.authors) == len(prefetched.editors) == 1
+
 
 @pytest.mark.django_db
 class TestNameModel:
