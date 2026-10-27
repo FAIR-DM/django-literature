@@ -1,4 +1,4 @@
-# How to choose a reference in your own form
+# Choose a reference in your own form
 
 Add a searchable reference picker to a form in your project, so people find the reference they
 mean by typing part of its title, a contributor's name, its citation key or its DOI instead of

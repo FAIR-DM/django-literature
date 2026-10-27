@@ -70,8 +70,8 @@ docs/
   none is left empty.
 - **A tutorial longer than one page** becomes a `tutorial/` directory, its pages numbered in
   the order they are read.
-- **A file is named after its title**, in lowercase words joined by hyphens, with "How to" left
-  off: `how-to/add-a-menu-item.md`, `reference/settings.md`,
+- **A file is named after its title**, in lowercase words joined by hyphens:
+  `how-to/add-a-menu-item.md`, `reference/settings.md`,
   `explanation/how-a-theme-is-applied.md`.
 
 **A small package needs no `docs/` directory.** When setting the package up takes no more than
@@ -151,8 +151,9 @@ anything it relies on.
 
 A how-to guide takes someone who already uses the package through one task.
 
-- **Title**: "How to", then a verb, then what it acts on: "How to add a menu item", "How to
-  restrict a field to part of a vocabulary".
+- **Title**: a verb, then what it acts on: "Add a menu item", "Restrict a field to part of a
+  vocabulary". The guide sits under a How-to guides heading, so "How to" is left off and the
+  verbs line up down the contents.
 - **Opening paragraph**, with no heading: what the task achieves and when someone would do it,
   in two sentences at most.
 - **Before you start**: only when the task has a real precondition. Left out otherwise.
@@ -231,4 +232,4 @@ describes how something works is fine. A list of things to do is a how-to guide.
 
 ---
 
-**Version**: 1.1.0
+**Version**: 1.2.0

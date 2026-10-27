@@ -1,4 +1,4 @@
-# How to export a reference as CSL JSON
+# Export a reference as CSL JSON
 
 Turn a stored reference into a CSL JSON record, to hand to citeproc-js, Pandoc or any other CSL
 processor.

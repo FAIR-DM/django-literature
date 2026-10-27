@@ -59,7 +59,7 @@ either is merged over that default. Both inherit that default and the restrictio
 constant `filter_by` and `exclude_by` conditions. `item_label` names a reference the same way in the
 control and in the search results: its title or citation key, its year and its first contributor.
 How to use them is in
-[How to choose a reference in your own form](../../how-to/choose-a-reference-in-your-own-form.md).
+[Choose a reference in your own form](../../how-to/choose-a-reference-in-your-own-form.md).
 
 ```{eval-rst}
 .. automodule:: literature.ui.picker

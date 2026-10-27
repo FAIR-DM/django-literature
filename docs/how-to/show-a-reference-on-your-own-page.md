@@ -1,4 +1,4 @@
-# How to show a reference on your own page
+# Show a reference on your own page
 
 Show a reference from the catalogue on one of your project's own pages, such as the publications
 related to a dataset, with the same component the catalogue's own card list uses. You pass it one
