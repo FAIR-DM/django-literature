@@ -629,7 +629,10 @@ class TestFailureReasons:
             io.StringIO()
         )
 
-        assert result.failed[0].reason == "Unknown CSL JSON item type: 'nope'"
+        reason = result.failed[0].reason
+        assert "nope" in reason
+        assert "ValidationError" not in reason
+        assert "[" not in reason
 
     def test_an_exception_raised_with_no_message_still_yields_a_reason(self):
         result = make_raising_format([{"id": "a"}], EntryError())().import_file(

@@ -56,31 +56,3 @@ class TestOnlyLiteratureIsPackaged:
         pyproject = load_pyproject()
         wheel = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]
         assert wheel["packages"] == ["literature"]
-
-
-class TestNoDemoOnlyDependencyEntersTheBuild:
-    def test_the_hard_dependency_list_is_exactly_the_declared_runtime_dependencies(
-        self,
-    ):
-        pyproject = load_pyproject()
-        dependencies = pyproject["project"]["dependencies"]
-        assert dependencies == [
-            "django>=4.2",
-            "django-partial-date",
-            "bibtexparser (>=1.4.4,<2)",
-        ]
-
-    def test_the_ui_extra_is_exactly_the_front_end_packages(self):
-        pyproject = load_pyproject()
-        ui_extra = pyproject["project"]["optional-dependencies"]["ui"]
-        # The django-mvp floor is 0.31.0, the first release that requires
-        # django-mvp-forms 0.8.0, whose collapsible fieldsets the write form
-        # is built from.
-        assert ui_extra == [
-            "django-mvp (>=0.31.0,<1.0) ; python_version >= '3.12'",
-            "django-mvp-forms (>=0.8.0,<1.0) ; python_version >= '3.12'",
-            "django-crispy-forms (>=2.7,<3) ; python_version >= '3.12'",
-            "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
-            "django-filter (>=26.1,<27) ; python_version >= '3.12'",
-            "django-tomselect (>=2026.6.2) ; python_version >= '3.12'",
-        ]

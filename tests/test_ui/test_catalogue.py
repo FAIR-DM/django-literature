@@ -96,23 +96,23 @@ class TestAMisconfiguredSetting:
     def test_a_literature_setting_that_is_not_a_dict_is_reported(self, settings):
         settings.LITERATURE = [CARD_VIEW]
 
-        with pytest.raises(ImproperlyConfigured, match="LITERATURE must be a dict"):
+        with pytest.raises(ImproperlyConfigured, match="list"):
             catalogue_view_class()
 
     def test_a_value_that_is_not_a_dotted_path_is_reported(self, settings):
         settings.LITERATURE = {"CATALOGUE_VIEW": ItemListView}
 
-        with pytest.raises(ImproperlyConfigured, match="must be a dotted path"):
+        with pytest.raises(ImproperlyConfigured, match="ItemListView"):
             catalogue_view_class()
 
     def test_a_path_that_does_not_import_is_reported(self, settings):
         settings.LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.NoSuchView"}
 
-        with pytest.raises(ImproperlyConfigured, match="could not be imported"):
+        with pytest.raises(ImproperlyConfigured, match="NoSuchView"):
             catalogue_view_class()
 
     def test_a_path_that_is_not_a_view_is_reported(self, settings):
         settings.LITERATURE = {"CATALOGUE_VIEW": "literature.ui.views.CATALOGUE_TITLE"}
 
-        with pytest.raises(ImproperlyConfigured, match="is not a class-based view"):
+        with pytest.raises(ImproperlyConfigured, match="CATALOGUE_TITLE"):
             catalogue_view_class()

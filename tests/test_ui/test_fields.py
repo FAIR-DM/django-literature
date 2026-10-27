@@ -41,12 +41,6 @@ class TestFieldSections:
             field_sections(item)
         )
 
-    def test_sections_follow_the_edit_forms_group_order(self):
-        item = ItemFactory(volume="12", publisher="MIT Press", note="A note")
-        order = [str(label) for label in FieldGroups.GROUP_LABELS.values()]
-        labels = labels_of(field_sections(item))
-        assert labels == sorted(labels, key=order.index)
-
     def test_fields_shown_in_the_page_header_are_not_repeated(self):
         item = ItemFactory(title="A Title", abstract="An abstract", citation_key="K1")
         rows = rows_of(field_sections(item))

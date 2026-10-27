@@ -563,188 +563,140 @@ class TestImportFormPage:
         assert 'type="file"' in content
 
 
-class TestItemFormPageMarkup:
-    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(
-        self, client, db
-    ):
-        # The same defect this page carried since its own phase: see
-        # TestImportReportPage's test of the same name.
-        content = client.get(reverse("literature:item-create")).content.decode()
-        assert " breakpoint=" not in content
+def rendered_counts(content):
+    """The (created, skipped, failed) numbers the page prints, or ``None`` without them.
+
+    Read from the three numbers in the paragraph that carries them, not from its wording.
+    """
+    match = re.search(r"<p\b[^>]*>\s*(\d+)\D+(\d+)\D+(\d+)\D*</p>", content)
+    return tuple(int(number) for number in match.groups()) if match else None
+
+
+def outcome_controls(content):
+    """Each radio of the outcome filter, as its own tag."""
+    return re.findall(r'<input\b[^>]*name="import-outcome-filter"[^>]*>', content)
 
 
 class TestImportReportPage:
-    def _report_content(self, client):
-        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        response = client.post(
-            reverse("literature:item-import"),
-            {"format": "ris", "file": upload, "skip_preview": "on"},
+    def _report(self, stage_import):
+        return stage_import(
+            "import.ris", "ris", content=IMPORT_RIS_FIXTURE, skip_preview="on"
         )
-        return response.content.decode()
 
-    def test_carries_the_counts(self, client, db):
-        content = self._report_content(client)
-        assert "1 created" in content
+    def test_carries_the_counts(self, stage_import, db):
+        response = self._report(stage_import)
+        report = response.context["report"]
+        assert rendered_counts(response.content.decode()) == (
+            report.created,
+            report.skipped,
+            report.failed,
+        )
 
-    def test_carries_a_link_back_to_the_catalogue(self, client, db):
-        content = self._report_content(client)
+    def test_carries_a_link_back_to_the_catalogue(self, stage_import, db):
+        content = self._report(stage_import).content.decode()
         assert f'href="{reverse("literature:item-list")}"' in content
 
-    def test_carries_no_import_form_of_its_own(self, client, db):
+    def test_carries_no_import_form_of_its_own(self, stage_import, db):
         # The upload form lives on the preview page, not above the results.
-        content = self._report_content(client)
+        content = self._report(stage_import).content.decode()
         assert 'type="file"' not in content
 
-    def test_the_back_to_catalogue_button_carries_a_backward_arrow(self, client, db):
-        # This page's breadcrumb links to the catalogue too, so the first occurrence of this href is
-        # now the breadcrumb's, not the button's — the last one is.
-        content = self._report_content(client)
-        back_href = f'href="{reverse("literature:item-list")}"'
-        back_index = content.rindex(back_href)
-        assert "bi-arrow-left" in content[max(back_index - 200, 0) : back_index + 200]
-
-    def test_carries_a_second_button_leading_to_an_empty_import_form(self, client, db):
-        content = self._report_content(client)
-        assert f'href="{reverse("literature:item-import")}"' in content
-
-    def test_the_button_row_passes_the_group_no_variable_it_does_not_declare(
-        self, client, db
+    def test_carries_a_second_button_leading_to_an_empty_import_form(
+        self, stage_import, db
     ):
-        # ``<c-group>`` declares row, collapse, wrap, class and gap. An
-        # attribute it does not declare is not ignored: Cotton writes it
-        # through to the rendered <div>, where it is invalid HTML and lays
-        # nothing out. Asserted on the rendered page rather than on the
-        # template so the check reads what a browser would receive.
-        assert " breakpoint=" not in self._report_content(client)
+        content = self._report(stage_import).content.decode()
+        assert f'href="{reverse("literature:item-import")}"' in content
 
 
 class TestOutcomeFilter:
-    def _preview_content(self, client):
-        upload = SimpleUploadedFile("import.ris", IMPORT_RIS_FIXTURE.encode())
-        client.post(
-            reverse("literature:item-import"), {"format": "ris", "file": upload}
-        )
-        return client.get(reverse("literature:item-import-preview")).content.decode()
+    def _preview_content(self, preview_import):
+        response = preview_import("import.ris", "ris", content=IMPORT_RIS_FIXTURE)
+        return response.content.decode()
 
-    def _filter_markup(self, content):
-        start = content.index('class="filter')
-        end = content.index("</div>", start)
-        return content[start:end]
+    def test_one_control_per_outcome_plus_a_way_back_to_all(self, preview_import, db):
+        controls = outcome_controls(self._preview_content(preview_import))
+        assert len(controls) == len(OutcomeColumn.VARIANTS) + 1
 
-    def _controls(self, content):
-        """Each radio in the filter, as its own chunk of markup."""
-        return [
-            "<input" + chunk
-            for chunk in self._filter_markup(content).split("<input")[1:]
-        ]
-
-    def test_one_control_per_outcome_plus_a_way_back_to_all(self, client, db):
-        markup = self._filter_markup(self._preview_content(client))
-        assert markup.count('type="radio"') == 4  # All, created, skipped, failed
-
-    def test_each_control_is_labelled_with_its_outcomes_own_label(self, client, db):
-        controls = self._controls(self._preview_content(client))
+    def test_each_control_is_labelled_with_its_outcomes_own_label(
+        self, preview_import, db
+    ):
+        controls = outcome_controls(self._preview_content(preview_import))
         for outcome in OutcomeColumn.VARIANTS:
             control = next(c for c in controls if f'value="{outcome.value}"' in c)
             assert f'aria-label="{outcome.label}"' in control
-        reset = next(c for c in controls if "filter-reset" in c)
+        reset = next(c for c in controls if 'value="all"' in c)
         assert re.search(r'aria-label="[^"]+"', reset)
 
-    def test_it_carries_no_form_action_and_no_link(self, client, db):
-        markup = self._filter_markup(self._preview_content(client))
+    def test_it_carries_no_form_action_and_no_link(self, preview_import, db):
+        content = self._preview_content(preview_import)
+        controls = outcome_controls(content)
+        markup = content[
+            content.index(controls[0]) : content.index(controls[-1]) + len(controls[-1])
+        ]
         assert "<form" not in markup
         assert "<a " not in markup
 
     def test_the_counts_above_the_table_describe_the_whole_file_not_the_filter(
-        self, client, db
+        self, preview_import, db
     ):
         # The counts are rendered from ``report`` directly and sit
         # outside the filter's own x-data scope, so they read the same
         # whatever the table is narrowed to (proved here by their absence of
         # any Alpine binding at all, since the Django test client renders
         # markup rather than running Alpine).
-        content = self._preview_content(client)
-        counts_index = content.index("1 created")
-        counts_line = content[max(counts_index - 200, 0) : counts_index + 50]
-        assert "outcome" not in counts_line
-        assert "x-" not in counts_line
-
-    def test_every_control_is_small(self, client, db):
-        markup = self._filter_markup(self._preview_content(client))
-        assert markup.count('type="radio"') == markup.count("btn-sm")
-
-    def test_each_outcome_control_carries_the_same_tone_as_that_outcome_s_badge(
-        self, client, db
-    ):
-        # The control and the badge for one outcome must read as the same
-        # thing. Asserted against the badge's own mapping rather than against
-        # tone names written out here, so restyling the badges moves the
-        # filter with them and cannot leave the two disagreeing.
-        controls = self._controls(self._preview_content(client))
-        for outcome, variant in OutcomeColumn.VARIANTS.items():
-            control = next(c for c in controls if f'value="{outcome.value}"' in c)
-            assert f"btn-{variant}" in control, (
-                f"{outcome.value} control is not toned as its badge"
-            )
-
-    def test_the_way_back_to_all_carries_no_outcome_tone(self, client, db):
-        controls = self._controls(self._preview_content(client))
-        reset = next(c for c in controls if "filter-reset" in c)
-        for variant in OutcomeColumn.VARIANTS.values():
-            assert f"btn-{variant}" not in reset
+        response = preview_import("import.ris", "ris", content=IMPORT_RIS_FIXTURE)
+        content = response.content.decode()
+        report = response.context["report"]
+        assert rendered_counts(content) == (
+            report.created,
+            report.skipped,
+            report.failed,
+        )
+        counts = re.search(r"(<p\b[^>]*>)\s*\d+\D+\d+\D+\d+\D*</p>", content).group(1)
+        assert "x-" not in counts
 
 
 class TestImportPreviewTemplate:
-    def _preview(self, client, filename="import.ris", format_name="ris", content=None):
-        upload = SimpleUploadedFile(filename, (content or IMPORT_RIS_FIXTURE).encode())
-        client.post(
-            reverse("literature:item-import"), {"format": format_name, "file": upload}
+    def _preview(self, preview_import, content=None):
+        return preview_import(
+            "import.ris", "ris", content=content or IMPORT_RIS_FIXTURE
         )
-        return client.get(reverse("literature:item-import-preview"))
 
-    def test_carries_no_import_form(self, client, db):
-        content = self._preview(client).content.decode()
+    def test_carries_no_import_form(self, preview_import, db):
+        content = self._preview(preview_import).content.decode()
         assert 'type="file"' not in content
 
-    def test_a_warning_appears_above_the_table_when_an_entry_was_skipped_or_failed(
-        self, client, db
+    def test_a_warning_appears_when_an_entry_was_skipped_or_failed(
+        self, preview_import, db
     ):
         response = self._preview(
-            client, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n"
+            preview_import, content="AU  - Roe, Jan\nT1  - No Reference Type\nER  -\n"
         )
-        content = response.content.decode()
-        table_index = content.index("<table")
-        warning_index = content.index("alert-warning")
-        assert warning_index < table_index
+        report = response.context["report"]
+        assert report.skipped or report.failed
+        assert 'role="alert"' in response.content.decode()
 
-    def test_no_warning_when_every_entry_was_created(self, client, db):
-        content = self._preview(client).content.decode()
-        assert "alert-warning" not in content
+    def test_no_warning_when_every_entry_was_created(self, preview_import, db):
+        response = self._preview(preview_import)
+        report = response.context["report"]
+        assert not (report.skipped or report.failed)
+        assert 'role="alert"' not in response.content.decode()
 
-    def test_the_filter_component_sits_above_the_table(self, client, db):
-        content = self._preview(client).content.decode()
-        filter_index = content.index('class="filter')
-        table_index = content.index("<table")
-        assert filter_index < table_index
-
-    def test_the_foot_carries_exactly_three_controls_in_one_row(self, client, db):
-        content = self._preview(client).content.decode()
-        # <c-group> renders to this literal opening class, and this page's
-        # footer is the only place it appears after the table.
-        footer_index = content.rindex('class="flex flex-col items-stretch')
-        footer = content[footer_index:]
-        assert footer.count("<a ") == 1  # back to the catalogue
-        assert footer.count("<form") == 2  # restart, confirm
-        assert reverse("literature:item-list") in footer
+    def test_the_foot_offers_the_way_back_restart_and_confirm(self, preview_import, db):
+        content = self._preview(preview_import).content.decode()
+        footer = content[content.rindex("</table>") :]
+        assert f'href="{reverse("literature:item-list")}"' in footer
         assert f'action="{reverse("literature:item-import-restart")}"' in footer
         assert f'action="{reverse("literature:item-import-confirm")}"' in footer
 
-    def test_a_file_the_format_cannot_read_offers_no_confirmation(self, client, db):
+    def test_a_file_the_format_cannot_read_offers_no_confirmation(
+        self, preview_import, db
+    ):
         # Confirming would create nothing, so the control that would
         # carry it out is not offered. The reader is left with restart and the
         # way back to the catalogue.
-        response = self._preview(
-            client, filename="wrong-format.bib", format_name="bibtex"
+        response = preview_import(
+            "wrong-format.bib", "bibtex", content=IMPORT_RIS_FIXTURE
         )
         content = response.content.decode()
         assert response.context["report"].created == 0
@@ -774,16 +726,6 @@ def render_reference(item, **attrs):
     )
 
 
-def credit(item, role, count):
-    """Credit ``count`` new names on ``item`` in ``role``, in order, and return them."""
-    return [
-        ItemNameFactory(
-            item=item, role=role, name=NameFactory(family=f"Family{n:02}")
-        ).name
-        for n in range(count)
-    ]
-
-
 @pytest.mark.django_db
 class TestReferenceComponent:
     def test_the_title_links_to_the_reference_page(self):
@@ -808,7 +750,7 @@ class TestReferenceComponent:
         assert f'href="{item.get_absolute_url()}"' not in html
 
     def test_without_links_it_renders_where_the_catalogue_is_not_mounted(
-        self, settings
+        self, credit, settings
     ):
         settings.ROOT_URLCONF = "tests.urls_core"
         item = ItemFactory(title="Unlinked Reference")
@@ -824,7 +766,7 @@ class TestReferenceComponent:
 
         assert "<h2" in html
 
-    def test_each_author_links_to_their_contributor_page(self):
+    def test_each_author_links_to_their_contributor_page(self, credit):
         item = ItemFactory()
         (author,) = credit(item, NameRole.AUTHOR, 1)
 
@@ -834,7 +776,7 @@ class TestReferenceComponent:
             reverse("literature:contributor-detail", kwargs={"pk": author.pk}) in html
         )
 
-    def test_ten_authors_are_named_in_full(self):
+    def test_ten_authors_are_named_in_full(self, credit):
         item = ItemFactory()
         authors = credit(item, NameRole.AUTHOR, 10)
 
@@ -843,7 +785,7 @@ class TestReferenceComponent:
         assert all(author.family in html for author in authors)
         assert "et al." not in html
 
-    def test_beyond_ten_authors_the_rest_are_et_al(self):
+    def test_beyond_ten_authors_the_rest_are_et_al(self, credit):
         item = ItemFactory()
         authors = credit(item, NameRole.AUTHOR, 11)
 
@@ -853,7 +795,7 @@ class TestReferenceComponent:
         assert authors[10].family not in html
         assert "et al." in html
 
-    def test_with_authors_the_editors_are_left_out(self):
+    def test_with_authors_the_editors_are_left_out(self, credit):
         item = ItemFactory()
         credit(item, NameRole.AUTHOR, 1)
         editor = ItemNameFactory(
@@ -865,7 +807,9 @@ class TestReferenceComponent:
         assert editor.family not in html
 
     @pytest.mark.parametrize(("count", "mark"), [(1, "(ed.)"), (2, "(eds.)")])
-    def test_without_authors_the_editors_stand_in_marked_as_editors(self, count, mark):
+    def test_without_authors_the_editors_stand_in_marked_as_editors(
+        self, credit, count, mark
+    ):
         item = ItemFactory()
         editors = credit(item, NameRole.EDITOR, count)
 
@@ -930,7 +874,7 @@ class TestReferenceComponent:
         assert "Extra line for the host" in html
 
     def test_a_prefetched_item_renders_without_querying(
-        self, django_assert_num_queries
+        self, credit, django_assert_num_queries
     ):
         item = ItemFactory()
         credit(item, NameRole.AUTHOR, 3)

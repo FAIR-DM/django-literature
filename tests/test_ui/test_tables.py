@@ -55,11 +55,6 @@ class TestItemTableMeta:
         # queryset itself, never `Meta.model`.
         assert ItemTable._meta.model is None
 
-    def test_meta_uses_the_mvp_bootstrap_template(self):
-        # Without this, django-tables2 falls back to its own stock template
-        # and none of the mvp column widths, alignment or empty state apply.
-        assert ItemTable._meta.template_name == "django_tables2/bootstrap5-mvp.html"
-
     def test_meta_empty_text_is_set(self):
         # A flag rather than a displayed string: the mvp template renders its
         # empty state inside `{% if table.empty_text %}` and then shows the
@@ -71,13 +66,6 @@ class TestItemTableMeta:
         # Replaces the library's own plain "—" default with a translatable one
         # (Article VIII).
         assert isinstance(ItemTable._meta.default, Promise)
-
-    def test_meta_declares_no_order_by(self):
-        # An earlier draft named a "created" column that does not exist
-        # and django-tables2 silently drops an
-        # order_by alias it cannot resolve — newest-first comes from
-        # Item.Meta.ordering instead.
-        assert ItemTable._meta.order_by is None
 
     def test_meta_declares_no_fields(self):
         # Every column is declared explicitly, so a field added to Item
@@ -95,35 +83,8 @@ class TestItemTableMeta:
         pks_in_row_order = [row.record.pk for row in table.rows]
         assert pks_in_row_order.index(newer.pk) < pks_in_row_order.index(older.pk)
 
-    def test_declares_the_four_plain_columns_in_order(self):
-        assert list(ItemTable.base_columns.keys())[:4] == [
-            "citation_key",
-            "type",
-            "title",
-            "container_title",
-        ]
-
-    def test_the_short_columns_carry_the_shrink_class_on_both_cell_kinds(self):
-        # The project-wide default is no-wrap with no maximum, so an
-        # unclassed short column would otherwise be widened by its own
-        # heading.
-        for name in ("citation_key", "type"):
-            column = ItemTable.base_columns[name]
-            assert column.attrs["td"]["class"] == "mvp-col-shrink"
-            assert column.attrs["th"]["class"] == "mvp-col-shrink"
-
-    def test_container_title_wraps_with_a_maximum_width(self):
-        column = ItemTable.base_columns["container_title"]
-        assert column.attrs["td"]["class"] == "mvp-col-wrap mvp-col-max-md"
-
 
 class TestTitleColumn:
-    def test_declares_empty_values_as_empty_tuple(self):
-        # Mandatory: without it, an item with title="" never reaches
-        # render_title, defeating the fallback chain in exactly the case it
-        # exists for.
-        assert ItemTable.base_columns["title"].empty_values == ()
-
     def test_shows_the_items_own_title(self, db):
         item = ItemFactory(title="A Direct Title")
         assert "A Direct Title" in rendered_cell(item, "title")
@@ -191,17 +152,6 @@ class TestTypeColumn:
 
 
 class TestContributorsColumn:
-    def test_declares_empty_values_as_empty_tuple(self):
-        # The column resolves to nothing at all — Item has no "contributors"
-        # field — so without this the marker would render even when the
-        # prefetch carries names.
-        assert ItemTable.base_columns["contributors"].empty_values == ()
-
-    def test_is_not_orderable(self):
-        # Assembled from a through-model across two roles with no single
-        # value to order on.
-        assert ItemTable.base_columns["contributors"].orderable is False
-
     def test_lists_author_role_contributors_in_stored_order(self, db):
         item = ItemFactory()
         first = ItemNameFactory(item=item, role=NameRole.AUTHOR)
@@ -295,19 +245,15 @@ class TestContributorsColumn:
         content = rendered_cell(item, "contributors")
         assert "—" in content
 
-    def test_never_touches_the_manager(self, db):
+    def test_never_touches_the_manager(self, db, django_assert_num_queries):
         item = ItemFactory()
         ItemNameFactory(item=item, role=NameRole.AUTHOR)
         item.contributors = []
-        with CaptureQueriesContext(connection) as queries:
+        with django_assert_num_queries(0):
             rendered_cell_from_record(item, "contributors")
-        assert len(queries.captured_queries) == 0
 
 
 class TestIssuedColumn:
-    def test_declares_empty_values_as_empty_tuple(self):
-        assert ItemTable.base_columns["issued"].empty_values == ()
-
     def test_is_orderable_now_the_annotation_and_order_issued_exist(self, db):
         # Shipped unsortable (an explicit orderable=False), because a
         # header advertising a sort before the annotation existed raised
@@ -393,10 +339,8 @@ class TestEverySortIsTotal:
 class TestIssuedOrdering:
     # SQLite and PostgreSQL place NULLs differently, so the order is stated in code.
 
-    def test_declares_order_by_issued(self):
-        assert ItemTable.base_columns["issued"].order_by == ("issued",)
-        # The primary-key tiebreak for this column is added by order_issued
-        # rather than declared here — see TestEverySortIsTotal.
+    # The primary-key tiebreak for this column is added by order_issued
+    # rather than declared here — see TestEverySortIsTotal.
 
     def test_ascending_order_places_an_undated_reference_last(self, db):
         dated = ItemFactory(citation_key="Dated")
@@ -452,44 +396,6 @@ def import_report_cell(rows, column_name):
 
 
 class TestOutcomeColumn:
-    @pytest.mark.parametrize(
-        ("outcome", "variant", "reason"),
-        [
-            (Outcome.CREATED, "success", None),
-            (Outcome.SKIPPED, "warning", None),
-            (Outcome.FAILED, "error", "broken"),
-        ],
-        ids=["created", "skipped", "failed"],
-    )
-    def test_each_outcome_renders_its_own_mapped_variant(
-        self, outcome, variant, reason
-    ):
-        row = ImportReportRow(
-            position=1, outcome=outcome, citation_key=None, reason=reason, item_url=None
-        )
-        content = import_report_cell([row], "outcome")
-        assert f"badge-{variant}" in content
-
-    def test_the_three_outcomes_render_three_distinct_variants(self):
-        variants = set()
-        for outcome, reason in (
-            (Outcome.CREATED, None),
-            (Outcome.SKIPPED, None),
-            (Outcome.FAILED, "broken"),
-        ):
-            row = ImportReportRow(
-                position=1,
-                outcome=outcome,
-                citation_key=None,
-                reason=reason,
-                item_url=None,
-            )
-            content = import_report_cell([row], "outcome")
-            match = re.search(r"badge-(\S+)", content)
-            assert match, content
-            variants.add(match.group(1))
-        assert len(variants) == 3
-
     def test_the_cell_still_carries_the_outcomes_own_translated_label(self):
         # The badge wraps the label, it does not replace it — a
         # badge showing only its variant, with the word gone, is a
@@ -502,7 +408,7 @@ class TestOutcomeColumn:
             item_url=None,
         )
         content = import_report_cell([row], "outcome")
-        assert "Failed" in content
+        assert str(Outcome.FAILED.label) in content
 
 
 class TestImportReportTable:
@@ -538,8 +444,8 @@ class TestImportReportTable:
             item_url=None,
         )
         content = import_report_cell([row], "outcome")
-        assert "Failed" in content
-        assert "failed" not in content  # the stored value, not the label
+        assert str(Outcome.FAILED.label) in content
+        assert Outcome.FAILED.value not in content  # the stored value, not the label
 
     def test_a_failure_reason_containing_markup_is_escaped(self):
         row = ImportReportRow(

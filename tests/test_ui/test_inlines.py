@@ -144,8 +144,7 @@ class TestItemIdentifierFormSetUniqueness:
         assert not formset.is_valid()
         assert formset.forms[1].errors["type"]
         assert not formset.forms[0].errors
-        # The message names the limit.
-        assert "DOI" in str(formset.forms[1].errors["type"])
+        assert formset.forms[1].has_error("type", code="duplicate_identifier_type")
 
     def test_a_deleted_rows_kind_is_excluded_from_the_collision_check(self, item):
         # Removing one identifier and adding a corrected one of the same
