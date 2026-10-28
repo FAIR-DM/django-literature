@@ -14,6 +14,22 @@ from literature.choices import IdentifierType
 _DOI_RE = re.compile(r"^10\.\d{4,}/\S+$")
 
 
+_DOI_PREFIX_RE = re.compile(
+    r"^\s*(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", re.IGNORECASE
+)
+
+
+def normalize_doi(value: str) -> str:
+    """Return *value* as a bare DOI when it is written as a doi.org URL or ``doi:`` form.
+
+    Any other value is returned unchanged for :func:`validate_doi` to judge.
+
+    Args:
+        value: The DOI as written in the source.
+    """
+    return _DOI_PREFIX_RE.sub("", value, count=1).strip()
+
+
 def validate_doi(value: str) -> None:
     """Validate a DOI string.
 
@@ -132,6 +148,21 @@ def _issn_valid(value: str) -> bool | None:
     digits = value.replace("-", "")
     values = [10 if c.upper() == "X" else int(c) for c in digits]
     return sum(v * (8 - i) for i, v in enumerate(values)) % 11 == 0
+
+
+def normalize_issn(value: str) -> str:
+    """Return an eight-character ISSN with its hyphen restored.
+
+    Any other value is returned unchanged for :func:`validate_issn` to judge, so a
+    number that fails its check digit is still refused.
+
+    Args:
+        value: The ISSN as written in the source.
+    """
+    stripped = value.strip()
+    if re.fullmatch(r"\d{7}[\dX]", stripped, re.IGNORECASE):
+        return f"{stripped[:4]}-{stripped[4:]}"
+    return stripped
 
 
 def validate_issn(value: str) -> None:
