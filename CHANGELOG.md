@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- **`upgrade_literature` and `from_csl_json()` accept the identifier and author forms that Zotero
+  exports carry.** A DOI written as a `doi.org` or `dx.doi.org` link, or with a `doi:` prefix, is
+  stored as the bare DOI. An ISSN written without its hyphen is stored with it when its check digit
+  is valid. A name listed twice under one role is stored once instead of refusing the reference.
+  Values that are not DOIs, or ISSNs that fail their check digit, are still refused.
+
 ## [v0.3.1] - 2026-10-27
 
 ### Fixed

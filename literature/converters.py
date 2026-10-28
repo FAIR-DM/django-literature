@@ -10,6 +10,7 @@ from django.utils.translation import gettext as _
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.utils import parse_date_parts
+from literature.validators import normalize_doi, normalize_issn
 
 logger = logging.getLogger(__name__)
 
@@ -275,7 +276,7 @@ def _citation_key(data: dict) -> str:
     return raw_key
 
 
-def _import_name_variable(data: dict, item: Any, role: str, order: int) -> None:
+def _import_name_variable(data: dict, item: Any, role: str, order: int) -> bool:
     """Create or get a Name and link it to item with the given role and order.
 
     Args:
@@ -283,6 +284,10 @@ def _import_name_variable(data: dict, item: Any, role: str, order: int) -> None:
         item: The Item to link the name to.
         role: The CSL name-variable role (e.g. ``author``, ``editor``).
         order: The name's position within its role.
+
+    Returns:
+        ``True`` if the name was linked, ``False`` if the item already lists this
+        name under this role and nothing was added.
     """
     from literature.models import ItemName, Name
 
@@ -310,9 +315,13 @@ def _import_name_variable(data: dict, item: Any, role: str, order: int) -> None:
     )
     name.full_clean()
 
+    if ItemName.objects.filter(item=item, role=role, name=name).exists():
+        return False
+
     item_name = ItemName(item=item, name=name, role=role, order=order)
     item_name.full_clean()
     item_name.save()
+    return True
 
 
 def _import_date_variable(data: dict, item: Any, date_type: str) -> None:
@@ -436,8 +445,10 @@ def from_csl_json(data: dict, *, pk: int | None = None) -> Any:
 
     for role_key in _NAME_VARIABLE_KEYS:
         names_data = data.get(role_key, [])
-        for order, name_data in enumerate(names_data):
-            _import_name_variable(name_data, item, role_key, order)
+        order = 0
+        for name_data in names_data:
+            if _import_name_variable(name_data, item, role_key, order):
+                order += 1
 
     for date_key in _DATE_VARIABLE_KEYS:
         date_data = data.get(date_key)
@@ -447,7 +458,12 @@ def from_csl_json(data: dict, *, pk: int | None = None) -> Any:
     for id_type in _KNOWN_IDENTIFIER_TYPES:
         value = data.get(id_type)
         if value:
-            ident = ItemIdentifier(item=item, type=id_type, value=str(value))
+            text = str(value)
+            if id_type == IdentifierType.DOI:
+                text = normalize_doi(text)
+            elif id_type == IdentifierType.ISSN:
+                text = normalize_issn(text)
+            ident = ItemIdentifier(item=item, type=id_type, value=text)
             ident.full_clean()
             ident.save()
 

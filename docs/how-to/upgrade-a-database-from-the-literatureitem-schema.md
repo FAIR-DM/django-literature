@@ -32,8 +32,14 @@ reference. If any reference has one, the command stops before changing anything 
 references. Run it again with `--discard-unconverted` to upgrade without them. The files
 themselves stay in your storage.
 
-If a reference cannot be converted, for example because its stored DOI or ISSN is not valid, the
-command changes nothing and lists every such reference with the reason. Correct the JSON in the
+The command accepts the forms that CSL JSON exporters such as Zotero commonly write. A DOI
+written as a `doi.org` or `dx.doi.org` link or with a `doi:` prefix is stored as the bare DOI,
+and an ISSN written without its hyphen is stored with it. A name listed twice under one role is
+stored once.
+
+If a reference cannot be converted, for example because its stored DOI is not a DOI, its ISSN
+fails its check digit, or one field holds several ISSNs or ISBNs (an item stores one identifier of
+each type), the command changes nothing and lists every such reference with the reason. Correct the JSON in the
 `item` column of `literature_literatureitem`, or delete the row, and run it again.
 
 ## Before you start

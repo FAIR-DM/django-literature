@@ -377,6 +377,55 @@ class TestFromCslJson:
         ident = ItemIdentifier.objects.get(item=item, type="arXiv")
         assert ident.value == "2104.00001"
 
+    @pytest.mark.parametrize(
+        "written",
+        [
+            "https://doi.org/10.1029/2023EA003186",
+            "http://dx.doi.org/10.1029/2023EA003186",
+            "doi:10.1029/2023EA003186",
+            "10.1029/2023EA003186",
+        ],
+    )
+    def test_doi_written_as_resolver_url_is_stored_bare(self, written):
+        item = from_csl_json({"type": "article-journal", "id": "Doi1", "DOI": written})
+        assert (
+            ItemIdentifier.objects.get(item=item, type="DOI").value
+            == "10.1029/2023EA003186"
+        )
+
+    @pytest.mark.parametrize(
+        "written", ["https://example.org/10.1029/2023EA003186", "not a doi"]
+    )
+    def test_doi_that_is_not_a_doi_is_still_refused(self, written):
+        with pytest.raises(ValidationError):
+            from_csl_json({"type": "article-journal", "id": "Doi2", "DOI": written})
+
+    def test_issn_without_hyphen_is_stored_hyphenated(self):
+        item = from_csl_json(
+            {"type": "article-journal", "id": "Issn1", "ISSN": "19938233"}
+        )
+        assert ItemIdentifier.objects.get(item=item, type="ISSN").value == "1993-8233"
+
+    @pytest.mark.parametrize("written", ["19938234", "1993-8234", "9780306406157"])
+    def test_issn_that_fails_its_check_is_still_refused(self, written):
+        with pytest.raises(ValidationError):
+            from_csl_json({"type": "article-journal", "id": "Issn2", "ISSN": written})
+
+    def test_name_repeated_under_one_role_is_stored_once(self):
+        item = from_csl_json(
+            {
+                "type": "book",
+                "id": "Dup1",
+                "author": [
+                    {"family": "Ng", "given": "Ada"},
+                    {"family": "Ng", "given": "Ada"},
+                    {"family": "Lee", "given": "Bo"},
+                ],
+            }
+        )
+        rows = ItemName.objects.filter(item=item, role="author").order_by("order")
+        assert [(r.name.family, r.order) for r in rows] == [("Ng", 0), ("Lee", 1)]
+
     def test_categories_imported(self):
         item = from_csl_json(
             {
