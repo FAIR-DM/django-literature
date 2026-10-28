@@ -78,7 +78,7 @@ class BibTeXFormat(BibFormat):
     label = _("BibTeX")
 
     def parse(self, file):
-        for block in iter_bibtex_blocks(file):   # yields, one at a time
+        for block in iter_bibtex_blocks(file):  # yields, one at a time
             yield block
 
     def handle_for(self, raw):

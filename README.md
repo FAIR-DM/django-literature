@@ -437,24 +437,26 @@ the secret key is a throwaway value committed in `demo/settings.py`. Do not depl
 ```python
 from literature.converters import from_csl_json
 
-item = from_csl_json({
-    "id": "Jennings2019",
-    "type": "article-journal",
-    "title": "A new compositionally based thermal conductivity model",
-    "author": [
-        {"family": "Jennings", "given": "S"},
-        {"family": "Hasterok", "given": "D"},
-    ],
-    "issued": {"date-parts": [[2019, 8, 16]]},
-    "DOI": "10.1093/gji/ggz376",
-    "container-title": "Geophysical Journal International",
-    "volume": "219",
-    "issue": "2",
-    "page": "1377-1394",
-})
+item = from_csl_json(
+    {
+        "id": "Jennings2019",
+        "type": "article-journal",
+        "title": "A new compositionally based thermal conductivity model",
+        "author": [
+            {"family": "Jennings", "given": "S"},
+            {"family": "Hasterok", "given": "D"},
+        ],
+        "issued": {"date-parts": [[2019, 8, 16]]},
+        "DOI": "10.1093/gji/ggz376",
+        "container-title": "Geophysical Journal International",
+        "volume": "219",
+        "issue": "2",
+        "page": "1377-1394",
+    }
+)
 
 print(item.citation_key)  # "Jennings2019"
-print(item.title)         # "A new compositionally based thermal conductivity model"
+print(item.title)  # "A new compositionally based thermal conductivity model"
 ```
 
 ### Export to CSL JSON
@@ -557,7 +559,8 @@ either. They are stored on the item under `custom["bibtex"]` and can be read bac
 
 ```python
 item = result.created[0].item
-print(item.custom["bibtex"])   # {'file': ':papers/curie1898.pdf:PDF', 'owner': 'sam', ...}
+# {'file': ':papers/curie1898.pdf:PDF', 'owner': 'sam', ...}
+print(item.custom["bibtex"])
 ```
 
 [What maps to what](https://fair-dm.github.io/django-literature/reference/bibtex-mapping.html) is
@@ -584,7 +587,7 @@ own bookkeeping fields:
 
 ```python
 item = result.created[0].item
-print(item.custom["ris"])   # {'C7': 'e70142', 'N1': 'Funding: NIH grant R01-GM12345'}
+print(item.custom["ris"])  # {'C7': 'e70142', 'N1': 'Funding: NIH grant R01-GM12345'}
 ```
 
 [What maps to what](https://fair-dm.github.io/django-literature/reference/ris-mapping.html) is

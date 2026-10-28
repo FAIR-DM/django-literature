@@ -227,7 +227,7 @@ class Meta:
 ### `order_with_respect_to`
 
 ```python
-order_with_respect_to = ('item', 'role')
+order_with_respect_to = ("item", "role")
 ```
 
 This means ordering is scoped: names are ordered independently per item AND per role. Author order on Item A is separate from editor order on Item A.

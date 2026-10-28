@@ -62,7 +62,7 @@ guarantees that step existed to keep; see ADR-0006 and ADR-0007's 2026-08-04 ame
 ```python
 class BibFormat(abc.ABC):
     name: ClassVar[str]
-    label: ClassVar[str]          # translatable
+    label: ClassVar[str]  # translatable
 
     @abc.abstractmethod
     def parse(self, file) -> Iterator[Any]: ...
@@ -77,7 +77,9 @@ class BibFormat(abc.ABC):
     def import_file(self, file, *, dry_run: bool = False) -> ImportResult: ...
     def import_entries(self, entries, *, dry_run: bool) -> list[EntryResult]: ...
     def import_entry(self, raw: Any, index: int, *, dry_run: bool) -> EntryResult: ...
-    def get_result(self, entries: list[EntryResult], *, dry_run: bool) -> ImportResult: ...
+    def get_result(
+        self, entries: list[EntryResult], *, dry_run: bool
+    ) -> ImportResult: ...
     def entry_created(self, *, index, handle, item, dry_run) -> EntryResult: ...
     def entry_skipped(self, *, index, handle) -> EntryResult: ...
     def entry_failed(self, *, index, handle, reason) -> EntryResult: ...
@@ -179,10 +181,10 @@ under `name`, or raises `UnknownFormat` naming what *is* configured.
 ```python
 result = get_format("bibtex")().import_file(handle)
 
-result.ok                # nothing failed
-result.dry_run           # did this write anything
-result.format_name       # the format's own name — always set
-len(result.entries)      # one per entry in the file
+result.ok  # nothing failed
+result.dry_run  # did this write anything
+result.format_name  # the format's own name — always set
+len(result.entries)  # one per entry in the file
 
 for entry in result.failed:
     print(entry.index, entry.handle, entry.reason)
