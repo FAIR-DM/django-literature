@@ -126,7 +126,7 @@ DEP003 = ["literature"]
 name = "django-literature"
 description = "A Django app for storing, managing, and converting bibliographic references using the CSL JSON 1.0.2 standard"
 license = "MIT"
-version = "0.3.1"
+version = "0.3.2"
 readme = "README.md"
 authors = [{ name = "Sam Jennings", email = "samuel.scott.jennings@gmail.com" }]
 requires-python = '>=3.11,<4.0'
