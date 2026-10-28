@@ -136,10 +136,10 @@ class ItemName(OrderedModel):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     name = models.ForeignKey(Name, on_delete=models.CASCADE)
     role = models.CharField(choices=NAME_ROLE_CHOICES)
-    order_with_respect_to = ('item', 'role')
+    order_with_respect_to = ("item", "role")
 
     class Meta:
-        ordering = ('item', 'role', 'order')
+        ordering = ("item", "role", "order")
 ```
 
 This ensures names are ordered independently per role per item — exactly matching CSL JSON semantics where `author: [A, B, C]` and `editor: [D, E]` have separate orderings.

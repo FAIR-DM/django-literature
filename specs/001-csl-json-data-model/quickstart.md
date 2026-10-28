@@ -137,7 +137,7 @@ csl_data = {
 
 item = from_csl_json(csl_data)
 print(item.citation_key)  # "Jennings2019"
-print(item.title)          # "A new compositionally based thermal conductivity model"
+print(item.title)  # "A new compositionally based thermal conductivity model"
 ```
 
 ### Batch Import
@@ -162,6 +162,7 @@ item = Item.objects.get(citation_key="Jennings2019")
 csl_dict = to_csl_json(item)
 
 import json
+
 print(json.dumps(csl_dict, indent=2))
 ```
 
@@ -206,6 +207,7 @@ Item.objects.filter(
 
 # Items published in 2019
 from partial_date import PartialDate
+
 Item.objects.filter(
     dates__date_type="issued",
     dates__begin__gte=PartialDate("2019"),

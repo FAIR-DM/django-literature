@@ -142,12 +142,14 @@ Update `ItemName` to inherit from `OrderedModelBase` with `order_field_name = "o
 ```python
 from ordered_model.admin import OrderedTabularInline, OrderedInlineModelAdminMixin
 
+
 class ItemNameInline(OrderedTabularInline):
     model = ItemName
     fields = ("name", "role", "order", "move_up_down_links")
     readonly_fields = ("order", "move_up_down_links")
     ordering = ("order",)
     extra = 1
+
 
 class ItemAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
     inlines = [ItemNameInline, ...]

@@ -130,10 +130,11 @@ Required additions to the class body:
 ```python
 from ordered_model.models import OrderedModelBase
 
+
 class ItemName(OrderedModelBase):
     # ... existing fields unchanged ...
-    order_field_name = "order"          # maps to existing PositiveIntegerField
-    order_with_respect_to = "item"      # ordering scoped per item (flat global position)
+    order_field_name = "order"  # maps to existing PositiveIntegerField
+    order_with_respect_to = "item"  # ordering scoped per item (flat global position)
 ```
 
 No schema change is required — the `order` field already exists. The change adds a custom `OrderedModelManager`, which Django migrations will detect; a new (non-destructive) migration must be generated with `makemigrations`.
