@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [v0.3.2] - 2026-10-28
+
 ### Fixed
 
 - **`upgrade_literature` and `from_csl_json()` accept the identifier and author forms that Zotero
