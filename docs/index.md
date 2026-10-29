@@ -102,6 +102,18 @@ With the web interface installed and its URLs mounted at `catalogue/`, open
 - The [web interface](ui/index.md) section covers the catalogue and its pages.
 - The [reference](reference/index.md) describes every model, setting, page and Python API entry.
 
+## About the project
+
+Three documents in the repository set out what the package is for and how it is built:
+
+- [Goals](https://github.com/FAIR-DM/django-literature/blob/main/GOALS.md): the directions the package works toward, and how important each one is.
+- [Domain model](https://github.com/FAIR-DM/django-literature/blob/main/CONTEXT.md): the names the package gives to things, such as item,
+  contributor and citation key, and what each one means. Read it before writing about the package
+  or proposing a change.
+- [Constitution](https://github.com/FAIR-DM/django-literature/blob/main/CONSTITUTION.md): the rules every change to the package follows.
+
+What changed in each release is in the [changelog](https://github.com/FAIR-DM/django-literature/blob/main/CHANGELOG.md).
+
 ## Support
 
 Report a bug or ask for a feature on the

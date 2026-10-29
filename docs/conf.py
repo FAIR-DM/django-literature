@@ -37,7 +37,7 @@ html_theme_options["navbar_align"] = "left"  # noqa: F405
 # The changelog lives in the repository and is linked, never copied into the site.
 html_theme_options["external_links"] = [  # noqa: F405
     {
-        "name": "Release notes",
+        "name": "Changelog",
         "url": "https://github.com/FAIR-DM/django-literature/blob/main/CHANGELOG.md",
     },
 ]
