@@ -1,8 +1,8 @@
 # The catalogue
 
-The front end's catalogue lists every stored reference, with a page for each reference and each
+The web interface's catalogue lists every stored reference, with a page for each reference and each
 contributor, and pages to add, edit, delete and import references. It is live as soon as the
-front end's URLs are mounted, as described in [Installing the front end](front-end.md).
+web interface's URLs are mounted, as described in [Installing the web interface](installation.md).
 
 ## Choose the table or the cards
 
@@ -63,10 +63,10 @@ The form is laid out in four tabs:
 Choosing a type shows only the sections, dates and roles that kind of reference usually carries,
 with toggles to show the rest. Nothing is dropped by choosing a narrower type. Why the form works
 this way is explained in [Field groups](../topics/field-groups.md), and every field is listed in
-[Add and edit form](../reference/add-and-edit-form.md).
+[Add and edit form](add-and-edit-form.md).
 
 To import references from a file instead, see
-[Import a bibliography file from the front end](importing.md#import-a-bibliography-file-from-the-front-end).
+[Importing a file](import-pages.md).
 
 ## Control who can change the catalogue
 

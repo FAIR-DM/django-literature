@@ -1,9 +1,9 @@
 # Installation
 
 Django Literature is two apps that ship together. The core, `literature`, holds the models and the
-converters and pulls in no front end. This page installs the core. The front end, `literature.ui`,
+converters and pulls in no web interface. This page installs the core. The web interface, `literature.ui`,
 adds the catalogue and its pages, and is installed on top of it as described in
-[Installing the front end](front-end.md).
+[Installing the web interface](../ui/installation.md).
 
 The core needs Python 3.11 or later and Django 4.2 or later.
 

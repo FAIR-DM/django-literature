@@ -7,8 +7,6 @@ The models, settings, pages, file mappings and Python API, described entry by en
 
 data-model
 settings
-add-and-edit-form
-import-pages
-conversion/index
+format-mapping/index
 api/index
 ```

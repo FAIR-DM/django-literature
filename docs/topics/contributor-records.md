@@ -1,7 +1,7 @@
 # Contributor records
 
 A contributor is stored as a name record, credited on a reference in a role. This page covers why
-entering a contributor on the [add and edit form](../reference/add-and-edit-form.md) never links to
+entering a contributor on the [add and edit form](../ui/add-and-edit-form.md) never links to
 a record the catalogue already holds, and what that leaves behind. How names and roles are modelled
 is recorded in [ADR 0003](../adr/0003-names-are-role-neutral-and-shared.md).
 

@@ -59,7 +59,7 @@ either is merged over that default. Both inherit that default and the restrictio
 constant `filter_by` and `exclude_by` conditions. `item_label` names a reference the same way in the
 control and in the search results: its title or citation key, its year and its first contributor.
 How to use them is in
-[The reference picker](../../guide/picker.md).
+[The reference picker](../../ui/picker.md).
 
 ```{eval-rst}
 .. automodule:: literature.ui.picker
@@ -128,7 +128,7 @@ The routes these views are reachable at, all within the `literature` namespace:
 - `literature:item-import-restart` — discard the staged file and start again.
 - `literature:item-import-confirm` — carry out the previewed import.
 
-See [Importing a bibliography file](../import-pages.md) for what a
+See [Importing a bibliography file](../../ui/import-pages.md) for what a
 reader sees.
 
 ### Permissions

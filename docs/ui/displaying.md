@@ -15,8 +15,8 @@ does not hold is left out, so a reference with only a title shows only its title
 
 ## Set up the component
 
-The component belongs to the front end, so the project needs `literature.ui` in `INSTALLED_APPS`
-and django-cotton set up, as described in [Installing the front end](front-end.md). Mounting
+The component belongs to the web interface, so the project needs `literature.ui` in `INSTALLED_APPS`
+and django-cotton set up, as described in [Installing the web interface](installation.md). Mounting
 the catalogue's URLs is optional. Without them, turn the links off, as described below.
 
 ## Show one reference

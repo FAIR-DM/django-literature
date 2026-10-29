@@ -1,4 +1,4 @@
-# Conversion
+# Format mapping
 
 How each bibliography format's entry types and fields become CSL JSON item types and variables.
 

@@ -2,7 +2,8 @@
 
 Django Literature imports references from CSL JSON, BibTeX and RIS. CSL JSON is read by the
 converters, record by record. BibTeX and RIS files are read by import formats, which report what
-happened to every entry, and can be run from code or from the front end's import page. New formats
+happened to every entry. People using the web interface can also import a file from the
+catalogue, as described in [Importing a file](../ui/import-pages.md). New formats
 can be added.
 
 ## Import CSL JSON
@@ -93,29 +94,8 @@ for entry in result.failed:
 ```
 
 A name that is not configured raises `UnknownFormat`. How BibTeX and RIS fields land in the models
-is listed in the [BibTeX mapping](../reference/conversion/bibtex.md) and the
-[RIS mapping](../reference/conversion/ris.md).
-
-## Import a bibliography file from the front end
-
-With the front end installed, people holding the `literature.add_item` permission can import from
-the catalogue:
-
-1. On the table catalogue, choose **Import** at the end of the toolbar.
-2. Choose the file's format, attach the file, and submit. The format is chosen, never worked out
-   from the file.
-3. Read the preview. It lists every entry with what would happen to it: created, skipped or failed,
-   with a reason for each skip and failure. Choose an outcome's button above the table to see only
-   those entries.
-4. Choose **Confirm import**, or **Restart import** to start again with another file.
-
-Tick "Skip the preview and import immediately" at step 2 to import in one step. You return to the
-catalogue with a message saying how many entries were created, skipped and failed.
-
-Nothing checks whether a file has already been imported, so importing the same file twice creates
-its references twice. The card catalogue has no Import action, so a project serving the catalogue
-as cards links to the `literature:item-import` route from its own navigation. Every page and
-control is described in [Import pages](../reference/import-pages.md).
+is listed in the format mapping for [BibTeX](../reference/format-mapping/bibtex.md) and
+[RIS](../reference/format-mapping/ris.md).
 
 ## Add an import format
 

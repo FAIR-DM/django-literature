@@ -139,4 +139,4 @@ items = Item.objects.prefetch_related("item_identifiers", "item_dates")
 ```
 
 To show the whole reference rather than single values, use the component described in
-[Displaying references](displaying.md).
+[Displaying references](../ui/displaying.md).

@@ -1,4 +1,4 @@
-# RIS mapping
+# RIS
 
 What this package makes of a `.ris` file: which reference type becomes which CSL item
 type, and which tag becomes which CSL variable, contributor role, date or identifier. One

@@ -1,6 +1,6 @@
 # Add and edit form
 
-The form the front end's add and edit pages share, `literature.ui.forms.ItemForm` with its
+The form the web interface's add and edit pages share, `literature.ui.forms.ItemForm` with its
 contributor and identifier sets. It has four tabs: Reference, Contributors, Identifiers and More.
 Why a reference's type decides which sections are shown is in
 [Field groups](../topics/field-groups.md).

@@ -12,8 +12,8 @@ passed in.
 
 ## Set up the picker
 
-The picker belongs to the front end, so the project needs `literature.ui` installed and its URLs
-mounted, as described in [Installing the front end](front-end.md). The search is one of the
+The picker belongs to the web interface, so the project needs `literature.ui` installed and its URLs
+mounted, as described in [Installing the web interface](installation.md). The search is one of the
 catalogue's routes, so a project that has mounted the catalogue already has it.
 
 django-tomselect arrives with the `ui` extra. Two lines in your settings let it draw a control:

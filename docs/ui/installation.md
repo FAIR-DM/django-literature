@@ -1,11 +1,11 @@
-# Installing the front end
+# Installing the web interface
 
-The front end, `literature.ui`, adds a catalogue of every stored reference, a page for each
+The web interface, `literature.ui`, adds a catalogue of every stored reference, a page for each
 reference and each contributor, pages to add, edit, delete and import references, and a reference
 picker for your own forms. It is built on [django-mvp](https://github.com/django-mvp) and installed
-on top of the core, so [install the core](installation.md) first.
+on top of the core, so [install the core](../developer/installation.md) first.
 
-The front end needs Python 3.12 or later and Django 5.2 or later. A project on an older Python or
+The web interface needs Python 3.12 or later and Django 5.2 or later. A project on an older Python or
 Django keeps the core and cannot install the extra.
 
 ## Steps
@@ -113,7 +113,7 @@ no view, template or styling left for you to write.
 
 ## The page shell
 
-The front end's pages extend a template named `base.html`. django-mvp ships a default, so a
+The web interface's pages extend a template named `base.html`. django-mvp ships a default, so a
 project with none still gets a working shell. A `base.html` in your own template directory is found
 first and takes over.
 

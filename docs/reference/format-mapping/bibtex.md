@@ -1,4 +1,4 @@
-# BibTeX mapping
+# BibTeX
 
 What this package makes of a `.bib` file: which entry type becomes which
 CSL item type, and which field becomes which CSL variable. Both dialects are

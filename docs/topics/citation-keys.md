@@ -3,7 +3,7 @@
 A citation key is the short name a reference is cited by in a manuscript, such as `Jennings2019`.
 This page covers why the package stores a key exactly as it arrives and never keeps keys distinct.
 How the BibTeX and RIS importers find or make a key is in their mappings,
-[BibTeX](../reference/conversion/bibtex.md) and [RIS](../reference/conversion/ris.md).
+[BibTeX](../reference/format-mapping/bibtex.md) and [RIS](../reference/format-mapping/ris.md).
 
 ## A key is stored as given
 
