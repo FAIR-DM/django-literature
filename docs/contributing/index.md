@@ -3,6 +3,10 @@
 How the package is developed: the standards every change follows, the decisions behind its design,
 and what is planned next.
 
+Everyone taking part in the project, in issues, pull requests and discussions, follows the
+[FAIR-DM code of conduct](https://github.com/FAIR-DM/.github/blob/main/CODE_OF_CONDUCT.md).
+Report a problem to [developers@fairdm.org](mailto:developers@fairdm.org).
+
 ```{toctree}
 :caption: Standards
 :maxdepth: 1

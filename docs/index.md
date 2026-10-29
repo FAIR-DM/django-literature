@@ -118,7 +118,9 @@ What changed in each release is in the [changelog](https://github.com/FAIR-DM/dj
 
 Report a bug or ask for a feature on the
 [issue tracker](https://github.com/FAIR-DM/django-literature/issues). See
-[Contributing](contributing/index.md) for how to run the tests and work on the package.
+[Contributing](contributing/index.md) for how to run the tests and work on the package. Everyone
+taking part follows the
+[code of conduct](https://github.com/FAIR-DM/.github/blob/main/CODE_OF_CONDUCT.md).
 
 ## Licence
 
