@@ -1964,10 +1964,11 @@ class TestPublishedMapping:
             Path(__file__).parent.parent.parent
             / "docs"
             / "reference"
-            / "ris-mapping.md"
+            / "format-mapping"
+            / "ris.md"
         ).read_text(encoding="utf-8")
         assert published == _mapping_document(), (
-            "docs/reference/ris-mapping.md is stale — regenerate it from literature.importers.ris._mapping_document()"
+            "docs/reference/format-mapping/ris.md is stale — regenerate it from literature.importers.ris._mapping_document()"
         )
 
     def test_every_reference_type_row_appears(self):

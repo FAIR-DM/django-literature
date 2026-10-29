@@ -510,11 +510,12 @@ def _mapping_document() -> str:
     """Render the field and entry-type mapping as a Markdown document.
 
     Private, because a documentation generator does not belong in the import
-    contract's public surface. Regenerate ``docs/reference/bibtex-mapping.md`` after
-    changing any table above::
+    contract's public surface. Regenerate
+    ``docs/reference/format-mapping/bibtex.md`` after changing any table above::
 
         uv run python -c "from literature.importers.bibtex import _mapping_document; \
-            open('docs/reference/bibtex-mapping.md','w').write(_mapping_document())"
+            open('docs/reference/format-mapping/bibtex.md', 'w').write(
+                _mapping_document())"
 
     A test asserts the file on disk still matches.
 
@@ -522,7 +523,7 @@ def _mapping_document() -> str:
         The Markdown page.
     """
     lines = [
-        "# BibTeX mapping",
+        "# BibTeX",
         "",
         "What this package makes of a `.bib` file: which entry type becomes which",
         "CSL item type, and which field becomes which CSL variable. Both dialects are",
