@@ -100,7 +100,6 @@ With the web interface installed and its URLs mounted at `catalogue/`, open
 - The [developer guide](developer/index.md) covers using the package from Python, starting with
   [installation](developer/installation.md).
 - The [web interface](ui/index.md) section covers the catalogue and its pages.
-- [Topics](topics/index.md) explain why the package works the way it does.
 - The [reference](reference/index.md) describes every model, setting, page and Python API entry.
 
 ## Support
@@ -120,7 +119,6 @@ Django Literature is released under the
 Home <self>
 developer/index
 ui/index
-topics/index
 reference/index
 release-notes
 contributing/index

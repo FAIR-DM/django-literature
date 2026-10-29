@@ -57,7 +57,7 @@ Every other scalar CSL JSON field is represented. See the
 
 `citation_key` is **not** declared with `unique=True`, and nothing in the package keeps keys
 distinct, so two references may carry the same key. See
-[Citation keys](../topics/citation-keys.md).
+[Why citation keys may repeat](../developer/references.md#why-citation-keys-may-repeat).
 
 ---
 

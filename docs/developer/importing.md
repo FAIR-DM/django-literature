@@ -64,7 +64,7 @@ with open("references.json") as f:
 ```
 
 The citation key is stored as given, even when another reference already has it. See
-[Citation keys](../topics/citation-keys.md).
+[Why citation keys may repeat](references.md#why-citation-keys-may-repeat).
 
 ## Import a bibliography file in code
 

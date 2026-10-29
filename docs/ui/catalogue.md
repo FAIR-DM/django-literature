@@ -62,7 +62,7 @@ The form is laid out in four tabs:
 
 Choosing a type shows only the sections, dates and roles that kind of reference usually carries,
 with toggles to show the rest. Nothing is dropped by choosing a narrower type. Why the form works
-this way is explained in [Field groups](../topics/field-groups.md), and every field is listed in
+this way is explained in [Add and edit form](add-and-edit-form.md#why-the-form-shows-different-fields-for-each-type), and every field is listed in
 [Add and edit form](add-and-edit-form.md).
 
 To import references from a file instead, see
