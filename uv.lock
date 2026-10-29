@@ -1005,7 +1005,7 @@ wheels = [
 [[package]]
 name = "fairdm-docs"
 version = "0.0.1"
-source = { git = "https://github.com/FAIR-DM/fairdm-docs#1a87720020bba0aa943de4d6be37cf70f4b0a0df" }
+source = { git = "https://github.com/FAIR-DM/fairdm-docs#11b716547003375ee39f2b5b8f12f958f2f12051" }
 dependencies = [
     { name = "docutils" },
     { name = "jinja2" },
