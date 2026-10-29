@@ -95,338 +95,13 @@ Apply migrations:
 python manage.py migrate
 ```
 
-### Installing the front end
-
-`literature.ui` is a second, opt-in app that adds a catalogue list page, a reference page and a
-contributor page over whatever the core already stores, plus pages to add, edit and remove a
-reference by hand. It is not required by the core and it is
-not installed by default. It needs Python 3.12 or later and Django 5.2 or later, floors the core
-does not share, so a project on an older Python or Django keeps the core available and simply
-cannot resolve the extra.
-
-```bash
-pip install django-literature[ui]
-```
-
-Add the following to `INSTALLED_APPS`, in this order, alongside `literature`:
-
-```python
-# settings.py
-INSTALLED_APPS = [
-    # ...
-    "literature",
-    "django.contrib.sites",
-    "django.contrib.staticfiles",
-    "django_cotton",
-    "easy_icons",
-    "flex_menu",
-    "django_tables2",
-    "django_filters",
-    "mvp",
-    "daisy_cotton",
-    "crispy_forms",
-    "mvp_forms",
-    "django_tomselect",
-    "literature.ui",
-]
-```
-
-`daisy_cotton` comes directly after `mvp`, because both ship an `icon` component and the first app
-listed wins. `crispy_forms`, `mvp_forms` and `daisy_cotton` arrive with django-mvp as hard
-dependencies, so listing them installs nothing extra. `django_tomselect` comes after `mvp_forms`, so
-that django-mvp-forms' template for its controls wins; the `ui` extra installs it, and it draws the
-reference picker.
-
-The add, edit and delete pages render through crispy-forms with the `daisyui` template pack from
-django-mvp-forms. crispy-forms needs the pack chosen before anything renders. With neither setting
-below in place, the first form page raises an error rather than falling back to a default:
-
-```python
-# settings.py
-CRISPY_TEMPLATE_PACK = "daisyui"
-CRISPY_ALLOWED_TEMPLATE_PACKS = ["daisyui"]
-```
-
-### The page shell
-
-django-mvp's packaged pages extend a template named `base.html`, which is the shell a project
-writes for itself. django-mvp ships a default, so a project that has none still gets a working
-shell rather than `TemplateDoesNotExist`. A project that writes its own `base.html` takes over with
-nothing else to change, since a project's template directory is searched before any app's.
-
-The UI app is built on [django-mvp](https://github.com/django-mvp), which needs a few settings of
-its own before a page renders. `mvp/base.html`, the shell every page extends, loads its stylesheet
-through `{% static %}` unconditionally, so having `django.contrib.staticfiles` installed is not
-enough on its own:
-
-```python
-STATIC_URL = "static/"
-```
-
-Every icon the shell renders resolves through django-easy-icons. Without a default renderer
-configured, opening any page in the UI app raises `ImproperlyConfigured`:
-
-```python
-EASY_ICONS = {
-    "default": {
-        "renderer": "easy_icons.renderers.ProviderRenderer",
-        "config": {"tag": "i"},
-        "packs": ["mvp.utils.BS5_ICONS"],
-    },
-}
-```
-
-The shell's sidebar and mobile navigation are rendered by django-flex-menus, which raises
-`ValueError` at render time without renderers configured:
-
-```python
-FLEX_MENUS = {
-    "renderers": {
-        "sidebar": "mvp.renderers.SidebarRenderer",
-        "dock": "mvp.renderers.MobileFooterNavRenderer",
-    },
-}
-```
-
-The shell also reads the current site, through `django.contrib.sites` and the `mvp_config` context
-processor:
-
-```python
-TEMPLATES = [
-    {
-        # ...
-        "OPTIONS": {
-            "context_processors": [
-                # ...
-                "mvp.context_processors.mvp_config",
-            ],
-        },
-    },
-]
-
-SITE_ID = 1
-```
-
-Pages render without it, but the site name is part of every page title, and reaching it needs the
-matching middleware:
-
-```python
-MIDDLEWARE = [
-    # ...
-    "django.contrib.sites.middleware.CurrentSiteMiddleware",
-    "django_tomselect.middleware.TomSelectMiddleware",
-]
-```
-
-`TomSelectMiddleware` lets django-tomselect's controls read the request they are drawn for. The
-reference picker below needs it.
-
-Then include the app's URLs at whatever prefix the project wants:
-
-```python
-# urls.py
-from django.urls import include, path
-
-urlpatterns = [
-    # ...
-    path("catalogue/", include("literature.ui.urls")),
-]
-```
-
-The routes are namespaced `literature`, so a template reverses them as `{% url 'literature:item-list' %}`
-and `{% url 'literature:item-detail' pk=item.pk %}`.
-
-One route the shell expects is the project's own. django-mvp's mobile navigation carries a Home
-item pointing at a view named `home`, and the shell renders that navigation on every page, so a
-project without a route of that name gets a reversal warning on each render and a Home button that
-goes nowhere. Point it wherever your project's front door is:
-
-```python
-# urls.py
-from django.views.generic import RedirectView
-
-urlpatterns = [
-    # ...
-    path("", RedirectView.as_view(pattern_name="literature:item-list"), name="home"),
-]
-```
-
-That is every step. Once the URLs are included, the catalogue list, the reference page and the
-contributor page are live. No view, template, URL pattern, or line of styling is left for the host
-to write.
-
-### The catalogue: a table by default, cards if you prefer
-
-With no further configuration, the catalogue route above serves references as a table — one row per
-reference, carrying its citation key, item type, title, the journal or book it appeared in, its
-credited names and its issued date, with a click to sort on every column heading but the credited
-names. A row's title opens the reference's page, where it is edited. That is what a project
-managing its own library gets out of the box.
-
-The card presentation the package served before the table existed is still there: `ItemListView`,
-reachable the same way as ever, one reference per card rather than per row, searching and filtering
-the same set of references the table does. The contributor page keeps a plain, unfiltered version of
-it regardless of which view backs the catalogue, since a contributor's credited works read better as
-cards than as a table of one person's output. A project building a public-facing reading list, rather
-than a tool for managing one, can prefer the card presentation for the catalogue too.
-
-Selecting it is a settings change, under the same namespaced `LITERATURE` key the format registry
-uses:
-
-```python
-# settings.py
-LITERATURE = {
-    "CATALOGUE_VIEW": "literature.ui.views.ItemListView",
-}
-```
-
-The value is a dotted path rather than a two-way switch, so a project that has subclassed either
-view — to add a column, change the page size, or narrow the queryset — can name its own class there
-instead.
-
-Everything else about the front end is unchanged: the route keeps the name `literature:item-list`, so
-every breadcrumb, redirect and link that reverses it keeps working, and the create, edit and delete
-pages are unaffected either way.
-
-Sorting the table by item type orders by the type's stored value, not by the translated label shown
-in the column — the label reads differently in every language the catalogue is served in, and the
-order behind it does not change with it.
-
-### Searching and filtering the catalogue
-
-Both presentations carry a search box and three filters, reading from one shared definition, so a
-narrowed catalogue returns the same references whichever route serves it. On the table the search
-box and every filter sit together in the toolbar, each filter a dropdown. On the card list the
-search box sits in the toolbar and the filters open in a drawer from a Filters button, at every
-screen width. Applying a filter, removing one or moving to another page updates the list without
-reloading the page.
-
-The search box matches a fragment, case-insensitively, against a reference's citation key, its
-title, short title and original title, the container it appeared in, and every credited
-contributor's name. It deliberately does not reach a reference's abstract or its keywords: that text
-runs much longer, and searching it well needs different infrastructure than a fast, predictable
-lookup over a handful of short fields.
-
-The three filters narrow on:
-
-- **Type** — the kind of reference: an article, a book, a dataset, and so on. Several can be ticked
-  at once.
-- **Year** — the year a reference's issued date falls in, including a reference whose date covers a
-  range beginning that year. It offers the years the catalogue's issued dates fall in, newest
-  first. A reference with no issued date never matches a year.
-- **Language** — whichever language values the catalogue actually holds, offered as a chooser built
-  from the stored data rather than a fixed list a project has to keep in sync with it.
-
-The table leaves Year or Language out of its toolbar when the catalogue holds nothing for it to
-offer, such as Language when no reference records one.
-
-There is no contributor filter. To find everything a person is credited on, search their name: the
-search box matches every contributor's family, given and literal name, in any role.
-
-Choosing more than one value within a single filter widens what it accepts — an article or a book.
-A search term and a filter, or two different filters, narrow further — an article, published in
-2019. A filter value that matches no reference, such as a year no reference was issued in, returns
-no results. A value a filter cannot accept, such as a year that is not a number, is ignored for that
-filter alone, and the search and the other filters still apply.
-
-A search, every filter, the chosen sort and the current page all live in the address, so moving to
-another page, changing the sort, or bookmarking the address and reopening it later keeps every one
-of them in force.
-
-### Adding, editing and removing a reference
-
-The catalogue list carries an Add action, and a reference page carries Edit and Delete actions.
-Between them, a reference can be entered by hand, corrected, and removed without leaving the front
-end. Each opens a route under the same `literature:` namespace: `literature:item-create`,
-`literature:item-update` and `literature:item-delete`.
-
-The form is laid out in four tabs:
-
-- **Reference**: the type, citation key and title, the sections the chosen type uses, the dates,
-  and the abstract and keywords.
-- **Contributors**: one list per role.
-- **Identifiers**: a DOI, an ISBN, a URL and any other identifier.
-- **More**: notes, an annotation, alternate titles and where the reference was catalogued.
-
-The form scopes itself to the reference's type: choosing a type reveals only the sections, dates and
-contributor roles that kind of reference typically carries, with toggles to show the rest. Nothing
-is ever dropped by choosing a narrower type: every field stays part of the form and keeps whatever
-value it already holds, whether or not its section is currently shown. A form sent back with errors
-lists every one of them above the tabs, each linking to its field.
-
-The type, identifier type and keyword controls are Tom Select controls, and the form page loads Tom
-Select from jsDelivr. Without it they are plain selects and the form still works.
-
-Each of these pages requires Django's model permission for what it does: `literature.add_item` to
-add, `literature.change_item` to edit and `literature.delete_item` to delete. A visitor who is not
-signed in is sent to your project's `LOGIN_URL`, and a signed-in user without the permission is
-refused. The Add, Edit and Delete actions are only shown to users who hold the permission behind
-them. Grant the three permissions to a group for the people who maintain the catalogue. The
-catalogue list, reference pages and contributor pages stay open to everyone. To apply a different
-rule, subclass the view and set `permission_required` or override `has_permission()`.
-
-### Importing a bibliography file
-
-The table catalogue carries an Import action at the end of its toolbar, after the filters, opening
-a page with a format choice and a file control. The card list has none, so a project serving the
-catalogue as cards links to the `literature:item-import` route from its own navigation. Submitting previews the file by default, on a page of its own: the same report a real
-import would produce, with nothing yet written to the catalogue — how many entries would be
-created, skipped and failed, and one row per entry in the order the file held them, narrowable to
-one outcome without leaving the page. A control at the foot carries out the import it described
-and returns you to the catalogue with a message stating what was created. A checkbox on the form
-skips the preview for a one-step import instead, which lands on the same report of what it did.
-
-The format is chosen, never detected from the file itself — pick the wrong one and the format's
-own message says so on every entry, rather than the file being silently misread. Nothing checks
-whether a file has already been imported, so submitting the same file twice creates the references
-twice. The page says so before you submit. A failure partway through the file does not undo what
-already succeeded — the entries created before it stay in the catalogue.
-
-Importing creates references, so the import page, its preview and its confirm control all
-require `literature.add_item`, the same permission as adding one by hand. The package imposes no
-size limit of its own on the file it accepts. Bounding it is left to the host project.
-
-### Choosing a reference in your own form
-
-A project whose own model points at a reference can add a searchable picker to its form with one
-field, `ReferenceField` from `literature.ui.picker` (`ReferenceMultipleField` for several). It is a
-django-tomselect field whose default points at the catalogue's search. People find the reference by
-typing part of its title, a contributor's name, its citation key or its DOI. See
-[Choose a reference in your own form](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/choose-a-reference-in-your-own-form.md).
-
-### Try it: the demo project
-
-The repository carries a runnable demo of everything above, wired the same way this section
-documents. From a fresh clone, with dependencies installed:
-
-```bash
-uv sync --extra ui
-uv run python manage.py migrate
-uv run python manage.py seed_demo
-uv run python manage.py runserver
-```
-
-`migrate` builds the database, `seed_demo` loads a small catalogue of real references into it, and
-`runserver` serves the site at `http://127.0.0.1:8000/catalogue/`, where the catalogue list, a
-reference page and a contributor page are all live and populated. Browsing needs no account. To
-add, edit, remove or import references, sign in at `http://127.0.0.1:8000/admin/login/` as
-`editor.user` with the password `password`, the account `seed_demo` creates. The Add, Edit, Delete
-and Import actions then appear, so you can enter, correct, remove and import references the same
-way a host project's own users would. The Add and Edit forms carry the reference's
-contributors, dates and identifiers as part of the same page, so crediting a contributor, dating a
-reference and identifying it are all things you can try there too — see
-[Add and edit form](https://github.com/FAIR-DM/django-literature/blob/main/docs/reference/add-and-edit-form.md) for what each of those does.
-`demo/seed/import-sample.bib` is there to import: it holds entries that convert and one that does
-not, so the report has something to show.
-
-`seed_demo` is destructive and idempotent: it clears the catalogue before loading, so running it
-again returns the demo to the same seeded state whatever state it was in before — including
-discarding anything you added through the admin. It also resets the editor account's password to
-`password`. Once seeded, `runserver` on its own is enough for
-subsequent runs.
-
-The demo is not a production configuration: `DEBUG` is on, the database is a local SQLite file, and
-the secret key is a throwaway value committed in `demo/settings.py`. Do not deploy it as-is.
+### Installing the web interface
+
+`literature.ui` is a second, opt-in app that adds a searchable catalogue, a page for each reference
+and contributor, pages to add, edit, delete and import references, and a reference picker for your
+own forms. It is installed with the `ui` extra and needs Python 3.12 or later and Django 5.2 or
+later. The apps, settings and URLs it needs, and the demo project that runs it, are set out in
+[Installing the web interface](https://fair-dm.github.io/django-literature/ui/installation.html).
 
 ---
 
@@ -563,7 +238,7 @@ item = result.created[0].item
 print(item.custom["bibtex"])
 ```
 
-[What maps to what](https://fair-dm.github.io/django-literature/reference/bibtex-mapping.html) is
+[What maps to what](https://fair-dm.github.io/django-literature/reference/format-mapping/bibtex.html) is
 generated from the mapping tables themselves, so it cannot fall out of step with the code.
 
 #### Reading RIS
@@ -590,7 +265,7 @@ item = result.created[0].item
 print(item.custom["ris"])  # {'C7': 'e70142', 'N1': 'Funding: NIH grant R01-GM12345'}
 ```
 
-[What maps to what](https://fair-dm.github.io/django-literature/reference/ris-mapping.html) is
+[What maps to what](https://fair-dm.github.io/django-literature/reference/format-mapping/ris.html) is
 generated from the mapping tables themselves too, the same way as BibTeX's own page.
 
 Adding a further format means writing a `BibFormat` subclass with a parser and a conversion to CSL
@@ -640,32 +315,18 @@ See the [data model documentation](https://github.com/FAIR-DM/django-literature/
 
 ## Documentation
 
-Full documentation is available in [docs/](https://github.com/FAIR-DM/django-literature/tree/main/docs).
+The documentation is published at [fair-dm.github.io/django-literature](https://fair-dm.github.io/django-literature/).
 
 A database still on the old `LiteratureItem` schema is moved to the current models with
 `python manage.py upgrade_literature`. See
-[Upgrade a database from the `LiteratureItem` schema](https://github.com/FAIR-DM/django-literature/blob/main/docs/how-to/upgrade-a-database-from-the-literatureitem-schema.md).
-
-The site is built with [fairdm-docs](https://github.com/FAIR-DM/fairdm-docs). To build it locally:
-
-```bash
-uv sync --group docs
-uv run fairdm-docs build
-```
-
-The pages are written to `docs/_build/html`. `uv run fairdm-docs build --live` serves them and
-rebuilds on every change.
+[Upgrading from the `LiteratureItem` schema](https://fair-dm.github.io/django-literature/developer/upgrading.html).
 
 ---
 
 ## Development
 
-```bash
-git clone https://github.com/FAIR-DM/django-literature.git
-cd django-literature
-uv sync
-uv run pytest
-```
+To work on the package, see [Set up a development environment](https://fair-dm.github.io/django-literature/contributing/development-environment.html)
+and [Run the tests and checks](https://fair-dm.github.io/django-literature/contributing/tests-and-checks.html).
 
 ---
 
