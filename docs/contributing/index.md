@@ -26,16 +26,16 @@ standards/documentation
 ```
 
 ```{toctree}
-:caption: Translating
-:maxdepth: 1
-
-translations
-```
-
-```{toctree}
 :caption: Design
 :maxdepth: 1
 
 /adr/index
 /ROADMAP
+```
+
+```{toctree}
+:caption: Translating
+:maxdepth: 1
+
+translations
 ```
