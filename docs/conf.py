@@ -1,9 +1,9 @@
 """Sphinx settings for the package's documentation.
 
-The site is built on fairdm-docs, which reads the project's name, version, authors and
-repository from pyproject.toml and supplies the theme chosen there, the extensions and MyST options. This
-file adds only what the package's own pages need: Django set up so autodoc can import
-the models, and autodoc itself for the API reference.
+The site is built on fairdm-docs, which reads the site's title, version, authors and
+repository from pyproject.toml and supplies the theme, its navbar, the extensions and
+MyST options. This file adds only what the package's own pages need: Django set up so
+autodoc can import the models, and autodoc itself for the API reference.
 """
 
 import os
@@ -24,13 +24,6 @@ extensions.append("sphinx.ext.autodoc")  # noqa: F405
 # docs/agents/ configures tooling for automated contributors and is not part of the site.
 exclude_patterns.append("agents")  # noqa: F405
 
-# The package ships no static files of its own, and the logo and icon come from
-# fairdm-docs.
-html_static_path: list[str] = []
-
-# The navbar carries the three kinds of page. The decision records, roadmap and
-# contributing standards, which are for maintainers, sit behind its More menu.
-html_theme_options["header_links_before_dropdown"] = 3  # noqa: F405
 
 # A ``type[BibFormat]`` annotation names the builtin ``type``, which Sphinx also matches
 # against the ``type`` fields of ``Item`` and ``ItemIdentifier`` and reports as ambiguous.

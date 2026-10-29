@@ -1,6 +1,6 @@
-# Choose a reference in your own form
+# The reference picker
 
-Add a searchable reference picker to a form in your project, so people find the reference they
+The reference picker adds a searchable reference field to a form in your project, so people find the reference they
 mean by typing part of its title, a contributor's name, its citation key or its DOI instead of
 scrolling a list of the whole catalogue. The picker chooses from references that already exist.
 It does not create one.
@@ -10,10 +10,10 @@ fields. Their only addition is a default that points at the catalogue's search, 
 works. Everything else about the control is django-tomselect's, and any of its settings can be
 passed in.
 
-## Before you start
+## Set up the picker
 
-The picker belongs to the front end, so the project needs `literature.ui` installed and its URLs
-mounted, as described in [Installing the front end](https://github.com/FAIR-DM/django-literature#installing-the-front-end) in the README. The search is one of the
+The picker belongs to the web interface, so the project needs `literature.ui` installed and its URLs
+mounted, as described in [Installing the web interface](installation.md). The search is one of the
 catalogue's routes, so a project that has mounted the catalogue already has it.
 
 django-tomselect arrives with the `ui` extra. Two lines in your settings let it draw a control:
@@ -33,7 +33,7 @@ MIDDLEWARE = [
 ]
 ```
 
-## 1. Load the control's files on the page
+## Load the control's files on the page
 
 The page that shows the form loads django-tomselect's script and styles. Render the form's media
 once in the page's `<head>` or before the form:
@@ -52,7 +52,7 @@ To fit the control into a daisyUI form, also load the stylesheet django-mvp-form
 <link rel="stylesheet" href="{% static 'mvp_forms/tomselect.css' %}">
 ```
 
-## 2. Declare the field
+## Add the field to a form
 
 On a plain form, declare `ReferenceField` as an attribute:
 
@@ -90,7 +90,7 @@ Here `Review.reference` is a `ForeignKey` to `literature.Item`. The field is req
 model field has `blank=True`, and a form opened on an existing record shows the reference already
 chosen. Submitting a reference that has since been deleted gives the usual `invalid_choice` error.
 
-## 3. Choose several references
+## Choose several references
 
 To choose several references, use `ReferenceMultipleField` in place of `ReferenceField`:
 
@@ -121,7 +121,7 @@ class BibliographyForm(forms.ModelForm):
 The field is required unless the model field has `blank=True`. The form's `cleaned_data` holds a
 queryset of the chosen references.
 
-## 4. Change the control's settings
+## Change the control's settings
 
 Pass a django-tomselect `TomSelectConfig`, or a dict of its settings, as `config`. It is merged over
 the default, so name only what you want to change. The default already holds the search route and
@@ -145,7 +145,7 @@ class BibliographyForm(forms.Form):
 
 django-tomselect's documentation lists every setting.
 
-## 5. Restrict which references are offered
+## Restrict which references are offered
 
 Use django-tomselect's `filter_by` and `exclude_by`. A constant condition is written with `Const`,
 which takes the value and the Django lookup:

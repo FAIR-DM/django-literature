@@ -39,16 +39,17 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "demo",
-    # The front end, wired as the README's "Installing the front end" section documents (FS-007).
+    # The front end, wired as docs/ui/installation.md documents (FS-007).
     "literature",
     "django.contrib.sites",
     "django.contrib.staticfiles",
     "django_cotton",
     "easy_icons",
     "flex_menu",
-    # Ships the templatetag library the table component loads (README, "The catalogue").
+    # Ships the templatetag library the table component loads (docs/ui/installation.md).
     "django_tables2",
-    # The search and filter controls, reached through django-mvp's integration (README).
+    # The search and filter controls, reached through django-mvp's integration
+    # (docs/ui/installation.md).
     "django_filters",
     # Your own apps go above ``mvp`` so their templates win; ``daisy_cotton`` goes below it.
     "mvp",
@@ -103,7 +104,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # The shell's site name in every page title needs this (README.md).
+                # The shell's site name in every page title needs this
+                # (docs/ui/installation.md).
                 "mvp.context_processors.mvp_config",
             ],
         },
@@ -115,7 +117,8 @@ ROOT_URLCONF = "demo.urls"
 # The demo has no sign-in page of its own, so visitors who are not signed in go to the admin's.
 LOGIN_URL = "admin:login"
 
-# mvp/base.html loads its stylesheet with {% static %}, so this must be set (README, tests/settings.py).
+# mvp/base.html loads its stylesheet with {% static %}, so this must be set
+# (docs/ui/installation.md, tests/settings.py).
 STATIC_URL = "static/"
 
 # Where a preview's staged upload lives (FS-011, literature/ui/staging.py); the default
@@ -123,7 +126,7 @@ STATIC_URL = "static/"
 MEDIA_ROOT = BASE_DIR / "demo" / "media"
 
 # Without a "default" icon renderer, any page in the UI app raises ImproperlyConfigured
-# (README, tests/settings.py).
+# (docs/ui/installation.md, tests/settings.py).
 EASY_ICONS = {
     "default": {
         "renderer": "easy_icons.renderers.ProviderRenderer",
@@ -132,7 +135,8 @@ EASY_ICONS = {
     },
 }
 
-# django-flex-menus raises ValueError at render time without these renderers (README, tests/settings.py).
+# django-flex-menus raises ValueError at render time without these renderers
+# (docs/ui/installation.md, tests/settings.py).
 FLEX_MENUS = {
     "renderers": {
         "sidebar": "mvp.renderers.SidebarRenderer",

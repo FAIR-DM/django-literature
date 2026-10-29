@@ -7,9 +7,6 @@ The models, settings, pages, file mappings and Python API, described entry by en
 
 data-model
 settings
-add-and-edit-form
-import-pages
-bibtex-mapping
-ris-mapping
+format-mapping/index
 api/index
 ```

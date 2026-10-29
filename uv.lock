@@ -708,7 +708,7 @@ dev = [
     { name = "mvp-shared", extra = ["dev", "test"], marker = "python_full_version >= '3.12'" },
 ]
 docs = [
-    { name = "fairdm-docs", extra = ["pydata-sphinx-theme"], marker = "python_full_version >= '3.12'" },
+    { name = "fairdm-docs", marker = "python_full_version >= '3.12'" },
 ]
 
 [package.metadata]
@@ -730,7 +730,7 @@ dev = [
     { name = "django-literature", extras = ["ui"], marker = "python_full_version >= '3.12'" },
     { name = "mvp-shared", extras = ["dev", "test"], marker = "python_full_version >= '3.12'", git = "https://github.com/django-mvp/shared.git?tag=v0.6.0" },
 ]
-docs = [{ name = "fairdm-docs", extras = ["pydata-sphinx-theme"], marker = "python_full_version >= '3.12'", git = "https://github.com/FAIR-DM/fairdm-docs" }]
+docs = [{ name = "fairdm-docs", marker = "python_full_version >= '3.12'", git = "https://github.com/FAIR-DM/fairdm-docs" }]
 
 [[package]]
 name = "django-model-info"
@@ -1005,12 +1005,13 @@ wheels = [
 [[package]]
 name = "fairdm-docs"
 version = "0.0.1"
-source = { git = "https://github.com/FAIR-DM/fairdm-docs#eaff1b9ad56ec43317c7c92f0562bc9f056353d9" }
+source = { git = "https://github.com/FAIR-DM/fairdm-docs#11b716547003375ee39f2b5b8f12f958f2f12051" }
 dependencies = [
     { name = "docutils" },
     { name = "jinja2" },
     { name = "markdown" },
     { name = "myst-parser" },
+    { name = "pydata-sphinx-theme" },
     { name = "sphinx" },
     { name = "sphinx-autobuild" },
     { name = "sphinx-autodoc2" },
@@ -1021,11 +1022,6 @@ dependencies = [
     { name = "sphinxcontrib-bibtex" },
     { name = "sphinxext-opengraph" },
     { name = "typer" },
-]
-
-[package.optional-dependencies]
-pydata-sphinx-theme = [
-    { name = "pydata-sphinx-theme" },
 ]
 
 [[package]]

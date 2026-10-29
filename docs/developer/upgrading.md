@@ -1,4 +1,4 @@
-# Upgrade a database from the `LiteratureItem` schema
+# Upgrading from the `LiteratureItem` schema
 
 Move a database that holds references in the old `LiteratureItem` schema to the current models,
 keeping every reference and every link your own models have to one.

@@ -1,8 +1,27 @@
-# Import pages
+# Importing a file
 
-The front end's pages for importing a bibliography file exported from another tool: the import
-form, the preview, and the report of a one-step import. The steps are in
-[Import a bibliography file](../how-to/import-a-bibliography-file.md).
+The catalogue imports BibTeX and RIS files exported from another tool, with a preview of what
+will happen to every entry before anything is stored.
+
+## Import a file
+
+People holding the `literature.add_item` permission can import from
+the catalogue:
+
+1. On the table catalogue, choose **Import** at the end of the toolbar.
+2. Choose the file's format, attach the file, and submit. The format is chosen, never worked out
+   from the file.
+3. Read the preview. It lists every entry with what would happen to it: created, skipped or failed,
+   with a reason for each skip and failure. Choose an outcome's button above the table to see only
+   those entries.
+4. Choose **Confirm import**, or **Restart import** to start again with another file.
+
+Tick "Skip the preview and import immediately" at step 2 to import in one step. You return to the
+catalogue with a message saying how many entries were created, skipped and failed.
+
+Nothing checks whether a file has already been imported, so importing the same file twice creates
+its references twice. The card catalogue has no Import action, so a project serving the catalogue
+as cards links to the `literature:item-import` route from its own navigation.
 
 ## Reaching the import form
 
@@ -14,7 +33,7 @@ card list carries no Import action, so a project serving the catalogue as cards 
 
 - **Format.** The formats the project has configured: BibTeX and RIS out of the box, and any other
   a project has added under the `LITERATURE` setting's `BIB_FORMATS` key (see
-  [Settings](settings.md)). The page does not look at the file to choose one. A format given a file
+  [Settings](../reference/settings.md)). The page does not look at the file to choose one. A format given a file
   it cannot read reports every entry it cannot make sense of, with a reason such as "No BibTeX
   entries found. Is this a BibTeX file?"
 - **File.** The bibliography file.

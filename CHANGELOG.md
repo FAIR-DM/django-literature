@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- The documentation is reorganised into a homepage, a developer guide, a web interface section,
+  reference and contributing, and every page has a new address.
+
 ## [v0.3.2] - 2026-10-28
 
 ### Fixed
@@ -36,14 +41,14 @@ All notable changes to this project are documented in this file. The format foll
   (migrations `0001_initial` to `0004_alter_literatureitem_options`) to the current models in one
   transaction. Every reference keeps its primary key, its tags join its keywords, and the host
   project's foreign keys to `Item` are pointed at the new table. See
-  [Upgrade a database from the `LiteratureItem` schema](docs/how-to/upgrade-a-database-from-the-literatureitem-schema.md).
+  [Upgrading from the `LiteratureItem` schema](docs/developer/upgrading.md).
 - `from_csl_json()` takes a keyword-only `pk`, the primary key to give the new `Item`.
 - `ReferenceField` in `literature.ui.picker` lets a project's own form choose one reference by
   searching the catalogue, with a JSON search route, `literature:item-autocomplete`, behind it. It is a
   django-tomselect field whose default points at that route, so any django-tomselect setting can be
   passed in its `config`. Opening it shows the first references by title, and typing narrows them.
   See
-  [Choose a reference in your own form](docs/how-to/choose-a-reference-in-your-own-form.md).
+  [The reference picker](docs/ui/picker.md).
 - `ReferenceMultipleField` in `literature.ui.picker` lets a project's own form choose several
   references the same way, for a plain form or a `ManyToManyField` to `Item`.
 - A reference field is restricted with django-tomselect's `filter_by` and `exclude_by`. A submission
@@ -59,7 +64,7 @@ All notable changes to this project are documented in this file. The format foll
   title, its authors (or its editors when it has none), its type, year and where it appeared, and
   its DOI. It takes `level`, `href`, `link` and `abstract`, and anything between its tags is shown
   under the reference. See
-  [Show a reference on your own page](docs/how-to/show-a-reference-on-your-own-page.md).
+  [Displaying references](docs/ui/displaying.md).
 - `Item.authors`, `Item.editors` and `Item.names_in_role(role)` give the names credited in a role,
   in their stored order. They read prefetched `item_names__name` when a queryset has it.
 
