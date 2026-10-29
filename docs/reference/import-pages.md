@@ -2,7 +2,7 @@
 
 The front end's pages for importing a bibliography file exported from another tool: the import
 form, the preview, and the report of a one-step import. The steps are in
-[Import a bibliography file](../how-to/import-a-bibliography-file.md).
+[Import a bibliography file from the front end](../guide/importing.md#import-a-bibliography-file-from-the-front-end).
 
 ## Reaching the import form
 

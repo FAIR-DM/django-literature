@@ -1,7 +1,7 @@
-# Show a reference on your own page
+# Displaying references
 
-Show a reference from the catalogue on one of your project's own pages, such as the publications
-related to a dataset, with the same component the catalogue's own card list uses. You pass it one
+The `literature.item` component shows a reference on one of your project's own pages, such as the publications
+related to a dataset. It is the same component the catalogue's own card list uses. You pass it one
 `Item` and it shows:
 
 - the title,
@@ -13,10 +13,10 @@ related to a dataset, with the same component the catalogue's own card list uses
 Up to ten names are listed, and any after the tenth are shortened to "et al.". A part the reference
 does not hold is left out, so a reference with only a title shows only its title.
 
-## Before you start
+## Set up the component
 
 The component belongs to the front end, so the project needs `literature.ui` in `INSTALLED_APPS`
-and django-cotton set up, as described in [Installing the front end](https://github.com/FAIR-DM/django-literature#installing-the-front-end) in the README. Mounting
+and django-cotton set up, as described in [Installation](installation.md#install-the-front-end). Mounting
 the catalogue's URLs is optional. Without them, turn the links off, as described below.
 
 ## Show one reference

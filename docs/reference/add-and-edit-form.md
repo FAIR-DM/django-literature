@@ -3,7 +3,7 @@
 The form the front end's add and edit pages share, `literature.ui.forms.ItemForm` with its
 contributor and identifier sets. It has four tabs: Reference, Contributors, Identifiers and More.
 Why a reference's type decides which sections are shown is in
-[Field groups](../explanation/field-groups.md).
+[Field groups](../guide/topics/field-groups.md).
 
 ## Sections
 
@@ -76,7 +76,7 @@ list it is entered in.
   fills in the text. The row is saved as a new name record, whether the text was accepted or
   typed. Editing a credited name creates a new record when anything else is credited under the old
   one, and updates the record when nothing else is. See
-  [Contributor records](../explanation/contributor-records.md).
+  [Contributor records](../guide/topics/contributor-records.md).
 - **Order.** Contributors are credited in the order their list shows them. Each row's move up and
   move down buttons change that order, within its own role only.
 - **Removing.** Removing a row removes the reference's credit only. The name record stays in the

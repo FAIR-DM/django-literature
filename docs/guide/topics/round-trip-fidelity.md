@@ -26,4 +26,4 @@ Importing CSL JSON and exporting it again gives the same CSL JSON, less five var
 processor assigns: `citation-label`, `citation-number`, `first-reference-note-number`, `locator` and
 `year-suffix`. Those describe one citation in one document rather than the reference itself, so an
 import drops them and an export never writes them. The decision is recorded in
-[ADR 0035](../adr/0035-citation-processor-variables-are-not-stored.md).
+[ADR 0035](../../adr/0035-citation-processor-variables-are-not-stored.md).

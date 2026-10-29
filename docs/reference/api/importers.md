@@ -2,8 +2,8 @@
 
 The plug-in contract for importing bibliographic files. Every `BibFormat` runs through the same
 fixed workflow and returns one outcome per entry the file contained. How to run an import is in
-[Import a bibliography file in code](../../how-to/import-a-bibliography-file-in-code.md),
-and how to add a format is in [Add an import format](../../how-to/add-an-import-format.md).
+[Import a bibliography file in code](../../guide/importing.md#import-a-bibliography-file-in-code),
+and how to add a format is in [Add an import format](../../guide/importing.md#add-an-import-format).
 Which formats an installation can read is the `BIB_FORMATS` key of the
 [`LITERATURE` setting](../settings.md).
 
