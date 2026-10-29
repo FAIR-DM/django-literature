@@ -1,7 +1,0 @@
-/* The homepage's Home entry, styled as the theme styles the current section's entry. */
-.navbar-nav > li.nav-item > .nav-link[aria-current="page"] {
-  color: var(--pst-color-primary);
-}
-.navbar-nav > li.nav-item > .nav-link[aria-current="page"]::before {
-  border-bottom: 3px solid var(--pst-color-primary);
-}
