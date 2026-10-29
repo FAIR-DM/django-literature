@@ -46,4 +46,4 @@ csl = to_csl_json(item)
   written under `custom`.
 
 What survives a round trip, and what does not, is explained in
-[Round-trip fidelity](topics/round-trip-fidelity.md).
+[Round-trip fidelity](../topics/round-trip-fidelity.md).

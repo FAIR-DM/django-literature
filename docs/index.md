@@ -59,12 +59,9 @@ Apply the migrations:
 python manage.py migrate
 ```
 
-The models are ready to use. To add the front end as well, install the extra and mount its URLs,
-as described in [Installation](guide/installation.md#install-the-front-end):
-
-```bash
-pip install "django-literature[ui]"
-```
+The models are ready to use. To add the catalogue and its pages as well, see
+[Installing the front end](guide/front-end.md). Every step, with what each one sets up, is in
+the [installation guide](guide/installation.md).
 
 ## Example
 
@@ -102,6 +99,7 @@ With the front end installed and its URLs mounted at `catalogue/`, open
 
 - The [user guide](guide/index.md) covers each feature in turn, starting with
   [installation](guide/installation.md).
+- [Topics](topics/index.md) explain why the package works the way it does.
 - The [reference](reference/index.md) describes every model, setting, page and Python API entry.
 
 ## Support
@@ -120,6 +118,7 @@ Django Literature is released under the
 
 Home <self>
 guide/index
+topics/index
 reference/index
 release-notes
 contributing/index

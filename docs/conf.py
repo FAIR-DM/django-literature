@@ -24,9 +24,6 @@ extensions.append("sphinx.ext.autodoc")  # noqa: F405
 # docs/agents/ configures tooling for automated contributors and is not part of the site.
 exclude_patterns.append("agents")  # noqa: F405
 
-# The package ships no static files of its own, and the logo and icon come from
-# fairdm-docs.
-html_static_path: list[str] = []
 
 # The site's name as a reader writes it. fairdm-docs takes the distribution name from
 # pyproject.toml, which is the name to install, not the name to show.
@@ -35,6 +32,16 @@ html_title = project
 
 # Every section of the site sits in the navbar, Home first.
 html_theme_options["header_links_before_dropdown"] = 6  # noqa: F405
+html_theme_options["navbar_align"] = "left"  # noqa: F405
+
+# fairdm-docs sets both github_url and a GitHub entry in icon_links, and the theme
+# draws an icon for each. The icon_links entry is kept.
+html_theme_options.pop("github_url", None)  # noqa: F405
+
+# The theme highlights the navbar entry for the section a page belongs to. The
+# homepage belongs to no section, so its Home entry is highlighted here instead.
+html_static_path = ["_static"]
+html_css_files = ["navbar.css"]
 
 # A ``type[BibFormat]`` annotation names the builtin ``type``, which Sphinx also matches
 # against the ``type`` fields of ``Item`` and ``ItemIdentifier`` and reports as ambiguous.

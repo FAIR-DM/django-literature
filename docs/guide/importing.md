@@ -63,7 +63,7 @@ with open("references.json") as f:
 ```
 
 The citation key is stored as given, even when another reference already has it. See
-[Citation keys](topics/citation-keys.md).
+[Citation keys](../topics/citation-keys.md).
 
 ## Import a bibliography file in code
 
@@ -93,8 +93,8 @@ for entry in result.failed:
 ```
 
 A name that is not configured raises `UnknownFormat`. How BibTeX and RIS fields land in the models
-is listed in the [BibTeX mapping](../reference/bibtex-mapping.md) and the
-[RIS mapping](../reference/ris-mapping.md).
+is listed in the [BibTeX mapping](../reference/conversion/bibtex.md) and the
+[RIS mapping](../reference/conversion/ris.md).
 
 ## Import a bibliography file from the front end
 

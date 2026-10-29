@@ -84,7 +84,7 @@ To create a reference from a CSL JSON record or a bibliography file instead, see
 
 A malformed DOI, ISBN, ISSN, URL, PMID or PMCID is refused when it is saved. Why a contributor is
 one shared record credited in many roles is explained in
-[Contributor records](topics/contributor-records.md).
+[Contributor records](../topics/contributor-records.md).
 
 ## Find references
 
@@ -115,7 +115,7 @@ which raises `MultipleObjectsReturned` when two references share a key:
 Item.objects.filter(citation_key="Jennings2019")
 ```
 
-Why keys may repeat is explained in [Citation keys](topics/citation-keys.md).
+Why keys may repeat is explained in [Citation keys](../topics/citation-keys.md).
 
 ## Link to a reference and cite its DOI
 

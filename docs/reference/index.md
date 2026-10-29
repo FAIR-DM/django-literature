@@ -9,7 +9,6 @@ data-model
 settings
 add-and-edit-form
 import-pages
-bibtex-mapping
-ris-mapping
+conversion/index
 api/index
 ```

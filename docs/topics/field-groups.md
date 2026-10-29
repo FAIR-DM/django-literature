@@ -4,7 +4,7 @@ The add and edit pages in `literature.ui` scope a reference's form to the fields
 typically carries: choosing "Journal Article" reveals a different set of fields than choosing
 "Map". This page covers where that mapping comes from, what it does and does not decide, and how to
 raise a disagreement with it. The groups themselves are listed in the
-[add and edit form](../../reference/add-and-edit-form.md) reference.
+[add and edit form](../reference/add-and-edit-form.md) reference.
 
 ## It is presentation only, never storage
 

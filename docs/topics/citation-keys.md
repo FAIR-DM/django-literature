@@ -3,7 +3,7 @@
 A citation key is the short name a reference is cited by in a manuscript, such as `Jennings2019`.
 This page covers why the package stores a key exactly as it arrives and never keeps keys distinct.
 How the BibTeX and RIS importers find or make a key is in their mappings,
-[BibTeX](../../reference/bibtex-mapping.md) and [RIS](../../reference/ris-mapping.md).
+[BibTeX](../reference/conversion/bibtex.md) and [RIS](../reference/conversion/ris.md).
 
 ## A key is stored as given
 
@@ -22,12 +22,12 @@ Enforcing it would also go wrong. A check across the whole store assumes one bib
 installation, which separate bibliographies per user, or per article being written, would break.
 And rewriting a clashing key, as the package once did by storing `smith2020` as `smith2020-2`,
 quietly changes the key the person cites. The decision is recorded in
-[ADR 0023](../../adr/0023-citation-key-uniqueness-is-the-readers-concern.md).
+[ADR 0023](../adr/0023-citation-key-uniqueness-is-the-readers-concern.md).
 
 ## A reference is addressed by its primary key
 
 Because a key may be shared, it does not pick out one reference. A reference's page in the
 catalogue is addressed by its primary key for this reason
-([ADR 0015](../../adr/0015-a-reference-page-is-addressed-by-primary-key.md)).
+([ADR 0015](../adr/0015-a-reference-page-is-addressed-by-primary-key.md)).
 `Item.objects.get(citation_key=...)` can raise `MultipleObjectsReturned`, so a lookup by key uses
 `filter()` wherever a duplicate is possible.

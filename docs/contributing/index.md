@@ -14,6 +14,13 @@ standards/documentation
 ```
 
 ```{toctree}
+:caption: Translating
+:maxdepth: 1
+
+translations
+```
+
+```{toctree}
 :caption: Design
 :maxdepth: 1
 

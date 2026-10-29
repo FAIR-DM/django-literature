@@ -1,8 +1,7 @@
 # User guide
 
 Each page covers one feature of Django Literature: what it does, how to use it, and the options it
-takes. Start with [Installation](installation.md). The topics at the end explain why the package
-works the way it does.
+takes. Start with [Installation](installation.md).
 
 ```{toctree}
 :caption: Getting started
@@ -13,30 +12,20 @@ upgrading
 ```
 
 ```{toctree}
-:caption: The models
+:caption: Working with references
 :maxdepth: 1
 
 references
 importing
 exporting
-translations
 ```
 
 ```{toctree}
 :caption: The front end
 :maxdepth: 1
 
+front-end
 catalogue
 picker
 displaying
-```
-
-```{toctree}
-:caption: Topics
-:maxdepth: 1
-
-topics/citation-keys
-topics/round-trip-fidelity
-topics/contributor-records
-topics/field-groups
 ```
