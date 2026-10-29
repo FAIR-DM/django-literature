@@ -120,6 +120,5 @@ Home <self>
 developer/index
 ui/index
 reference/index
-release-notes
 contributing/index
 ```

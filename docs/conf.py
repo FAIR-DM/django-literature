@@ -34,6 +34,14 @@ html_title = project
 html_theme_options["header_links_before_dropdown"] = 6  # noqa: F405
 html_theme_options["navbar_align"] = "left"  # noqa: F405
 
+# The changelog lives in the repository and is linked, never copied into the site.
+html_theme_options["external_links"] = [  # noqa: F405
+    {
+        "name": "Release notes",
+        "url": "https://github.com/FAIR-DM/django-literature/blob/main/CHANGELOG.md",
+    },
+]
+
 # fairdm-docs sets both github_url and a GitHub entry in icon_links, and the theme
 # draws an icon for each. The icon_links entry is kept.
 html_theme_options.pop("github_url", None)  # noqa: F405
@@ -48,7 +56,7 @@ html_css_files = ["navbar.css"]
 # The builtin is what every such annotation means, so the warning carries nothing to fix.
 # MyST warns on every strikethrough that it renders only in HTML, which is the only
 # output this site is built as. Superseded decision records use it.
-suppress_warnings = ["ref.python", "myst.strikethrough", "autosectionlabel.release-notes"]
+suppress_warnings = ["ref.python", "myst.strikethrough"]
 
 autodoc_default_options = {
     "members": True,
