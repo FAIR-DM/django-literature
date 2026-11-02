@@ -301,7 +301,7 @@ class Meta:
 | `id` | — | AutoField (PK) | auto | |
 | `item` | — | ForeignKey → Item | CASCADE | |
 | `date_type` | (key name in CSL JSON) | CharField(20) | required, choices | CSL date-variable slot name |
-| `begin` | `date-parts[0]` | PartialDateField | null, blank | Start/single date. Uses `django-partial-date`. |
+| `begin` | `date-parts[0]` | PartialDateField | null, blank | Start/single date. Uses `django-partial-dates`. |
 | `end` | `date-parts[1]` | PartialDateField | null, blank | End date for ranges. Must not be set without `begin`. |
 | `season` | `season` | CharField(20) | blank | "1"=Spring, "2"=Summer, "3"=Autumn, "4"=Winter, or custom string |
 | `circa` | `circa` | BooleanField | default=False | Approximate date flag |

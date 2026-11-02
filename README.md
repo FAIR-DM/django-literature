@@ -21,7 +21,7 @@ A Django app for storing, managing, and converting bibliographic references usin
 - **Normalized data model** — five Django models (`Item`, `Name`, `ItemName`, `ItemDate`, `ItemIdentifier`) that faithfully represent the CSL JSON 1.0.2 specification.
 - **Full CSL JSON coverage** — all 45 item types, 26 name roles, 6 date-variable slots, and 6 known identifier types.
 - **Bidirectional conversion** — import CSL JSON dicts into the database and export model instances back to valid CSL JSON with full round-trip fidelity.
-- **Partial date support** — year-only, year-month, full year-month-day, and date ranges via `django-partial-date`.
+- **Partial date support** — year-only, year-month, full year-month-day, and date ranges via `django-partial-dates`.
 - **Identifier validation** — model-layer validators for DOI, ISBN, ISSN, URL, PMID, and PMCID formats.
 - **Ordered contributors** — author, editor, and translator order is preserved independently within each role on an item.
 - **i18n ready** — all user-facing strings wrapped with `gettext_lazy`; ships a pre-generated `locale/en/LC_MESSAGES/django.po` catalog.
@@ -69,7 +69,7 @@ way to use the package in full. Install the core on its own, or add the UI when 
 
 - Python 3.12+
 - Django 5.2, 6.0 or 6.1
-- [django-partial-date](https://github.com/ktowen/django_partial_date)
+- [django-partial-dates](https://django-partial-dates.fairdm.org/)
 
 ---
 

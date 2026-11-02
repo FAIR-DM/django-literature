@@ -8,6 +8,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **Dates are stored with django-partial-dates in place of django-partial-date, which has had no
+  release since January 2022.** `ItemDate.begin` and `ItemDate.end` are now text columns holding
+  `YYYY`, `YYYY-MM` or `YYYY-MM-DD`, and migration `0005` converts existing rows in place, keeping
+  every date at its precision. To upgrade:
+  - Apply the migration to a copy of your data first. It runs on PostgreSQL and SQLite only, and it
+    stops before changing anything if a column holds a value django-partial-date never writes, such
+    as a timestamp your own code stored. [Correct a refused value](https://django-partial-dates.fairdm.org/developer/moving-from-django-partial-date.html#correct-a-refused-value)
+    says how to fix one.
+  - `begin` and `end` now hold a `partial_dates.PartialDate`. Import it from `partial_dates`. Build
+    one with `PartialDate(2019, 8)` or `PartialDate.fromisoformat("2019-08")`, because
+    `PartialDate("2019-08")` no longer works. `.date` is now `.start`, and `.precision` is a
+    `partial_dates.Precision` member instead of 0, 1 or 2.
+  - A date given as text must be zero-padded: `"2019-8"` is refused.
+  - A migration in your own project that names `partial_date.fields` keeps working only while you
+    still have django-partial-date installed, because it is no longer installed with this package.
+- This package now needs Python 3.12 or later and Django 5.2 or later, as django-partial-dates does.
 - The documentation is reorganised into a homepage, a developer guide, a web interface section,
   reference and contributing, and every page has a new address.
 

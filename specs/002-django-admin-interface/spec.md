@@ -165,7 +165,7 @@ An administrator needs to review and deduplicate shared `Name` records (persons/
 
 - The admin interface grants access to any Django `is_staff` user who holds the standard model-level `add`, `change`, and `delete` permissions for each literature model; no custom permission logic is required. Superusers retain full access by default.
 - The application's `INSTALLED_APPS` already includes `django.contrib.admin`, `django.contrib.auth`, and `django.contrib.contenttypes` as required by the standard Django admin.
-- The `PartialDateField` from `django-partial-date` renders an acceptable default widget in the admin without custom widget overrides.
+- The `PartialDateField` from `django-partial-dates` renders an acceptable default widget in the admin without custom widget overrides.
 - Bulk-action operations beyond the Django default (delete selected) are out of scope for this feature.
 - Import/export functionality (CSL JSON round-trip) is out of scope; this feature covers only manual data entry and editing through the admin form.
 - Contributor ordering on `ItemName` is managed via django-ordered-model's `OrderedTabularInline`, which provides up/down move buttons (`move_up_down_links`) directly in the inline row; custom drag-and-drop JavaScript is out of scope. The `ItemName` model must inherit from `OrderedModelBase` for this integration to work.

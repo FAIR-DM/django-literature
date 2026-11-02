@@ -47,7 +47,7 @@ class TestUpgradeLiterature:
             (name.name.family, name.order)
             for name in item.item_names.filter(role=NameRole.AUTHOR).order_by("order")
         ] == [("Pollack", 0), ("Hurter", 1)]
-        assert item.item_dates.get(date_type=DateType.ISSUED).begin.date.month == 8
+        assert item.item_dates.get(date_type=DateType.ISSUED).begin.month == 8
         assert item.item_identifiers.get(type=IdentifierType.DOI).value == PAPER["DOI"]
         assert Item.objects.count() == 2
 

@@ -156,13 +156,13 @@ One non-destructive migration is required: the `ItemName` base-class change from
 
 ### Year Column & Filter Implementation
 
-The "issued year" is stored in `ItemDate.begin` (a `PartialDateField` which uses `DateTimeField` internally) where `date_type='issued'`. Extracting it for list display and filtering requires:
+The "issued year" is stored in `ItemDate.begin` (a `PartialDateField`, stored as `YYYY`, `YYYY-MM` or `YYYY-MM-DD` text) where `date_type='issued'`. Extracting it for list display and filtering requires:
 
 **List column (`issued_year`)**:
 
 - Override `get_queryset()` on `ItemAdmin` to annotate each `Item` with the year from its related "issued" `ItemDate`
-- Use `Subquery` + `ExtractYear` to annotate: `issued_year = Subquery(ItemDate.objects.filter(item=OuterRef('pk'), date_type='issued').values('begin__year')[:1])`
-- Note: `PartialDateField` stores as `DateTimeField`, so `__year` lookups work at the DB level
+- Use `Subquery` to annotate: `issued_year = Subquery(ItemDate.objects.filter(item=OuterRef('pk'), date_type='issued').values('begin__year')[:1])`
+- Note: `PartialDateField` registers `year`, `month` and `day` lookups, which read the stored text in the database
 - Custom method on `ItemAdmin` reads the annotation; `admin_order_field = 'issued_year'` enables column sorting
 - Items without an issued date display "—" (empty value display)
 

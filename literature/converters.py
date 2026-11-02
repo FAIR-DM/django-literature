@@ -7,6 +7,7 @@ from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
+from partial_dates import PartialDate
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.utils import parse_date_parts
@@ -105,27 +106,17 @@ def _django_field_to_csl_key(field_name: str) -> str:
     return field_name.replace("_", "-")
 
 
-def _partial_date_to_parts(pd: Any) -> list[int]:
+def _partial_date_to_parts(pd: PartialDate) -> list[int]:
     """Convert a PartialDate to a CSL JSON date-parts single array.
 
     Args:
-        pd: The PartialDate (or object exposing ``.date``/``.precision``) to convert.
+        pd: The PartialDate to convert.
 
     Returns:
         1-3 integers based on the PartialDate's precision: ``[year]``,
         ``[year, month]``, or ``[year, month, day]``.
     """
-    from partial_date import PartialDate
-
-    date_obj = pd.date if hasattr(pd, "date") else pd
-    precision = getattr(pd, "precision", PartialDate.DAY)
-
-    if precision == PartialDate.YEAR:
-        return [date_obj.year]
-    elif precision == PartialDate.MONTH:
-        return [date_obj.year, date_obj.month]
-    else:
-        return [date_obj.year, date_obj.month, date_obj.day]
+    return [part for part in (pd.year, pd.month, pd.day) if part is not None]
 
 
 def _name_to_dict(name: Any) -> dict[str, Any]:

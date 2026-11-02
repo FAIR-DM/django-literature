@@ -3,7 +3,7 @@
 import pytest
 from django.core.exceptions import ValidationError
 from django.urls import reverse
-from partial_date import PartialDate
+from partial_dates import PartialDate
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.models import Item, ItemDate, ItemIdentifier, ItemName, Name
@@ -135,10 +135,14 @@ class TestItemAddressAndCitationFacts:
     def test_year_is_the_year_of_the_issued_date(self):
         item = ItemFactory()
         ItemDateFactory(
-            item=item, date_type=DateType.ACCESSED, begin=PartialDate("2024-01-05")
+            item=item,
+            date_type=DateType.ACCESSED,
+            begin=PartialDate.fromisoformat("2024-01-05"),
         )
         ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019-08"),
         )
 
         assert item.year == 2019
@@ -146,7 +150,9 @@ class TestItemAddressAndCitationFacts:
     def test_year_is_none_without_an_issued_date(self):
         item = ItemFactory()
         ItemDateFactory(
-            item=item, date_type=DateType.ACCESSED, begin=PartialDate("2024-01-05")
+            item=item,
+            date_type=DateType.ACCESSED,
+            begin=PartialDate.fromisoformat("2024-01-05"),
         )
 
         assert item.year is None
@@ -164,7 +170,11 @@ class TestItemAddressAndCitationFacts:
         ItemIdentifierFactory(
             item=item, type=IdentifierType.DOI, value="10.1000/xyz123"
         )
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
+        ItemDateFactory(
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019"),
+        )
         prefetched = Item.objects.prefetch_related(
             "item_identifiers", "item_dates"
         ).get(pk=item.pk)
@@ -318,21 +328,27 @@ class TestItemNameModel:
 class TestItemDateModel:
     def test_year_only(self, item):
         item_date = ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019"),
         )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin) == "2019"
 
     def test_year_month(self, item):
         item_date = ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019-08"),
         )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08")
 
     def test_full_date(self, item):
         item_date = ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019-08-16"),
         )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-16")
@@ -341,23 +357,31 @@ class TestItemDateModel:
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
-            begin=PartialDate("2019-08-12"),
-            end=PartialDate("2019-08-16"),
+            begin=PartialDate.fromisoformat("2019-08-12"),
+            end=PartialDate.fromisoformat("2019-08-16"),
         )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-12")
         assert str(retrieved.end).startswith("2019-08-16")
 
     def test_unique_constraint(self, item):
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
+        ItemDateFactory(
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019"),
+        )
         with pytest.raises(Exception):  # IntegrityError on duplicate
             ItemDateFactory(
-                item=item, date_type=DateType.ISSUED, begin=PartialDate("2020")
+                item=item,
+                date_type=DateType.ISSUED,
+                begin=PartialDate.fromisoformat("2020"),
             )
 
     def test_str_non_empty(self, item):
         item_date = ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019-08-16"),
         )
         assert len(str(item_date)) > 0
 
@@ -387,7 +411,7 @@ class TestItemDateSpanRule:
                 item=item,
                 date_type=DateType.EVENT_DATE,
                 begin=None,
-                end=PartialDate("2019-08-16"),
+                end=PartialDate.fromisoformat("2019-08-16"),
             )
         assert not ItemDate.objects.filter(
             item=item, date_type=DateType.EVENT_DATE
@@ -398,8 +422,8 @@ class TestItemDateSpanRule:
             ItemDateFactory(
                 item=item,
                 date_type=DateType.EVENT_DATE,
-                begin=PartialDate("2019-08-16"),
-                end=PartialDate("2019-08-12"),
+                begin=PartialDate.fromisoformat("2019-08-16"),
+                end=PartialDate.fromisoformat("2019-08-12"),
             )
         assert not ItemDate.objects.filter(
             item=item, date_type=DateType.EVENT_DATE
@@ -409,8 +433,8 @@ class TestItemDateSpanRule:
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
-            begin=PartialDate("2019-08-16"),
-            end=PartialDate("2019-08-16"),
+            begin=PartialDate.fromisoformat("2019-08-16"),
+            end=PartialDate.fromisoformat("2019-08-16"),
         )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-16")
@@ -420,8 +444,8 @@ class TestItemDateSpanRule:
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
-            begin=PartialDate("2019-08-12"),
-            end=PartialDate("2019-08-16"),
+            begin=PartialDate.fromisoformat("2019-08-12"),
+            end=PartialDate.fromisoformat("2019-08-16"),
         )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-12")
@@ -431,8 +455,8 @@ class TestItemDateSpanRule:
         item_date = ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
-            begin=PartialDate("2019-08-16"),
-            end=PartialDate("2020"),
+            begin=PartialDate.fromisoformat("2019-08-16"),
+            end=PartialDate.fromisoformat("2020"),
         )
         retrieved = ItemDate.objects.get(pk=item_date.pk)
         assert str(retrieved.begin).startswith("2019-08-16")
@@ -444,7 +468,7 @@ class TestItemDateSpanRule:
                 item=item,
                 date_type=DateType.EVENT_DATE,
                 begin=None,
-                end=PartialDate("2019"),
+                end=PartialDate.fromisoformat("2019"),
             )
 
     def test_instance_save_rejects_the_defect(self, item):
@@ -453,7 +477,7 @@ class TestItemDateSpanRule:
                 item=item,
                 date_type=DateType.EVENT_DATE,
                 begin=None,
-                end=PartialDate("2019"),
+                end=PartialDate.fromisoformat("2019"),
             ).save()
 
     def test_an_empty_string_end_is_treated_as_no_end(self, item):
@@ -462,7 +486,7 @@ class TestItemDateSpanRule:
         item_date = ItemDate(
             item=item,
             date_type=DateType.EVENT_DATE,
-            begin=PartialDate("2019-08-16"),
+            begin=PartialDate.fromisoformat("2019-08-16"),
             end="",
         )
         item_date.save()

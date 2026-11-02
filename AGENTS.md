@@ -10,7 +10,7 @@ CSL JSON import/export with round-trip fidelity. See `CONTEXT.md` for the ubiqui
 
 ## Stack & commands
 
-- **Stack:** Python ≥3.11 / Django 5.2, 6.0 + 6.1 (supported releases only, CI matrix
+- **Stack:** Python ≥3.12 / Django 5.2, 6.0 + 6.1 (supported releases only, CI matrix
   Python 3.12–3.13), uv-managed. Dev toolchain via the `mvp-shared` bundle. Ships to PyPI.
 - **Install:** `uv sync`
 - **Test:** `uv run pytest` (pytest-django; settings module `tests.settings`)

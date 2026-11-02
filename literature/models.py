@@ -4,8 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from partial_date import PartialDate
-from partial_date.fields import PartialDateField
+from partial_dates import PartialDateField
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.utils import doi_url
@@ -426,7 +425,7 @@ class Item(models.Model):
         """
         for item_date in self.item_dates.all():
             if item_date.date_type == DateType.ISSUED and item_date.begin:
-                year: int = item_date.begin.date.year
+                year: int = item_date.begin.year
                 return year
         return None
 
@@ -612,7 +611,7 @@ class ItemName(models.Model):
 class ItemDate(models.Model):
     """CSL JSON date-variable instance for a specific date slot on an item.
 
-    Stores partial dates using django-partial-date's PartialDateField,
+    Stores partial dates using django-partial-dates' PartialDateField,
     supporting year-only, year-month, and full-date precision. Date ranges
     are represented by setting both begin and end.
 
@@ -714,22 +713,15 @@ class ItemDate(models.Model):
         """Require a ``begin`` for any ``end``, and an ``end`` no earlier than it (FS-012)."""
         # begin and end may still be a raw string here (a blank form field, or a
         # caller that skipped full_clean()), so normalize before comparing.
-        begin = (
-            PartialDate(self.begin)
-            if isinstance(self.begin, str) and self.begin
-            else self.begin or None
-        )
-        end = (
-            PartialDate(self.end)
-            if isinstance(self.end, str) and self.end
-            else self.end or None
-        )
+        to_partial_date = PartialDateField().to_python
+        begin = to_partial_date(self.begin)
+        end = to_partial_date(self.end)
         if end is not None:
             if begin is None:
                 raise ValidationError(
                     _("A date range's end must not be set without a begin.")
                 )
-            if begin.date > end.date:
+            if begin.start > end.start:
                 raise ValidationError(
                     _("A date range's end must not fall before its begin.")
                 )

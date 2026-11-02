@@ -2,8 +2,7 @@
 
 import django_filters
 from django import forms
-from django.db.models import DateTimeField, OuterRef, Subquery
-from django.db.models.functions import ExtractYear
+from django.db.models import F, OuterRef, Subquery
 from django.utils.translation import gettext_lazy as _
 from django_filters import fields as filter_fields
 from mvp.filters import SearchFilter
@@ -76,14 +75,10 @@ def annotate_issued(queryset):
     Returns:
         The queryset with an ``issued`` annotation.
     """
-    # output_field is explicit because the ``year`` transform that ``issued__year`` needs is
-    # registered on DateTimeField, which ItemDate.begin's PartialDateField does not inherit.
     issued_begin = ItemDate.objects.filter(
         item=OuterRef("pk"), date_type=DateType.ISSUED
     ).values("begin")[:1]
-    return queryset.annotate(
-        issued=Subquery(issued_begin, output_field=DateTimeField())
-    )
+    return queryset.annotate(issued=Subquery(issued_begin))
 
 
 class ScalarOrListSelectMultiple(forms.SelectMultiple):
@@ -156,7 +151,7 @@ class YearFilter(django_filters.ChoiceFilter):
         years = (
             annotate_issued(self.model._default_manager.all())
             .exclude(issued=None)
-            .annotate(year=ExtractYear("issued"))
+            .annotate(year=F("issued__year"))
             .order_by("-year")
             .values_list("year", flat=True)
             .distinct()

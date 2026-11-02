@@ -577,12 +577,7 @@ class TestItemTableView:
         # it risks row multiplication and interferes with the paginator's
         # count query.
         #
-        # The annotation is a raw column value, typed
-        # DateTimeField so issued__year resolves, and its seconds
-        # component encodes the source date's precision rather than
-        # round-tripping through PartialDateField — compared here against
-        # the issued slot's own calendar date, not against a PartialDate.
-        # Still discriminating: the reference also carries an accessed date
+        # Discriminating: the reference also carries an accessed date
         # of 2021-01-01, so an annotation drawing from the wrong date slot
         # still fails. Nothing renders this annotation directly — the
         # rendered cell reads the prefetched ItemDate row instead
@@ -602,7 +597,7 @@ class TestItemTableView:
             for row in response.context["table"].page.object_list
             if row.record.pk == item.pk
         ]
-        assert annotated_item.issued.date() == issued_date.begin.date
+        assert annotated_item.issued == issued_date.begin
 
     def test_the_issued_annotation_is_none_for_a_reference_with_no_issued_date(
         self, client, db

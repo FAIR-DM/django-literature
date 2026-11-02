@@ -12,7 +12,7 @@ partial precision faithfully and decide how many dates an item may hold per slot
 ## Decision
 
 Each date lives in an `ItemDate` row keyed to one `DateType` slot (six values), with **at most one
-`ItemDate` per `(item, date_type)`**. Precision is stored with `django-partial-date`'s
+`ItemDate` per `(item, date_type)`**. Precision is stored with `django-partial-dates`'
 `PartialDateField`: `begin` holds a single or start date, `end` holds the range end (never set
 without `begin`). Un-normalizable source dates fall back to `season`, `circa`, `literal`, `raw`,
 or the original `raw_date_parts` array, so no source date is lost.

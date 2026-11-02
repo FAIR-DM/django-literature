@@ -234,37 +234,16 @@ fix for these two tests — confirm before that story's own baseline check is tr
 
 **ADR:** none — a finding about a dependency release, local to this branch's planning.
 
-## D12 — The `issued` annotation states its output field explicitly, rather than inferring it
+## D12 — The `issued` annotation keeps `PartialDateField` as its output field
 
-**Discovered during US0/T007.** The year filter needs `issued__year`, and `annotate_issued()`'s
-`Subquery` draws from `ItemDate.begin`, a `PartialDateField` (`django-partial-date`). Inferred from
-the source expression, the annotation carries `PartialDateField` as its output field, and
-`issued__year=value` raised `FieldError: Unsupported lookup 'year' for PartialDateField` — Django
-registers the `year` transform on `DateField`/`DateTimeField` specifically, and `PartialDateField`
-subclasses plain `models.Field`; its `get_internal_type() == "DateTimeField"` only tells the schema
-editor what database column to create, and is not consulted for lookup resolution.
+The year filter needs `issued__year`, and `annotate_issued()`'s `Subquery` draws from
+`ItemDate.begin`, a `PartialDateField` (`django-partial-dates`). The annotation's output field is
+inferred from that column, so it keeps the field's own `year` transform, which reads the first four
+characters of the stored text in SQL. `YearFilter` takes its choices from the same transform.
 
-**Ambiguous:** whether to work around the missing lookup with a `gte`/`lt` half-open range instead,
-since every field carries those.
-
-**Chosen:** state `output_field=DateTimeField()` explicitly on the `Subquery`, and keep the plain
-`__year` lookup.
-
-**Why defensible:** the `gte`/`lt` range was tried first and returns wrong rows, not just an error —
-worse, because it fails silently. `PartialDateField` encodes its precision (year/month/day) in the
-stored value's *seconds* component (0/1/2), so a year-only date and a full-date range boundary for
-the same calendar year compare unequal at that resolution: reproduced both a real match excluded and
-a wrong item included, from the same underlying cause. `output_field=DateTimeField()` changes nothing
-about the SQL column — it only tells Django's ORM which field's lookups to resolve against — and
-`DateTimeField`'s `year` transform extracts the year in SQL, correctly indifferent to the
-seconds-encoded precision. Ordering (`ItemTable.order_issued`, `F("issued")`) is unaffected either
-way: it sorts the raw column value, which does not go through a lookup at all.
-
-**Revisit if:** a future filter on `issued` needs month- or day-level precision — the seconds-encoding
-gotcha applies there too, and `DateTimeField`'s `month`/`day` transforms will have the same silent
-wrong-row failure mode `gte`/`lt` did here if reached for again instead.
-
-**ADR:** none — one annotation's argument, and the reason sits in its own docstring where a reader meets it.
+**Why:** the stored text sorts in date order, a year before its months and a month before its days,
+so `ItemTable.order_issued`'s `F("issued")` needs nothing further, and a year-only date and a date
+inside a range beginning that year both match the same `issued__year` value.
 
 ## D13 — The page-2 link already carries the sort at 0.19.1; the standing xfail reads an escaped href
 
