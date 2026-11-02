@@ -27,8 +27,8 @@ Some reasons you might want to use Django Literature:
 
 Django Literature requires:
 
-- Python 3.11 or later
-- Django 4.2 or later
+- Python 3.12 or later
+- Django 5.2 or later
 
 The web interface, installed with the `ui` extra, requires:
 

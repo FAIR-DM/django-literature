@@ -129,8 +129,9 @@ at most one date per slot (enforced by `UNIQUE(item, date_type)`).
 
 ### Date precision
 
-`begin` and `end` are `PartialDateField` values from `django-partial-date`. The
-precision is preserved:
+`begin` and `end` are `PartialDateField` values from
+[django-partial-dates](https://django-partial-dates.fairdm.org/), stored as `YYYY`, `YYYY-MM` or
+`YYYY-MM-DD` text. The precision is preserved:
 
 | CSL `date-parts` | Stored precision |
 |---|---|

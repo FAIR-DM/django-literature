@@ -5,7 +5,7 @@ converters and pulls in no web interface. This page installs the core. The web i
 adds the catalogue and its pages, and is installed on top of it as described in
 [Installing the web interface](../ui/installation.md).
 
-The core needs Python 3.11 or later and Django 4.2 or later.
+The core needs Python 3.12 or later and Django 5.2 or later.
 
 ## Steps
 
@@ -15,7 +15,7 @@ The core needs Python 3.11 or later and Django 4.2 or later.
    pip install django-literature
    ```
 
-   [django-partial-date](https://github.com/ktowen/django_partial_date), which stores dates at the
+   [django-partial-dates](https://django-partial-dates.fairdm.org/), which stores dates at the
    precision they are known, is installed with it.
 
 2. Add `literature` to `INSTALLED_APPS`:

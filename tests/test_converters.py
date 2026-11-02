@@ -6,7 +6,7 @@ import os
 
 import pytest
 from django.core.exceptions import ValidationError
-from partial_date import PartialDate
+from partial_dates import PartialDate
 
 from literature.choices import DateType, IdentifierType, ItemType, NameRole
 from literature.converters import from_csl_json, from_csl_json_list, to_csl_json
@@ -128,20 +128,28 @@ class TestToCslJson:
         assert reimported.citation_key == original.citation_key
 
     def test_date_year_only(self, item):
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2019"))
+        ItemDateFactory(
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019"),
+        )
         result = to_csl_json(item)
         assert result["issued"]["date-parts"] == [[2019]]
 
     def test_date_year_month(self, item):
         ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019-08"),
         )
         result = to_csl_json(item)
         assert result["issued"]["date-parts"] == [[2019, 8]]
 
     def test_date_full(self, item):
         ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019-08-16"),
         )
         result = to_csl_json(item)
         assert result["issued"]["date-parts"] == [[2019, 8, 16]]
@@ -150,8 +158,8 @@ class TestToCslJson:
         ItemDateFactory(
             item=item,
             date_type=DateType.EVENT_DATE,
-            begin=PartialDate("2019-08-12"),
-            end=PartialDate("2019-08-16"),
+            begin=PartialDate.fromisoformat("2019-08-12"),
+            end=PartialDate.fromisoformat("2019-08-16"),
         )
         result = to_csl_json(item)
         assert result["event-date"]["date-parts"] == [[2019, 8, 12], [2019, 8, 16]]
@@ -510,25 +518,31 @@ class TestRoundTripFidelity:
         # year-month, full date, full date range, partial date range, and a
         # literal/season/circa date with no date-parts at all.
         ItemDateFactory(
-            item=original, date_type=DateType.ORIGINAL_DATE, begin=PartialDate("2015")
+            item=original,
+            date_type=DateType.ORIGINAL_DATE,
+            begin=PartialDate.fromisoformat("2015"),
         )
         ItemDateFactory(
-            item=original, date_type=DateType.ACCESSED, begin=PartialDate("2020-03")
+            item=original,
+            date_type=DateType.ACCESSED,
+            begin=PartialDate.fromisoformat("2020-03"),
         )
         ItemDateFactory(
-            item=original, date_type=DateType.ISSUED, begin=PartialDate("2019-08-16")
+            item=original,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2019-08-16"),
         )
         ItemDateFactory(
             item=original,
             date_type=DateType.EVENT_DATE,
-            begin=PartialDate("2019-08-12"),
-            end=PartialDate("2019-08-16"),
+            begin=PartialDate.fromisoformat("2019-08-12"),
+            end=PartialDate.fromisoformat("2019-08-16"),
         )
         ItemDateFactory(
             item=original,
             date_type=DateType.AVAILABLE_DATE,
-            begin=PartialDate("2021"),
-            end=PartialDate("2021-06-30"),
+            begin=PartialDate.fromisoformat("2021"),
+            end=PartialDate.fromisoformat("2021-06-30"),
         )
         ItemDateFactory(
             item=original,

@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 import pytest
-from partial_date import PartialDate
+from partial_dates import PartialDate, Precision
 
 from literature.importers import available_formats, get_format
 from literature.importers.base import BibFormat
@@ -1000,7 +1000,7 @@ class TestDates:
         result = RISFormat().import_file(_ris_bytes(raw))
         item = result.created[0].item
         accessed = item.item_dates.get(date_type="accessed")
-        assert accessed.begin == PartialDate("2023-01-26")
+        assert accessed.begin == PartialDate.fromisoformat("2023-01-26")
 
 
 class TestYearLessDASplicing:
@@ -1570,7 +1570,7 @@ class TestUnnamedProducer:
         RISFormat().import_file(_ris_bytes(self._UNNAMED_PRODUCER_FILE))
         item = Item.objects.get()
         issued = item.item_dates.get(date_type="issued")
-        assert (issued.begin.date.year, issued.begin.date.month) == (2018, 5)
+        assert (issued.begin.year, issued.begin.month) == (2018, 5)
 
 
 class TestEquivalenceAcrossProducers:
@@ -1637,7 +1637,7 @@ class TestEquivalenceAcrossProducers:
             dates = {}
             for producer, items in by_producer.items():
                 issued = items[doi].item_dates.get(date_type="issued")
-                dates[producer] = (issued.begin.date.year, issued.begin.precision)
+                dates[producer] = (issued.begin.year, issued.begin.precision)
             assert len(set(dates.values())) == 1, (doi, dates)
 
     @pytest.mark.django_db
@@ -1746,8 +1746,8 @@ class TestEndToEnd:
 
         for item in Item.objects.all():
             issued = item.item_dates.get(date_type="issued")
-            assert issued.begin.date.year == 2024
-            assert issued.begin.precision == PartialDate.YEAR
+            assert issued.begin.year == 2024
+            assert issued.begin.precision == Precision.YEAR
 
     @pytest.mark.django_db
     def test_every_item_carries_a_doi_and_a_url_identifier(self):

@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 import pytest
-from partial_date import PartialDate
+from partial_dates import PartialDate
 
 from literature.importers import Outcome, available_formats, get_format
 from literature.importers.base import BibFormat
@@ -436,7 +436,7 @@ class TestCrossref:
         chapter = Item.objects.get(citation_key="chapter_referencing_later_parent")
         assert chapter.title == "A Chapter In A Collection"
         assert chapter.publisher == "University Press"
-        assert chapter.item_dates.get(date_type="issued").begin.date.year == 1995
+        assert chapter.item_dates.get(date_type="issued").begin.year == 1995
 
     @pytest.mark.django_db
     def test_a_cycle_terminates_and_each_entry_still_imports_with_its_own_fields(self):
@@ -683,13 +683,13 @@ class TestBibLaTeX:
 
         assert by_key["lecun2015deep"].item_dates.get(
             date_type="issued"
-        ).begin == PartialDate("2015-05-28")
+        ).begin == PartialDate.fromisoformat("2015-05-28")
         assert by_key["w3c2024standards"].item_dates.get(
             date_type="issued"
-        ).begin == PartialDate("2024-01")
+        ).begin == PartialDate.fromisoformat("2024-01")
         assert by_key["codd1970relational"].item_dates.get(
             date_type="issued"
-        ).begin == PartialDate("1970")
+        ).begin == PartialDate.fromisoformat("1970")
 
     @pytest.mark.django_db
     def test_a_file_mixing_both_conventions_across_entries_imports_correctly(self):
@@ -1012,9 +1012,9 @@ class TestAccessDate:
 
         assert result.ok, [e.reason for e in result.failed]
         item = Item.objects.get(citation_key="w3c2024standards")
-        assert item.item_dates.get(date_type="accessed").begin == PartialDate(
-            "2024-06-01"
-        )
+        assert item.item_dates.get(
+            date_type="accessed"
+        ).begin == PartialDate.fromisoformat("2024-06-01")
 
     @pytest.mark.django_db
     def test_a_urldate_that_will_not_parse_takes_the_literal_slot(self):

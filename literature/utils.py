@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
-from partial_date import PartialDate
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from partial_dates import PartialDate
 
 
 def parse_date_parts(date_parts: list) -> PartialDate | None:
@@ -20,15 +22,18 @@ def parse_date_parts(date_parts: list) -> PartialDate | None:
     Returns:
         A date with precision matching the number of
         components provided, or ``None`` if parsing fails (empty list,
-        invalid values, etc.).
+        values that are not numbers, etc.).
+
+    Raises:
+        ValidationError: The numbers name no date, such as month 13.
 
     Examples:
-        >>> parse_date_parts([2019])
-        PartialDate('2019')
-        >>> parse_date_parts([2019, 8])
-        PartialDate('2019-08')
-        >>> parse_date_parts([2019, 8, 16])
-        PartialDate('2019-08-16')
+        >>> str(parse_date_parts([2019]))
+        '2019'
+        >>> str(parse_date_parts([2019, 8]))
+        '2019-08'
+        >>> str(parse_date_parts([2019, 8, 16]))
+        '2019-08-16'
         >>> parse_date_parts([]) is None
         True
     """
@@ -37,18 +42,15 @@ def parse_date_parts(date_parts: list) -> PartialDate | None:
 
     try:
         parts = [int(p) for p in date_parts]
-        year = parts[0]
-        month = parts[1] if len(parts) >= 2 else None
-        day = parts[2] if len(parts) >= 3 else None
-
-        if month is not None and day is not None:
-            return PartialDate(f"{year:04d}-{month:02d}-{day:02d}")
-        elif month is not None:
-            return PartialDate(f"{year:04d}-{month:02d}")
-        else:
-            return PartialDate(f"{year:04d}")
-    except (ValueError, TypeError, IndexError):
+    except (ValueError, TypeError):
         return None
+
+    try:
+        return PartialDate(*parts[:3])
+    except ValueError as error:
+        raise ValidationError(
+            _("%(parts)s is not a valid date."), params={"parts": date_parts}
+        ) from error
 
 
 def doi_url(value: str | None) -> str | None:

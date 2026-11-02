@@ -47,18 +47,18 @@ To create a reference from a CSL JSON record or a bibliography file instead, see
    ItemName.objects.create(item=item, name=org, role="author")
    ```
 
-3. Add its dates. A date holds only the precision you know, so `PartialDate("2024")` is a year
+3. Add its dates. A date holds only the precision you know, so `PartialDate(2024)` is a year
    alone:
 
    ```python
-   from partial_date import PartialDate
+   from partial_dates import PartialDate
 
    from literature.models import ItemDate
 
    ItemDate.objects.create(
        item=item,
        date_type="issued",
-       begin=PartialDate("2019-08-16"),
+       begin=PartialDate(2019, 8, 16),
    )
    ```
 
@@ -68,8 +68,8 @@ To create a reference from a CSL JSON record or a bibliography file instead, see
    ItemDate.objects.create(
        item=item,
        date_type="event-date",
-       begin=PartialDate("2024-06-10"),
-       end=PartialDate("2024-06-14"),
+       begin=PartialDate(2024, 6, 10),
+       end=PartialDate(2024, 6, 14),
    )
    ```
 

@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from mvp_forms.fields import PartialDateField
 from mvp_forms.widgets import PartialDateInput, TomSelect, TomSelectMultiple
-from partial_date import PartialDate
+from partial_dates import PartialDate
 
 from literature.choices import IdentifierType
 from literature.importers import available_formats

@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.urls import reverse
 from django_cotton import render_component
-from partial_date import PartialDate
+from partial_dates import PartialDate
 
 from literature.choices import DateType, IdentifierType, NameRole
 from literature.models import Item
@@ -827,7 +827,9 @@ class TestReferenceComponent:
             page="379-423",
         )
         ItemDateFactory(
-            item=item, date_type=DateType.ISSUED, begin=PartialDate("1948-07")
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("1948-07"),
         )
 
         html = render_reference(item)
@@ -878,7 +880,11 @@ class TestReferenceComponent:
     ):
         item = ItemFactory()
         credit(item, NameRole.AUTHOR, 3)
-        ItemDateFactory(item=item, date_type=DateType.ISSUED, begin=PartialDate("2020"))
+        ItemDateFactory(
+            item=item,
+            date_type=DateType.ISSUED,
+            begin=PartialDate.fromisoformat("2020"),
+        )
         ItemIdentifierFactory(
             item=item, type=IdentifierType.DOI, value="10.1000/xyz123"
         )

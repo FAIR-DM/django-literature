@@ -10,21 +10,18 @@ include = ["/literature", "/README.md", "/LICENSE"]
 
 [dependency-groups]
 # Toolchain bundle; the tag in [tool.uv.sources] below is the shared toolchain
-# version. The python marker keeps the package's 3.11 floor for consumers, since
-# mvp-shared needs 3.12 and dev tooling never ships to them.
+# version.
 #
 # The front end's dependencies sit here too, so the default sync installs the
 # opt-in `ui` extra: without them every literature.ui test is silently skipped
 # and the suite shrinks to the core. They repeat the floors declared in the `ui`
 # extra of [project.optional-dependencies].
 dev = [
-    "mvp-shared[dev,test] ; python_version >= '3.12'",
-    "django-literature[ui] ; python_version >= '3.12'",
+    "mvp-shared[dev,test]",
+    "django-literature[ui]",
 ]
-# Same marker as above: docs tooling needs 3.12 but never ships to consumers, so
-# it must not drag the package's own 3.11 floor up with it.
 docs = [
-    "fairdm-docs ; python_version >= '3.12'",
+    "fairdm-docs",
 ]
 
 [tool.fairdm.docs]
@@ -129,11 +126,11 @@ license = "MIT"
 version = "0.3.2"
 readme = "README.md"
 authors = [{ name = "Sam Jennings", email = "samuel.scott.jennings@gmail.com" }]
-requires-python = '>=3.11,<4.0'
+requires-python = '>=3.12,<4.0'
 keywords = ["django", "literature", "publications", "scientific", "research"]
 dependencies = [
-    'django>=4.2',
-    'django-partial-date',
+    'django>=5.2',
+    "django-partial-dates (>=0.1.0,<1)",
     "bibtexparser (>=1.4.4,<2)",
 ]
 classifiers = [
@@ -144,25 +141,22 @@ classifiers = [
     "Framework :: Django :: 6.1",
     "Intended Audience :: Developers",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
 
 [project.optional-dependencies]
-# django-mvp declares requires-python >=3.12, so the marker keeps `uv lock`
-# resolvable on the package's 3.11 floor by making the extra unavailable there
-# rather than raising it. django-mvp installs its own form, icon and component
+# django-mvp installs its own form, icon and component
 # dependencies (django-mvp-forms, django-crispy-forms, daisy-cotton). The rest
 # are named here because literature.ui imports them directly: the write form's
 # layout is built from django-crispy-forms and django-mvp-forms.
 ui = [
-    "django-mvp (>=0.31.0,<1.0) ; python_version >= '3.12'",
-    "django-mvp-forms (>=0.8.0,<1.0) ; python_version >= '3.12'",
-    "django-crispy-forms (>=2.7,<3) ; python_version >= '3.12'",
-    "django-tables2 (>=3.0,<4) ; python_version >= '3.12'",
-    "django-filter (>=26.1,<27) ; python_version >= '3.12'",
-    "django-tomselect (>=2026.6.2) ; python_version >= '3.12'",
+    "django-mvp (>=0.31.0,<1.0)",
+    "django-mvp-forms (>=0.8.0,<1.0)",
+    "django-crispy-forms (>=2.7,<3)",
+    "django-tables2 (>=3.0,<4)",
+    "django-filter (>=26.1,<27)",
+    "django-tomselect (>=2026.6.2)",
 ]
 
 [project.urls]

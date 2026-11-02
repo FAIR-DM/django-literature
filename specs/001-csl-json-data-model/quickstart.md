@@ -71,28 +71,28 @@ ItemName.objects.create(item=item, name=hasterok, role="author")
 
 ```python
 from literature.models import ItemDate
-from partial_date import PartialDate
+from partial_dates import PartialDate
 
 # Full date
 ItemDate.objects.create(
     item=item,
     date_type="issued",
-    begin=PartialDate("2019-08-16"),
+    begin=PartialDate(2019, 8, 16),
 )
 
 # Year-only date
 ItemDate.objects.create(
     item=item,
     date_type="accessed",
-    begin=PartialDate("2024"),
+    begin=PartialDate(2024),
 )
 
 # Date range
 ItemDate.objects.create(
     item=item,
     date_type="event-date",
-    begin=PartialDate("2019-08-12"),
-    end=PartialDate("2019-08-16"),
+    begin=PartialDate(2019, 8, 12),
+    end=PartialDate(2019, 8, 16),
 )
 ```
 
@@ -206,11 +206,11 @@ Item.objects.filter(
 )
 
 # Items published in 2019
-from partial_date import PartialDate
+from partial_dates import PartialDate
 
 Item.objects.filter(
     dates__date_type="issued",
-    dates__begin__gte=PartialDate("2019"),
+    dates__begin__gte=PartialDate(2019),
 )
 ```
 

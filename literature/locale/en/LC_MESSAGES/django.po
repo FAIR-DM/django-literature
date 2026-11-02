@@ -1622,6 +1622,11 @@ msgstr ""
 msgid "This contributor has no credited references in the catalogue."
 msgstr ""
 
+#: utils.py:47
+#, python-format
+msgid "%(parts)s is not a valid date."
+msgstr ""
+
 #: validators.py:50
 msgid "Enter a valid DOI (e.g. 10.1000/xyz123)."
 msgstr ""

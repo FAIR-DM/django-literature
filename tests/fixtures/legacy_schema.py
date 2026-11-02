@@ -13,7 +13,7 @@ project's own table, with a foreign key to ``LiteratureItem``.
 """
 
 import django.db.models.deletion
-import partial_date.fields
+import partial_dates.conversion
 from django.db import migrations, models
 
 #: The migrations a database on the ``LiteratureItem`` schema records as applied.
@@ -80,7 +80,10 @@ LEGACY_OPERATIONS = [
                         blank=True, db_index=True, max_length=1000, null=True
                     ),
                 ),
-                ("issued", partial_date.fields.PartialDateField(blank=True, null=True)),
+                (
+                    "issued",
+                    partial_dates.conversion.OldPartialDateField(blank=True, null=True),
+                ),
                 ("item", models.JSONField(default=dict)),
                 ("created", models.DateTimeField(auto_now_add=True)),
                 ("modified", models.DateTimeField(auto_now=True)),
