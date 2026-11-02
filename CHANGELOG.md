@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-11-02
+
 ### Changed
 
 - **Dates are stored with django-partial-dates in place of django-partial-date, which has had no
