@@ -73,7 +73,8 @@ of infrastructure needs a stated justification. YAGNI over speculation.
 No wrapper layers, base classes, or future-proofing indirection without a present, concrete second
 use. Prefer duplication over the wrong abstraction. Structured, queryable data (names, dates,
 identifiers) lives in relational structures, never raw JSON blobs, when the fields are known and
-stable.
+stable. A second use also counts as present when it is in another approved specification built in
+the same batch, such as several features specified together from one prototype.
 
 ### Article IV — Integration-First
 Contracts and integration points are designed and tested before internals are polished. For this
@@ -276,4 +277,4 @@ This constitution supersedes ad-hoc practice when they conflict. It covers the c
 - Final authority currently rests with the original author, leaving room for a broader governance
   model as more maintainers join.
 
-**Version**: 6.1.0 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-10-27
+**Version**: 6.1.1 | **Ratified**: 2026-04-08 | **Last Amended**: 2026-11-11
